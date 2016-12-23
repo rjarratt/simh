@@ -29,6 +29,65 @@ int32 sim_emax;
 
 REG *sim_PC;
 
+UNIT cpu_unit =
+{
+	UDATA(NULL, UNIT_FIX | UNIT_BINK, 65536 /* TODO: memory size */)
+};
+
+static REG cpu_reg[] =
+{
+	NULL
+};
+
+static MTAB cpu_mod[] =
+{
+	NULL
+};
+
+/* Debug Flags */
+static DEBTAB cpu_dt[] =
+{
+	{ NULL,         0 }
+};
+
+static const char* cpu_description(DEVICE *dptr) {
+	return "Central Processing Unit";
+}
+
+static t_stat cpu_ex(t_value *vptr, t_addr addr, UNIT *uptr, int32 sw);
+static t_stat cpu_dep(t_value val, t_addr addr, UNIT *uptr, int32 sw);
+static t_stat cpu_reset(DEVICE *dptr);
+
+DEVICE cpu_dev = {
+	"CPU",            /* name */
+	&cpu_unit,        /* units */
+	cpu_reg,          /* registers */
+	cpu_mod,          /* modifiers */
+	1,                /* numunits */
+	16,               /* aradix */
+	16,               /* awidth */
+	1,                /* aincr */
+	16,               /* dradix */
+	16,               /* dwidth */
+	&cpu_ex,          /* examine */
+	&cpu_dep,         /* deposit */
+	&cpu_reset,       /* reset */
+	NULL,             /* boot */
+	NULL,             /* attach */
+	NULL,             /* detach */
+	NULL,             /* ctxt */
+	DEV_DEBUG,        /* flags */
+	0,                /* dctrl */
+	cpu_dt,           /* debflags */
+	NULL,             /* msize */
+	NULL,             /* lname */
+	NULL,             /* help */
+	NULL,             /* attach_help */
+	NULL,             /* help_ctx */
+	&cpu_description, /* description */
+	NULL              /* brk_types */
+};
+
 t_stat sim_instr(void)
 {
 }
@@ -43,4 +102,22 @@ t_stat fprint_sym(FILE *ofile, t_addr addr, t_value *val, UNIT *uptr, int32 sw)
 
 t_stat parse_sym(CONST char *cptr, t_addr addr, UNIT *uptr, t_value *val, int32 sw)
 {
+}
+
+/* reset routine */
+static t_stat cpu_reset(DEVICE *dptr)
+{
+	return SCPE_OK;
+}
+
+/* memory examine */
+static t_stat cpu_ex(t_value *vptr, t_addr addr, UNIT *uptr, int32 sw)
+{
+	return SCPE_AFAIL;
+}
+
+/* memory deposit */
+static t_stat cpu_dep(t_value val, t_addr addr, UNIT *uptr, int32 sw)
+{
+	return SCPE_AFAIL;
 }
