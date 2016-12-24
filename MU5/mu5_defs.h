@@ -25,3 +25,5 @@ in this Software without prior written authorization from Robert Jarratt.
 */
 
 #include "sim_defs.h"
+
+#define MAXMEMORY  (32768)    /* RNI told me Local Store consisted of four 4096-word memory units, each word containing 64 data bits + 8 parity bits */
