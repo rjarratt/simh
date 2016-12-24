@@ -25,23 +25,27 @@ in this Software without prior written authorization from Robert Jarratt.
 */
 
 #include "mu5_defs.h"
+#include "mu5_sac.h"
 
 /* Debug flags */
 #define LOG_CPU_PERF          (1 << 0)
+#define LOG_CPU_DECODE        (1 << 1)
 
 int32 sim_emax;
 
 /* Registers */
 uint32 reg_co; /* CO Register */
+t_uint64 reg_a; /* A register */
 
 UNIT cpu_unit =
 {
-	UDATA(NULL, UNIT_FIX | UNIT_BINK, 65536 /* TODO: memory size */)
+	UDATA(NULL, UNIT_FIX | UNIT_BINK, MAXMEMORY)
 };
 
 static REG cpu_reg[] =
 {
 	{ HRDATAD(CO,      reg_co, 32, "program counter") },
+	{ HRDATAD(A,       reg_a, 64,  "A register") },
 	{ NULL }
 };
 
@@ -57,6 +61,7 @@ static DEBTAB cpu_debtab[] =
 {
 	{ "PERF",    LOG_CPU_PERF,      "CPU performance" },
 	{ "EVENT",   SIM_DBG_EVENT,     "event dispatch activities" },
+	{ "DECODE",  LOG_CPU_DECODE,    "decode instructions" },
 	{ NULL,         0 }
 };
 
@@ -69,6 +74,11 @@ t_stat sim_instr(void);
 static t_stat cpu_ex(t_value *vptr, t_addr addr, UNIT *uptr, int32 sw);
 static t_stat cpu_dep(t_value val, t_addr addr, UNIT *uptr, int32 sw);
 static t_stat cpu_reset(DEVICE *dptr);
+
+static t_uint64 cpu_get_operand(uint16);
+static void cpu_execute_next_order(void);
+static void cpu_execute_acc_fixed_order(uint16);
+static void cpu_execute_organisational_order(uint16);
 
 DEVICE cpu_dev = {
 	"CPU",            /* name */
@@ -103,7 +113,7 @@ DEVICE cpu_dev = {
 t_stat sim_instr(void)
 {
 	t_stat reason = SCPE_OK;
-	
+
 	while (TRUE)
 	{
 		if (sim_interval <= 0)
@@ -119,16 +129,70 @@ t_stat sim_instr(void)
 			}
 		}
 
+		cpu_execute_next_order();
+
 		sim_interval--;
 	}
 
-	sim_debug(LOG_CPU_PERF, &cpu_dev, "CPU ran at %.1f MIPS\n", sim_timer_inst_per_sec()/1000000);
+	sim_debug(LOG_CPU_PERF, &cpu_dev, "CPU ran at %.1f MIPS\n", sim_timer_inst_per_sec() / 1000000);
 
 	return reason;
 }
 
+/* file loaded is a sequence of 16-bit words */
 t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
 {
+	t_stat r = SCPE_OK;
+	int b;
+	uint16 word;
+	int msb;
+	t_addr origin, limit;
+
+	if (flag) /* dump? */
+	{
+		r = sim_messagef(SCPE_NOFNC, "Command Not Implemented\n");
+	}
+	else
+	{
+		origin = 0;
+		limit = (t_addr)cpu_unit.capac * 2;
+		if (sim_switches & SWMASK('O')) /* Origin option */
+		{
+			origin = (t_addr)get_uint(cptr, 16, limit, &r);
+			if (r != SCPE_OK)
+			{
+				r = SCPE_ARG;
+			}
+		}
+	}
+
+	if (r == SCPE_OK)
+	{
+		msb = 1;
+		while ((b = Fgetc(ptr)) != EOF)
+		{
+			if (origin >= limit)
+			{
+				r = SCPE_NXM;
+				break;
+			}
+
+			if (msb)
+			{
+				word = b << 8;
+			}
+			else
+			{
+				word |= b;
+				sac_write_16_bit_word(origin, word);
+				origin = origin + 1;
+			}
+
+			msb = !msb;
+		}
+	}
+
+	return r;
 }
 
 t_stat fprint_sym(FILE *ofile, t_addr addr, t_value *val, UNIT *uptr, int32 sw)
@@ -155,4 +219,77 @@ static t_stat cpu_ex(t_value *vptr, t_addr addr, UNIT *uptr, int32 sw)
 static t_stat cpu_dep(t_value val, t_addr addr, UNIT *uptr, int32 sw)
 {
 	return SCPE_AFAIL;
+}
+
+static t_uint64 cpu_get_operand(uint16 order)
+{
+	t_uint64 result = 0;
+	uint16 k = (order >> 6) & 0x7;
+
+	switch (k)
+	{
+		case 0:
+		{
+			result = order & 0x7F;
+			result |= (result & 0x40) ? -1 : 0; /* sign extend */
+			sim_debug(LOG_CPU_DECODE, &cpu_dev, "LITERAL %lld\n", result);
+			break;
+		}
+	}
+
+	reg_co++; /* TODO: move to handle variable length operands */
+
+	return result;
+}
+
+static void cpu_execute_next_order(void)
+{
+	uint16 order = sac_read_16_bit_word(reg_co);
+
+	uint16 cr = (order >> 13) & 0x7;
+
+	switch (cr)
+	{
+	case 0:
+	{
+		cpu_execute_organisational_order(order);
+		break;
+	}
+	case 5:
+	{
+		cpu_execute_acc_fixed_order(order);
+		break;
+	}
+	}
+
+}
+
+static void cpu_execute_acc_fixed_order(uint16 order)
+{
+	uint16 f = (order >> 9) & 0xF;
+
+	switch (f)
+	{
+	case 4:
+	{
+		sim_debug(LOG_CPU_DECODE, &cpu_dev, "A+ ");
+		reg_a += cpu_get_operand(order);
+		break;
+	}
+	}
+}
+
+static void cpu_execute_organisational_order(uint16 order)
+{
+	uint16 f = (order >> 7) & 0x3F;
+
+	switch (f)
+	{
+	case 4:
+	{
+		sim_debug(LOG_CPU_DECODE, &cpu_dev, "JUMP ");
+		reg_co = cpu_get_operand(order) & 0x7FFF;
+		break;
+	}
+	}
 }

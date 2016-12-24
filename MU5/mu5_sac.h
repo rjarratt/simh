@@ -26,5 +26,5 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #include "sim_defs.h"
 
-uint16 sac_read_16_bit_word(uint16 address);
-void sac_write_16_bit_word(uint16 address, uint16 value);
+uint16 sac_read_16_bit_word(t_addr address);
+void sac_write_16_bit_word(t_addr address, uint16 value);
