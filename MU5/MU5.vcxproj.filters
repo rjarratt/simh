@@ -54,6 +54,9 @@
     <ClCompile Include="..\sim_video.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="mu5_sac.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\scp.h">
@@ -93,6 +96,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\sim_video.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mu5_sac.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

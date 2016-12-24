@@ -158,6 +158,7 @@
     <ClCompile Include="..\sim_tmxr.c" />
     <ClCompile Include="..\sim_video.c" />
     <ClCompile Include="mu5_cpu.c" />
+    <ClCompile Include="mu5_sac.c" />
     <ClCompile Include="mu5_sys.c" />
   </ItemGroup>
   <ItemGroup>
@@ -174,6 +175,7 @@
     <ClInclude Include="..\sim_tmxr.h" />
     <ClInclude Include="..\sim_video.h" />
     <ClInclude Include="mu5_defs.h" />
+    <ClInclude Include="mu5_sac.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
