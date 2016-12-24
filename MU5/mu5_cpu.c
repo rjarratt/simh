@@ -25,9 +25,14 @@ in this Software without prior written authorization from Robert Jarratt.
 */
 
 #include "mu5_defs.h"
+
+/* Debug flags */
+#define LOG_CPU_PERF          (1 << 0)
+
 int32 sim_emax;
 
-REG *sim_PC;
+/* Registers */
+uint32 reg_co; /* CO Register */
 
 UNIT cpu_unit =
 {
@@ -36,8 +41,11 @@ UNIT cpu_unit =
 
 static REG cpu_reg[] =
 {
-	NULL
+	{ HRDATAD(CO,      reg_co, 32, "program counter") },
+	{ NULL }
 };
+
+REG *sim_PC = &cpu_reg[0];
 
 static MTAB cpu_mod[] =
 {
@@ -45,14 +53,18 @@ static MTAB cpu_mod[] =
 };
 
 /* Debug Flags */
-static DEBTAB cpu_dt[] =
+static DEBTAB cpu_debtab[] =
 {
+	{ "PERF",    LOG_CPU_PERF,      "CPU performance" },
+	{ "EVENT",   SIM_DBG_EVENT,     "event dispatch activities" },
 	{ NULL,         0 }
 };
 
 static const char* cpu_description(DEVICE *dptr) {
 	return "Central Processing Unit";
 }
+
+t_stat sim_instr(void);
 
 static t_stat cpu_ex(t_value *vptr, t_addr addr, UNIT *uptr, int32 sw);
 static t_stat cpu_dep(t_value val, t_addr addr, UNIT *uptr, int32 sw);
@@ -78,7 +90,7 @@ DEVICE cpu_dev = {
 	NULL,             /* ctxt */
 	DEV_DEBUG,        /* flags */
 	0,                /* dctrl */
-	cpu_dt,           /* debflags */
+	cpu_debtab,       /* debflags */
 	NULL,             /* msize */
 	NULL,             /* lname */
 	NULL,             /* help */
@@ -90,6 +102,29 @@ DEVICE cpu_dev = {
 
 t_stat sim_instr(void)
 {
+	t_stat reason = SCPE_OK;
+	
+	while (TRUE)
+	{
+		if (sim_interval <= 0)
+		{
+#if !UNIX_PLATFORM
+			if ((reason = sim_poll_kbd()) == SCPE_STOP) {   /* poll on platforms without reliable signalling */
+				break;
+			}
+#endif
+			if ((reason = sim_process_event()) != SCPE_OK)
+			{
+				break;
+			}
+		}
+
+		sim_interval--;
+	}
+
+	sim_debug(LOG_CPU_PERF, &cpu_dev, "CPU ran at %.1f MIPS\n", sim_timer_inst_per_sec()/1000000);
+
+	return reason;
 }
 
 t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
