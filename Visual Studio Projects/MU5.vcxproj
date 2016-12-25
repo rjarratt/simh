@@ -168,6 +168,8 @@
     <ClCompile Include="..\sim_video.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\MU5\mu5_defs.h" />
+    <ClInclude Include="..\MU5\mu5_sac.h" />
     <ClInclude Include="..\scp.h" />
     <ClInclude Include="..\sim_console.h" />
     <ClInclude Include="..\sim_defs.h" />
@@ -180,8 +182,6 @@
     <ClInclude Include="..\sim_timer.h" />
     <ClInclude Include="..\sim_tmxr.h" />
     <ClInclude Include="..\sim_video.h" />
-    <ClInclude Include="mu5_defs.h" />
-    <ClInclude Include="mu5_sac.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
