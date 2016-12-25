@@ -27,3 +27,12 @@ in this Software without prior written authorization from Robert Jarratt.
 #include "sim_defs.h"
 
 #define MAXMEMORY  (32768)    /* RNI told me Local Store consisted of four 4096-word memory units, each word containing 64 data bits + 8 parity bits */
+
+#define INT_SYSTEM_ERROR 0
+#define INT_CPR_NOT_EQUIVALENCE 1
+#define INT_EXCHANGE 2
+#define INT_PERIPHERAL_WINDOW 3
+#define INT_INSTRUCTION_COUNT_ZERO 4
+#define INT_ILLEGAL_ORDERS 5
+#define INT_PROGRAM_FAULTS 6
+#define INT_SOFTWARE_INTERRUPT 7

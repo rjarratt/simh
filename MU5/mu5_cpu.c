@@ -60,6 +60,7 @@ static REG cpu_reg[] =
 	{ NULL }
 };
 
+static uint8 interrupt;
 REG *sim_PC = &cpu_reg[0];
 
 static MTAB cpu_mod[] =
@@ -86,11 +87,15 @@ static t_stat cpu_ex(t_value *vptr, t_addr addr, UNIT *uptr, int32 sw);
 static t_stat cpu_dep(t_value val, t_addr addr, UNIT *uptr, int32 sw);
 static t_stat cpu_reset(DEVICE *dptr);
 
+static void cpu_set_interrupt(uint8 number);
+static void cpu_clear_interrupt(uint8 number);
+static uint8 cpu_get_interrupt_number(void);
 static uint16 cpu_get_cr(uint16 order);
 static uint16 cpu_get_f(uint16 order);
 static t_uint64 cpu_get_operand(uint16 order);
 static void cpu_execute_next_order(void);
 static void cpu_execute_illegal_order(uint16 order);
+static void cpu_start_interrupt_processing(void);
 
 /* cr functions */
 static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -344,6 +349,33 @@ static t_stat cpu_dep(t_value val, t_addr addr, UNIT *uptr, int32 sw)
 	return SCPE_AFAIL;
 }
 
+static void cpu_set_interrupt(uint8 number)
+{
+	interrupt |= 1u << number;
+}
+
+static void cpu_clear_interrupt(uint8 number)
+{
+	interrupt &= ~(1u << number);
+}
+
+static uint8 cpu_get_interrupt_number(void)
+{
+	uint8 i;
+	uint8 result = 255;
+
+	for (i = 0; i < 7; i++)
+	{
+		if (interrupt & (1u << i))
+		{
+			result = i;
+			break;
+		}
+	}
+
+	return result;
+}
+
 static uint16 cpu_get_cr(uint16 order)
 {
 	uint16 cr = (order >> 13) & 0x7;
@@ -389,16 +421,30 @@ static t_uint64 cpu_get_operand(uint16 order)
 
 static void cpu_execute_next_order(void)
 {
-	uint16 order = sac_read_16_bit_word(reg_co);
+	uint16 order;
+	uint16 cr;
 
-	uint16 cr = cpu_get_cr(order);
+	if (interrupt == 0)
+	{
+		order = sac_read_16_bit_word(reg_co);
+		cr = cpu_get_cr(order);
 
-	crDispatchTable[cr].execute(order, crDispatchTable[cr].innerTable);
+		crDispatchTable[cr].execute(order, crDispatchTable[cr].innerTable);
+	}
+	else
+	{
+		cpu_start_interrupt_processing();
+	}
 }
 
 static void cpu_execute_illegal_order(uint16 order)
 {
-	printf("Illegal order. Interrupt processing TBD\n");
+	cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+}
+
+static void cpu_start_interrupt_processing(void)
+{
+	printf("Interrupt %bu detected - processing TBD\n", cpu_get_interrupt_number());
 }
 
 static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable)
