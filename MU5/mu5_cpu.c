@@ -45,18 +45,71 @@ typedef struct DISPATCH_ENTRY
 int32 sim_emax;
 
 /* Registers */
-uint32 reg_co; /* CO Register */
-t_uint64 reg_a; /* A register */
+static uint32 reg_b;     /* B register */
+static uint32 reg_bod;   /* BOD register */
+static t_uint64 reg_a;   /* A register */
+static t_uint64 reg_aod; /* AOD register */
+static t_uint64 reg_aex; /* AEX register */
+static uint32 reg_x;     /* X register */
+static uint16 reg_ms;    /* MS register */
+static uint16 reg_nb;    /* NB register */
+static uint32 reg_xnb;   /* XNB register */
+static uint16 reg_sn;    /* SN register */
+static uint16 reg_sf;    /* SF register */
+static uint32 reg_co;    /* CO Register */
+static t_uint64 reg_d;   /* D Register */
+static t_uint64 reg_xd;  /* XD Register */
+static uint32 reg_dod;   /* DOD Register */
+static uint32 reg_dt;    /* DT Register */
+static uint32 reg_xdt;   /* XDT Register */
+
+
 
 UNIT cpu_unit =
 {
 	UDATA(NULL, UNIT_FIX | UNIT_BINK, MAXMEMORY)
 };
 
+BITFIELD ms_bits[] = {
+	BIT(L0IF),                                /* Level 0 interrupt flip-flop */
+	BIT(L1IF),                                /* Level 1 interrupt flip-flop */
+	BIT(EXEC),                                /* Exec Mode flip-flop */
+	BIT(AF),                                  /* A faults to System Error in Exec Mode */
+	BIT(BDF),                                 /* B and D faults to System Error in Exec Mode */
+	BIT(ICI),                                 /* Instruction counter inhibit */
+	BIT(BNS),                                 /* Bypass name store */
+	BIT(BCPR),                                /* Bypass CPRs */
+
+
+	BIT(BN),                                  /* Boolean */
+	BIT(T2),                                  /* T2 - less than 0 */
+	BIT(T1),                                  /* T1 - not equal 0 */
+	BIT(T0),                                  /* T0 - overflow */
+	BITNCF(2),                                /* Spare in section 6, SPM & Spare in section 7 */
+	BIT(IPF),                                 /* Inhibit program fault interrupts */
+	BIT(DS),                                  /* Force DR instead of S */
+	ENDBITS
+};
+
 static REG cpu_reg[] =
 {
-	{ HRDATAD(CO,      reg_co, 32, "program counter") },
-	{ HRDATAD(A,       reg_a, 64,  "A register") },
+	{ HRDATAD(B,   reg_b,      32,    "B register") },
+	{ HRDATAD(BOD, reg_bod,    32,    "BOD register") },
+	{ HRDATAD(A,   reg_a,      64,    "Accumulator") },
+	{ HRDATAD(AOD, reg_aod,    64,    "AOD register") },
+	{ HRDATAD(AEX, reg_aex,    64,    "Accumulator extension") },
+	{ HRDATAD(X,   reg_x,      32,    "X register") },
+	{ GRDATADF(MS, reg_ms, 16, 16, 0, "Machine status register", ms_bits) },
+	{ HRDATAD(NB,  reg_nb,     16,    "Name Base register") },
+	{ HRDATAD(XNB, reg_xnb,    32,    "X register") },
+	{ HRDATAD(SN,  reg_sn,     16,    "Name Segment Number register") },
+	{ HRDATAD(SF,  reg_sf,     16,    "Stack Front register") },
+	{ HRDATAD(CO,  reg_co,     32,    "Program counter") },
+	{ HRDATAD(D,   reg_d,      64,    "Data descriptor register") },
+	{ HRDATAD(XD,  reg_xd,     64,    "XD register") },
+	{ HRDATAD(DOD, reg_dod,    32,    "DOD register") },
+	{ HRDATAD(DT,  reg_dt,     32,    "DT register") },
+	{ HRDATAD(XDT, reg_xdt,    32,    "XDT register") },
 	{ NULL }
 };
 
