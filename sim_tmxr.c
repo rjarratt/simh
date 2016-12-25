@@ -3891,21 +3891,25 @@ return _sim_activate_after_abs (uptr, usecs_walltime);
 
 t_stat tmxr_clock_coschedule (UNIT *uptr, int32 interval)
 {
-return tmxr_clock_coschedule_tmr (uptr, 0, interval);
+int32 ticks = (interval + (sim_rtcn_tick_size (0)/2))/sim_rtcn_tick_size (0);/* Convert to ticks */
+
+return tmxr_clock_coschedule_tmr (uptr, 0, ticks);
 }
 
 t_stat tmxr_clock_coschedule_abs (UNIT *uptr, int32 interval)
 {
+int32 ticks = (interval + (sim_rtcn_tick_size (0)/2))/sim_rtcn_tick_size (0);/* Convert to ticks */
+
 sim_cancel (uptr);
-return tmxr_clock_coschedule_tmr (uptr, 0, interval);
+return tmxr_clock_coschedule_tmr (uptr, 0, ticks);
 }
 
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 
-t_stat tmxr_clock_coschedule_tmr (UNIT *uptr, int32 tmr, int32 interval)
+t_stat tmxr_clock_coschedule_tmr (UNIT *uptr, int32 tmr, int32 ticks)
 {
 TMXR *mp = (TMXR *)uptr->tmxr;
-int32 ticks = (interval + (sim_rtcn_tick_size (tmr)/2))/sim_rtcn_tick_size (tmr);/* Convert to ticks */
+int32 interval = ticks * sim_rtcn_tick_size (tmr);
 
 #if defined(SIM_ASYNCH_MUX)
 if ((!(uptr->dynflags & UNIT_TM_POLL)) || 
@@ -3939,15 +3943,15 @@ if (mp) {
         return _sim_activate (uptr, soon);
         }
     }
-sim_debug (TIMER_DBG_MUX, &sim_timer_dev, "scheduling %s after interval %d instructions\n", sim_uname (uptr), interval);
+sim_debug (TIMER_DBG_MUX, &sim_timer_dev, "coscheduling %s after interval %d ticks\n", sim_uname (uptr), ticks);
 return sim_clock_coschedule_tmr (uptr, tmr, ticks);
 #endif
 }
 
-t_stat tmxr_clock_coschedule_tmr_abs (UNIT *uptr, int32 tmr, int32 interval)
+t_stat tmxr_clock_coschedule_tmr_abs (UNIT *uptr, int32 tmr, int32 ticks)
 {
 sim_cancel (uptr);
-return tmxr_clock_coschedule_tmr (uptr, tmr, interval);
+return tmxr_clock_coschedule_tmr (uptr, tmr, ticks);
 }
 
 /* Generic Multiplexer attach help */
