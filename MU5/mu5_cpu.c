@@ -53,7 +53,7 @@ REG *sim_PC = &cpu_reg[0];
 
 static MTAB cpu_mod[] =
 {
-	NULL
+	{ 0 }
 };
 
 /* Debug Flags */
@@ -197,10 +197,12 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
 
 t_stat fprint_sym(FILE *ofile, t_addr addr, t_value *val, UNIT *uptr, int32 sw)
 {
+	return SCPE_NOFNC;
 }
 
 t_stat parse_sym(CONST char *cptr, t_addr addr, UNIT *uptr, t_value *val, int32 sw)
 {
+	return SCPE_NOFNC;
 }
 
 /* reset routine */
