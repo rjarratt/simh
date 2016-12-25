@@ -926,7 +926,7 @@ static const char simh_help[] =
       "3ATTACH\n"
       " The ATTACH (abbreviation AT) command associates a unit and a file:\n"
       "++ATTACH <unit> <filename>\n\n"
-      "Some devices have more detailed or specific help available with:\n\n"
+      " Some devices have more detailed or specific help available with:\n\n"
       "++HELP <device> ATTACH\n\n"
       "4Switches\n"
       "5-n\n"
@@ -1043,16 +1043,15 @@ static const char simh_help[] =
       "++++++++                     specify console serial port and optionally\n"
       "++++++++                     the port config (i.e. ;9600-8n1)\n"
       "+set console NOSERIAL        disable console serial session\n"
-      "+set console LOG=log_file    enable console logging to the\n"
-      "++++++++                     specified destination {STDOUT,STDERR,DEBUG\n"
-      "++++++++                     or filename)\n"
-      "+set console NOLOG           disable console logging\n"
       "+set console SPEED=nn{*fac}  specifies the maximum console port input rate\n"
        /***************** 80 character line width template *************************/
 #define HLP_SET_REMOTE "*Commands SET REMOTE"
       "3Remote\n"
       "+set remote TELNET=port      specify remote console telnet port\n"
       "+set remote NOTELNET         disables remote console\n"
+      "+set remote BUFFERSIZE=bufsize\n"
+      "++++++++                     specify remote console command output buffer\n"
+      "++++++++                     size\n"
       "+set remote CONNECTIONS=n    specify number of concurrent remote\n"
       "++++++++                     console sessions\n"
       "+set remote TIMEOUT=n        specify number of seconds without input\n"
@@ -1065,6 +1064,8 @@ static const char simh_help[] =
       "+cd <dir>                    set the current directory\n"
 #define HLP_SET_LOG    "*Commands SET Log"
       "3Log\n"
+      " Interactions with the simulator session (at the \"sim>\" prompt\n"
+      " can be recorded to a log file\n\n"
       "+set log log_file            specify the log destination\n"
       "++++++++                     (STDOUT,DEBUG or filename)\n"
       "+set nolog                   disables any currently active logging\n"
@@ -1114,6 +1115,15 @@ static const char simh_help[] =
       "+set throttle {x{M|K|%%}}|{x/t}\n"
       "++++++++                     set simulation rate\n"
       "+set nothrottle              set simulation rate to maximum\n"
+#define HLP_SET_CLOCKS "*Commands SET Clocks"
+      "3Clock\n"
+#if defined (SIM_ASYNCH_CLOCKS)
+      "+set clock asynch            enable asynchronous clocks\n"
+      "+set clock noasynch          disable asynchronous clocks\n"
+#endif
+      "+set clock nocatchup         disable catchup clock ticks\n"
+      "+set clock catchup           enable catchup clock ticks\n"
+      "+set clock calib=n%%          specify idle calibration skip %%\n"
 #define HLP_SET_ASYNCH "*Commands SET Asynch"
       "3Asynch\n"
       "+set asynch                  enable asynchronous I/O\n"
@@ -1176,7 +1186,7 @@ static const char simh_help[] =
       "+sh{ow} {-c} br{eak} <list>  show breakpoints\n"
       "+sh{ow} con{figuration}      show configuration\n"
       "+sh{ow} cons{ole} {arg}      show console options\n"
-      "+sh{ow} dev{ices}            show devices\n"
+      "+sh{ow} {-ei} dev{ices}      show devices\n"
       "+sh{ow} fea{tures}           show system devices with descriptions\n"
       "+sh{ow} m{odifiers}          show modifiers for all devices\n" 
       "+sh{ow} s{how}               show SHOW commands for all devices\n" 
@@ -1201,7 +1211,7 @@ static const char simh_help[] =
 #if defined(USE_SIM_VIDEO)
       "+sh{ow} video                show video capabilities\n"
 #endif
-      "+sh{ow} clocks               show calibrated timers\n"
+      "+sh{ow} clocks               show calibrated timer information\n"
       "+sh{ow} throttle             show throttle info\n"
       "+sh{ow} on                   show on condition actions\n"
       "+h{elp} <dev> show           displays the device specific show commands\n"
@@ -1838,6 +1848,7 @@ static CTAB set_glob_tab[] = {
     { "NODEBUG",    &sim_set_deboff,            0, HLP_SET_DEBUG  },
     { "THROTTLE",   &sim_set_throt,             1, HLP_SET_THROTTLE },
     { "NOTHROTTLE", &sim_set_throt,             0, HLP_SET_THROTTLE },
+    { "CLOCKS",     &sim_set_timers,            1, HLP_SET_CLOCKS },
     { "ASYNCH",     &sim_set_asynch,            1, HLP_SET_ASYNCH },
     { "NOASYNCH",   &sim_set_asynch,            0, HLP_SET_ASYNCH },
     { "ENVIRONMENT", &sim_set_environment,      1, HLP_SET_ENVIRON },
@@ -3214,8 +3225,12 @@ for (; *ip && (op < oend); ) {
                         strftime (rbuf, sizeof(rbuf), "%m", tmnow);
                         ap = rbuf;
                         }
-                    else if (!strcmp ("DATE_MMM", gbuf)) {/* Month number (01-12) */
+                    else if (!strcmp ("DATE_MMM", gbuf)) {/* abbreviated Month name */
                         strftime (rbuf, sizeof(rbuf), "%b", tmnow);
+                        ap = rbuf;
+                        }
+                    else if (!strcmp ("DATE_MONTH", gbuf)) {/* full Month name */
+                        strftime (rbuf, sizeof(rbuf), "%B", tmnow);
                         ap = rbuf;
                         }
                     else if (!strcmp ("DATE_DD", gbuf)) {/* Day of Month (01-31) */
@@ -4420,12 +4435,13 @@ if (toks || (flag < 0) || (flag > 1))
 return SCPE_OK;
 }
 
-void fprint_capac (FILE *st, DEVICE *dptr, UNIT *uptr)
+const char *sprint_capac (DEVICE *dptr, UNIT *uptr)
 {
+static char capac_buf[((CHAR_BIT * sizeof (t_value) * 4 + 3)/3) + 8];
 t_addr kval = (uptr->flags & UNIT_BINK)? 1024: 1000;
 t_addr mval;
 t_addr psize = uptr->capac;
-char scale, width;
+const char *scale, *width;
 
 if (sim_switches & SWMASK ('B'))
     kval = 1024;
@@ -4435,23 +4451,27 @@ if (dptr->flags & DEV_SECTORS) {
     mval = mval / 512;
     }
 if ((dptr->dwidth / dptr->aincr) > 8)
-    width = 'W';
-else width = 'B';
+    width = "W";
+else 
+    width = "B";
 if (uptr->capac < (kval * 10))
-    scale = 0;
+    scale = "";
 else if (uptr->capac < (mval * 10)) {
-    scale = 'K';
+    scale = "K";
     psize = psize / kval;
     }
 else {
-    scale = 'M';
+    scale = "M";
     psize = psize / mval;
     }
-fprint_val (st, (t_value) psize, 10, T_ADDR_W, PV_LEFT);
-if (scale)
-    fputc (scale, st);
-fputc (width, st);
-return;
+sprint_val (capac_buf, (t_value) psize, 10, T_ADDR_W, PV_LEFT);
+sprintf (&capac_buf[strlen (capac_buf)], "%s%s", scale, width);
+return capac_buf;
+}
+
+void fprint_capac (FILE *st, DEVICE *dptr, UNIT *uptr)
+{
+fprintf (st, "%s", sprint_capac (dptr, uptr));
 }
 
 /* Show <global name> processors  */
@@ -4641,6 +4661,12 @@ fprintf (st, "%s simulator configuration%s\n\n", sim_name, only_enabled ? " (ena
 for (i = 0; (dptr = sim_devices[i]) != NULL; i++)
     if (!only_enabled || !qdisable (dptr))
         show_device (st, dptr, flag);
+if (sim_switches & SWMASK ('I')) {
+    fprintf (st, "\nInternal Devices%s\n\n", only_enabled ? " (enabled devices)" : "");
+    for (i = 0; sim_internal_device_count && (dptr = sim_internal_devices[i]); ++i)
+        if (!only_enabled || !qdisable (dptr))
+            show_device (st, dptr, flag);
+    }
 return SCPE_OK;
 }
 
@@ -6093,7 +6119,7 @@ for ( ;; ) {                                            /* device loop */
             (!dont_detach_attach)) {
             r = scp_detach_unit (dptr, uptr);           /* detach it */
             if (r != SCPE_OK)
-                return r;
+                return sim_messagef (r, "Error detaching %s from %s: %s\n", sim_uname (uptr), uptr->filename, sim_error_text (r));
             }
         if ((buf[0] != '\0') &&                         /* unit to be reattached? */
             ((uptr->flags & UNIT_ATTABLE) ||            /*  and unit is attachable */
@@ -8781,7 +8807,7 @@ if ((msecs > 0.0) || (usecs > 0.0)) {
         frac[0] = '\0';
     }
 if (days > 0)
-    sprintf (buf, "%s%.0f %02.0f:%02.0f:%02.0f%s day", sign, days, hours, mins, secs, frac);
+    sprintf (buf, "%s%.0f day%s %02.0f:%02.0f:%02.0f%s hour%s", sign, days, (days != 1)? "s" : "", hours, mins, secs, frac, (days == 1) ? "s" : "");
 else
     if (hours > 0)
         sprintf (buf, "%s%.0f:%02.0f:%02.0f%s hour", sign, hours, mins, secs, frac);
@@ -8802,6 +8828,27 @@ else
                     sprintf (buf, "%s%.0f usec", sign, usecs);
 if (0 != strncmp ("1 ", buf, 2))
     strcpy (&buf[strlen (buf)], "s");
+return buf;
+}
+
+const char *sim_fmt_numeric (double number)
+{
+static char buf[60];
+char tmpbuf[60];
+size_t len;
+uint32 c;
+char *p;
+
+sprintf (tmpbuf, "%.0f", number);
+len = strlen (tmpbuf);
+for (c=0, p=buf; c < len; c++) {
+    if ((c > 0) && 
+        (sim_isdigit (tmpbuf[c])) && 
+        (0 == ((len - c) % 3)))
+        *(p++) = ',';
+    *(p++) = tmpbuf[c];
+    }
+*p = '\0';
 return buf;
 }
 
@@ -9080,7 +9127,7 @@ t_bool sim_is_active (UNIT *uptr)
 {
 AIO_VALIDATE;
 AIO_UPDATE_QUEUE;
-return (((uptr->next) || AIO_IS_ACTIVE(uptr)) ? TRUE : FALSE);
+return (((uptr->next) || AIO_IS_ACTIVE(uptr) || ((uptr->dynflags & UNIT_TMR_UNIT) ? sim_timer_is_active (uptr) : FALSE)) ? TRUE : FALSE);
 }
 
 /* sim_activate_time - return activation time
@@ -9094,10 +9141,13 @@ return (((uptr->next) || AIO_IS_ACTIVE(uptr)) ? TRUE : FALSE);
 int32 sim_activate_time (UNIT *uptr)
 {
 UNIT *cptr;
-int32 accum = 0;
+int32 accum;
 
 AIO_VALIDATE;
-AIO_RETURN_TIME(uptr);
+accum = sim_timer_activate_time (uptr);             \
+if (accum >= 0)                                           \
+    return accum;                                         \
+accum = 0;
 for (cptr = sim_clock_queue; cptr != QUEUE_LIST_END; cptr = cptr->next) {
     if (cptr == sim_clock_queue) {
         if (sim_interval > 0)
