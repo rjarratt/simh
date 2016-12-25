@@ -29,18 +29,27 @@ in this Software without prior written authorization from Robert Jarratt.
 
 static uint32 LocalStore[MAXMEMORY];
 
+uint32 sac_read_32_bit_word(t_addr address)
+{
+	uint32 result = LocalStore[address >> 1];
+	return result;
+}
+
+void sac_write_32_bit_word(t_addr address, uint32 value)
+{
+	LocalStore[address >> 1] = value;
+}
+
 uint16 sac_read_16_bit_word(t_addr address)
 {
-	uint32 fullWord = LocalStore[address >> 1];
+	uint32 fullWord = sac_read_32_bit_word(address);
 	uint16 result = (address & 1) ? fullWord >> 16 : fullWord & 0xFFFF;
-	//printf("R 16: %hX:%hX\n", address, result);
 	return result;
 }
 
 void sac_write_16_bit_word(t_addr address, uint16 value)
 {
-	uint32 fullWordAddress = address >> 1;
-	uint32 fullWord = LocalStore[fullWordAddress];
+	uint32 fullWord = sac_read_32_bit_word(address);
 	if (address & 1)
 	{
 		fullWord = (value << 16) | (fullWord & 0xFFFF);
@@ -49,6 +58,5 @@ void sac_write_16_bit_word(t_addr address, uint16 value)
 	{
 		fullWord = (fullWord & 0xFFFF0000) | value;
 	}
-	LocalStore[fullWordAddress] = fullWord;
-	//printf("W 16: %hX:%hX Actual %X:%X\n", address, value, fullWordAddress, fullWord);
+	sac_write_32_bit_word(address, fullWord);
 }
