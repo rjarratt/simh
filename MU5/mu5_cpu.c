@@ -31,6 +31,17 @@ in this Software without prior written authorization from Robert Jarratt.
 #define LOG_CPU_PERF          (1 << 0)
 #define LOG_CPU_DECODE        (1 << 1)
 
+/* This structure is used to allow instruction execution to be table driven. It allows for tables to be nested. At each level the
+   execute() function does anything it needs to do before invoking the function on the inner table. The leaf tables have a NULL for
+   the inner table.
+*/
+typedef struct DISPATCH_ENTRY
+{
+	void (*execute)(uint16 order, struct DISPATCH_ENTRY *innerTable);
+	struct DISPATCH_ENTRY *innerTable;
+} DISPATCH_ENTRY;
+
+
 int32 sim_emax;
 
 /* Registers */
@@ -75,10 +86,20 @@ static t_stat cpu_ex(t_value *vptr, t_addr addr, UNIT *uptr, int32 sw);
 static t_stat cpu_dep(t_value val, t_addr addr, UNIT *uptr, int32 sw);
 static t_stat cpu_reset(DEVICE *dptr);
 
-static t_uint64 cpu_get_operand(uint16);
+static uint16 cpu_get_cr(uint16 order);
+static uint16 cpu_get_f(uint16 order);
+static t_uint64 cpu_get_operand(uint16 order);
 static void cpu_execute_next_order(void);
-static void cpu_execute_acc_fixed_order(uint16);
-static void cpu_execute_organisational_order(uint16);
+static void cpu_execute_illegal_order(uint16 order);
+
+/* cr functions */
+static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable);
+
+/* organisational order functions */
+static void cpu_execute_organisational_jump(uint16 order);
+
+/* acc fixed order functions */
+static void cpu_execute_acc_fixed_add(uint16 order);
 
 DEVICE cpu_dev = {
 	"CPU",            /* name */
@@ -108,6 +129,106 @@ DEVICE cpu_dev = {
 	NULL,             /* help_ctx */
 	&cpu_description, /* description */
 	NULL              /* brk_types */
+};
+
+static DISPATCH_ENTRY organisationalDispatchTable[] =
+{
+	{ cpu_execute_illegal_order, NULL },         /* 0 */
+	{ cpu_execute_illegal_order, NULL },         /* 1 */
+	{ cpu_execute_illegal_order, NULL },         /* 2 */
+	{ cpu_execute_illegal_order, NULL },         /* 3 */
+	{ cpu_execute_organisational_jump, NULL },   /* 4 */
+	{ cpu_execute_illegal_order, NULL },         /* 5 */
+	{ cpu_execute_illegal_order, NULL },         /* 6 */
+	{ cpu_execute_illegal_order, NULL },         /* 7 */
+	{ cpu_execute_illegal_order, NULL },         /* 8 */
+	{ cpu_execute_illegal_order, NULL },         /* 9 */
+	{ cpu_execute_illegal_order, NULL },         /* 10 */
+	{ cpu_execute_illegal_order, NULL },         /* 11*/
+	{ cpu_execute_illegal_order, NULL },         /* 12 */
+	{ cpu_execute_illegal_order, NULL },         /* 13 */
+	{ cpu_execute_illegal_order, NULL },         /* 14 */
+	{ cpu_execute_illegal_order, NULL },         /* 15 */
+	{ cpu_execute_illegal_order, NULL },         /* 16 */
+	{ cpu_execute_illegal_order, NULL },         /* 17 */
+	{ cpu_execute_illegal_order, NULL },         /* 18 */
+	{ cpu_execute_illegal_order, NULL },         /* 19 */
+	{ cpu_execute_illegal_order, NULL },         /* 20 */
+	{ cpu_execute_illegal_order, NULL },         /* 21 */
+	{ cpu_execute_illegal_order, NULL },         /* 22 */
+	{ cpu_execute_illegal_order, NULL },         /* 23 */
+	{ cpu_execute_illegal_order, NULL },         /* 24 */
+	{ cpu_execute_illegal_order, NULL },         /* 25 */
+	{ cpu_execute_illegal_order, NULL },         /* 26 */
+	{ cpu_execute_illegal_order, NULL },         /* 27 */
+	{ cpu_execute_illegal_order, NULL },         /* 28 */
+	{ cpu_execute_illegal_order, NULL },         /* 29 */
+	{ cpu_execute_illegal_order, NULL },         /* 30 */
+	{ cpu_execute_illegal_order, NULL },         /* 31 */
+	{ cpu_execute_illegal_order, NULL },         /* 32 */
+	{ cpu_execute_illegal_order, NULL },         /* 33 */
+	{ cpu_execute_illegal_order, NULL },         /* 34 */
+	{ cpu_execute_illegal_order, NULL },         /* 35 */
+	{ cpu_execute_illegal_order, NULL },         /* 36 */
+	{ cpu_execute_illegal_order, NULL },         /* 37 */
+	{ cpu_execute_illegal_order, NULL },         /* 38 */
+	{ cpu_execute_illegal_order, NULL },         /* 39 */
+	{ cpu_execute_illegal_order, NULL },         /* 40 */
+	{ cpu_execute_illegal_order, NULL },         /* 41 */
+	{ cpu_execute_illegal_order, NULL },         /* 42 */
+	{ cpu_execute_illegal_order, NULL },         /* 43 */
+	{ cpu_execute_illegal_order, NULL },         /* 44 */
+	{ cpu_execute_illegal_order, NULL },         /* 45 */
+	{ cpu_execute_illegal_order, NULL },         /* 46 */
+	{ cpu_execute_illegal_order, NULL },         /* 47 */
+	{ cpu_execute_illegal_order, NULL },         /* 48 */
+	{ cpu_execute_illegal_order, NULL },         /* 49 */
+	{ cpu_execute_illegal_order, NULL },         /* 50 */
+	{ cpu_execute_illegal_order, NULL },         /* 51 */
+	{ cpu_execute_illegal_order, NULL },         /* 52 */
+	{ cpu_execute_illegal_order, NULL },         /* 53 */
+	{ cpu_execute_illegal_order, NULL },         /* 54 */
+	{ cpu_execute_illegal_order, NULL },         /* 55 */
+	{ cpu_execute_illegal_order, NULL },         /* 56 */
+	{ cpu_execute_illegal_order, NULL },         /* 57 */
+	{ cpu_execute_illegal_order, NULL },         /* 58 */
+	{ cpu_execute_illegal_order, NULL },         /* 59 */
+	{ cpu_execute_illegal_order, NULL },         /* 60 */
+	{ cpu_execute_illegal_order, NULL },         /* 61 */
+	{ cpu_execute_illegal_order, NULL },         /* 62 */
+	{ cpu_execute_illegal_order, NULL }          /* 63 */
+};
+
+static DISPATCH_ENTRY accFixedDispatchTable[] =
+{
+	{ cpu_execute_illegal_order, NULL },   /* 0 */
+	{ cpu_execute_illegal_order, NULL },   /* 1 */
+	{ cpu_execute_illegal_order, NULL },   /* 2 */
+	{ cpu_execute_illegal_order, NULL },   /* 3 */
+	{ cpu_execute_acc_fixed_add, NULL },   /* 4 */
+	{ cpu_execute_illegal_order, NULL },   /* 5 */
+	{ cpu_execute_illegal_order, NULL },   /* 6 */
+	{ cpu_execute_illegal_order, NULL },   /* 7 */
+	{ cpu_execute_illegal_order, NULL },   /* 8 */
+	{ cpu_execute_illegal_order, NULL },   /* 9 */
+	{ cpu_execute_illegal_order, NULL },   /* 10 */
+	{ cpu_execute_illegal_order, NULL },   /* 11*/
+	{ cpu_execute_illegal_order, NULL },   /* 12 */
+	{ cpu_execute_illegal_order, NULL },   /* 13 */
+	{ cpu_execute_illegal_order, NULL },   /* 14 */
+	{ cpu_execute_illegal_order, NULL },   /* 15 */
+};
+
+static DISPATCH_ENTRY crDispatchTable[] =
+{
+	{ cpu_execute_cr_level, organisationalDispatchTable },                  /* 0 */
+	{ cpu_execute_cr_level, NULL },                  /* 1 */
+	{ cpu_execute_cr_level, NULL },                  /* 2 */
+	{ cpu_execute_cr_level, NULL },                  /* 3 */
+	{ cpu_execute_cr_level, NULL },                  /* 4 */
+	{ cpu_execute_cr_level, accFixedDispatchTable }, /* 5 */
+	{ cpu_execute_cr_level, NULL },                  /* 6 */
+	{ cpu_execute_cr_level, NULL }                   /* 7 */
 };
 
 t_stat sim_instr(void)
@@ -223,6 +344,28 @@ static t_stat cpu_dep(t_value val, t_addr addr, UNIT *uptr, int32 sw)
 	return SCPE_AFAIL;
 }
 
+static uint16 cpu_get_cr(uint16 order)
+{
+	uint16 cr = (order >> 13) & 0x7;
+	return cr;
+}
+
+static uint16 cpu_get_f(uint16 order)
+{
+	uint16 f;
+	uint16 cr = cpu_get_cr(order);
+	if (cr == 0)
+	{
+		f = (order >> 7) & 0x3F;
+	}
+	else
+	{
+		f = (order >> 9) & 0xF;
+	}
+
+	return f;
+}
+
 static t_uint64 cpu_get_operand(uint16 order)
 {
 	t_uint64 result = 0;
@@ -248,50 +391,30 @@ static void cpu_execute_next_order(void)
 {
 	uint16 order = sac_read_16_bit_word(reg_co);
 
-	uint16 cr = (order >> 13) & 0x7;
+	uint16 cr = cpu_get_cr(order);
 
-	switch (cr)
-	{
-	case 0:
-	{
-		cpu_execute_organisational_order(order);
-		break;
-	}
-	case 5:
-	{
-		cpu_execute_acc_fixed_order(order);
-		break;
-	}
-	}
-
+	crDispatchTable[cr].execute(order, crDispatchTable[cr].innerTable);
 }
 
-static void cpu_execute_acc_fixed_order(uint16 order)
+static void cpu_execute_illegal_order(uint16 order)
 {
-	uint16 f = (order >> 9) & 0xF;
-
-	switch (f)
-	{
-	case 4:
-	{
-		sim_debug(LOG_CPU_DECODE, &cpu_dev, "A+ ");
-		reg_a += cpu_get_operand(order);
-		break;
-	}
-	}
+	printf("Illegal order. Interrupt processing TBD\n");
 }
 
-static void cpu_execute_organisational_order(uint16 order)
+static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	uint16 f = (order >> 7) & 0x3F;
+	uint16 f = cpu_get_f(order);
+	innerTable[f].execute(order, innerTable[f].innerTable);
+}
 
-	switch (f)
-	{
-	case 4:
-	{
-		sim_debug(LOG_CPU_DECODE, &cpu_dev, "JUMP ");
-		reg_co = cpu_get_operand(order) & 0x7FFF;
-		break;
-	}
-	}
+static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A+ ");
+	reg_a += cpu_get_operand(order);
+}
+
+static void cpu_execute_organisational_jump(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "JUMP ");
+	reg_co = cpu_get_operand(order) & 0x7FFF;
 }
