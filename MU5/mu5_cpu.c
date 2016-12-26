@@ -67,6 +67,8 @@ BITFIELD aod_bits[] = {
 	ENDBITS
 };
 
+t_uint64 mask_aod_opsiz64 = 0xFFFFFFFFFFFFEFFF;
+
 BITFIELD ms_bits[] = {
 	BIT(L0IF),    /* Level 0 interrupt flip-flop */
 	BIT(L1IF),    /* Level 1 interrupt flip-flop */
@@ -76,7 +78,6 @@ BITFIELD ms_bits[] = {
 	BIT(ICI),     /* Instruction counter inhibit */
 	BIT(BNS),     /* Bypass name store */
 	BIT(BCPR),    /* Bypass CPRs */
-				  
 				  
 	BIT(BN),      /* Boolean */
 	BIT(T2),      /* T2 - less than 0 */
@@ -178,6 +179,7 @@ static t_stat cpu_reset(DEVICE *dptr);
 static SIM_INLINE void cpu_set_register_16(REG *reg, uint16 value);
 static SIM_INLINE void cpu_set_register_32(REG *reg, uint32 value);
 static SIM_INLINE void cpu_set_register_64(REG *reg, t_uint64 value);
+static SIM_INLINE void cpu_set_register_bit_64(REG *reg, t_uint64 mask, uint8 value);
 static SIM_INLINE uint16 cpu_get_register_16(REG *reg);
 static SIM_INLINE uint32 cpu_get_register_32(REG *reg);
 static SIM_INLINE t_uint64 cpu_get_register_64(REG *reg);
@@ -486,6 +488,19 @@ static SIM_INLINE void cpu_set_register_64(REG *reg, t_uint64 value)
 	*(t_uint64 *)(reg->loc) = value;
 }
 
+static SIM_INLINE void cpu_set_register_bit_64(REG *reg, t_uint64 mask, int value)
+{
+	assert(reg->width == 64);
+	if (value)
+	{
+		*(t_uint64 *)(reg->loc) = *(t_uint64 *)(reg->loc) | ~mask;
+	}
+	else
+	{
+		*(t_uint64 *)(reg->loc) = *(t_uint64 *)(reg->loc) & mask;
+	}
+}
+
 static SIM_INLINE uint16 cpu_get_register_16(REG *reg)
 {
 	assert(reg->width == 16);
@@ -617,12 +632,14 @@ static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_flp_load_single(uint16 order, DISPATCH_ENTRY *innerTable)
 {
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "=(32) ");
+	cpu_set_register_bit_64(reg_aod, mask_aod_opsiz64, 0);
 	cpu_set_register_64(reg_a, (cpu_get_operand(order) << 32) & 0xFFFFFFFF00000000);
 }
 
 static void cpu_execute_flp_load_double(uint16 order, DISPATCH_ENTRY *innerTable)
 {
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "=(64) ");
+	cpu_set_register_bit_64(reg_aod, mask_aod_opsiz64, 1);
 	cpu_set_register_64(reg_a, cpu_get_operand(order));
 }
 
