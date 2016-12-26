@@ -210,6 +210,8 @@ static uint8 cpu_get_interrupt_number(void);
 static uint16 cpu_get_cr(uint16 order);
 static uint16 cpu_get_f(uint16 order);
 static uint16 cpu_get_k(uint16 order);
+static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAddress, int *instructionLength);
+static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand(uint16 order);
 static void cpu_execute_next_order(void);
 static void cpu_execute_illegal_order(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -618,6 +620,57 @@ static uint16 cpu_get_k(uint16 order)
 	return k;
 }
 
+static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAddress, int *instructionLength)
+{
+	t_uint64 result = 0;
+	result = order & 0x7F;
+	result |= (result & 0x40) ? -1 : 0; /* sign extend */
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "%lld\n", result);
+	return result;
+}
+
+static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructionAddress, int *instructionLength)
+{
+	t_uint64 result = 0;
+	int i;
+	uint8 nprime = order & 0x3;
+	uint8 unsignedLiteral = (order >> 2) & 0x1;
+
+	if (nprime > 2)
+	{
+		/* The MU5 Basic Programming Manual does not list n'==3 as valid, but the Roland and Ibbett book lists it as another 64-bit option */
+		cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+	}
+	else
+	{
+		int words = (nprime == 2) ? 4 : nprime + 1;
+		uint16 lastWord;
+		for (i = 0; i < words; i++)
+		{
+			lastWord = sac_read_16_bit_word(instructionAddress + 1 + i);
+			result |= (t_uint64)lastWord << (i * 16);
+		}
+
+		if (!unsignedLiteral)
+		{
+			result |= (lastWord & 0x8000) ? -1 : 0; /* sign extend */
+		}
+
+		*instructionLength += words;
+	}
+
+	if (unsignedLiteral)
+	{
+		sim_debug(LOG_CPU_DECODE, &cpu_dev, "%llu\n", result);
+	}
+	else
+	{
+		sim_debug(LOG_CPU_DECODE, &cpu_dev, "%lld\n", result);
+	}
+
+	return result;
+}
+
 static t_uint64 cpu_get_operand(uint16 order)
 {
 	t_uint64 result = 0;
@@ -629,9 +682,7 @@ static t_uint64 cpu_get_operand(uint16 order)
 	{
 	case 0:
 	{
-		result = order & 0x7F;
-		result |= (result & 0x40) ? -1 : 0; /* sign extend */
-		sim_debug(LOG_CPU_DECODE, &cpu_dev, "%lld\n", result);
+		result = cpu_get_operand_6_bit_literal(order, instructionAddress, &instructionLength);
 		break;
 	}
 	case 7:
@@ -640,41 +691,7 @@ static t_uint64 cpu_get_operand(uint16 order)
 
 		if (extendedKind == 0)
 		{
-			int i;
-			uint8 nprime = order & 0x3;
-			uint8 unsignedLiteral = (order >> 2) & 0x1; 
-
-			if (nprime > 2)
-			{
-				/* The MU5 Basic Programming Manual does not list n'==3 as valid, but the Roland and Ibbett book lists it as another 64-bit option */
-				cpu_set_interrupt(INT_ILLEGAL_ORDERS);
-			}
-			else
-			{
-				int words = (nprime == 2) ? 4 : nprime + 1;
-				uint16 lastWord;
-				for (i = 0; i < words; i++)
-				{
-					lastWord = sac_read_16_bit_word(instructionAddress + 1 + i);
-					result |= (t_uint64)lastWord << (i * 16);
-				}
-
-				if (!unsignedLiteral)
-				{
-					result |= (lastWord & 0x8000) ? -1 : 0; /* sign extend */
-				}
-
-				instructionLength += words;
-			}
-
-			if (unsignedLiteral)
-			{
-				sim_debug(LOG_CPU_DECODE, &cpu_dev, "%llu\n", result);
-			}
-			else
-			{
-				sim_debug(LOG_CPU_DECODE, &cpu_dev, "%lld\n", result);
-			}
+			result = cpu_get_operand_extended_literal(order, instructionAddress, &instructionLength);
 		}
 		else
 		{
