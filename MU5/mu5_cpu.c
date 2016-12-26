@@ -42,6 +42,26 @@ typedef struct DISPATCH_ENTRY
 	struct DISPATCH_ENTRY *innerTable;
 } DISPATCH_ENTRY;
 
+/* The CPU did not have a STOP instruction. For the purposes of emulation I want to be able to stop it anyway so the emulation stops.
+This is what RNI told me:
+
+It wasn't (stopped), otherwise it wouldn't have been able to respond to
+interrupts. Instead, it did a "loop stop". An instruction made up
+entirely of 0's is a relative jump by zero, i.e. it has no effect other
+than to keep the CPU running. I had to invent a STOP instruction for my
+HASE simulation model. Of course MU5 itself could be stopped from the
+console by pressing the reset button. Being an asynchronous machine, it
+often stopped during commissioning, so the restart procedure was to
+press the "reset", "interrupt" and "go" buttons. The "go" button
+inserted a pulse into the PROP timing mechanism. The interrupt in this
+case was the "engineer's interrupt", which had the highest priority and
+caused two fixed instructions wired into the Instruction Buffer Unit to
+be executed. I can't remember the details but they resulted in an
+absolute jump to the start of the OS code. The first thing this did was
+to set the MS register to some appropriate setting.
+
+*/
+static int cpu_stopped = 0;
 
 int32 sim_emax;
 
@@ -198,7 +218,8 @@ static void cpu_start_interrupt_processing(void);
 static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* organisational order functions */
-static void cpu_execute_organisational_jump(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_relative_jump(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* acc fixed order functions */
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -239,70 +260,70 @@ DEVICE cpu_dev = {
 
 static DISPATCH_ENTRY organisationalDispatchTable[] =
 {
-	{ cpu_execute_illegal_order, NULL },         /* 0 */
-	{ cpu_execute_illegal_order, NULL },         /* 1 */
-	{ cpu_execute_illegal_order, NULL },         /* 2 */
-	{ cpu_execute_illegal_order, NULL },         /* 3 */
-	{ cpu_execute_organisational_jump, NULL },   /* 4 */
-	{ cpu_execute_illegal_order, NULL },         /* 5 */
-	{ cpu_execute_illegal_order, NULL },         /* 6 */
-	{ cpu_execute_illegal_order, NULL },         /* 7 */
-	{ cpu_execute_illegal_order, NULL },         /* 8 */
-	{ cpu_execute_illegal_order, NULL },         /* 9 */
-	{ cpu_execute_illegal_order, NULL },         /* 10 */
-	{ cpu_execute_illegal_order, NULL },         /* 11*/
-	{ cpu_execute_illegal_order, NULL },         /* 12 */
-	{ cpu_execute_illegal_order, NULL },         /* 13 */
-	{ cpu_execute_illegal_order, NULL },         /* 14 */
-	{ cpu_execute_illegal_order, NULL },         /* 15 */
-	{ cpu_execute_illegal_order, NULL },         /* 16 */
-	{ cpu_execute_illegal_order, NULL },         /* 17 */
-	{ cpu_execute_illegal_order, NULL },         /* 18 */
-	{ cpu_execute_illegal_order, NULL },         /* 19 */
-	{ cpu_execute_illegal_order, NULL },         /* 20 */
-	{ cpu_execute_illegal_order, NULL },         /* 21 */
-	{ cpu_execute_illegal_order, NULL },         /* 22 */
-	{ cpu_execute_illegal_order, NULL },         /* 23 */
-	{ cpu_execute_illegal_order, NULL },         /* 24 */
-	{ cpu_execute_illegal_order, NULL },         /* 25 */
-	{ cpu_execute_illegal_order, NULL },         /* 26 */
-	{ cpu_execute_illegal_order, NULL },         /* 27 */
-	{ cpu_execute_illegal_order, NULL },         /* 28 */
-	{ cpu_execute_illegal_order, NULL },         /* 29 */
-	{ cpu_execute_illegal_order, NULL },         /* 30 */
-	{ cpu_execute_illegal_order, NULL },         /* 31 */
-	{ cpu_execute_illegal_order, NULL },         /* 32 */
-	{ cpu_execute_illegal_order, NULL },         /* 33 */
-	{ cpu_execute_illegal_order, NULL },         /* 34 */
-	{ cpu_execute_illegal_order, NULL },         /* 35 */
-	{ cpu_execute_illegal_order, NULL },         /* 36 */
-	{ cpu_execute_illegal_order, NULL },         /* 37 */
-	{ cpu_execute_illegal_order, NULL },         /* 38 */
-	{ cpu_execute_illegal_order, NULL },         /* 39 */
-	{ cpu_execute_illegal_order, NULL },         /* 40 */
-	{ cpu_execute_illegal_order, NULL },         /* 41 */
-	{ cpu_execute_illegal_order, NULL },         /* 42 */
-	{ cpu_execute_illegal_order, NULL },         /* 43 */
-	{ cpu_execute_illegal_order, NULL },         /* 44 */
-	{ cpu_execute_illegal_order, NULL },         /* 45 */
-	{ cpu_execute_illegal_order, NULL },         /* 46 */
-	{ cpu_execute_illegal_order, NULL },         /* 47 */
-	{ cpu_execute_illegal_order, NULL },         /* 48 */
-	{ cpu_execute_illegal_order, NULL },         /* 49 */
-	{ cpu_execute_illegal_order, NULL },         /* 50 */
-	{ cpu_execute_illegal_order, NULL },         /* 51 */
-	{ cpu_execute_illegal_order, NULL },         /* 52 */
-	{ cpu_execute_illegal_order, NULL },         /* 53 */
-	{ cpu_execute_illegal_order, NULL },         /* 54 */
-	{ cpu_execute_illegal_order, NULL },         /* 55 */
-	{ cpu_execute_illegal_order, NULL },         /* 56 */
-	{ cpu_execute_illegal_order, NULL },         /* 57 */
-	{ cpu_execute_illegal_order, NULL },         /* 58 */
-	{ cpu_execute_illegal_order, NULL },         /* 59 */
-	{ cpu_execute_illegal_order, NULL },         /* 60 */
-	{ cpu_execute_illegal_order, NULL },         /* 61 */
-	{ cpu_execute_illegal_order, NULL },         /* 62 */
-	{ cpu_execute_illegal_order, NULL }          /* 63 */
+	{ cpu_execute_organisational_relative_jump, NULL }, /* 0 */
+	{ cpu_execute_illegal_order,                NULL }, /* 1 */
+	{ cpu_execute_illegal_order,                NULL }, /* 2 */
+	{ cpu_execute_illegal_order,                NULL }, /* 3 */
+	{ cpu_execute_organisational_absolute_jump, NULL }, /* 4 */
+	{ cpu_execute_illegal_order,                NULL }, /* 5 */
+	{ cpu_execute_illegal_order,                NULL }, /* 6 */
+	{ cpu_execute_illegal_order,                NULL }, /* 7 */
+	{ cpu_execute_illegal_order,                NULL }, /* 8 */
+	{ cpu_execute_illegal_order,                NULL }, /* 9 */
+	{ cpu_execute_illegal_order,                NULL }, /* 10 */
+	{ cpu_execute_illegal_order,                NULL }, /* 11*/
+	{ cpu_execute_illegal_order,                NULL }, /* 12 */
+	{ cpu_execute_illegal_order,                NULL }, /* 13 */
+	{ cpu_execute_illegal_order,                NULL }, /* 14 */
+	{ cpu_execute_illegal_order,                NULL }, /* 15 */
+	{ cpu_execute_illegal_order,                NULL }, /* 16 */
+	{ cpu_execute_illegal_order,                NULL }, /* 17 */
+	{ cpu_execute_illegal_order,                NULL }, /* 18 */
+	{ cpu_execute_illegal_order,                NULL }, /* 19 */
+	{ cpu_execute_illegal_order,                NULL }, /* 20 */
+	{ cpu_execute_illegal_order,                NULL }, /* 21 */
+	{ cpu_execute_illegal_order,                NULL }, /* 22 */
+	{ cpu_execute_illegal_order,                NULL }, /* 23 */
+	{ cpu_execute_illegal_order,                NULL }, /* 24 */
+	{ cpu_execute_illegal_order,                NULL }, /* 25 */
+	{ cpu_execute_illegal_order,                NULL }, /* 26 */
+	{ cpu_execute_illegal_order,                NULL }, /* 27 */
+	{ cpu_execute_illegal_order,                NULL }, /* 28 */
+	{ cpu_execute_illegal_order,                NULL }, /* 29 */
+	{ cpu_execute_illegal_order,                NULL }, /* 30 */
+	{ cpu_execute_illegal_order,                NULL }, /* 31 */
+	{ cpu_execute_illegal_order,                NULL }, /* 32 */
+	{ cpu_execute_illegal_order,                NULL }, /* 33 */
+	{ cpu_execute_illegal_order,                NULL }, /* 34 */
+	{ cpu_execute_illegal_order,                NULL }, /* 35 */
+	{ cpu_execute_illegal_order,                NULL }, /* 36 */
+	{ cpu_execute_illegal_order,                NULL }, /* 37 */
+	{ cpu_execute_illegal_order,                NULL }, /* 38 */
+	{ cpu_execute_illegal_order,                NULL }, /* 39 */
+	{ cpu_execute_illegal_order,                NULL }, /* 40 */
+	{ cpu_execute_illegal_order,                NULL }, /* 41 */
+	{ cpu_execute_illegal_order,                NULL }, /* 42 */
+	{ cpu_execute_illegal_order,                NULL }, /* 43 */
+	{ cpu_execute_illegal_order,                NULL }, /* 44 */
+	{ cpu_execute_illegal_order,                NULL }, /* 45 */
+	{ cpu_execute_illegal_order,                NULL }, /* 46 */
+	{ cpu_execute_illegal_order,                NULL }, /* 47 */
+	{ cpu_execute_illegal_order,                NULL }, /* 48 */
+	{ cpu_execute_illegal_order,                NULL }, /* 49 */
+	{ cpu_execute_illegal_order,                NULL }, /* 50 */
+	{ cpu_execute_illegal_order,                NULL }, /* 51 */
+	{ cpu_execute_illegal_order,                NULL }, /* 52 */
+	{ cpu_execute_illegal_order,                NULL }, /* 53 */
+	{ cpu_execute_illegal_order,                NULL }, /* 54 */
+	{ cpu_execute_illegal_order,                NULL }, /* 55 */
+	{ cpu_execute_illegal_order,                NULL }, /* 56 */
+	{ cpu_execute_illegal_order,                NULL }, /* 57 */
+	{ cpu_execute_illegal_order,                NULL }, /* 58 */
+	{ cpu_execute_illegal_order,                NULL }, /* 59 */
+	{ cpu_execute_illegal_order,                NULL }, /* 60 */
+	{ cpu_execute_illegal_order,                NULL }, /* 61 */
+	{ cpu_execute_illegal_order,                NULL }, /* 62 */
+	{ cpu_execute_illegal_order,                NULL }  /* 63 */
 };
 
 static DISPATCH_ENTRY accFixedDispatchTable[] =
@@ -360,8 +381,9 @@ static DISPATCH_ENTRY crDispatchTable[] =
 t_stat sim_instr(void)
 {
 	t_stat reason = SCPE_OK;
+	cpu_stopped = 0;
 
-	while (TRUE)
+	while (!cpu_stopped)
 	{
 		if (sim_interval <= 0)
 		{
@@ -379,6 +401,11 @@ t_stat sim_instr(void)
 		cpu_execute_next_order();
 
 		sim_interval--;
+	}
+
+	if (cpu_stopped)
+	{
+		reason = SCPE_STOP;
 	}
 
 	sim_debug(LOG_CPU_PERF, &cpu_dev, "CPU ran at %.1f MIPS\n", sim_timer_inst_per_sec() / 1000000);
@@ -455,6 +482,7 @@ t_stat parse_sym(CONST char *cptr, t_addr addr, UNIT *uptr, t_value *val, int32 
 /* reset routine */
 static t_stat cpu_reset(DEVICE *dptr)
 {
+	cpu_set_register_32(reg_co, 0); /* TODO: probably needs to be reset to start of OS (upper half of memory) */
 	return SCPE_OK;
 }
 
@@ -623,6 +651,28 @@ static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable)
 	innerTable[f].execute(order, innerTable[f].innerTable);
 }
 
+static void cpu_execute_organisational_relative_jump(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "-> ");
+	int32 relative = (int32)(cpu_get_operand(order) & 0xFFFFFFFF);
+	int32 relativeTo = (int32)cpu_get_register_32(reg_co);
+	uint32 newCo = (uint32)(relativeTo + relative);
+	cpu_set_register_32(reg_co, newCo);
+	// TODO: cross-segment generates interrupt
+
+	/* The real MU5 did not have a STOP instruction, see comment above the declaration of cpu_stopped */
+	if (relative == 0)
+	{
+		cpu_stopped = 1;
+	}
+}
+
+static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "JUMP ");
+	cpu_set_register_32(reg_co, cpu_get_operand(order) & 0x7FFFFFFF);
+}
+
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable)
 {
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A+ ");
@@ -641,10 +691,4 @@ static void cpu_execute_flp_load_double(uint16 order, DISPATCH_ENTRY *innerTable
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "=(64) ");
 	cpu_set_register_bit_64(reg_aod, mask_aod_opsiz64, 1);
 	cpu_set_register_64(reg_a, cpu_get_operand(order));
-}
-
-static void cpu_execute_organisational_jump(uint16 order, DISPATCH_ENTRY *innerTable)
-{
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "JUMP ");
-	cpu_set_register_32(reg_co, cpu_get_operand(order) & 0x7FFF);
 }
