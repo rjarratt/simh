@@ -24,6 +24,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Robert Jarratt.
 */
 
+#include <assert.h>
 #include "mu5_defs.h"
 #include "mu5_sac.h"
 
@@ -43,27 +44,6 @@ typedef struct DISPATCH_ENTRY
 
 
 int32 sim_emax;
-
-/* Registers */
-static uint32 reg_b;     /* B register */
-static uint32 reg_bod;   /* BOD register */
-static t_uint64 reg_a;   /* A register */
-static t_uint64 reg_aod; /* AOD register */
-static t_uint64 reg_aex; /* AEX register */
-static uint32 reg_x;     /* X register */
-static uint16 reg_ms;    /* MS register */
-static uint16 reg_nb;    /* NB register */
-static uint32 reg_xnb;   /* XNB register */
-static uint16 reg_sn;    /* SN register */
-static uint16 reg_sf;    /* SF register */
-static uint32 reg_co;    /* CO Register */
-static t_uint64 reg_d;   /* D Register */
-static t_uint64 reg_xd;  /* XD Register */
-static uint32 reg_dod;   /* DOD Register */
-static uint32 reg_dt;    /* DT Register */
-static uint32 reg_xdt;   /* XDT Register */
-
-
 
 UNIT cpu_unit =
 {
@@ -108,30 +88,67 @@ BITFIELD ms_bits[] = {
 	ENDBITS
 };
 
+/* Register backing values */
+static uint32 reg_b_backing_value;     /* B register */
+static uint32 reg_bod_backing_value;   /* BOD register */
+static t_uint64 reg_a_backing_value;   /* A register */
+static t_uint64 reg_aod_backing_value; /* AOD register */
+static t_uint64 reg_aex_backing_value; /* AEX register */
+static uint32 reg_x_backing_value;     /* X register */
+static uint16 reg_ms_backing_value;    /* MS register */
+static uint16 reg_nb_backing_value;    /* NB register */
+static uint32 reg_xnb_backing_value;   /* XNB register */
+static uint16 reg_sn_backing_value;    /* SN register */
+static uint16 reg_sf_backing_value;    /* SF register */
+static uint32 reg_co_backing_value;    /* CO Register */
+static t_uint64 reg_d_backing_value;   /* D Register */
+static t_uint64 reg_xd_backing_value;  /* XD Register */
+static uint32 reg_dod_backing_value;   /* DOD Register */
+static uint32 reg_dt_backing_value;    /* DT Register */
+static uint32 reg_xdt_backing_value;   /* XDT Register */
+
 static REG cpu_reg[] =
 {
-	{ HRDATAD(B,    reg_b,       32,    "B register") },
-	{ HRDATAD(BOD,  reg_bod,     32,    "BOD register") },
-	{ HRDATAD(A,    reg_a,       64,    "Accumulator") },
-	{ GRDATADF(AOD, reg_aod, 16, 64, 0, "AOD register", aod_bits) },
-	{ HRDATAD(AEX,  reg_aex,     64,    "Accumulator extension") },
-	{ HRDATAD(X,    reg_x,       32,    "X register") },
-	{ GRDATADF(MS,  reg_ms, 16,  16, 0, "Machine status register", ms_bits) },
-	{ HRDATAD(NB,   reg_nb,      16,    "Name Base register") },
-	{ HRDATAD(XNB,  reg_xnb,     32,    "X register") },
-	{ HRDATAD(SN,   reg_sn,      16,    "Name Segment Number register") },
-	{ HRDATAD(SF,   reg_sf,      16,    "Stack Front register") },
-	{ HRDATAD(CO,   reg_co,      32,    "Program counter") },
-	{ HRDATAD(D,    reg_d,       64,    "Data descriptor register") },
-	{ HRDATAD(XD,   reg_xd,      64,    "XD register") },
-	{ HRDATAD(DOD,  reg_dod,     32,    "DOD register") },
-	{ HRDATAD(DT,   reg_dt,      32,    "DT register") },
-	{ HRDATAD(XDT,  reg_xdt,     32,    "XDT register") },
+	{ HRDATAD(B,    reg_b_backing_value,       32,    "B register") },
+	{ HRDATAD(BOD,  reg_bod_backing_value,     32,    "BOD register") },
+	{ HRDATAD(A,    reg_a_backing_value,       64,    "Accumulator") },
+	{ GRDATADF(AOD, reg_aod_backing_value, 16, 64, 0, "AOD register", aod_bits) },
+	{ HRDATAD(AEX,  reg_aex_backing_value,     64,    "Accumulator extension") },
+	{ HRDATAD(X,    reg_x_backing_value,       32,    "X register") },
+	{ GRDATADF(MS,  reg_ms_backing_value, 16,  16, 0, "Machine status register", ms_bits) },
+	{ HRDATAD(NB,   reg_nb_backing_value,      16,    "Name Base register") },
+	{ HRDATAD(XNB,  reg_xnb_backing_value,     32,    "X register") },
+	{ HRDATAD(SN,   reg_sn_backing_value,      16,    "Name Segment Number register") },
+	{ HRDATAD(SF,   reg_sf_backing_value,      16,    "Stack Front register") },
+	{ HRDATAD(CO,   reg_co_backing_value,      32,    "Program counter") },
+	{ HRDATAD(D,    reg_d_backing_value,       64,    "Data descriptor register") },
+	{ HRDATAD(XD,   reg_xd_backing_value,      64,    "XD register") },
+	{ HRDATAD(DOD,  reg_dod_backing_value,     32,    "DOD register") },
+	{ HRDATAD(DT,   reg_dt_backing_value,      32,    "DT register") },
+	{ HRDATAD(XDT,  reg_xdt_backing_value,     32,    "XDT register") },
 	{ NULL }
 };
 
+REG *reg_b    = &cpu_reg[0];
+REG *reg_bod  = &cpu_reg[1];
+REG *reg_a	  = &cpu_reg[2];
+REG *reg_aod  = &cpu_reg[3];
+REG *reg_aex  = &cpu_reg[4];
+REG *reg_x	  = &cpu_reg[5];
+REG *reg_ms	  = &cpu_reg[6];
+REG *reg_nb	  = &cpu_reg[7];
+REG *reg_xnb  = &cpu_reg[8];
+REG *reg_sn	  = &cpu_reg[9];
+REG *reg_sf	  = &cpu_reg[10];
+REG *reg_co	  = &cpu_reg[11];
+REG *reg_d	  = &cpu_reg[12];
+REG *reg_x_	  = &cpu_reg[13];
+REG *reg_dod  = &cpu_reg[14];
+REG *reg_dt	  = &cpu_reg[15];
+REG *reg_xdt  = &cpu_reg[16];
+
 static uint8 interrupt;
-REG *sim_PC = &cpu_reg[0];
+REG *sim_PC = &cpu_reg[11];
 
 static MTAB cpu_mod[] =
 {
@@ -157,6 +174,14 @@ static t_stat cpu_ex(t_value *vptr, t_addr addr, UNIT *uptr, int32 sw);
 static t_stat cpu_dep(t_value val, t_addr addr, UNIT *uptr, int32 sw);
 static t_stat cpu_reset(DEVICE *dptr);
 
+/* SCP provides get_rval and put_rval, but these are too slow */
+static SIM_INLINE void cpu_set_register_16(REG *reg, uint16 value);
+static SIM_INLINE void cpu_set_register_32(REG *reg, uint32 value);
+static SIM_INLINE void cpu_set_register_64(REG *reg, t_uint64 value);
+static SIM_INLINE uint16 cpu_get_register_16(REG *reg);
+static SIM_INLINE uint32 cpu_get_register_32(REG *reg);
+static SIM_INLINE t_uint64 cpu_get_register_64(REG *reg);
+
 static void cpu_set_interrupt(uint8 number);
 static void cpu_clear_interrupt(uint8 number);
 static uint8 cpu_get_interrupt_number(void);
@@ -164,21 +189,21 @@ static uint16 cpu_get_cr(uint16 order);
 static uint16 cpu_get_f(uint16 order);
 static t_uint64 cpu_get_operand(uint16 order);
 static void cpu_execute_next_order(void);
-static void cpu_execute_illegal_order(uint16 order);
+static void cpu_execute_illegal_order(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_start_interrupt_processing(void);
 
 /* cr functions */
 static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* organisational order functions */
-static void cpu_execute_organisational_jump(uint16 order);
+static void cpu_execute_organisational_jump(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* acc fixed order functions */
-static void cpu_execute_acc_fixed_add(uint16 order);
+static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* floating point order functions */
-static void cpu_execute_flp_load_single(uint16 order);
-static void cpu_execute_flp_load_double(uint16 order);
+static void cpu_execute_flp_load_single(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_flp_load_double(uint16 order, DISPATCH_ENTRY *innerTable);
 
 DEVICE cpu_dev = {
 	"CPU",            /* name */
@@ -443,6 +468,42 @@ static t_stat cpu_dep(t_value val, t_addr addr, UNIT *uptr, int32 sw)
 	return SCPE_AFAIL;
 }
 
+static SIM_INLINE void cpu_set_register_16(REG *reg, uint16 value)
+{
+	assert(reg->width == 16);
+	*(uint16 *)(reg->loc) = value;
+}
+
+static SIM_INLINE void cpu_set_register_32(REG *reg, uint32 value)
+{
+	assert(reg->width == 32);
+	*(uint32 *)(reg->loc) = value;
+}
+
+static SIM_INLINE void cpu_set_register_64(REG *reg, t_uint64 value)
+{
+	assert(reg->width == 64);
+	*(t_uint64 *)(reg->loc) = value;
+}
+
+static SIM_INLINE uint16 cpu_get_register_16(REG *reg)
+{
+	assert(reg->width == 16);
+	return *(uint16 * )(reg->loc);
+}
+
+static SIM_INLINE uint32 cpu_get_register_32(REG *reg)
+{
+	assert(reg->width == 32);
+	return *(uint32 *)(reg->loc);
+}
+
+static SIM_INLINE t_uint64 cpu_get_register_64(REG *reg)
+{
+	assert(reg->width == 64);
+	return *(t_uint64 *)(reg->loc);
+}
+
 static void cpu_set_interrupt(uint8 number)
 {
 	interrupt |= 1u << number;
@@ -508,7 +569,7 @@ static t_uint64 cpu_get_operand(uint16 order)
 		}
 	}
 
-	reg_co++; /* TODO: move to handle variable length operands */
+	cpu_set_register_32(reg_co, cpu_get_register_32(reg_co) + 1); /* TODO: move to handle variable length operands */
 
 	return result;
 }
@@ -520,7 +581,7 @@ static void cpu_execute_next_order(void)
 
 	if (interrupt == 0)
 	{
-		order = sac_read_16_bit_word(reg_co);
+		order = sac_read_16_bit_word(cpu_get_register_32(reg_co));
 		cr = cpu_get_cr(order);
 
 		crDispatchTable[cr].execute(order, crDispatchTable[cr].innerTable);
@@ -531,14 +592,14 @@ static void cpu_execute_next_order(void)
 	}
 }
 
-static void cpu_execute_illegal_order(uint16 order)
+static void cpu_execute_illegal_order(uint16 order, DISPATCH_ENTRY *innerTable)
 {
 	cpu_set_interrupt(INT_ILLEGAL_ORDERS);
 }
 
 static void cpu_start_interrupt_processing(void)
 {
-	printf("Interrupt %bu detected - processing TBD\n", cpu_get_interrupt_number());
+	printf("Interrupt %hu detected - processing TBD\n", cpu_get_interrupt_number());
 }
 
 static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -550,23 +611,23 @@ static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable)
 {
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A+ ");
-	reg_a += cpu_get_operand(order);
+	cpu_set_register_64(reg_a, cpu_get_register_64(reg_a) + cpu_get_operand(order)); // TODO: overflow
 }
 
 static void cpu_execute_flp_load_single(uint16 order, DISPATCH_ENTRY *innerTable)
 {
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "=(32) ");
-	reg_a = (cpu_get_operand(order) << 32) & 0xFFFFFFFF00000000;
+	cpu_set_register_64(reg_a, (cpu_get_operand(order) << 32) & 0xFFFFFFFF00000000);
 }
 
 static void cpu_execute_flp_load_double(uint16 order, DISPATCH_ENTRY *innerTable)
 {
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "=(64) ");
-	reg_a = cpu_get_operand(order);
+	cpu_set_register_64(reg_a, cpu_get_operand(order));
 }
 
 static void cpu_execute_organisational_jump(uint16 order, DISPATCH_ENTRY *innerTable)
 {
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "JUMP ");
-	reg_co = cpu_get_operand(order) & 0x7FFF;
+	cpu_set_register_32(reg_co, cpu_get_operand(order) & 0x7FFF);
 }
