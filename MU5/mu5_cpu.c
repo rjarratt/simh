@@ -22,6 +22,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 Except as contained in this notice, the name of Robert Jarratt shall not be
 used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Robert Jarratt.
+
+Known Limitations
+Z register is not implemented.
+
 */
 
 #include <assert.h>
@@ -87,7 +91,7 @@ BITFIELD aod_bits[] = {
 	ENDBITS
 };
 
-t_uint64 mask_aod_opsiz64 = 0xFFFFFFFFFFFFEFFF;
+static t_uint64 mask_aod_opsiz64 = 0xFFFFFFFFFFFFEFFF;
 
 BITFIELD ms_bits[] = {
 	BIT(L0IF),    /* Level 0 interrupt flip-flop */
@@ -108,6 +112,8 @@ BITFIELD ms_bits[] = {
 	BIT(DS),      /* Force DR instead of S */
 	ENDBITS
 };
+
+static uint16 mask_ms_bn = 0xFFFFFEFF;
 
 /* Register backing values */
 static uint32 reg_b_backing_value;     /* B register */
@@ -163,7 +169,7 @@ REG *reg_sn	  = &cpu_reg[9];
 REG *reg_sf	  = &cpu_reg[10];
 REG *reg_co	  = &cpu_reg[11];
 REG *reg_d	  = &cpu_reg[12];
-REG *reg_x_	  = &cpu_reg[13];
+REG *reg_xd	  = &cpu_reg[13];
 REG *reg_dod  = &cpu_reg[14];
 REG *reg_dt	  = &cpu_reg[15];
 REG *reg_xdt  = &cpu_reg[16];
@@ -203,6 +209,7 @@ static SIM_INLINE void cpu_set_register_bit_64(REG *reg, t_uint64 mask, uint8 va
 static SIM_INLINE uint16 cpu_get_register_16(REG *reg);
 static SIM_INLINE uint32 cpu_get_register_32(REG *reg);
 static SIM_INLINE t_uint64 cpu_get_register_64(REG *reg);
+static SIM_INLINE t_uint64 cpu_get_register_bit_16(REG *reg, uint16 mask);
 
 static void cpu_set_interrupt(uint8 number);
 static void cpu_clear_interrupt(uint8 number);
@@ -212,6 +219,7 @@ static uint16 cpu_get_f(uint16 order);
 static uint16 cpu_get_k(uint16 order);
 static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructionAddress, int *instructionLength);
+static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand(uint16 order);
 static void cpu_execute_next_order(void);
 static void cpu_execute_illegal_order(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -550,6 +558,22 @@ static SIM_INLINE t_uint64 cpu_get_register_64(REG *reg)
 	return *(t_uint64 *)(reg->loc);
 }
 
+static SIM_INLINE t_uint64 cpu_get_register_bit_16(REG *reg, uint16 mask)
+{
+	t_uint64 result;
+	assert(reg->width == 16);
+	if (*(uint16 *)(reg->loc) & mask)
+	{
+		result = 1;
+	}
+	else
+	{
+		result = 0;
+	}
+
+	return result;
+}
+
 static void cpu_set_interrupt(uint8 number)
 {
 	interrupt |= 1u << number;
@@ -671,6 +695,100 @@ static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructio
 	return result;
 }
 
+static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructionAddress, int *instructionLength)
+{
+	t_uint64 result = 0;
+	uint8 n = order & 0x7;
+
+	switch (n)
+	{
+	case 0:
+	{
+		result = (cpu_get_register_16(reg_ms) << 48) | (cpu_get_register_16(reg_nb) << 32) | cpu_get_register_32(reg_co);
+		break;
+	}
+	case 1:
+	{
+		result = cpu_get_register_32(reg_xnb);
+		break;
+	}
+	case 2:
+	{
+		result = (cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg_nb);
+		break;
+	}
+	case 3:
+	{
+		result = (cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg_sf);
+		break;
+	}
+	case 4:
+	{
+		result = cpu_get_register_bit_16(reg_ms, mask_ms_bn);
+		break;
+	}
+	case 16:
+	{
+		result = cpu_get_register_64(reg_d);
+		break;
+	}
+	case 17:
+	{
+		result = cpu_get_register_64(reg_xd);
+		break;
+	}
+	case 18:
+	{
+		result = cpu_get_register_32(reg_dt);
+		break;
+	}
+	case 19:
+	{
+		result = cpu_get_register_32(reg_xdt);
+		break;
+	}
+	case 20:
+	{
+		result = cpu_get_register_32(reg_dod);
+		break;
+	}
+	case 32:
+	{
+		result = cpu_get_register_32(reg_b);
+		break;
+	}
+	case 33:
+	{
+		result = cpu_get_register_32(reg_bod);
+		break;
+	}
+	case 34:
+	{
+		result = 0; /* cpu_get_register_32(reg_z); */ /* Z is an "imaginary" register, see p31 of Morris & Ibbett book. Z not implemented for now. */
+		break;
+	}
+	case 36:
+	{
+		result = (cpu_get_register_32(reg_bod) << 32) | cpu_get_register_32(reg_b);
+		break;
+	}
+	case 48:
+	{
+		result = cpu_get_register_64(reg_aex);
+		break;
+	}
+	default:
+	{
+		result = 0;
+		break;
+	}
+	}
+
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "R%hu\n", n);
+
+	return result;
+}
+
 static t_uint64 cpu_get_operand(uint16 order)
 {
 	t_uint64 result = 0;
@@ -683,6 +801,11 @@ static t_uint64 cpu_get_operand(uint16 order)
 	case 0:
 	{
 		result = cpu_get_operand_6_bit_literal(order, instructionAddress, &instructionLength);
+		break;
+	}
+	case 1:
+	{
+		result = cpu_get_operand_internal_register(order, instructionAddress, &instructionLength);
 		break;
 	}
 	case 7:
