@@ -15,7 +15,7 @@ all copies or substantial portions of the Software.
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-ROBERT M SUPNIK BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ROBERT JARRATT BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
@@ -209,6 +209,7 @@ static void cpu_clear_interrupt(uint8 number);
 static uint8 cpu_get_interrupt_number(void);
 static uint16 cpu_get_cr(uint16 order);
 static uint16 cpu_get_f(uint16 order);
+static uint16 cpu_get_k(uint16 order);
 static t_uint64 cpu_get_operand(uint16 order);
 static void cpu_execute_next_order(void);
 static void cpu_execute_illegal_order(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -596,23 +597,98 @@ static uint16 cpu_get_f(uint16 order)
 	return f;
 }
 
+/* returns operand kind k, for organisational orders it returns 7 for extended operands, so k is the same across all order types */
+static uint16 cpu_get_k(uint16 order)
+{
+	uint16 k;
+	uint16 cr = cpu_get_cr(order);
+	if (cr == 0)
+	{
+		k = (order >> 6) & 0x1;
+		if (k == 1)
+		{
+			k = 7;
+		}
+	}
+	else
+	{
+		k = (order >> 6) & 0x7;
+	}
+
+	return k;
+}
+
 static t_uint64 cpu_get_operand(uint16 order)
 {
 	t_uint64 result = 0;
-	uint16 k = (order >> 6) & 0x7;
+	uint8 instructionLength = 1;
+	uint16 k = cpu_get_k(order);
+	uint32 instructionAddress = cpu_get_register_32(reg_co);
 
 	switch (k)
 	{
-		case 0:
+	case 0:
+	{
+		result = order & 0x7F;
+		result |= (result & 0x40) ? -1 : 0; /* sign extend */
+		sim_debug(LOG_CPU_DECODE, &cpu_dev, "%lld\n", result);
+		break;
+	}
+	case 7:
+	{
+		uint8 extendedKind = (order >> 3) & 0x7;
+
+		if (extendedKind == 0)
 		{
-			result = order & 0x7F;
-			result |= (result & 0x40) ? -1 : 0; /* sign extend */
-			sim_debug(LOG_CPU_DECODE, &cpu_dev, "LITERAL %lld\n", result);
-			break;
+			int i;
+			uint8 nprime = order & 0x3;
+			uint8 unsignedLiteral = (order >> 2) & 0x1; 
+
+			if (nprime > 2)
+			{
+				/* The MU5 Basic Programming Manual does not list n'==3 as valid, but the Roland and Ibbett book lists it as another 64-bit option */
+				cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+			}
+			else
+			{
+				int words = (nprime == 2) ? 4 : nprime + 1;
+				uint16 lastWord;
+				for (i = 0; i < words; i++)
+				{
+					lastWord = sac_read_16_bit_word(instructionAddress + 1 + i);
+					result |= (t_uint64)lastWord << (i * 16);
+				}
+
+				if (!unsignedLiteral)
+				{
+					result |= (lastWord & 0x8000) ? -1 : 0; /* sign extend */
+				}
+
+				instructionLength += words;
+			}
+
+			if (unsignedLiteral)
+			{
+				sim_debug(LOG_CPU_DECODE, &cpu_dev, "%llu\n", result);
+			}
+			else
+			{
+				sim_debug(LOG_CPU_DECODE, &cpu_dev, "%lld\n", result);
+			}
 		}
+		else
+		{
+			cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+		}
+		break;
+	}
+	default:
+	{
+		cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+	}
 	}
 
-	cpu_set_register_32(reg_co, cpu_get_register_32(reg_co) + 1); /* TODO: move to handle variable length operands */
+	cpu_set_register_32(reg_co, instructionAddress + instructionLength);
 
 	return result;
 }
@@ -643,6 +719,7 @@ static void cpu_execute_illegal_order(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_start_interrupt_processing(void)
 {
 	printf("Interrupt %hu detected - processing TBD\n", cpu_get_interrupt_number());
+	cpu_stopped = 1; /* TODO: temporary halt CPU until implement interrupt processing */
 }
 
 static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable)
