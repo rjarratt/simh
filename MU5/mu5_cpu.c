@@ -176,6 +176,10 @@ static void cpu_execute_organisational_jump(uint16 order);
 /* acc fixed order functions */
 static void cpu_execute_acc_fixed_add(uint16 order);
 
+/* floating point order functions */
+static void cpu_execute_flp_load_single(uint16 order);
+static void cpu_execute_flp_load_double(uint16 order);
+
 DEVICE cpu_dev = {
 	"CPU",            /* name */
 	&cpu_unit,        /* units */
@@ -294,16 +298,36 @@ static DISPATCH_ENTRY accFixedDispatchTable[] =
 	{ cpu_execute_illegal_order, NULL },   /* 15 */
 };
 
+static DISPATCH_ENTRY floatingPointDispatchTable[] =
+{
+	{ cpu_execute_flp_load_single, NULL },   /* 0 */
+	{ cpu_execute_flp_load_double, NULL },   /* 1 */
+	{ cpu_execute_illegal_order, NULL },   /* 2 */
+	{ cpu_execute_illegal_order, NULL },   /* 3 */
+	{ cpu_execute_illegal_order, NULL },   /* 4 */
+	{ cpu_execute_illegal_order, NULL },   /* 5 */
+	{ cpu_execute_illegal_order, NULL },   /* 6 */
+	{ cpu_execute_illegal_order, NULL },   /* 7 */
+	{ cpu_execute_illegal_order, NULL },   /* 8 */
+	{ cpu_execute_illegal_order, NULL },   /* 9 */
+	{ cpu_execute_illegal_order, NULL },   /* 10 */
+	{ cpu_execute_illegal_order, NULL },   /* 11*/
+	{ cpu_execute_illegal_order, NULL },   /* 12 */
+	{ cpu_execute_illegal_order, NULL },   /* 13 */
+	{ cpu_execute_illegal_order, NULL },   /* 14 */
+	{ cpu_execute_illegal_order, NULL },   /* 15 */
+};
+
 static DISPATCH_ENTRY crDispatchTable[] =
 {
-	{ cpu_execute_cr_level, organisationalDispatchTable },                  /* 0 */
-	{ cpu_execute_cr_level, NULL },                  /* 1 */
-	{ cpu_execute_cr_level, NULL },                  /* 2 */
-	{ cpu_execute_cr_level, NULL },                  /* 3 */
-	{ cpu_execute_cr_level, NULL },                  /* 4 */
-	{ cpu_execute_cr_level, accFixedDispatchTable }, /* 5 */
-	{ cpu_execute_cr_level, NULL },                  /* 6 */
-	{ cpu_execute_cr_level, NULL }                   /* 7 */
+	{ cpu_execute_cr_level, organisationalDispatchTable }, /* 0 */
+	{ cpu_execute_cr_level, NULL },                        /* 1 */
+	{ cpu_execute_cr_level, NULL },                        /* 2 */
+	{ cpu_execute_cr_level, NULL },                        /* 3 */
+	{ cpu_execute_cr_level, NULL },                        /* 4 */
+	{ cpu_execute_cr_level, accFixedDispatchTable },       /* 5 */
+	{ cpu_execute_cr_level, NULL },                        /* 6 */
+	{ cpu_execute_cr_level, floatingPointDispatchTable }  /* 7 */
 };
 
 t_stat sim_instr(void)
@@ -527,6 +551,18 @@ static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable)
 {
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A+ ");
 	reg_a += cpu_get_operand(order);
+}
+
+static void cpu_execute_flp_load_single(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "=(32) ");
+	reg_a = (cpu_get_operand(order) << 32) & 0xFFFFFFFF00000000;
+}
+
+static void cpu_execute_flp_load_double(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "=(64) ");
+	reg_a = cpu_get_operand(order);
 }
 
 static void cpu_execute_organisational_jump(uint16 order, DISPATCH_ENTRY *innerTable)
