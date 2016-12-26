@@ -69,47 +69,64 @@ UNIT cpu_unit =
 {
 	UDATA(NULL, UNIT_FIX | UNIT_BINK, MAXMEMORY)
 };
+BITFIELD aod_bits[] = {
+	BIT(DBLLEN),  /* Double length +/- */
+	BIT(IROUND),  /* Inhibit rounding */
+	BIT(ZDIV),    /* Zero divide indicator */
+	BIT(DECOVF),  /* Decimal overflow indicator */
+	BIT(FXPOVF),  /* Fixed point overflow indicator */
+	BIT(FLPUNF),  /* Floating point underflow indicator */
+	BIT(FLPOVF),  /* Floating point overflow indicator */
+	BIT(IZDIV),   /* Inhibit zero divide interrupt */
+	BIT(IDECOVF), /* Inhibit decimal overflow interrupt */
+	BIT(IFXPOVF), /* Inhibit fixed point overflow interrupt */
+	BIT(IFLPUNF), /* Inhibit floating point underflow interrupt */
+	BIT(IFLPOVF), /* Inhibit floating point overflow interrupt */
+	BIT(OPSIZ64), /* Operand size (0/1 meaning 32/64 bits */
+	BITNCF(51),    
+	ENDBITS
+};
 
 BITFIELD ms_bits[] = {
-	BIT(L0IF),                                /* Level 0 interrupt flip-flop */
-	BIT(L1IF),                                /* Level 1 interrupt flip-flop */
-	BIT(EXEC),                                /* Exec Mode flip-flop */
-	BIT(AF),                                  /* A faults to System Error in Exec Mode */
-	BIT(BDF),                                 /* B and D faults to System Error in Exec Mode */
-	BIT(ICI),                                 /* Instruction counter inhibit */
-	BIT(BNS),                                 /* Bypass name store */
-	BIT(BCPR),                                /* Bypass CPRs */
-
-
-	BIT(BN),                                  /* Boolean */
-	BIT(T2),                                  /* T2 - less than 0 */
-	BIT(T1),                                  /* T1 - not equal 0 */
-	BIT(T0),                                  /* T0 - overflow */
-	BITNCF(2),                                /* Spare in section 6, SPM & Spare in section 7 */
-	BIT(IPF),                                 /* Inhibit program fault interrupts */
-	BIT(DS),                                  /* Force DR instead of S */
+	BIT(L0IF),    /* Level 0 interrupt flip-flop */
+	BIT(L1IF),    /* Level 1 interrupt flip-flop */
+	BIT(EXEC),    /* Exec Mode flip-flop */
+	BIT(AF),      /* A faults to System Error in Exec Mode */
+	BIT(BDF),     /* B and D faults to System Error in Exec Mode */
+	BIT(ICI),     /* Instruction counter inhibit */
+	BIT(BNS),     /* Bypass name store */
+	BIT(BCPR),    /* Bypass CPRs */
+				  
+				  
+	BIT(BN),      /* Boolean */
+	BIT(T2),      /* T2 - less than 0 */
+	BIT(T1),      /* T1 - not equal 0 */
+	BIT(T0),      /* T0 - overflow */
+	BITNCF(2),    /* Spare in section 6, SPM & Spare in section 7 */
+	BIT(IPF),     /* Inhibit program fault interrupts */
+	BIT(DS),      /* Force DR instead of S */
 	ENDBITS
 };
 
 static REG cpu_reg[] =
 {
-	{ HRDATAD(B,   reg_b,      32,    "B register") },
-	{ HRDATAD(BOD, reg_bod,    32,    "BOD register") },
-	{ HRDATAD(A,   reg_a,      64,    "Accumulator") },
-	{ HRDATAD(AOD, reg_aod,    64,    "AOD register") },
-	{ HRDATAD(AEX, reg_aex,    64,    "Accumulator extension") },
-	{ HRDATAD(X,   reg_x,      32,    "X register") },
-	{ GRDATADF(MS, reg_ms, 16, 16, 0, "Machine status register", ms_bits) },
-	{ HRDATAD(NB,  reg_nb,     16,    "Name Base register") },
-	{ HRDATAD(XNB, reg_xnb,    32,    "X register") },
-	{ HRDATAD(SN,  reg_sn,     16,    "Name Segment Number register") },
-	{ HRDATAD(SF,  reg_sf,     16,    "Stack Front register") },
-	{ HRDATAD(CO,  reg_co,     32,    "Program counter") },
-	{ HRDATAD(D,   reg_d,      64,    "Data descriptor register") },
-	{ HRDATAD(XD,  reg_xd,     64,    "XD register") },
-	{ HRDATAD(DOD, reg_dod,    32,    "DOD register") },
-	{ HRDATAD(DT,  reg_dt,     32,    "DT register") },
-	{ HRDATAD(XDT, reg_xdt,    32,    "XDT register") },
+	{ HRDATAD(B,    reg_b,       32,    "B register") },
+	{ HRDATAD(BOD,  reg_bod,     32,    "BOD register") },
+	{ HRDATAD(A,    reg_a,       64,    "Accumulator") },
+	{ GRDATADF(AOD, reg_aod, 16, 64, 0, "AOD register", aod_bits) },
+	{ HRDATAD(AEX,  reg_aex,     64,    "Accumulator extension") },
+	{ HRDATAD(X,    reg_x,       32,    "X register") },
+	{ GRDATADF(MS,  reg_ms, 16,  16, 0, "Machine status register", ms_bits) },
+	{ HRDATAD(NB,   reg_nb,      16,    "Name Base register") },
+	{ HRDATAD(XNB,  reg_xnb,     32,    "X register") },
+	{ HRDATAD(SN,   reg_sn,      16,    "Name Segment Number register") },
+	{ HRDATAD(SF,   reg_sf,      16,    "Stack Front register") },
+	{ HRDATAD(CO,   reg_co,      32,    "Program counter") },
+	{ HRDATAD(D,    reg_d,       64,    "Data descriptor register") },
+	{ HRDATAD(XD,   reg_xd,      64,    "XD register") },
+	{ HRDATAD(DOD,  reg_dod,     32,    "DOD register") },
+	{ HRDATAD(DT,   reg_dt,      32,    "DT register") },
+	{ HRDATAD(XDT,  reg_xdt,     32,    "XDT register") },
 	{ NULL }
 };
 
