@@ -231,6 +231,7 @@ static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable);
 /* organisational order functions */
 static void cpu_execute_organisational_relative_jump(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* acc fixed order functions */
@@ -272,70 +273,70 @@ DEVICE cpu_dev = {
 
 static DISPATCH_ENTRY organisationalDispatchTable[] =
 {
-	{ cpu_execute_organisational_relative_jump, NULL }, /* 0 */
-	{ cpu_execute_illegal_order,                NULL }, /* 1 */
-	{ cpu_execute_illegal_order,                NULL }, /* 2 */
-	{ cpu_execute_illegal_order,                NULL }, /* 3 */
-	{ cpu_execute_organisational_absolute_jump, NULL }, /* 4 */
-	{ cpu_execute_illegal_order,                NULL }, /* 5 */
-	{ cpu_execute_illegal_order,                NULL }, /* 6 */
-	{ cpu_execute_illegal_order,                NULL }, /* 7 */
-	{ cpu_execute_illegal_order,                NULL }, /* 8 */
-	{ cpu_execute_illegal_order,                NULL }, /* 9 */
-	{ cpu_execute_illegal_order,                NULL }, /* 10 */
-	{ cpu_execute_illegal_order,                NULL }, /* 11*/
-	{ cpu_execute_illegal_order,                NULL }, /* 12 */
-	{ cpu_execute_illegal_order,                NULL }, /* 13 */
-	{ cpu_execute_illegal_order,                NULL }, /* 14 */
-	{ cpu_execute_illegal_order,                NULL }, /* 15 */
-	{ cpu_execute_illegal_order,                NULL }, /* 16 */
-	{ cpu_execute_illegal_order,                NULL }, /* 17 */
-	{ cpu_execute_illegal_order,                NULL }, /* 18 */
-	{ cpu_execute_illegal_order,                NULL }, /* 19 */
-	{ cpu_execute_illegal_order,                NULL }, /* 20 */
-	{ cpu_execute_illegal_order,                NULL }, /* 21 */
-	{ cpu_execute_illegal_order,                NULL }, /* 22 */
-	{ cpu_execute_illegal_order,                NULL }, /* 23 */
-	{ cpu_execute_illegal_order,                NULL }, /* 24 */
-	{ cpu_execute_illegal_order,                NULL }, /* 25 */
-	{ cpu_execute_illegal_order,                NULL }, /* 26 */
-	{ cpu_execute_illegal_order,                NULL }, /* 27 */
-	{ cpu_execute_organisational_NB_load,       NULL }, /* 28 */
-	{ cpu_execute_illegal_order,                NULL }, /* 29 */
-	{ cpu_execute_illegal_order,                NULL }, /* 30 */
-	{ cpu_execute_illegal_order,                NULL }, /* 31 */
-	{ cpu_execute_illegal_order,                NULL }, /* 32 */
-	{ cpu_execute_illegal_order,                NULL }, /* 33 */
-	{ cpu_execute_illegal_order,                NULL }, /* 34 */
-	{ cpu_execute_illegal_order,                NULL }, /* 35 */
-	{ cpu_execute_illegal_order,                NULL }, /* 36 */
-	{ cpu_execute_illegal_order,                NULL }, /* 37 */
-	{ cpu_execute_illegal_order,                NULL }, /* 38 */
-	{ cpu_execute_illegal_order,                NULL }, /* 39 */
-	{ cpu_execute_illegal_order,                NULL }, /* 40 */
-	{ cpu_execute_illegal_order,                NULL }, /* 41 */
-	{ cpu_execute_illegal_order,                NULL }, /* 42 */
-	{ cpu_execute_illegal_order,                NULL }, /* 43 */
-	{ cpu_execute_illegal_order,                NULL }, /* 44 */
-	{ cpu_execute_illegal_order,                NULL }, /* 45 */
-	{ cpu_execute_illegal_order,                NULL }, /* 46 */
-	{ cpu_execute_illegal_order,                NULL }, /* 47 */
-	{ cpu_execute_illegal_order,                NULL }, /* 48 */
-	{ cpu_execute_illegal_order,                NULL }, /* 49 */
-	{ cpu_execute_illegal_order,                NULL }, /* 50 */
-	{ cpu_execute_illegal_order,                NULL }, /* 51 */
-	{ cpu_execute_illegal_order,                NULL }, /* 52 */
-	{ cpu_execute_illegal_order,                NULL }, /* 53 */
-	{ cpu_execute_illegal_order,                NULL }, /* 54 */
-	{ cpu_execute_illegal_order,                NULL }, /* 55 */
-	{ cpu_execute_illegal_order,                NULL }, /* 56 */
-	{ cpu_execute_illegal_order,                NULL }, /* 57 */
-	{ cpu_execute_illegal_order,                NULL }, /* 58 */
-	{ cpu_execute_illegal_order,                NULL }, /* 59 */
-	{ cpu_execute_illegal_order,                NULL }, /* 60 */
-	{ cpu_execute_illegal_order,                NULL }, /* 61 */
-	{ cpu_execute_illegal_order,                NULL }, /* 62 */
-	{ cpu_execute_illegal_order,                NULL }  /* 63 */
+	{ cpu_execute_organisational_relative_jump,   NULL }, /* 0 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 1 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 2 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 3 */
+	{ cpu_execute_organisational_absolute_jump,   NULL }, /* 4 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 5 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 6 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 7 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 8 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 9 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 10 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 11*/
+	{ cpu_execute_illegal_order,                  NULL }, /* 12 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 13 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 14 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 15 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 16 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 17 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 18 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 19 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 20 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 21 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 22 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 23 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 24 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 25 */
+	{ cpu_execute_organisational_SF_load_NB_plus, NULL }, /* 26 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 27 */
+	{ cpu_execute_organisational_NB_load,         NULL }, /* 28 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 29 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 30 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 31 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 32 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 33 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 34 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 35 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 36 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 37 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 38 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 39 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 40 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 41 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 42 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 43 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 44 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 45 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 46 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 47 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 48 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 49 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 50 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 51 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 52 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 53 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 54 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 55 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 56 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 57 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 58 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 59 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 60 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 61 */
+	{ cpu_execute_illegal_order,                  NULL }, /* 62 */
+	{ cpu_execute_illegal_order,                  NULL }  /* 63 */
 };
 
 static DISPATCH_ENTRY accFixedDispatchTable[] =
@@ -889,6 +890,13 @@ static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTR
 {
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "JUMP ");
 	cpu_set_register_32(reg_co, cpu_get_operand(order) & 0x7FFFFFFF);
+}
+
+static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "SF=NB+ ");
+	uint16 nb = cpu_get_register_16(reg_nb);
+	cpu_set_register_16(reg_sf, nb + (cpu_get_operand(order) & 0xFFFFF)); /* TODO: Interrupt on segment overflow */
 }
 
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable)
