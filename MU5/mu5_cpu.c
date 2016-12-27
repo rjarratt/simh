@@ -231,6 +231,7 @@ static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable);
 /* organisational order functions */
 static void cpu_execute_organisational_relative_jump(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* acc fixed order functions */
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -299,7 +300,7 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
 	{ cpu_execute_illegal_order,                NULL }, /* 25 */
 	{ cpu_execute_illegal_order,                NULL }, /* 26 */
 	{ cpu_execute_illegal_order,                NULL }, /* 27 */
-	{ cpu_execute_illegal_order,                NULL }, /* 28 */
+	{ cpu_execute_organisational_NB_load,       NULL }, /* 28 */
 	{ cpu_execute_illegal_order,                NULL }, /* 29 */
 	{ cpu_execute_illegal_order,                NULL }, /* 30 */
 	{ cpu_execute_illegal_order,                NULL }, /* 31 */
@@ -888,6 +889,12 @@ static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTR
 {
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "JUMP ");
 	cpu_set_register_32(reg_co, cpu_get_operand(order) & 0x7FFFFFFF);
+}
+
+static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB= ");
+	cpu_set_register_16(reg_nb, cpu_get_operand(order) & 0xFFFE); /* LS bit of NB is always zero */
 }
 
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable)
