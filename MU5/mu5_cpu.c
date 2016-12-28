@@ -25,6 +25,7 @@ in this Software without prior written authorization from Robert Jarratt.
 
 Known Limitations
 Z register is not implemented.
+B DIV implementation is a guess (not defined in MU5 Basic Programming Manual)
 
 */
 
@@ -258,6 +259,7 @@ static void cpu_execute_b_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_add(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_sub(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_mul(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_b_div(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* acc fixed order functions */
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -373,7 +375,7 @@ static DISPATCH_ENTRY bDispatchTable[] =
 	{ cpu_execute_b_add,         NULL },   /* 4 */
 	{ cpu_execute_b_sub,         NULL },   /* 5 */
 	{ cpu_execute_b_mul,         NULL },   /* 6 */
-	{ cpu_execute_illegal_order, NULL },   /* 7 */
+	{ cpu_execute_b_div,         NULL },   /* 7 */
 	{ cpu_execute_illegal_order, NULL },   /* 8 */
 	{ cpu_execute_illegal_order, NULL },   /* 9 */
 	{ cpu_execute_illegal_order, NULL },   /* 10 */
@@ -1107,6 +1109,23 @@ static void cpu_execute_b_mul(uint16 order, DISPATCH_ENTRY *innerTable)
 	t_int64 result = multiplicand * multiplier;
 	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
 	cpu_check_b_overflow(result);
+}
+
+/* MU5 Basic Programming Manual lists this as a dummy order so implementation is a guess */
+static void cpu_execute_b_div(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B DIV ");
+	t_int64 dividend = cpu_get_register_32(reg_b);
+	t_int64 divisor = cpu_get_operand(order) & 0xFFFFFFFF;
+	if (divisor == 0)
+	{
+		cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
+	}
+	else
+	{
+		t_int64 result = dividend / divisor;
+		cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+	}
 }
 
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable)
