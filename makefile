@@ -1421,6 +1421,10 @@ SSEMD = SSEM
 SSEM = ${SSEMD}/ssem_cpu.c ${SSEMD}/ssem_sys.c
 SSEM_OPT = -I ${SSEMD}
 
+MU5D = MU5
+MU5 = ${MU5D}/MU5_cpu.c ${MU5D}/MU5_sac.c ${MU5D}/MU5_sys.c
+MU5_OPT = -I ${MU5D}
+
 B5500D = B5500
 B5500 = ${B5500D}/b5500_cpu.c ${B5500D}/b5500_io.c ${B5500D}/b5500_sys.c \
 	${B5500D}/b5500_dk.c ${B5500D}/b5500_mt.c ${B5500D}/b5500_urec.c \
@@ -1527,7 +1531,7 @@ ALL = pdp1 pdp4 pdp7 pdp8 pdp9 pdp15 pdp11 pdp10 \
 	vax microvax3900 microvax1 rtvax1000 microvax2 vax730 vax750 vax780 vax8600 \
 	nova eclipse hp2100 hp3000 i1401 i1620 s3 altair altairz80 gri \
 	i7094 ibm1130 id16 id32 sds lgp h316 cdc1700 \
-	swtp6800mp-a swtp6800mp-a2 tx-0 ssem b5500 isys8010 isys8020 \
+	swtp6800mp-a swtp6800mp-a2 tx-0 ssem mu5 b5500 isys8010 isys8020 \
 	isys8030 isys8024
 
 all : ${ALL}
@@ -1857,6 +1861,12 @@ ssem : ${BIN}ssem${EXE}
 ${BIN}ssem${EXE} : ${SSEM} ${SIM}
 	${MKDIRBIN}
 	${CC} ${SSEM} ${SIM} ${SSEM_OPT} $(CC_OUTSPEC) ${LDFLAGS}
+
+mu5 : ${BIN}mu5${EXE}
+
+${BIN}mu5{EXE} : ${mu5} ${SIM}
+	${MKDIRBIN}
+	${CC} ${MU5} ${SIM} ${MU5_OPT} $(CC_OUTSPEC) ${LDFLAGS}
 
 cdc1700 : ${BIN}cdc1700${EXE}
 
