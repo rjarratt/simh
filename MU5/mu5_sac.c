@@ -29,6 +29,18 @@ in this Software without prior written authorization from Robert Jarratt.
 
 static uint32 LocalStore[MAXMEMORY];
 
+t_uint64 sac_read_64_bit_word(t_addr address)
+{
+	t_uint64 result = sac_read_32_bit_word(address + 1) << 32 & sac_read_32_bit_word(address);
+	return result;
+}
+
+void sac_write_64_bit_word(t_addr address, t_uint64 value)
+{
+	sac_write_32_bit_word(address, (value >> 32) & 0xFFFFFFFF);
+	sac_write_32_bit_word(address + 1, value & 0xFFFFFFFF);
+}
+
 uint32 sac_read_32_bit_word(t_addr address)
 {
 	uint32 result = LocalStore[address];

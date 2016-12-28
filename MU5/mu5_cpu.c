@@ -1115,7 +1115,7 @@ static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable)
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS STACK ");
 	uint16 newSF = cpu_get_register_16(reg_sf) + 2;
 	cpu_set_register_16(reg_sf, newSF);
-	sac_write_32_bit_word(cpu_get_name_segment_address(reg_sf, 0), cpu_get_operand(order) & 0xFFFFFFFF);
+	sac_write_64_bit_word(cpu_get_name_segment_address(reg_sf, 0), cpu_get_operand(order) & 0xFFFFFFFF);
 }
 
 static void cpu_check_b_overflow(t_uint64 result)
@@ -1147,7 +1147,7 @@ static void cpu_execute_b_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTabl
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B*= ");
 	uint16 newSF = cpu_get_register_16(reg_sf) + 2;
 	cpu_set_register_16(reg_sf, newSF);
-	sac_write_32_bit_word(cpu_get_name_segment_address(reg_sf, 0), cpu_get_register_32(reg_b));
+	sac_write_64_bit_word(cpu_get_name_segment_address(reg_sf, 0), cpu_get_register_32(reg_b));
 	cpu_set_register_32(reg_b, cpu_get_operand(order) & 0xFFFFFFFF);
 }
 
