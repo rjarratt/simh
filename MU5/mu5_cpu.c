@@ -225,7 +225,8 @@ static SIM_INLINE uint32 cpu_get_register_32(REG *reg);
 static SIM_INLINE t_uint64 cpu_get_register_64(REG *reg);
 static SIM_INLINE t_uint64 cpu_get_register_bit_16(REG *reg, uint16 mask);
 static SIM_INLINE t_uint64 cpu_get_register_bit_32(REG *reg, uint16 mask);
-static t_addr cpu_get_name_segment_address(REG *reg, uint16 offset);
+static uint16 cpu_calculate_base_offset(REG *reg, int16 offset);
+static t_addr cpu_get_name_segment_address(REG *reg, int16 offset);
 
 static void cpu_set_interrupt(uint8 number);
 static void cpu_clear_interrupt(uint8 number);
@@ -252,6 +253,7 @@ static void cpu_execute_organisational_relative_jump(uint16 order, DISPATCH_ENTR
 static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* store-to-store order functions */
 static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -340,7 +342,7 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
 	{ cpu_execute_organisational_SF_load_NB_plus, NULL }, /* 26 */
 	{ cpu_execute_illegal_order,                  NULL }, /* 27 */
 	{ cpu_execute_organisational_NB_load,         NULL }, /* 28 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 29 */
+	{ cpu_execute_organisational_NB_load_SF_plus, NULL }, /* 29 */
 	{ cpu_execute_illegal_order,                  NULL }, /* 30 */
 	{ cpu_execute_illegal_order,                  NULL }, /* 31 */
 	{ cpu_execute_illegal_order,                  NULL }, /* 32 */
@@ -703,9 +705,20 @@ static SIM_INLINE t_uint64 cpu_get_register_bit_32(REG *reg, uint32 mask)
 	return result;
 }
 
-static t_addr cpu_get_name_segment_address(REG *reg, uint16 offset)
+static uint16 cpu_calculate_base_offset(REG *reg, int16 offset)
 {
-	t_addr result = ((cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg)) + offset;
+	int32 result = cpu_get_register_16(reg) + offset;
+	if (result < 0 || result > 65535)
+	{
+		cpu_set_interrupt(INT_SOFTWARE_INTERRUPT); /* TODO: must be segment overflow interrupt */
+	}
+
+	return (uint16)(result & 0xFFFF);
+}
+
+static t_addr cpu_get_name_segment_address(REG *reg, int16 offset)
+{
+	t_addr result = (cpu_get_register_16(reg_sn) << 16) | cpu_calculate_base_offset(reg, offset);
 	return result;
 }
 
@@ -783,7 +796,7 @@ static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAd
 {
 	t_uint64 result = 0;
 	result = order & 0x3F;
-	result |= (result & 0x40) ? -1 : 0; /* sign extend */
+	result |= (result & 0x20) ? 0xFFFFFFFFFFFFFFC0 : 0; /* sign extend */
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "%lld\n", result);
 	return result;
 }
@@ -1078,8 +1091,8 @@ static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTR
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable)
 {
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "SF=NB+ ");
-	uint16 nb = cpu_get_register_16(reg_nb);
-	cpu_set_register_16(reg_sf, nb + (cpu_get_operand(order) & 0xFFFFF)); /* TODO: Interrupt on segment overflow */
+	uint16 newSF = cpu_calculate_base_offset(reg_nb, cpu_get_operand(order));
+	cpu_set_register_16(reg_sf, newSF);
 }
 
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -1088,6 +1101,13 @@ static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *inn
 	t_uint64 newBase = cpu_get_operand(order); /* TODO: the operand may not be a secondary operand - see p59 */
 	cpu_set_register_16(reg_sn, (newBase >> 48) & 0xFFFF);
 	cpu_set_register_16(reg_nb, newBase & 0xFFFE); /* LS bit of NB is always zero */
+}
+
+static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB=SF+ ");
+	uint16 newNB = cpu_calculate_base_offset(reg_sf, cpu_get_operand(order));
+	cpu_set_register_16(reg_nb, newNB & 0xFFFE); /* LS bit of NB is always zero */
 }
 
 static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable)
