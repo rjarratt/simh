@@ -255,7 +255,7 @@ DEVICE cpu_dev = {
 	16,               /* awidth */
 	1,                /* aincr */
 	16,               /* dradix */
-	16,               /* dwidth */
+	32,               /* dwidth */
 	&cpu_ex,          /* examine */
 	&cpu_dep,         /* deposit */
 	&cpu_reset,       /* reset */
@@ -526,7 +526,21 @@ static t_stat cpu_reset(DEVICE *dptr)
 /* memory examine */
 static t_stat cpu_ex(t_value *vptr, t_addr addr, UNIT *uptr, int32 sw)
 {
-	return SCPE_AFAIL;
+	t_stat result = SCPE_OK;
+	if (vptr == NULL)
+	{
+		result = SCPE_ARG;
+	}
+	else if (addr < MAXMEMORY)
+	{
+		*vptr = sac_read_32_bit_word(addr);
+	}
+	else
+	{
+		result = SCPE_NXM;
+	}
+
+	return result;
 }
 
 /* memory deposit */
