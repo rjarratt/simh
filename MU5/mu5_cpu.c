@@ -224,7 +224,8 @@ static SIM_INLINE uint16 cpu_get_register_16(REG *reg);
 static SIM_INLINE uint32 cpu_get_register_32(REG *reg);
 static SIM_INLINE t_uint64 cpu_get_register_64(REG *reg);
 static SIM_INLINE t_uint64 cpu_get_register_bit_16(REG *reg, uint16 mask);
-static SIM_INLINE t_uint64 cpu_get_register_bit_32(REG *reg, uint16 mask);
+static SIM_INLINE t_uint64 cpu_get_register_bit_32(REG *reg, uint32 mask);
+static SIM_INLINE t_uint64 cpu_get_register_bit_64(REG *reg, t_uint64 mask);
 static uint16 cpu_calculate_base_offset(REG *reg, int16 offset);
 static t_addr cpu_get_name_segment_address(REG *reg, int16 offset);
 
@@ -281,6 +282,7 @@ static void cpu_execute_acc_fixed_mul(uint16 order, DISPATCH_ENTRY *innerTable);
 /* floating point order functions */
 static void cpu_execute_flp_load_single(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_flp_load_double(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_flp_store(uint16 order, DISPATCH_ENTRY *innerTable);
 
 DEVICE cpu_dev = {
 	"CPU",            /* name */
@@ -442,10 +444,10 @@ static DISPATCH_ENTRY accFixedDispatchTable[] =
 
 static DISPATCH_ENTRY floatingPointDispatchTable[] =
 {
-	{ cpu_execute_flp_load_single, NULL },   /* 0 */
-	{ cpu_execute_flp_load_double, NULL },   /* 1 */
-	{ cpu_execute_illegal_order, NULL },   /* 2 */
-	{ cpu_execute_illegal_order, NULL },   /* 3 */
+	{ cpu_execute_flp_load_single, NULL }, /* 0 */
+	{ cpu_execute_flp_load_double, NULL }, /* 1 */
+	{ cpu_execute_illegal_order,   NULL }, /* 2 */
+	{ cpu_execute_flp_store, NULL },       /* 3 */
 	{ cpu_execute_illegal_order, NULL },   /* 4 */
 	{ cpu_execute_illegal_order, NULL },   /* 5 */
 	{ cpu_execute_illegal_order, NULL },   /* 6 */
@@ -695,6 +697,22 @@ static SIM_INLINE t_uint64 cpu_get_register_bit_32(REG *reg, uint32 mask)
 	uint32 result;
 	assert(reg->width == 32);
 	if (*(uint32 *)(reg->loc) & ~mask)
+	{
+		result = 1;
+	}
+	else
+	{
+		result = 0;
+	}
+
+	return result;
+}
+
+static SIM_INLINE t_uint64 cpu_get_register_bit_64(REG *reg, t_uint64 mask)
+{
+	uint32 result;
+	assert(reg->width == 64);
+	if (*(t_uint64 *)(reg->loc) & ~mask)
 	{
 		result = 1;
 	}
@@ -1286,14 +1304,28 @@ static void cpu_execute_acc_fixed_mul(uint16 order, DISPATCH_ENTRY *innerTable)
 
 static void cpu_execute_flp_load_single(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "=(32) ");
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A=(32) ");
 	cpu_set_register_bit_64(reg_aod, mask_aod_opsiz64, 0);
 	cpu_set_register_64(reg_a, (cpu_get_operand(order) << 32) & 0xFFFFFFFF00000000);
 }
 
 static void cpu_execute_flp_load_double(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "=(64) ");
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A=(64) ");
 	cpu_set_register_bit_64(reg_aod, mask_aod_opsiz64, 1);
 	cpu_set_register_64(reg_a, cpu_get_operand(order));
+}
+
+static void cpu_execute_flp_store(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	t_uint64 a = cpu_get_register_64(reg_a);
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A=> ");
+	if (cpu_get_register_bit_64(reg_aod, mask_aod_opsiz64) == 1)
+	{
+		cpu_set_operand(order, a);
+	}
+	else
+	{
+		cpu_set_operand(order, a >> 32);
+	}
 }
