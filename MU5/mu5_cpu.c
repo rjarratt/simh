@@ -225,6 +225,7 @@ static SIM_INLINE uint32 cpu_get_register_32(REG *reg);
 static SIM_INLINE t_uint64 cpu_get_register_64(REG *reg);
 static SIM_INLINE t_uint64 cpu_get_register_bit_16(REG *reg, uint16 mask);
 static SIM_INLINE t_uint64 cpu_get_register_bit_32(REG *reg, uint16 mask);
+static t_addr cpu_get_name_segment_address(REG *reg, uint16 offset);
 
 static void cpu_set_interrupt(uint8 number);
 static void cpu_clear_interrupt(uint8 number);
@@ -255,6 +256,7 @@ static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *inn
 /* B order functions */
 static void cpu_check_b_overflow(t_uint64 result);
 static void cpu_execute_b_load(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_b_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_add(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_sub(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -374,22 +376,22 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
 
 static DISPATCH_ENTRY bDispatchTable[] =
 {
-	{ cpu_execute_b_load,        NULL },   /* 0 */
-	{ cpu_execute_illegal_order, NULL },   /* 1 */
-	{ cpu_execute_illegal_order, NULL },   /* 2 */
-	{ cpu_execute_b_store,       NULL },   /* 3 */
-	{ cpu_execute_b_add,         NULL },   /* 4 */
-	{ cpu_execute_b_sub,         NULL },   /* 5 */
-	{ cpu_execute_b_mul,         NULL },   /* 6 */
-	{ cpu_execute_b_div,         NULL },   /* 7 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
-	{ cpu_execute_b_xor,         NULL },   /* 8 */
-	{ cpu_execute_b_or,          NULL },   /* 9 */
-	{ cpu_execute_b_shift_left,  NULL },   /* 10 */
-	{ cpu_execute_b_and,         NULL },   /* 11*/
-	{ cpu_execute_b_reverse_sub, NULL },   /* 12 */
-	{ cpu_execute_illegal_order, NULL },   /* 13 */
-	{ cpu_execute_illegal_order, NULL },   /* 14 */
-	{ cpu_execute_b_reverse_div, NULL },   /* 15 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
+	{ cpu_execute_b_load,           NULL },   /* 0 */
+	{ cpu_execute_illegal_order,    NULL },   /* 1 */
+	{ cpu_execute_b_stack_and_load, NULL },   /* 2 */
+	{ cpu_execute_b_store,          NULL },   /* 3 */
+	{ cpu_execute_b_add,            NULL },   /* 4 */
+	{ cpu_execute_b_sub,            NULL },   /* 5 */
+	{ cpu_execute_b_mul,            NULL },   /* 6 */
+	{ cpu_execute_b_div,            NULL },   /* 7 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
+	{ cpu_execute_b_xor,            NULL },   /* 8 */
+	{ cpu_execute_b_or,             NULL },   /* 9 */
+	{ cpu_execute_b_shift_left,     NULL },   /* 10 */
+	{ cpu_execute_b_and,            NULL },   /* 11*/
+	{ cpu_execute_b_reverse_sub,    NULL },   /* 12 */
+	{ cpu_execute_illegal_order,    NULL },   /* 13 */
+	{ cpu_execute_illegal_order,    NULL },   /* 14 */
+	{ cpu_execute_b_reverse_div,    NULL },   /* 15 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
 };
 
 static DISPATCH_ENTRY accFixedDispatchTable[] =
@@ -678,6 +680,12 @@ static SIM_INLINE t_uint64 cpu_get_register_bit_32(REG *reg, uint32 mask)
 	return result;
 }
 
+static t_addr cpu_get_name_segment_address(REG *reg, uint16 offset)
+{
+	t_addr result = ((cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg)) + offset;
+	return result;
+}
+
 static void cpu_set_interrupt(uint8 number)
 {
 	interrupt |= 1u << number;
@@ -804,7 +812,7 @@ static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructi
 	t_addr result;
 	uint8 n = order & 0x3F;
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 %hu\n", n);
-	result = cpu_get_register_16(reg_nb) + n;
+	result = cpu_get_name_segment_address(reg_nb, n);
 
 	return result;
 }
@@ -1054,7 +1062,9 @@ static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_EN
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB= ");
-	cpu_set_register_16(reg_nb, cpu_get_operand(order) & 0xFFFE); /* LS bit of NB is always zero */
+	t_uint64 newBase = cpu_get_operand(order); /* TODO: the operand may not be a secondary operand - see p59 */
+	cpu_set_register_16(reg_sn, (newBase >> 48) & 0xFFFF);
+	cpu_set_register_16(reg_nb, newBase & 0xFFFE); /* LS bit of NB is always zero */
 }
 
 static void cpu_check_b_overflow(t_uint64 result)
@@ -1080,6 +1090,16 @@ static void cpu_execute_b_load(uint16 order, DISPATCH_ENTRY *innerTable)
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B= ");
 	cpu_set_register_32(reg_b, cpu_get_operand(order) & 0xFFFFFFFF);
 }
+
+static void cpu_execute_b_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B*= ");
+	uint16 newSF = cpu_get_register_16(reg_sf) + 2;
+	cpu_set_register_16(reg_sf, newSF);
+	sac_write_32_bit_word(cpu_get_name_segment_address(reg_sf, 0), cpu_get_register_32(reg_b));
+	cpu_set_register_32(reg_b, cpu_get_operand(order) & 0xFFFFFFFF);
+}
+
 static void cpu_execute_b_store(uint16 order, DISPATCH_ENTRY *innerTable)
 {
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B=> ");
