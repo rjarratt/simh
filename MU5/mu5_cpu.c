@@ -276,6 +276,7 @@ static void cpu_execute_b_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* acc fixed order functions */
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_acc_fixed_mul(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* floating point order functions */
 static void cpu_execute_flp_load_single(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -427,7 +428,7 @@ static DISPATCH_ENTRY accFixedDispatchTable[] =
 	{ cpu_execute_illegal_order, NULL },   /* 3 */
 	{ cpu_execute_acc_fixed_add, NULL },   /* 4 */
 	{ cpu_execute_illegal_order, NULL },   /* 5 */
-	{ cpu_execute_illegal_order, NULL },   /* 6 */
+	{ cpu_execute_acc_fixed_mul, NULL },   /* 6 */
 	{ cpu_execute_illegal_order, NULL },   /* 7 */
 	{ cpu_execute_illegal_order, NULL },   /* 8 */
 	{ cpu_execute_illegal_order, NULL },   /* 9 */
@@ -1272,6 +1273,15 @@ static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable)
 {
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A+ ");
 	cpu_set_register_64(reg_a, cpu_get_register_64(reg_a) + cpu_get_operand(order)); // TODO: overflow
+}
+
+static void cpu_execute_acc_fixed_mul(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A* ");
+	uint32 multiplicand = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
+	uint32 multiplier = cpu_get_operand(order) & 0xFFFFFFFF;
+	t_uint64 result = multiplicand * multiplier;
+	cpu_set_register_64(reg_a, result);
 }
 
 static void cpu_execute_flp_load_single(uint16 order, DISPATCH_ENTRY *innerTable)
