@@ -73,6 +73,7 @@ UNIT cpu_unit =
 {
 	UDATA(NULL, UNIT_FIX | UNIT_BINK, MAXMEMORY)
 };
+
 BITFIELD aod_bits[] = {
 	BIT(DBLLEN),  /* Double length +/- */
 	BIT(IROUND),  /* Inhibit rounding */
@@ -92,6 +93,17 @@ BITFIELD aod_bits[] = {
 };
 
 static t_uint64 mask_aod_opsiz64 = 0xFFFFFFFFFFFFEFFF;
+
+BITFIELD bod_bits[] = {
+	BIT(IBOVF),  /* Inhibit B overflow interrupt */
+	BITNCF(4),
+	BIT(BOVF),   /* B Overflow */
+	BITNCF(26),
+	ENDBITS
+};
+
+static t_uint64 mask_bod_bovf = 0xFFFFFFDF;
+static t_uint64 mask_bod_ibovf = 0xFFFFFFFE;
 
 BITFIELD ms_bits[] = {
 	BIT(L0IF),    /* Level 0 interrupt flip-flop */
@@ -137,7 +149,7 @@ static uint32 reg_xdt_backing_value;   /* XDT Register */
 static REG cpu_reg[] =
 {
 	{ HRDATAD(B,    reg_b_backing_value,       32,    "B register") },
-	{ HRDATAD(BOD,  reg_bod_backing_value,     32,    "BOD register") },
+	{ GRDATADF(BOD, reg_bod_backing_value, 16, 32, 0, "BOD register", bod_bits) },
 	{ HRDATAD(A,    reg_a_backing_value,       64,    "Accumulator") },
 	{ GRDATADF(AOD, reg_aod_backing_value, 16, 64, 0, "AOD register", aod_bits) },
 	{ HRDATAD(AEX,  reg_aex_backing_value,     64,    "Accumulator extension") },
@@ -205,11 +217,13 @@ static t_stat cpu_reset(DEVICE *dptr);
 static SIM_INLINE void cpu_set_register_16(REG *reg, uint16 value);
 static SIM_INLINE void cpu_set_register_32(REG *reg, uint32 value);
 static SIM_INLINE void cpu_set_register_64(REG *reg, t_uint64 value);
+static SIM_INLINE void cpu_set_register_bit_32(REG *reg, t_uint64 mask, uint8 value);
 static SIM_INLINE void cpu_set_register_bit_64(REG *reg, t_uint64 mask, uint8 value);
 static SIM_INLINE uint16 cpu_get_register_16(REG *reg);
 static SIM_INLINE uint32 cpu_get_register_32(REG *reg);
 static SIM_INLINE t_uint64 cpu_get_register_64(REG *reg);
 static SIM_INLINE t_uint64 cpu_get_register_bit_16(REG *reg, uint16 mask);
+static SIM_INLINE t_uint64 cpu_get_register_bit_32(REG *reg, uint16 mask);
 
 static void cpu_set_interrupt(uint8 number);
 static void cpu_clear_interrupt(uint8 number);
@@ -236,7 +250,9 @@ static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_EN
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* B order functions */
+static void cpu_check_b_overflow(t_uint64 result);
 static void cpu_execute_b_load(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_b_add(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* acc fixed order functions */
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -349,7 +365,7 @@ static DISPATCH_ENTRY bDispatchTable[] =
 	{ cpu_execute_illegal_order, NULL },   /* 1 */
 	{ cpu_execute_illegal_order, NULL },   /* 2 */
 	{ cpu_execute_illegal_order, NULL },   /* 3 */
-	{ cpu_execute_acc_fixed_add, NULL },   /* 4 */
+	{ cpu_execute_b_add,         NULL },   /* 4 */
 	{ cpu_execute_illegal_order, NULL },   /* 5 */
 	{ cpu_execute_illegal_order, NULL },   /* 6 */
 	{ cpu_execute_illegal_order, NULL },   /* 7 */
@@ -519,7 +535,7 @@ t_stat parse_sym(CONST char *cptr, t_addr addr, UNIT *uptr, t_value *val, int32 
 /* reset routine */
 static t_stat cpu_reset(DEVICE *dptr)
 {
-	cpu_set_register_32(reg_co, 0); /* TODO: probably needs to be reset to start of OS (upper half of memory) */
+	//cpu_set_register_32(reg_co, 0); /* TODO: probably needs to be reset to start of OS (upper half of memory) */
 	return SCPE_OK;
 }
 
@@ -567,6 +583,19 @@ static SIM_INLINE void cpu_set_register_64(REG *reg, t_uint64 value)
 	*(t_uint64 *)(reg->loc) = value;
 }
 
+static SIM_INLINE void cpu_set_register_bit_32(REG *reg, uint32 mask, int value)
+{
+	assert(reg->width == 32);
+	if (value)
+	{
+		*(uint32 *)(reg->loc) = *(uint32 *)(reg->loc) | ~mask;
+	}
+	else
+	{
+		*(uint32 *)(reg->loc) = *(uint32 *)(reg->loc) & mask;
+	}
+}
+
 static SIM_INLINE void cpu_set_register_bit_64(REG *reg, t_uint64 mask, int value)
 {
 	assert(reg->width == 64);
@@ -608,7 +637,23 @@ static SIM_INLINE t_uint64 cpu_get_register_bit_16(REG *reg, uint16 mask)
 {
 	t_uint64 result;
 	assert(reg->width == 16);
-	if (*(uint16 *)(reg->loc) & mask)
+	if (*(uint16 *)(reg->loc) & ~mask)
+	{
+		result = 1;
+	}
+	else
+	{
+		result = 0;
+	}
+
+	return result;
+}
+
+static SIM_INLINE t_uint64 cpu_get_register_bit_32(REG *reg, uint32 mask)
+{
+	uint32 result;
+	assert(reg->width == 32);
+	if (*(uint32 *)(reg->loc) & ~mask)
 	{
 		result = 1;
 	}
@@ -967,10 +1012,38 @@ static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *inn
 	cpu_set_register_16(reg_nb, cpu_get_operand(order) & 0xFFFE); /* LS bit of NB is always zero */
 }
 
+static void cpu_check_b_overflow(t_uint64 result)
+{
+	uint32 ms = result >> 32;
+	uint8 sign = result >> 31 & 1;
+	if (!(sign == 0 && ms == 0) && !(sign == 1 && ms == ~0))
+	{
+		cpu_set_register_bit_32(reg_bod, mask_bod_bovf, 1);
+		if (!cpu_get_register_bit_32(reg_bod, mask_bod_ibovf))
+		{
+			cpu_set_interrupt(INT_PROGRAM_FAULTS);
+		}
+	}
+	else
+	{
+		cpu_set_register_bit_32(reg_bod, mask_bod_bovf, 1);
+	}
+}
+
 static void cpu_execute_b_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B= ");
-	cpu_set_register_32(reg_b, cpu_get_operand(order) & 0xFFFF);
+	cpu_set_register_32(reg_b, cpu_get_operand(order) & 0xFFFFFFFF);
+}
+
+static void cpu_execute_b_add(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B+ ");
+	t_int64 add = cpu_get_register_32(reg_b);
+	t_int64 addend = cpu_get_operand(order) & 0xFFFFFFFF;
+	t_int64 result = add + addend;
+	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+	cpu_check_b_overflow(result);
 }
 
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable)
