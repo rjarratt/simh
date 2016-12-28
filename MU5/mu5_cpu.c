@@ -261,6 +261,7 @@ static void cpu_execute_b_sub(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_mul(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_div(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_xor(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_b_or(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* acc fixed order functions */
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -376,9 +377,9 @@ static DISPATCH_ENTRY bDispatchTable[] =
 	{ cpu_execute_b_add,         NULL },   /* 4 */
 	{ cpu_execute_b_sub,         NULL },   /* 5 */
 	{ cpu_execute_b_mul,         NULL },   /* 6 */
-	{ cpu_execute_b_div,         NULL },   /* 7 */
+	{ cpu_execute_b_div,         NULL },   /* 7 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
 	{ cpu_execute_b_xor,         NULL },   /* 8 */
-	{ cpu_execute_illegal_order, NULL },   /* 9 */
+	{ cpu_execute_b_or,          NULL },   /* 9 */
 	{ cpu_execute_illegal_order, NULL },   /* 10 */
 	{ cpu_execute_illegal_order, NULL },   /* 11*/
 	{ cpu_execute_illegal_order, NULL },   /* 12 */
@@ -1135,6 +1136,15 @@ static void cpu_execute_b_xor(uint16 order, DISPATCH_ENTRY *innerTable)
 	t_int64 xorend = cpu_get_register_32(reg_b);
 	t_int64 xorand = cpu_get_operand(order) & 0xFFFFFFFF;
     t_int64 result = xorend ^ xorand;
+	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+}
+
+static void cpu_execute_b_or(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B OR ");
+	t_int64 orend = cpu_get_register_32(reg_b);
+	t_int64 orand = cpu_get_operand(order) & 0xFFFFFFFF;
+	t_int64 result = orend | orand;
 	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
 }
 
