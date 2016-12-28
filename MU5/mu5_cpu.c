@@ -263,6 +263,7 @@ static void cpu_execute_b_div(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_xor(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_or(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_shift_left(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_b_and(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* acc fixed order functions */
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -382,7 +383,7 @@ static DISPATCH_ENTRY bDispatchTable[] =
 	{ cpu_execute_b_xor,         NULL },   /* 8 */
 	{ cpu_execute_b_or,          NULL },   /* 9 */
 	{ cpu_execute_b_shift_left,  NULL },   /* 10 */
-	{ cpu_execute_illegal_order, NULL },   /* 11*/
+	{ cpu_execute_b_and,         NULL },   /* 11*/
 	{ cpu_execute_illegal_order, NULL },   /* 12 */
 	{ cpu_execute_illegal_order, NULL },   /* 13 */
 	{ cpu_execute_illegal_order, NULL },   /* 14 */
@@ -1157,6 +1158,15 @@ static void cpu_execute_b_shift_left(uint16 order, DISPATCH_ENTRY *innerTable)
 	t_int64 result = value << shift;
 	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
 	cpu_check_b_overflow(result);
+}
+
+static void cpu_execute_b_and(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B AND ");
+	t_uint64 andend = cpu_get_register_32(reg_b);
+	t_uint64 andand = cpu_get_operand(order) & 0xFFFFFFFF;
+	t_uint64 result = andend & andand;
+	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
 }
 
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable)
