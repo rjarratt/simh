@@ -264,6 +264,7 @@ static void cpu_execute_b_xor(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_or(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_shift_left(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_and(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_b_reverse_sub(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable); /* did not exist in real MU5, for HASE simulator comparison */
 
 /* acc fixed order functions */
@@ -385,7 +386,7 @@ static DISPATCH_ENTRY bDispatchTable[] =
 	{ cpu_execute_b_or,          NULL },   /* 9 */
 	{ cpu_execute_b_shift_left,  NULL },   /* 10 */
 	{ cpu_execute_b_and,         NULL },   /* 11*/
-	{ cpu_execute_illegal_order, NULL },   /* 12 */
+	{ cpu_execute_b_reverse_sub, NULL },   /* 12 */
 	{ cpu_execute_illegal_order, NULL },   /* 13 */
 	{ cpu_execute_illegal_order, NULL },   /* 14 */
 	{ cpu_execute_b_reverse_div, NULL },   /* 15 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
@@ -1103,7 +1104,6 @@ static void cpu_execute_b_sub(uint16 order, DISPATCH_ENTRY *innerTable)
 	t_int64 result = minuend - subtrahend;
 	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
 	cpu_check_b_overflow(result);
-
 }
 
 static void cpu_execute_b_mul(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -1168,6 +1168,16 @@ static void cpu_execute_b_and(uint16 order, DISPATCH_ENTRY *innerTable)
 	t_uint64 andand = cpu_get_operand(order) & 0xFFFFFFFF;
 	t_uint64 result = andend & andand;
 	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+}
+
+static void cpu_execute_b_reverse_sub(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B RSUB ");
+	t_int64 subtrahend = cpu_get_register_32(reg_b);
+	t_int64 minuend = cpu_get_operand(order) & 0xFFFFFFFF;
+	t_int64 result = minuend - subtrahend;
+	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+	cpu_check_b_overflow(result);
 }
 
 /* MU5 Basic Programming Manual lists this as a dummy order so implementation is a guess */
