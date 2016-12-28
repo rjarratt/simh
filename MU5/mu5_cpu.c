@@ -570,7 +570,7 @@ static SIM_INLINE uint16 cpu_get_register_16(REG *reg)
 {
 	uint16 result;
 	assert(reg->width == 16);
-	result = *(uint16 * )(reg->loc);
+	result = *(uint16 *)(reg->loc);
 	return result;
 }
 
@@ -747,86 +747,86 @@ static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructi
 
 	switch (n)
 	{
-	case 0:
-	{
-		result = (cpu_get_register_16(reg_ms) << 48) | (cpu_get_register_16(reg_nb) << 32) | cpu_get_register_32(reg_co);
-		break;
-	}
-	case 1:
-	{
-		result = cpu_get_register_32(reg_xnb);
-		break;
-	}
-	case 2:
-	{
-		result = (cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg_nb);
-		break;
-	}
-	case 3:
-	{
-		result = (cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg_sf);
-		break;
-	}
-	case 4:
-	{
-		result = cpu_get_register_bit_16(reg_ms, mask_ms_bn);
-		break;
-	}
-	case 16:
-	{
-		result = cpu_get_register_64(reg_d);
-		break;
-	}
-	case 17:
-	{
-		result = cpu_get_register_64(reg_xd);
-		break;
-	}
-	case 18:
-	{
-		result = cpu_get_register_32(reg_dt);
-		break;
-	}
-	case 19:
-	{
-		result = cpu_get_register_32(reg_xdt);
-		break;
-	}
-	case 20:
-	{
-		result = cpu_get_register_32(reg_dod);
-		break;
-	}
-	case 32:
-	{
-		result = cpu_get_register_32(reg_b);
-		break;
-	}
-	case 33:
-	{
-		result = cpu_get_register_32(reg_bod);
-		break;
-	}
-	case 34:
-	{
-		result = 0; /* cpu_get_register_32(reg_z); */ /* Z is an "imaginary" register, see p31 of Morris & Ibbett book. Z not implemented for now. */
-		break;
-	}
-	case 36:
-	{
-		result = (cpu_get_register_32(reg_bod) << 32) | cpu_get_register_32(reg_b);
-		break;
-	}
-	case 48:
-	{
-		result = cpu_get_register_64(reg_aex);
-		break;
-	}
-	default:
-	{
-		result = 0;
-		break;
-	}
+		case 0:
+		{
+			result = (cpu_get_register_16(reg_ms) << 48) | (cpu_get_register_16(reg_nb) << 32) | cpu_get_register_32(reg_co);
+			break;
+		}
+		case 1:
+		{
+			result = cpu_get_register_32(reg_xnb);
+			break;
+		}
+		case 2:
+		{
+			result = (cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg_nb);
+			break;
+		}
+		case 3:
+		{
+			result = (cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg_sf);
+			break;
+		}
+		case 4:
+		{
+			result = cpu_get_register_bit_16(reg_ms, mask_ms_bn);
+			break;
+		}
+		case 16:
+		{
+			result = cpu_get_register_64(reg_d);
+			break;
+		}
+		case 17:
+		{
+			result = cpu_get_register_64(reg_xd);
+			break;
+		}
+		case 18:
+		{
+			result = cpu_get_register_32(reg_dt);
+			break;
+		}
+		case 19:
+		{
+			result = cpu_get_register_32(reg_xdt);
+			break;
+		}
+		case 20:
+		{
+			result = cpu_get_register_32(reg_dod);
+			break;
+		}
+		case 32:
+		{
+			result = cpu_get_register_32(reg_b);
+			break;
+		}
+		case 33:
+		{
+			result = cpu_get_register_32(reg_bod);
+			break;
+		}
+		case 34:
+		{
+			result = 0; /* cpu_get_register_32(reg_z); */ /* Z is an "imaginary" register, see p31 of Morris & Ibbett book. Z not implemented for now. */
+			break;
+		}
+		case 36:
+		{
+			result = (cpu_get_register_32(reg_bod) << 32) | cpu_get_register_32(reg_b);
+			break;
+		}
+		case 48:
+		{
+			result = cpu_get_register_64(reg_aex);
+			break;
+		}
+		default:
+		{
+			result = 0;
+			break;
+		}
 	}
 
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "R%hu\n", n);
@@ -843,39 +843,39 @@ static t_uint64 cpu_get_operand(uint16 order)
 
 	switch (k)
 	{
-	case 0:
-	{
-		result = cpu_get_operand_6_bit_literal(order, instructionAddress, &instructionLength);
-		break;
-	}
-	case 1:
-	{
-		result = cpu_get_operand_internal_register(order, instructionAddress, &instructionLength);
-		break;
-	}
-	case 2:
-	{
-		result = cpu_get_operand_variable_32(order, instructionAddress, &instructionLength);
-		break;
-	}
-	case 7:
-	{
-		uint8 extendedKind = (order >> 3) & 0x7;
-
-		if (extendedKind == 0)
+		case 0:
 		{
-			result = cpu_get_operand_extended_literal(order, instructionAddress, &instructionLength);
+			result = cpu_get_operand_6_bit_literal(order, instructionAddress, &instructionLength);
+			break;
 		}
-		else
+		case 1:
+		{
+			result = cpu_get_operand_internal_register(order, instructionAddress, &instructionLength);
+			break;
+		}
+		case 2:
+		{
+			result = cpu_get_operand_variable_32(order, instructionAddress, &instructionLength);
+			break;
+		}
+		case 7:
+		{
+			uint8 extendedKind = (order >> 3) & 0x7;
+
+			if (extendedKind == 0)
+			{
+				result = cpu_get_operand_extended_literal(order, instructionAddress, &instructionLength);
+			}
+			else
+			{
+				cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+			}
+			break;
+		}
+		default:
 		{
 			cpu_set_interrupt(INT_ILLEGAL_ORDERS);
 		}
-		break;
-	}
-	default:
-	{
-		cpu_set_interrupt(INT_ILLEGAL_ORDERS);
-	}
 	}
 
 	cpu_set_register_32(reg_co, instructionAddress + instructionLength);
