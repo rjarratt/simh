@@ -259,11 +259,12 @@ static void cpu_execute_b_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_add(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_sub(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_mul(uint16 order, DISPATCH_ENTRY *innerTable);
-static void cpu_execute_b_div(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_b_div(uint16 order, DISPATCH_ENTRY *innerTable); /* did not exist in real MU5, for HASE simulator comparison */
 static void cpu_execute_b_xor(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_or(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_shift_left(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_and(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_b_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable); /* did not exist in real MU5, for HASE simulator comparison */
 
 /* acc fixed order functions */
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -384,7 +385,7 @@ static DISPATCH_ENTRY bDispatchTable[] =
 	{ cpu_execute_b_or,          NULL },   /* 9 */
 	{ cpu_execute_b_shift_left,  NULL },   /* 10 */
 	{ cpu_execute_b_and,         NULL },   /* 11*/
-	{ cpu_execute_illegal_order, NULL },   /* 12 */
+	{ cpu_execute_b_reverse_div, NULL },   /* 12 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
 	{ cpu_execute_illegal_order, NULL },   /* 13 */
 	{ cpu_execute_illegal_order, NULL },   /* 14 */
 	{ cpu_execute_illegal_order, NULL },   /* 15 */
@@ -1167,6 +1168,23 @@ static void cpu_execute_b_and(uint16 order, DISPATCH_ENTRY *innerTable)
 	t_uint64 andand = cpu_get_operand(order) & 0xFFFFFFFF;
 	t_uint64 result = andend & andand;
 	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+}
+
+/* MU5 Basic Programming Manual lists this as a dummy order so implementation is a guess */
+static void cpu_execute_b_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B RDIV ");
+	t_int64 divisor = cpu_get_register_32(reg_b);
+	t_int64 dividend = cpu_get_operand(order) & 0xFFFFFFFF;
+	if (divisor == 0)
+	{
+		cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
+	}
+	else
+	{
+		t_int64 result = dividend / divisor;
+		cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+	}
 }
 
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable)
