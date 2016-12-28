@@ -385,10 +385,10 @@ static DISPATCH_ENTRY bDispatchTable[] =
 	{ cpu_execute_b_or,          NULL },   /* 9 */
 	{ cpu_execute_b_shift_left,  NULL },   /* 10 */
 	{ cpu_execute_b_and,         NULL },   /* 11*/
-	{ cpu_execute_b_reverse_div, NULL },   /* 12 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
+	{ cpu_execute_illegal_order, NULL },   /* 12 */
 	{ cpu_execute_illegal_order, NULL },   /* 13 */
 	{ cpu_execute_illegal_order, NULL },   /* 14 */
-	{ cpu_execute_illegal_order, NULL },   /* 15 */
+	{ cpu_execute_b_reverse_div, NULL },   /* 15 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
 };
 
 static DISPATCH_ENTRY accFixedDispatchTable[] =
