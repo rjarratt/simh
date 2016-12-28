@@ -253,6 +253,7 @@ static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *inn
 static void cpu_check_b_overflow(t_uint64 result);
 static void cpu_execute_b_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_add(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_b_mul(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* acc fixed order functions */
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -367,7 +368,7 @@ static DISPATCH_ENTRY bDispatchTable[] =
 	{ cpu_execute_illegal_order, NULL },   /* 3 */
 	{ cpu_execute_b_add,         NULL },   /* 4 */
 	{ cpu_execute_illegal_order, NULL },   /* 5 */
-	{ cpu_execute_illegal_order, NULL },   /* 6 */
+	{ cpu_execute_b_mul,         NULL },   /* 6 */
 	{ cpu_execute_illegal_order, NULL },   /* 7 */
 	{ cpu_execute_illegal_order, NULL },   /* 8 */
 	{ cpu_execute_illegal_order, NULL },   /* 9 */
@@ -1042,6 +1043,16 @@ static void cpu_execute_b_add(uint16 order, DISPATCH_ENTRY *innerTable)
 	t_int64 add = cpu_get_register_32(reg_b);
 	t_int64 addend = cpu_get_operand(order) & 0xFFFFFFFF;
 	t_int64 result = add + addend;
+	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+	cpu_check_b_overflow(result);
+}
+
+static void cpu_execute_b_mul(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B* ");
+	t_int64 mul = cpu_get_register_32(reg_b);
+	t_int64 multiplier = cpu_get_operand(order) & 0xFFFFFFFF;
+	t_int64 result = mul * multiplier;
 	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
 	cpu_check_b_overflow(result);
 }
