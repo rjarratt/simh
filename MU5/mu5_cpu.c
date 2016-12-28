@@ -260,6 +260,7 @@ static void cpu_execute_b_add(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_sub(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_mul(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_div(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_b_xor(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* acc fixed order functions */
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -376,7 +377,7 @@ static DISPATCH_ENTRY bDispatchTable[] =
 	{ cpu_execute_b_sub,         NULL },   /* 5 */
 	{ cpu_execute_b_mul,         NULL },   /* 6 */
 	{ cpu_execute_b_div,         NULL },   /* 7 */
-	{ cpu_execute_illegal_order, NULL },   /* 8 */
+	{ cpu_execute_b_xor,         NULL },   /* 8 */
 	{ cpu_execute_illegal_order, NULL },   /* 9 */
 	{ cpu_execute_illegal_order, NULL },   /* 10 */
 	{ cpu_execute_illegal_order, NULL },   /* 11*/
@@ -745,7 +746,7 @@ static uint16 cpu_get_k(uint16 order)
 static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
 	t_uint64 result = 0;
-	result = order & 0x7F;
+	result = order & 0x3F;
 	result |= (result & 0x40) ? -1 : 0; /* sign extend */
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "%lld\n", result);
 	return result;
@@ -796,7 +797,7 @@ static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructio
 static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
 	t_addr result;
-	uint8 n = order & 0x7;
+	uint8 n = order & 0x3F;
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 %hu\n", n);
 	result = cpu_get_register_16(reg_nb) + n;
 
@@ -1126,6 +1127,15 @@ static void cpu_execute_b_div(uint16 order, DISPATCH_ENTRY *innerTable)
 		t_int64 result = dividend / divisor;
 		cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
 	}
+}
+
+static void cpu_execute_b_xor(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B XOR ");
+	t_int64 xorend = cpu_get_register_32(reg_b);
+	t_int64 xorand = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 result = xorend ^ xorand;
+	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
 }
 
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable)
