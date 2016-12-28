@@ -253,6 +253,9 @@ static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTR
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable);
 
+/* store-to-store order functions */
+static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable);
+
 /* B order functions */
 static void cpu_check_b_overflow(t_uint64 result);
 static void cpu_execute_b_load(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -374,6 +377,26 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
 	{ cpu_execute_illegal_order,                  NULL }  /* 63 */
 };
 
+static DISPATCH_ENTRY sts1DispatchTable[] =
+{
+	{ cpu_execute_illegal_order, NULL },   /* 0 */
+	{ cpu_execute_illegal_order, NULL },   /* 1 */
+	{ cpu_execute_sts1_stack,    NULL },   /* 2 */
+	{ cpu_execute_illegal_order, NULL },   /* 3 */
+	{ cpu_execute_illegal_order, NULL },   /* 4 */
+	{ cpu_execute_illegal_order, NULL },   /* 5 */
+	{ cpu_execute_illegal_order, NULL },   /* 6 */
+	{ cpu_execute_illegal_order, NULL },   /* 7 */
+	{ cpu_execute_illegal_order, NULL },   /* 8 */
+	{ cpu_execute_illegal_order, NULL },   /* 9 */
+	{ cpu_execute_illegal_order, NULL },   /* 10 */
+	{ cpu_execute_illegal_order, NULL },   /* 11*/
+	{ cpu_execute_illegal_order, NULL },   /* 12 */
+	{ cpu_execute_illegal_order, NULL },   /* 13 */
+	{ cpu_execute_illegal_order, NULL },   /* 14 */
+	{ cpu_execute_illegal_order, NULL },   /* 15 */
+};
+
 static DISPATCH_ENTRY bDispatchTable[] =
 {
 	{ cpu_execute_b_load,           NULL },   /* 0 */
@@ -437,7 +460,7 @@ static DISPATCH_ENTRY floatingPointDispatchTable[] =
 static DISPATCH_ENTRY crDispatchTable[] =
 {
 	{ cpu_execute_cr_level, organisationalDispatchTable }, /* 0 */
-	{ cpu_execute_cr_level, NULL },                        /* 1 */
+	{ cpu_execute_cr_level, sts1DispatchTable },           /* 1 */
 	{ cpu_execute_cr_level, NULL },                        /* 2 */
 	{ cpu_execute_cr_level, bDispatchTable },              /* 3 */
 	{ cpu_execute_cr_level, NULL },                        /* 4 */
@@ -1065,6 +1088,14 @@ static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *inn
 	t_uint64 newBase = cpu_get_operand(order); /* TODO: the operand may not be a secondary operand - see p59 */
 	cpu_set_register_16(reg_sn, (newBase >> 48) & 0xFFFF);
 	cpu_set_register_16(reg_nb, newBase & 0xFFFE); /* LS bit of NB is always zero */
+}
+
+static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS STACK ");
+	uint16 newSF = cpu_get_register_16(reg_sf) + 2;
+	cpu_set_register_16(reg_sf, newSF);
+	sac_write_32_bit_word(cpu_get_name_segment_address(reg_sf, 0), cpu_get_operand(order) & 0xFFFFFFFF);
 }
 
 static void cpu_check_b_overflow(t_uint64 result)
