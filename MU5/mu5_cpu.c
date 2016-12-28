@@ -234,8 +234,10 @@ static uint16 cpu_get_k(uint16 order);
 static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructionAddress, int *instructionLength);
+static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand(uint16 order);
+static void cpu_set_operand(uint16 order, t_uint64 value);
 static void cpu_execute_next_order(void);
 static void cpu_execute_illegal_order(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_start_interrupt_processing(void);
@@ -252,6 +254,7 @@ static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *inn
 /* B order functions */
 static void cpu_check_b_overflow(t_uint64 result);
 static void cpu_execute_b_load(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_b_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_add(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_mul(uint16 order, DISPATCH_ENTRY *innerTable);
 
@@ -365,7 +368,7 @@ static DISPATCH_ENTRY bDispatchTable[] =
 	{ cpu_execute_b_load,        NULL },   /* 0 */
 	{ cpu_execute_illegal_order, NULL },   /* 1 */
 	{ cpu_execute_illegal_order, NULL },   /* 2 */
-	{ cpu_execute_illegal_order, NULL },   /* 3 */
+	{ cpu_execute_b_store,       NULL },   /* 3 */
 	{ cpu_execute_b_add,         NULL },   /* 4 */
 	{ cpu_execute_illegal_order, NULL },   /* 5 */
 	{ cpu_execute_b_mul,         NULL },   /* 6 */
@@ -787,14 +790,22 @@ static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructio
 	return result;
 }
 
+static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength)
+{
+	t_addr result;
+	uint8 n = order & 0x7;
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 %hu\n", n);
+	result = cpu_get_register_16(reg_nb) + n;
+
+	return result;
+}
+
 static t_uint64 cpu_get_operand_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
 	t_uint64 result = 0;
-	uint8 n = order & 0x7;
 	t_addr addr;
 
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 %hu\n", n);
-	addr = cpu_get_register_16(reg_nb) + n;
+	addr = cpu_get_operand_address_variable_32(order, instructionAddress, instructionLength);
 	result = sac_read_32_bit_word(addr);
 
 	return result;
@@ -943,6 +954,30 @@ static t_uint64 cpu_get_operand(uint16 order)
 	return result;
 }
 
+static void cpu_set_operand(uint16 order, t_uint64 value)
+{
+	t_addr addr;
+	uint8 instructionLength = 1;
+	uint16 k = cpu_get_k(order);
+	uint32 instructionAddress = cpu_get_register_32(reg_co);
+
+	switch (k)
+	{
+		case 2:
+		{
+			addr = cpu_get_operand_address_variable_32(order, instructionAddress, &instructionLength);
+			sac_write_32_bit_word(addr, value & 0xFFFFFFFF);
+			break;
+		}
+		default:
+		{
+			cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+		}
+	}
+
+	cpu_set_register_32(reg_co, instructionAddress + instructionLength);
+}
+
 static void cpu_execute_next_order(void)
 {
 	uint16 order;
@@ -1027,7 +1062,7 @@ static void cpu_check_b_overflow(t_uint64 result)
 	}
 	else
 	{
-		cpu_set_register_bit_32(reg_bod, mask_bod_bovf, 1);
+		cpu_set_register_bit_32(reg_bod, mask_bod_bovf, 0);
 	}
 }
 
@@ -1035,6 +1070,11 @@ static void cpu_execute_b_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B= ");
 	cpu_set_register_32(reg_b, cpu_get_operand(order) & 0xFFFFFFFF);
+}
+static void cpu_execute_b_store(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B=> ");
+	cpu_set_operand(order, cpu_get_register_32(reg_b));
 }
 
 static void cpu_execute_b_add(uint16 order, DISPATCH_ENTRY *innerTable)
