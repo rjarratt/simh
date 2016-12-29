@@ -235,8 +235,11 @@ static uint8 cpu_get_interrupt_number(void);
 static uint16 cpu_get_cr(uint16 order);
 static uint16 cpu_get_f(uint16 order);
 static uint16 cpu_get_k(uint16 order);
+static uint16 cpu_get_extended_k(uint16 order);
+static uint16 cpu_get_extended_n(uint16 order);
 static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructionAddress, int *instructionLength);
+static t_uint64 cpu_get_operand_extended_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
@@ -825,6 +828,18 @@ static uint16 cpu_get_k(uint16 order)
     return k;
 }
 
+static uint16 cpu_get_extended_k(uint16 order)
+{
+    uint16 result = (order >> 3) & 0x7;
+    return result;
+}
+
+static uint16 cpu_get_extended_n(uint16 order)
+{
+    uint16 result = order & 0x3;
+    return result;
+}
+
 static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
     t_uint64 result = 0;
@@ -838,7 +853,7 @@ static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructio
 {
     t_uint64 result = 0;
     int i;
-    uint8 nprime = order & 0x3;
+    uint8 nprime = cpu_get_extended_n(order);
     uint8 unsignedLiteral = (order >> 2) & 0x1;
 
     if (nprime > 2)
@@ -871,6 +886,30 @@ static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructio
     else
     {
         sim_debug(LOG_CPU_DECODE, &cpu_dev, "%lld\n", result);
+    }
+
+    return result;
+}
+
+static t_uint64 cpu_get_operand_extended_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength)
+{
+    t_uint64 result = 0;
+
+    switch (cpu_get_extended_n(order))
+    {
+        case 1:
+        {
+            t_addr addr = sac_read_16_bit_word(instructionAddress + 1);
+            result = sac_read_32_bit_word(addr);
+            *instructionLength += 1;
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 Z %u\n", addr);
+            break;
+        }
+        default:
+        {
+            cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+            break;
+        }
     }
 
     return result;
@@ -1023,16 +1062,25 @@ static t_uint64 cpu_get_operand(uint16 order)
         }
         case 7:
         {
-            uint8 extendedKind = (order >> 3) & 0x7;
+            switch (cpu_get_extended_k(order))
+            {
+                case 0:
+                {
+                    result = cpu_get_operand_extended_literal(order, instructionAddress, &instructionLength);
+                    break;
+                }
+                case 2:
+                {
+                    result = cpu_get_operand_extended_variable_32(order, instructionAddress, &instructionLength);
+                    break;
+                }
+                default:
+                {
+                    cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+                    break;
+                }
+            }
 
-            if (extendedKind == 0)
-            {
-                result = cpu_get_operand_extended_literal(order, instructionAddress, &instructionLength);
-            }
-            else
-            {
-                cpu_set_interrupt(INT_ILLEGAL_ORDERS);
-            }
             break;
         }
         default:
