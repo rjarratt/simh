@@ -31,44 +31,44 @@ static uint32 LocalStore[MAXMEMORY];
 
 t_uint64 sac_read_64_bit_word(t_addr address)
 {
-	t_uint64 result = sac_read_32_bit_word(address + 1) << 32 & sac_read_32_bit_word(address);
-	return result;
+    t_uint64 result = sac_read_32_bit_word(address + 1) << 32 & sac_read_32_bit_word(address);
+    return result;
 }
 
 void sac_write_64_bit_word(t_addr address, t_uint64 value)
 {
-	sac_write_32_bit_word(address, (value >> 32) & 0xFFFFFFFF);
-	sac_write_32_bit_word(address + 1, value & 0xFFFFFFFF);
+    sac_write_32_bit_word(address, (value >> 32) & 0xFFFFFFFF);
+    sac_write_32_bit_word(address + 1, value & 0xFFFFFFFF);
 }
 
 uint32 sac_read_32_bit_word(t_addr address)
 {
-	uint32 result = LocalStore[address];
-	return result;
+    uint32 result = LocalStore[address];
+    return result;
 }
 
 void sac_write_32_bit_word(t_addr address, uint32 value)
 {
-	LocalStore[address] = value;
+    LocalStore[address] = value;
 }
 
 uint16 sac_read_16_bit_word(t_addr address)
 {
-	uint32 fullWord = sac_read_32_bit_word(address >> 1);
-	uint16 result = (address & 1) ? fullWord >> 16 : fullWord & 0xFFFF;
-	return result;
+    uint32 fullWord = sac_read_32_bit_word(address >> 1);
+    uint16 result = (address & 1) ? fullWord >> 16 : fullWord & 0xFFFF;
+    return result;
 }
 
 void sac_write_16_bit_word(t_addr address, uint16 value)
 {
-	uint32 fullWord = sac_read_32_bit_word(address >> 1);
-	if (address & 1)
-	{
-		fullWord = (value << 16) | (fullWord & 0xFFFF);
-	}
-	else
-	{
-		fullWord = (fullWord & 0xFFFF0000) | value;
-	}
-	sac_write_32_bit_word(address >> 1, fullWord);
+    uint32 fullWord = sac_read_32_bit_word(address >> 1);
+    if (address & 1)
+    {
+        fullWord = (value << 16) | (fullWord & 0xFFFF);
+    }
+    else
+    {
+        fullWord = (fullWord & 0xFFFF0000) | value;
+    }
+    sac_write_32_bit_word(address >> 1, fullWord);
 }

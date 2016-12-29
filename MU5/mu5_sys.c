@@ -35,7 +35,7 @@ DEVICE *sim_devices[] = { &cpu_dev, NULL };
 
 const char *sim_stop_messages[] =
 {
-	"Terminated"
+    "Terminated"
 };
 
 

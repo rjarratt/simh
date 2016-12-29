@@ -43,8 +43,8 @@ B DIV implementation is a guess (not defined in MU5 Basic Programming Manual)
 */
 typedef struct DISPATCH_ENTRY
 {
-	void (*execute)(uint16 order, struct DISPATCH_ENTRY *innerTable);
-	struct DISPATCH_ENTRY *innerTable;
+    void (*execute)(uint16 order, struct DISPATCH_ENTRY *innerTable);
+    struct DISPATCH_ENTRY *innerTable;
 } DISPATCH_ENTRY;
 
 /* The CPU did not have a STOP instruction. For the purposes of emulation I want to be able to stop it anyway so the emulation stops.
@@ -72,58 +72,58 @@ int32 sim_emax;
 
 UNIT cpu_unit =
 {
-	UDATA(NULL, UNIT_FIX | UNIT_BINK, MAXMEMORY)
+    UDATA(NULL, UNIT_FIX | UNIT_BINK, MAXMEMORY)
 };
 
 BITFIELD aod_bits[] = {
-	BIT(DBLLEN),  /* Double length +/- */
-	BIT(IROUND),  /* Inhibit rounding */
-	BIT(ZDIV),    /* Zero divide indicator */
-	BIT(DECOVF),  /* Decimal overflow indicator */
-	BIT(FXPOVF),  /* Fixed point overflow indicator */
-	BIT(FLPUNF),  /* Floating point underflow indicator */
-	BIT(FLPOVF),  /* Floating point overflow indicator */
-	BIT(IZDIV),   /* Inhibit zero divide interrupt */
-	BIT(IDECOVF), /* Inhibit decimal overflow interrupt */
-	BIT(IFXPOVF), /* Inhibit fixed point overflow interrupt */
-	BIT(IFLPUNF), /* Inhibit floating point underflow interrupt */
-	BIT(IFLPOVF), /* Inhibit floating point overflow interrupt */
-	BIT(OPSIZ64), /* Operand size (0/1 meaning 32/64 bits */
-	BITNCF(51),    
-	ENDBITS
+    BIT(DBLLEN),  /* Double length +/- */
+    BIT(IROUND),  /* Inhibit rounding */
+    BIT(ZDIV),    /* Zero divide indicator */
+    BIT(DECOVF),  /* Decimal overflow indicator */
+    BIT(FXPOVF),  /* Fixed point overflow indicator */
+    BIT(FLPUNF),  /* Floating point underflow indicator */
+    BIT(FLPOVF),  /* Floating point overflow indicator */
+    BIT(IZDIV),   /* Inhibit zero divide interrupt */
+    BIT(IDECOVF), /* Inhibit decimal overflow interrupt */
+    BIT(IFXPOVF), /* Inhibit fixed point overflow interrupt */
+    BIT(IFLPUNF), /* Inhibit floating point underflow interrupt */
+    BIT(IFLPOVF), /* Inhibit floating point overflow interrupt */
+    BIT(OPSIZ64), /* Operand size (0/1 meaning 32/64 bits */
+    BITNCF(51),    
+    ENDBITS
 };
 
 static t_uint64 mask_aod_opsiz64 = 0xFFFFFFFFFFFFEFFF;
 
 BITFIELD bod_bits[] = {
-	BIT(IBOVF),  /* Inhibit B overflow interrupt */
-	BITNCF(4),
-	BIT(BOVF),   /* B Overflow */
-	BITNCF(26),
-	ENDBITS
+    BIT(IBOVF),  /* Inhibit B overflow interrupt */
+    BITNCF(4),
+    BIT(BOVF),   /* B Overflow */
+    BITNCF(26),
+    ENDBITS
 };
 
 static t_uint64 mask_bod_bovf = 0xFFFFFFDF;
 static t_uint64 mask_bod_ibovf = 0xFFFFFFFE;
 
 BITFIELD ms_bits[] = {
-	BIT(L0IF),    /* Level 0 interrupt flip-flop */
-	BIT(L1IF),    /* Level 1 interrupt flip-flop */
-	BIT(EXEC),    /* Exec Mode flip-flop */
-	BIT(AF),      /* A faults to System Error in Exec Mode */
-	BIT(BDF),     /* B and D faults to System Error in Exec Mode */
-	BIT(ICI),     /* Instruction counter inhibit */
-	BIT(BNS),     /* Bypass name store */
-	BIT(BCPR),    /* Bypass CPRs */
-				  
-	BIT(BN),      /* Boolean */
-	BIT(T2),      /* T2 - less than 0 */
-	BIT(T1),      /* T1 - not equal 0 */
-	BIT(T0),      /* T0 - overflow */
-	BITNCF(2),    /* Spare in section 6, SPM & Spare in section 7 */
-	BIT(IPF),     /* Inhibit program fault interrupts */
-	BIT(DS),      /* Force DR instead of S */
-	ENDBITS
+    BIT(L0IF),    /* Level 0 interrupt flip-flop */
+    BIT(L1IF),    /* Level 1 interrupt flip-flop */
+    BIT(EXEC),    /* Exec Mode flip-flop */
+    BIT(AF),      /* A faults to System Error in Exec Mode */
+    BIT(BDF),     /* B and D faults to System Error in Exec Mode */
+    BIT(ICI),     /* Instruction counter inhibit */
+    BIT(BNS),     /* Bypass name store */
+    BIT(BCPR),    /* Bypass CPRs */
+                  
+    BIT(BN),      /* Boolean */
+    BIT(T2),      /* T2 - less than 0 */
+    BIT(T1),      /* T1 - not equal 0 */
+    BIT(T0),      /* T0 - overflow */
+    BITNCF(2),    /* Spare in section 6, SPM & Spare in section 7 */
+    BIT(IPF),     /* Inhibit program fault interrupts */
+    BIT(DS),      /* Force DR instead of S */
+    ENDBITS
 };
 
 static uint16 mask_ms_bn = 0xFFFFFEFF;
@@ -149,24 +149,24 @@ static uint32 reg_xdt_backing_value;   /* XDT Register */
 
 static REG cpu_reg[] =
 {
-	{ HRDATAD(B,    reg_b_backing_value,       32,    "B register") },
-	{ GRDATADF(BOD, reg_bod_backing_value, 16, 32, 0, "BOD register", bod_bits) },
-	{ HRDATAD(A,    reg_a_backing_value,       64,    "Accumulator") },
-	{ GRDATADF(AOD, reg_aod_backing_value, 16, 64, 0, "AOD register", aod_bits) },
-	{ HRDATAD(AEX,  reg_aex_backing_value,     64,    "Accumulator extension") },
-	{ HRDATAD(X,    reg_x_backing_value,       32,    "X register") },
-	{ GRDATADF(MS,  reg_ms_backing_value, 16,  16, 0, "Machine status register", ms_bits) },
-	{ HRDATAD(NB,   reg_nb_backing_value,      16,    "Name Base register") },
-	{ HRDATAD(XNB,  reg_xnb_backing_value,     32,    "X register") },
-	{ HRDATAD(SN,   reg_sn_backing_value,      16,    "Name Segment Number register") },
-	{ HRDATAD(SF,   reg_sf_backing_value,      16,    "Stack Front register") },
-	{ HRDATAD(CO,   reg_co_backing_value,      32,    "Program counter") },
-	{ HRDATAD(D,    reg_d_backing_value,       64,    "Data descriptor register") },
-	{ HRDATAD(XD,   reg_xd_backing_value,      64,    "XD register") },
-	{ HRDATAD(DOD,  reg_dod_backing_value,     32,    "DOD register") },
-	{ HRDATAD(DT,   reg_dt_backing_value,      32,    "DT register") },
-	{ HRDATAD(XDT,  reg_xdt_backing_value,     32,    "XDT register") },
-	{ NULL }
+    { HRDATAD(B,    reg_b_backing_value,       32,    "B register") },
+    { GRDATADF(BOD, reg_bod_backing_value, 16, 32, 0, "BOD register", bod_bits) },
+    { HRDATAD(A,    reg_a_backing_value,       64,    "Accumulator") },
+    { GRDATADF(AOD, reg_aod_backing_value, 16, 64, 0, "AOD register", aod_bits) },
+    { HRDATAD(AEX,  reg_aex_backing_value,     64,    "Accumulator extension") },
+    { HRDATAD(X,    reg_x_backing_value,       32,    "X register") },
+    { GRDATADF(MS,  reg_ms_backing_value, 16,  16, 0, "Machine status register", ms_bits) },
+    { HRDATAD(NB,   reg_nb_backing_value,      16,    "Name Base register") },
+    { HRDATAD(XNB,  reg_xnb_backing_value,     32,    "X register") },
+    { HRDATAD(SN,   reg_sn_backing_value,      16,    "Name Segment Number register") },
+    { HRDATAD(SF,   reg_sf_backing_value,      16,    "Stack Front register") },
+    { HRDATAD(CO,   reg_co_backing_value,      32,    "Program counter") },
+    { HRDATAD(D,    reg_d_backing_value,       64,    "Data descriptor register") },
+    { HRDATAD(XD,   reg_xd_backing_value,      64,    "XD register") },
+    { HRDATAD(DOD,  reg_dod_backing_value,     32,    "DOD register") },
+    { HRDATAD(DT,   reg_dt_backing_value,      32,    "DT register") },
+    { HRDATAD(XDT,  reg_xdt_backing_value,     32,    "XDT register") },
+    { NULL }
 };
 
 REG *reg_b    = &cpu_reg[0];
@@ -192,20 +192,20 @@ REG *sim_PC = &cpu_reg[11];
 
 static MTAB cpu_mod[] =
 {
-	{ 0 }
+    { 0 }
 };
 
 /* Debug Flags */
 static DEBTAB cpu_debtab[] =
 {
-	{ "PERF",    LOG_CPU_PERF,      "CPU performance" },
-	{ "EVENT",   SIM_DBG_EVENT,     "event dispatch activities" },
-	{ "DECODE",  LOG_CPU_DECODE,    "decode instructions" },
-	{ NULL,         0 }
+    { "PERF",    LOG_CPU_PERF,      "CPU performance" },
+    { "EVENT",   SIM_DBG_EVENT,     "event dispatch activities" },
+    { "DECODE",  LOG_CPU_DECODE,    "decode instructions" },
+    { NULL,         0 }
 };
 
 static const char* cpu_description(DEVICE *dptr) {
-	return "Central Processing Unit";
+    return "Central Processing Unit";
 }
 
 t_stat sim_instr(void);
@@ -297,1139 +297,1139 @@ static void cpu_execute_flp_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTa
 static void cpu_execute_flp_store(uint16 order, DISPATCH_ENTRY *innerTable);
 
 DEVICE cpu_dev = {
-	"CPU",            /* name */
-	&cpu_unit,        /* units */
-	cpu_reg,          /* registers */
-	cpu_mod,          /* modifiers */
-	1,                /* numunits */
-	16,               /* aradix */
-	16,               /* awidth */
-	1,                /* aincr */
-	16,               /* dradix */
-	32,               /* dwidth */
-	&cpu_ex,          /* examine */
-	&cpu_dep,         /* deposit */
-	&cpu_reset,       /* reset */
-	NULL,             /* boot */
-	NULL,             /* attach */
-	NULL,             /* detach */
-	NULL,             /* ctxt */
-	DEV_DEBUG,        /* flags */
-	0,                /* dctrl */
-	cpu_debtab,       /* debflags */
-	NULL,             /* msize */
-	NULL,             /* lname */
-	NULL,             /* help */
-	NULL,             /* attach_help */
-	NULL,             /* help_ctx */
-	&cpu_description, /* description */
-	NULL              /* brk_types */
+    "CPU",            /* name */
+    &cpu_unit,        /* units */
+    cpu_reg,          /* registers */
+    cpu_mod,          /* modifiers */
+    1,                /* numunits */
+    16,               /* aradix */
+    16,               /* awidth */
+    1,                /* aincr */
+    16,               /* dradix */
+    32,               /* dwidth */
+    &cpu_ex,          /* examine */
+    &cpu_dep,         /* deposit */
+    &cpu_reset,       /* reset */
+    NULL,             /* boot */
+    NULL,             /* attach */
+    NULL,             /* detach */
+    NULL,             /* ctxt */
+    DEV_DEBUG,        /* flags */
+    0,                /* dctrl */
+    cpu_debtab,       /* debflags */
+    NULL,             /* msize */
+    NULL,             /* lname */
+    NULL,             /* help */
+    NULL,             /* attach_help */
+    NULL,             /* help_ctx */
+    &cpu_description, /* description */
+    NULL              /* brk_types */
 };
 
 static DISPATCH_ENTRY organisationalDispatchTable[] =
 {
-	{ cpu_execute_organisational_relative_jump,   NULL }, /* 0 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 1 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 2 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 3 */
-	{ cpu_execute_organisational_absolute_jump,   NULL }, /* 4 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 5 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 6 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 7 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 8 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 9 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 10 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 11*/
-	{ cpu_execute_illegal_order,                  NULL }, /* 12 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 13 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 14 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 15 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 16 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 17 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 18 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 19 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 20 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 21 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 22 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 23 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 24 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 25 */
-	{ cpu_execute_organisational_SF_load_NB_plus, NULL }, /* 26 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 27 */
-	{ cpu_execute_organisational_NB_load,         NULL }, /* 28 */
-	{ cpu_execute_organisational_NB_load_SF_plus, NULL }, /* 29 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 30 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 31 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 32 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 33 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 34 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 35 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 36 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 37 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 38 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 39 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 40 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 41 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 42 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 43 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 44 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 45 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 46 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 47 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 48 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 49 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 50 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 51 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 52 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 53 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 54 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 55 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 56 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 57 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 58 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 59 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 60 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 61 */
-	{ cpu_execute_illegal_order,                  NULL }, /* 62 */
-	{ cpu_execute_illegal_order,                  NULL }  /* 63 */
+    { cpu_execute_organisational_relative_jump,   NULL }, /* 0 */
+    { cpu_execute_illegal_order,                  NULL }, /* 1 */
+    { cpu_execute_illegal_order,                  NULL }, /* 2 */
+    { cpu_execute_illegal_order,                  NULL }, /* 3 */
+    { cpu_execute_organisational_absolute_jump,   NULL }, /* 4 */
+    { cpu_execute_illegal_order,                  NULL }, /* 5 */
+    { cpu_execute_illegal_order,                  NULL }, /* 6 */
+    { cpu_execute_illegal_order,                  NULL }, /* 7 */
+    { cpu_execute_illegal_order,                  NULL }, /* 8 */
+    { cpu_execute_illegal_order,                  NULL }, /* 9 */
+    { cpu_execute_illegal_order,                  NULL }, /* 10 */
+    { cpu_execute_illegal_order,                  NULL }, /* 11*/
+    { cpu_execute_illegal_order,                  NULL }, /* 12 */
+    { cpu_execute_illegal_order,                  NULL }, /* 13 */
+    { cpu_execute_illegal_order,                  NULL }, /* 14 */
+    { cpu_execute_illegal_order,                  NULL }, /* 15 */
+    { cpu_execute_illegal_order,                  NULL }, /* 16 */
+    { cpu_execute_illegal_order,                  NULL }, /* 17 */
+    { cpu_execute_illegal_order,                  NULL }, /* 18 */
+    { cpu_execute_illegal_order,                  NULL }, /* 19 */
+    { cpu_execute_illegal_order,                  NULL }, /* 20 */
+    { cpu_execute_illegal_order,                  NULL }, /* 21 */
+    { cpu_execute_illegal_order,                  NULL }, /* 22 */
+    { cpu_execute_illegal_order,                  NULL }, /* 23 */
+    { cpu_execute_illegal_order,                  NULL }, /* 24 */
+    { cpu_execute_illegal_order,                  NULL }, /* 25 */
+    { cpu_execute_organisational_SF_load_NB_plus, NULL }, /* 26 */
+    { cpu_execute_illegal_order,                  NULL }, /* 27 */
+    { cpu_execute_organisational_NB_load,         NULL }, /* 28 */
+    { cpu_execute_organisational_NB_load_SF_plus, NULL }, /* 29 */
+    { cpu_execute_illegal_order,                  NULL }, /* 30 */
+    { cpu_execute_illegal_order,                  NULL }, /* 31 */
+    { cpu_execute_illegal_order,                  NULL }, /* 32 */
+    { cpu_execute_illegal_order,                  NULL }, /* 33 */
+    { cpu_execute_illegal_order,                  NULL }, /* 34 */
+    { cpu_execute_illegal_order,                  NULL }, /* 35 */
+    { cpu_execute_illegal_order,                  NULL }, /* 36 */
+    { cpu_execute_illegal_order,                  NULL }, /* 37 */
+    { cpu_execute_illegal_order,                  NULL }, /* 38 */
+    { cpu_execute_illegal_order,                  NULL }, /* 39 */
+    { cpu_execute_illegal_order,                  NULL }, /* 40 */
+    { cpu_execute_illegal_order,                  NULL }, /* 41 */
+    { cpu_execute_illegal_order,                  NULL }, /* 42 */
+    { cpu_execute_illegal_order,                  NULL }, /* 43 */
+    { cpu_execute_illegal_order,                  NULL }, /* 44 */
+    { cpu_execute_illegal_order,                  NULL }, /* 45 */
+    { cpu_execute_illegal_order,                  NULL }, /* 46 */
+    { cpu_execute_illegal_order,                  NULL }, /* 47 */
+    { cpu_execute_illegal_order,                  NULL }, /* 48 */
+    { cpu_execute_illegal_order,                  NULL }, /* 49 */
+    { cpu_execute_illegal_order,                  NULL }, /* 50 */
+    { cpu_execute_illegal_order,                  NULL }, /* 51 */
+    { cpu_execute_illegal_order,                  NULL }, /* 52 */
+    { cpu_execute_illegal_order,                  NULL }, /* 53 */
+    { cpu_execute_illegal_order,                  NULL }, /* 54 */
+    { cpu_execute_illegal_order,                  NULL }, /* 55 */
+    { cpu_execute_illegal_order,                  NULL }, /* 56 */
+    { cpu_execute_illegal_order,                  NULL }, /* 57 */
+    { cpu_execute_illegal_order,                  NULL }, /* 58 */
+    { cpu_execute_illegal_order,                  NULL }, /* 59 */
+    { cpu_execute_illegal_order,                  NULL }, /* 60 */
+    { cpu_execute_illegal_order,                  NULL }, /* 61 */
+    { cpu_execute_illegal_order,                  NULL }, /* 62 */
+    { cpu_execute_illegal_order,                  NULL }  /* 63 */
 };
 
 static DISPATCH_ENTRY sts1DispatchTable[] =
 {
-	{ cpu_execute_illegal_order, NULL },   /* 0 */
-	{ cpu_execute_illegal_order, NULL },   /* 1 */
-	{ cpu_execute_sts1_stack,    NULL },   /* 2 */
-	{ cpu_execute_illegal_order, NULL },   /* 3 */
-	{ cpu_execute_illegal_order, NULL },   /* 4 */
-	{ cpu_execute_illegal_order, NULL },   /* 5 */
-	{ cpu_execute_illegal_order, NULL },   /* 6 */
-	{ cpu_execute_illegal_order, NULL },   /* 7 */
-	{ cpu_execute_illegal_order, NULL },   /* 8 */
-	{ cpu_execute_illegal_order, NULL },   /* 9 */
-	{ cpu_execute_illegal_order, NULL },   /* 10 */
-	{ cpu_execute_illegal_order, NULL },   /* 11*/
-	{ cpu_execute_illegal_order, NULL },   /* 12 */
-	{ cpu_execute_illegal_order, NULL },   /* 13 */
-	{ cpu_execute_illegal_order, NULL },   /* 14 */
-	{ cpu_execute_illegal_order, NULL },   /* 15 */
+    { cpu_execute_illegal_order, NULL },   /* 0 */
+    { cpu_execute_illegal_order, NULL },   /* 1 */
+    { cpu_execute_sts1_stack,    NULL },   /* 2 */
+    { cpu_execute_illegal_order, NULL },   /* 3 */
+    { cpu_execute_illegal_order, NULL },   /* 4 */
+    { cpu_execute_illegal_order, NULL },   /* 5 */
+    { cpu_execute_illegal_order, NULL },   /* 6 */
+    { cpu_execute_illegal_order, NULL },   /* 7 */
+    { cpu_execute_illegal_order, NULL },   /* 8 */
+    { cpu_execute_illegal_order, NULL },   /* 9 */
+    { cpu_execute_illegal_order, NULL },   /* 10 */
+    { cpu_execute_illegal_order, NULL },   /* 11*/
+    { cpu_execute_illegal_order, NULL },   /* 12 */
+    { cpu_execute_illegal_order, NULL },   /* 13 */
+    { cpu_execute_illegal_order, NULL },   /* 14 */
+    { cpu_execute_illegal_order, NULL },   /* 15 */
 };
 
 static DISPATCH_ENTRY bDispatchTable[] =
 {
-	{ cpu_execute_b_load,           NULL },   /* 0 */
-	{ cpu_execute_illegal_order,    NULL },   /* 1 */
-	{ cpu_execute_b_stack_and_load, NULL },   /* 2 */
-	{ cpu_execute_b_store,          NULL },   /* 3 */
-	{ cpu_execute_b_add,            NULL },   /* 4 */
-	{ cpu_execute_b_sub,            NULL },   /* 5 */
-	{ cpu_execute_b_mul,            NULL },   /* 6 */
-	{ cpu_execute_b_div,            NULL },   /* 7 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
-	{ cpu_execute_b_xor,            NULL },   /* 8 */
-	{ cpu_execute_b_or,             NULL },   /* 9 */
-	{ cpu_execute_b_shift_left,     NULL },   /* 10 */
-	{ cpu_execute_b_and,            NULL },   /* 11*/
-	{ cpu_execute_b_reverse_sub,    NULL },   /* 12 */
-	{ cpu_execute_illegal_order,    NULL },   /* 13 */
-	{ cpu_execute_illegal_order,    NULL },   /* 14 */
-	{ cpu_execute_b_reverse_div,    NULL },   /* 15 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
+    { cpu_execute_b_load,           NULL },   /* 0 */
+    { cpu_execute_illegal_order,    NULL },   /* 1 */
+    { cpu_execute_b_stack_and_load, NULL },   /* 2 */
+    { cpu_execute_b_store,          NULL },   /* 3 */
+    { cpu_execute_b_add,            NULL },   /* 4 */
+    { cpu_execute_b_sub,            NULL },   /* 5 */
+    { cpu_execute_b_mul,            NULL },   /* 6 */
+    { cpu_execute_b_div,            NULL },   /* 7 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
+    { cpu_execute_b_xor,            NULL },   /* 8 */
+    { cpu_execute_b_or,             NULL },   /* 9 */
+    { cpu_execute_b_shift_left,     NULL },   /* 10 */
+    { cpu_execute_b_and,            NULL },   /* 11*/
+    { cpu_execute_b_reverse_sub,    NULL },   /* 12 */
+    { cpu_execute_illegal_order,    NULL },   /* 13 */
+    { cpu_execute_illegal_order,    NULL },   /* 14 */
+    { cpu_execute_b_reverse_div,    NULL },   /* 15 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
 };
 
 static DISPATCH_ENTRY accFixedDispatchTable[] =
 {
-	{ cpu_execute_illegal_order,         NULL }, /* 0 */
-	{ cpu_execute_illegal_order,         NULL }, /* 1 */
-	{ cpu_execute_illegal_order,         NULL }, /* 2 */
-	{ cpu_execute_illegal_order,         NULL }, /* 3 */
-	{ cpu_execute_acc_fixed_add,         NULL }, /* 4 */
-	{ cpu_execute_acc_fixed_sub,         NULL }, /* 5 */
-	{ cpu_execute_acc_fixed_mul,         NULL }, /* 6 */
-	{ cpu_execute_acc_fixed_div,         NULL }, /* 7 */
-	{ cpu_execute_acc_fixed_xor,         NULL }, /* 8 */
-	{ cpu_execute_acc_fixed_or,          NULL }, /* 9 */
-	{ cpu_execute_acc_fixed_shift_left,  NULL }, /* 10 */
-	{ cpu_execute_acc_fixed_and,         NULL }, /* 11*/
-	{ cpu_execute_acc_fixed_reverse_sub, NULL }, /* 12 */
-	{ cpu_execute_illegal_order,         NULL }, /* 13 */
-	{ cpu_execute_illegal_order,         NULL }, /* 14 */
-	{ cpu_execute_acc_fixed_reverse_div, NULL }, /* 15 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
+    { cpu_execute_illegal_order,         NULL }, /* 0 */
+    { cpu_execute_illegal_order,         NULL }, /* 1 */
+    { cpu_execute_illegal_order,         NULL }, /* 2 */
+    { cpu_execute_illegal_order,         NULL }, /* 3 */
+    { cpu_execute_acc_fixed_add,         NULL }, /* 4 */
+    { cpu_execute_acc_fixed_sub,         NULL }, /* 5 */
+    { cpu_execute_acc_fixed_mul,         NULL }, /* 6 */
+    { cpu_execute_acc_fixed_div,         NULL }, /* 7 */
+    { cpu_execute_acc_fixed_xor,         NULL }, /* 8 */
+    { cpu_execute_acc_fixed_or,          NULL }, /* 9 */
+    { cpu_execute_acc_fixed_shift_left,  NULL }, /* 10 */
+    { cpu_execute_acc_fixed_and,         NULL }, /* 11*/
+    { cpu_execute_acc_fixed_reverse_sub, NULL }, /* 12 */
+    { cpu_execute_illegal_order,         NULL }, /* 13 */
+    { cpu_execute_illegal_order,         NULL }, /* 14 */
+    { cpu_execute_acc_fixed_reverse_div, NULL }, /* 15 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
 };
 
 static DISPATCH_ENTRY floatingPointDispatchTable[] =
 {
-	{ cpu_execute_flp_load_single,    NULL }, /* 0 */
-	{ cpu_execute_flp_load_double,    NULL }, /* 1 */
-	{ cpu_execute_flp_stack_and_load, NULL }, /* 2 */
-	{ cpu_execute_flp_store,          NULL }, /* 3 */
-	{ cpu_execute_illegal_order,      NULL }, /* 4 */
-	{ cpu_execute_illegal_order,      NULL }, /* 5 */
-	{ cpu_execute_illegal_order,      NULL }, /* 6 */
-	{ cpu_execute_illegal_order,      NULL }, /* 7 */
-	{ cpu_execute_illegal_order,      NULL }, /* 8 */
-	{ cpu_execute_illegal_order,      NULL }, /* 9 */
-	{ cpu_execute_illegal_order,      NULL }, /* 10 */
-	{ cpu_execute_illegal_order,      NULL }, /* 11*/
-	{ cpu_execute_illegal_order,      NULL }, /* 12 */
-	{ cpu_execute_illegal_order,      NULL }, /* 13 */
-	{ cpu_execute_illegal_order,      NULL }, /* 14 */
-	{ cpu_execute_illegal_order,      NULL }, /* 15 */
+    { cpu_execute_flp_load_single,    NULL }, /* 0 */
+    { cpu_execute_flp_load_double,    NULL }, /* 1 */
+    { cpu_execute_flp_stack_and_load, NULL }, /* 2 */
+    { cpu_execute_flp_store,          NULL }, /* 3 */
+    { cpu_execute_illegal_order,      NULL }, /* 4 */
+    { cpu_execute_illegal_order,      NULL }, /* 5 */
+    { cpu_execute_illegal_order,      NULL }, /* 6 */
+    { cpu_execute_illegal_order,      NULL }, /* 7 */
+    { cpu_execute_illegal_order,      NULL }, /* 8 */
+    { cpu_execute_illegal_order,      NULL }, /* 9 */
+    { cpu_execute_illegal_order,      NULL }, /* 10 */
+    { cpu_execute_illegal_order,      NULL }, /* 11*/
+    { cpu_execute_illegal_order,      NULL }, /* 12 */
+    { cpu_execute_illegal_order,      NULL }, /* 13 */
+    { cpu_execute_illegal_order,      NULL }, /* 14 */
+    { cpu_execute_illegal_order,      NULL }, /* 15 */
 };
 
 static DISPATCH_ENTRY crDispatchTable[] =
 {
-	{ cpu_execute_cr_level, organisationalDispatchTable }, /* 0 */
-	{ cpu_execute_cr_level, sts1DispatchTable },           /* 1 */
-	{ cpu_execute_cr_level, NULL },                        /* 2 */
-	{ cpu_execute_cr_level, bDispatchTable },              /* 3 */
-	{ cpu_execute_cr_level, NULL },                        /* 4 */
-	{ cpu_execute_cr_level, accFixedDispatchTable },       /* 5 */
-	{ cpu_execute_cr_level, NULL },                        /* 6 */
-	{ cpu_execute_cr_level, floatingPointDispatchTable }   /* 7 */
+    { cpu_execute_cr_level, organisationalDispatchTable }, /* 0 */
+    { cpu_execute_cr_level, sts1DispatchTable },           /* 1 */
+    { cpu_execute_cr_level, NULL },                        /* 2 */
+    { cpu_execute_cr_level, bDispatchTable },              /* 3 */
+    { cpu_execute_cr_level, NULL },                        /* 4 */
+    { cpu_execute_cr_level, accFixedDispatchTable },       /* 5 */
+    { cpu_execute_cr_level, NULL },                        /* 6 */
+    { cpu_execute_cr_level, floatingPointDispatchTable }   /* 7 */
 };
 
 t_stat sim_instr(void)
 {
-	t_stat reason = SCPE_OK;
-	cpu_stopped = 0;
+    t_stat reason = SCPE_OK;
+    cpu_stopped = 0;
 
-	while (!cpu_stopped)
-	{
-		if (sim_interval <= 0)
-		{
+    while (!cpu_stopped)
+    {
+        if (sim_interval <= 0)
+        {
 #if !UNIX_PLATFORM
-			if ((reason = sim_poll_kbd()) == SCPE_STOP) {   /* poll on platforms without reliable signalling */
-				break;
-			}
+            if ((reason = sim_poll_kbd()) == SCPE_STOP) {   /* poll on platforms without reliable signalling */
+                break;
+            }
 #endif
-			if ((reason = sim_process_event()) != SCPE_OK)
-			{
-				break;
-			}
-		}
+            if ((reason = sim_process_event()) != SCPE_OK)
+            {
+                break;
+            }
+        }
 
-		cpu_execute_next_order();
+        cpu_execute_next_order();
 
-		sim_interval--;
-	}
+        sim_interval--;
+    }
 
-	if (cpu_stopped)
-	{
-		reason = SCPE_STOP;
-	}
+    if (cpu_stopped)
+    {
+        reason = SCPE_STOP;
+    }
 
-	sim_debug(LOG_CPU_PERF, &cpu_dev, "CPU ran at %.1f MIPS\n", sim_timer_inst_per_sec() / 1000000);
+    sim_debug(LOG_CPU_PERF, &cpu_dev, "CPU ran at %.1f MIPS\n", sim_timer_inst_per_sec() / 1000000);
 
-	return reason;
+    return reason;
 }
 
 /* file loaded is a sequence of 16-bit words */
 t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
 {
-	t_stat r = SCPE_OK;
-	int b;
-	uint16 word;
-	int msb;
-	t_addr origin, limit;
+    t_stat r = SCPE_OK;
+    int b;
+    uint16 word;
+    int msb;
+    t_addr origin, limit;
 
-	if (flag) /* dump? */
-	{
-		r = sim_messagef(SCPE_NOFNC, "Command Not Implemented\n");
-	}
-	else
-	{
-		origin = 0;
-		limit = (t_addr)cpu_unit.capac * 2;
-		if (sim_switches & SWMASK('O')) /* Origin option */
-		{
-			origin = (t_addr)get_uint(cptr, 16, limit, &r);
-			if (r != SCPE_OK)
-			{
-				r = SCPE_ARG;
-			}
-		}
-	}
+    if (flag) /* dump? */
+    {
+        r = sim_messagef(SCPE_NOFNC, "Command Not Implemented\n");
+    }
+    else
+    {
+        origin = 0;
+        limit = (t_addr)cpu_unit.capac * 2;
+        if (sim_switches & SWMASK('O')) /* Origin option */
+        {
+            origin = (t_addr)get_uint(cptr, 16, limit, &r);
+            if (r != SCPE_OK)
+            {
+                r = SCPE_ARG;
+            }
+        }
+    }
 
-	if (r == SCPE_OK)
-	{
-		msb = 1;
-		while ((b = Fgetc(ptr)) != EOF)
-		{
-			if (origin >= limit)
-			{
-				r = SCPE_NXM;
-				break;
-			}
+    if (r == SCPE_OK)
+    {
+        msb = 1;
+        while ((b = Fgetc(ptr)) != EOF)
+        {
+            if (origin >= limit)
+            {
+                r = SCPE_NXM;
+                break;
+            }
 
-			if (msb)
-			{
-				word = b << 8;
-			}
-			else
-			{
-				word |= b;
-				sac_write_16_bit_word(origin, word);
-				origin = origin + 1;
-			}
+            if (msb)
+            {
+                word = b << 8;
+            }
+            else
+            {
+                word |= b;
+                sac_write_16_bit_word(origin, word);
+                origin = origin + 1;
+            }
 
-			msb = !msb;
-		}
-	}
+            msb = !msb;
+        }
+    }
 
-	return r;
+    return r;
 }
 
 t_stat fprint_sym(FILE *ofile, t_addr addr, t_value *val, UNIT *uptr, int32 sw)
 {
-	return SCPE_NOFNC;
+    return SCPE_NOFNC;
 }
 
 t_stat parse_sym(CONST char *cptr, t_addr addr, UNIT *uptr, t_value *val, int32 sw)
 {
-	return SCPE_NOFNC;
+    return SCPE_NOFNC;
 }
 
 /* reset routine */
 static t_stat cpu_reset(DEVICE *dptr)
 {
-	//cpu_set_register_32(reg_co, 0); /* TODO: probably needs to be reset to start of OS (upper half of memory) */
-	return SCPE_OK;
+    //cpu_set_register_32(reg_co, 0); /* TODO: probably needs to be reset to start of OS (upper half of memory) */
+    return SCPE_OK;
 }
 
 /* memory examine */
 static t_stat cpu_ex(t_value *vptr, t_addr addr, UNIT *uptr, int32 sw)
 {
-	t_stat result = SCPE_OK;
-	if (vptr == NULL)
-	{
-		result = SCPE_ARG;
-	}
-	else if (addr < MAXMEMORY)
-	{
-		*vptr = sac_read_32_bit_word(addr);
-	}
-	else
-	{
-		result = SCPE_NXM;
-	}
+    t_stat result = SCPE_OK;
+    if (vptr == NULL)
+    {
+        result = SCPE_ARG;
+    }
+    else if (addr < MAXMEMORY)
+    {
+        *vptr = sac_read_32_bit_word(addr);
+    }
+    else
+    {
+        result = SCPE_NXM;
+    }
 
-	return result;
+    return result;
 }
 
 /* memory deposit */
 static t_stat cpu_dep(t_value val, t_addr addr, UNIT *uptr, int32 sw)
 {
-	return SCPE_AFAIL;
+    return SCPE_AFAIL;
 }
 
 static SIM_INLINE void cpu_set_register_16(REG *reg, uint16 value)
 {
-	assert(reg->width == 16);
-	*(uint16 *)(reg->loc) = value;
+    assert(reg->width == 16);
+    *(uint16 *)(reg->loc) = value;
 }
 
 static SIM_INLINE void cpu_set_register_32(REG *reg, uint32 value)
 {
-	assert(reg->width == 32);
-	*(uint32 *)(reg->loc) = value;
+    assert(reg->width == 32);
+    *(uint32 *)(reg->loc) = value;
 }
 
 static SIM_INLINE void cpu_set_register_64(REG *reg, t_uint64 value)
 {
-	assert(reg->width == 64);
-	*(t_uint64 *)(reg->loc) = value;
+    assert(reg->width == 64);
+    *(t_uint64 *)(reg->loc) = value;
 }
 
 static SIM_INLINE void cpu_set_register_bit_32(REG *reg, uint32 mask, int value)
 {
-	assert(reg->width == 32);
-	if (value)
-	{
-		*(uint32 *)(reg->loc) = *(uint32 *)(reg->loc) | ~mask;
-	}
-	else
-	{
-		*(uint32 *)(reg->loc) = *(uint32 *)(reg->loc) & mask;
-	}
+    assert(reg->width == 32);
+    if (value)
+    {
+        *(uint32 *)(reg->loc) = *(uint32 *)(reg->loc) | ~mask;
+    }
+    else
+    {
+        *(uint32 *)(reg->loc) = *(uint32 *)(reg->loc) & mask;
+    }
 }
 
 static SIM_INLINE void cpu_set_register_bit_64(REG *reg, t_uint64 mask, int value)
 {
-	assert(reg->width == 64);
-	if (value)
-	{
-		*(t_uint64 *)(reg->loc) = *(t_uint64 *)(reg->loc) | ~mask;
-	}
-	else
-	{
-		*(t_uint64 *)(reg->loc) = *(t_uint64 *)(reg->loc) & mask;
-	}
+    assert(reg->width == 64);
+    if (value)
+    {
+        *(t_uint64 *)(reg->loc) = *(t_uint64 *)(reg->loc) | ~mask;
+    }
+    else
+    {
+        *(t_uint64 *)(reg->loc) = *(t_uint64 *)(reg->loc) & mask;
+    }
 }
 
 static SIM_INLINE uint16 cpu_get_register_16(REG *reg)
 {
-	uint16 result;
-	assert(reg->width == 16);
-	result = *(uint16 *)(reg->loc);
-	return result;
+    uint16 result;
+    assert(reg->width == 16);
+    result = *(uint16 *)(reg->loc);
+    return result;
 }
 
 static SIM_INLINE uint32 cpu_get_register_32(REG *reg)
 {
-	uint32 result;
-	assert(reg->width == 32);
-	result = *(uint32 *)(reg->loc);
-	return result;
+    uint32 result;
+    assert(reg->width == 32);
+    result = *(uint32 *)(reg->loc);
+    return result;
 }
 
 static SIM_INLINE t_uint64 cpu_get_register_64(REG *reg)
 {
-	t_uint64 result;
-	assert(reg->width == 64);
-	result = *(t_uint64 *)(reg->loc);
-	return result;
+    t_uint64 result;
+    assert(reg->width == 64);
+    result = *(t_uint64 *)(reg->loc);
+    return result;
 }
 
 static SIM_INLINE t_uint64 cpu_get_register_bit_16(REG *reg, uint16 mask)
 {
-	t_uint64 result;
-	assert(reg->width == 16);
-	if (*(uint16 *)(reg->loc) & ~mask)
-	{
-		result = 1;
-	}
-	else
-	{
-		result = 0;
-	}
+    t_uint64 result;
+    assert(reg->width == 16);
+    if (*(uint16 *)(reg->loc) & ~mask)
+    {
+        result = 1;
+    }
+    else
+    {
+        result = 0;
+    }
 
-	return result;
+    return result;
 }
 
 static SIM_INLINE t_uint64 cpu_get_register_bit_32(REG *reg, uint32 mask)
 {
-	uint32 result;
-	assert(reg->width == 32);
-	if (*(uint32 *)(reg->loc) & ~mask)
-	{
-		result = 1;
-	}
-	else
-	{
-		result = 0;
-	}
+    uint32 result;
+    assert(reg->width == 32);
+    if (*(uint32 *)(reg->loc) & ~mask)
+    {
+        result = 1;
+    }
+    else
+    {
+        result = 0;
+    }
 
-	return result;
+    return result;
 }
 
 static SIM_INLINE t_uint64 cpu_get_register_bit_64(REG *reg, t_uint64 mask)
 {
-	uint32 result;
-	assert(reg->width == 64);
-	if (*(t_uint64 *)(reg->loc) & ~mask)
-	{
-		result = 1;
-	}
-	else
-	{
-		result = 0;
-	}
+    uint32 result;
+    assert(reg->width == 64);
+    if (*(t_uint64 *)(reg->loc) & ~mask)
+    {
+        result = 1;
+    }
+    else
+    {
+        result = 0;
+    }
 
-	return result;
+    return result;
 }
 
 static uint16 cpu_calculate_base_offset(REG *reg, int16 offset)
 {
-	int32 result = cpu_get_register_16(reg) + offset;
-	if (result < 0 || result > 65535)
-	{
-		cpu_set_interrupt(INT_SOFTWARE_INTERRUPT); /* TODO: must be segment overflow interrupt */
-	}
+    int32 result = cpu_get_register_16(reg) + offset;
+    if (result < 0 || result > 65535)
+    {
+        cpu_set_interrupt(INT_SOFTWARE_INTERRUPT); /* TODO: must be segment overflow interrupt */
+    }
 
-	return (uint16)(result & 0xFFFF);
+    return (uint16)(result & 0xFFFF);
 }
 
 static t_addr cpu_get_name_segment_address(REG *reg, int16 offset)
 {
-	t_addr result = (cpu_get_register_16(reg_sn) << 16) | cpu_calculate_base_offset(reg, offset);
-	return result;
+    t_addr result = (cpu_get_register_16(reg_sn) << 16) | cpu_calculate_base_offset(reg, offset);
+    return result;
 }
 
 static void cpu_set_interrupt(uint8 number)
 {
-	interrupt |= 1u << number;
+    interrupt |= 1u << number;
 }
 
 static void cpu_clear_interrupt(uint8 number)
 {
-	interrupt &= ~(1u << number);
+    interrupt &= ~(1u << number);
 }
 
 static uint8 cpu_get_interrupt_number(void)
 {
-	uint8 i;
-	uint8 result = 255;
+    uint8 i;
+    uint8 result = 255;
 
-	for (i = 0; i < 7; i++)
-	{
-		if (interrupt & (1u << i))
-		{
-			result = i;
-			break;
-		}
-	}
+    for (i = 0; i < 7; i++)
+    {
+        if (interrupt & (1u << i))
+        {
+            result = i;
+            break;
+        }
+    }
 
-	return result;
+    return result;
 }
 
 static uint16 cpu_get_cr(uint16 order)
 {
-	uint16 cr = (order >> 13) & 0x7;
-	return cr;
+    uint16 cr = (order >> 13) & 0x7;
+    return cr;
 }
 
 static uint16 cpu_get_f(uint16 order)
 {
-	uint16 f;
-	uint16 cr = cpu_get_cr(order);
-	if (cr == 0)
-	{
-		f = (order >> 7) & 0x3F;
-	}
-	else
-	{
-		f = (order >> 9) & 0xF;
-	}
+    uint16 f;
+    uint16 cr = cpu_get_cr(order);
+    if (cr == 0)
+    {
+        f = (order >> 7) & 0x3F;
+    }
+    else
+    {
+        f = (order >> 9) & 0xF;
+    }
 
-	return f;
+    return f;
 }
 
 /* returns operand kind k, for organisational orders it returns 7 for extended operands, so k is the same across all order types */
 static uint16 cpu_get_k(uint16 order)
 {
-	uint16 k;
-	uint16 cr = cpu_get_cr(order);
-	if (cr == 0)
-	{
-		k = (order >> 6) & 0x1;
-		if (k == 1)
-		{
-			k = 7;
-		}
-	}
-	else
-	{
-		k = (order >> 6) & 0x7;
-	}
+    uint16 k;
+    uint16 cr = cpu_get_cr(order);
+    if (cr == 0)
+    {
+        k = (order >> 6) & 0x1;
+        if (k == 1)
+        {
+            k = 7;
+        }
+    }
+    else
+    {
+        k = (order >> 6) & 0x7;
+    }
 
-	return k;
+    return k;
 }
 
 static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
-	t_uint64 result = 0;
-	result = order & 0x3F;
-	result = cpu_sign_extend_6_bit(result);
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "%lld\n", result);
-	return result;
+    t_uint64 result = 0;
+    result = order & 0x3F;
+    result = cpu_sign_extend_6_bit(result);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "%lld\n", result);
+    return result;
 }
 
 static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
-	t_uint64 result = 0;
-	int i;
-	uint8 nprime = order & 0x3;
-	uint8 unsignedLiteral = (order >> 2) & 0x1;
+    t_uint64 result = 0;
+    int i;
+    uint8 nprime = order & 0x3;
+    uint8 unsignedLiteral = (order >> 2) & 0x1;
 
-	if (nprime > 2)
-	{
-		/* The MU5 Basic Programming Manual does not list n'==3 as valid, but the Roland and Ibbett book lists it as another 64-bit option */
-		cpu_set_interrupt(INT_ILLEGAL_ORDERS);
-	}
-	else
-	{
-		int words = (nprime == 2) ? 4 : nprime + 1;
-		uint16 lastWord;
-		for (i = 0; i < words; i++)
-		{
-			lastWord = sac_read_16_bit_word(instructionAddress + 1 + i);
-			result |= (t_uint64)lastWord << (i * 16);
-		}
+    if (nprime > 2)
+    {
+        /* The MU5 Basic Programming Manual does not list n'==3 as valid, but the Roland and Ibbett book lists it as another 64-bit option */
+        cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+    }
+    else
+    {
+        int words = (nprime == 2) ? 4 : nprime + 1;
+        uint16 lastWord;
+        for (i = 0; i < words; i++)
+        {
+            lastWord = sac_read_16_bit_word(instructionAddress + 1 + i);
+            result |= (t_uint64)lastWord << (i * 16);
+        }
 
-		if (!unsignedLiteral)
-		{
-			result |= (lastWord & 0x8000) ? -1 : 0; /* sign extend */
-		}
+        if (!unsignedLiteral)
+        {
+            result |= (lastWord & 0x8000) ? -1 : 0; /* sign extend */
+        }
 
-		*instructionLength += words;
-	}
+        *instructionLength += words;
+    }
 
-	if (unsignedLiteral)
-	{
-		sim_debug(LOG_CPU_DECODE, &cpu_dev, "%llu\n", result);
-	}
-	else
-	{
-		sim_debug(LOG_CPU_DECODE, &cpu_dev, "%lld\n", result);
-	}
+    if (unsignedLiteral)
+    {
+        sim_debug(LOG_CPU_DECODE, &cpu_dev, "%llu\n", result);
+    }
+    else
+    {
+        sim_debug(LOG_CPU_DECODE, &cpu_dev, "%lld\n", result);
+    }
 
-	return result;
+    return result;
 }
 
 static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
-	t_addr result;
-	uint8 n = order & 0x3F;
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 %hu\n", n);
-	result = cpu_get_name_segment_address(reg_nb, n);
+    t_addr result;
+    uint8 n = order & 0x3F;
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 %hu\n", n);
+    result = cpu_get_name_segment_address(reg_nb, n);
 
-	return result;
+    return result;
 }
 
 static t_uint64 cpu_get_operand_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
-	t_uint64 result = 0;
-	t_addr addr;
+    t_uint64 result = 0;
+    t_addr addr;
 
-	addr = cpu_get_operand_address_variable_32(order, instructionAddress, instructionLength);
-	result = sac_read_32_bit_word(addr);
+    addr = cpu_get_operand_address_variable_32(order, instructionAddress, instructionLength);
+    result = sac_read_32_bit_word(addr);
 
-	return result;
+    return result;
 }
 
 static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
-	t_uint64 result = 0;
-	uint8 n = order & 0x7;
+    t_uint64 result = 0;
+    uint8 n = order & 0x7;
 
-	switch (n)
-	{
-		case 0:
-		{
-			result = (cpu_get_register_16(reg_ms) << 48) | (cpu_get_register_16(reg_nb) << 32) | cpu_get_register_32(reg_co);
-			break;
-		}
-		case 1:
-		{
-			result = cpu_get_register_32(reg_xnb);
-			break;
-		}
-		case 2:
-		{
-			result = (cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg_nb);
-			break;
-		}
-		case 3:
-		{
-			result = (cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg_sf);
-			break;
-		}
-		case 4:
-		{
-			result = cpu_get_register_bit_16(reg_ms, mask_ms_bn);
-			break;
-		}
-		case 16:
-		{
-			result = cpu_get_register_64(reg_d);
-			break;
-		}
-		case 17:
-		{
-			result = cpu_get_register_64(reg_xd);
-			break;
-		}
-		case 18:
-		{
-			result = cpu_get_register_32(reg_dt);
-			break;
-		}
-		case 19:
-		{
-			result = cpu_get_register_32(reg_xdt);
-			break;
-		}
-		case 20:
-		{
-			result = cpu_get_register_32(reg_dod);
-			break;
-		}
-		case 32:
-		{
-			result = cpu_get_register_32(reg_b);
-			break;
-		}
-		case 33:
-		{
-			result = cpu_get_register_32(reg_bod);
-			break;
-		}
-		case 34:
-		{
-			result = 0; /* cpu_get_register_32(reg_z); */ /* Z is an "imaginary" register, see p31 of Morris & Ibbett book. Z not implemented for now. */
-			break;
-		}
-		case 36:
-		{
-			result = (cpu_get_register_32(reg_bod) << 32) | cpu_get_register_32(reg_b);
-			break;
-		}
-		case 48:
-		{
-			result = cpu_get_register_64(reg_aex);
-			break;
-		}
-		default:
-		{
-			result = 0;
-			break;
-		}
-	}
+    switch (n)
+    {
+        case 0:
+        {
+            result = (cpu_get_register_16(reg_ms) << 48) | (cpu_get_register_16(reg_nb) << 32) | cpu_get_register_32(reg_co);
+            break;
+        }
+        case 1:
+        {
+            result = cpu_get_register_32(reg_xnb);
+            break;
+        }
+        case 2:
+        {
+            result = (cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg_nb);
+            break;
+        }
+        case 3:
+        {
+            result = (cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg_sf);
+            break;
+        }
+        case 4:
+        {
+            result = cpu_get_register_bit_16(reg_ms, mask_ms_bn);
+            break;
+        }
+        case 16:
+        {
+            result = cpu_get_register_64(reg_d);
+            break;
+        }
+        case 17:
+        {
+            result = cpu_get_register_64(reg_xd);
+            break;
+        }
+        case 18:
+        {
+            result = cpu_get_register_32(reg_dt);
+            break;
+        }
+        case 19:
+        {
+            result = cpu_get_register_32(reg_xdt);
+            break;
+        }
+        case 20:
+        {
+            result = cpu_get_register_32(reg_dod);
+            break;
+        }
+        case 32:
+        {
+            result = cpu_get_register_32(reg_b);
+            break;
+        }
+        case 33:
+        {
+            result = cpu_get_register_32(reg_bod);
+            break;
+        }
+        case 34:
+        {
+            result = 0; /* cpu_get_register_32(reg_z); */ /* Z is an "imaginary" register, see p31 of Morris & Ibbett book. Z not implemented for now. */
+            break;
+        }
+        case 36:
+        {
+            result = (cpu_get_register_32(reg_bod) << 32) | cpu_get_register_32(reg_b);
+            break;
+        }
+        case 48:
+        {
+            result = cpu_get_register_64(reg_aex);
+            break;
+        }
+        default:
+        {
+            result = 0;
+            break;
+        }
+    }
 
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "R%hu\n", n);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "R%hu\n", n);
 
-	return result;
+    return result;
 }
 
 static t_uint64 cpu_get_operand(uint16 order)
 {
-	t_uint64 result = 0;
-	uint8 instructionLength = 1;
-	uint16 k = cpu_get_k(order);
-	uint32 instructionAddress = cpu_get_register_32(reg_co);
+    t_uint64 result = 0;
+    uint8 instructionLength = 1;
+    uint16 k = cpu_get_k(order);
+    uint32 instructionAddress = cpu_get_register_32(reg_co);
 
-	switch (k)
-	{
-		case 0:
-		{
-			result = cpu_get_operand_6_bit_literal(order, instructionAddress, &instructionLength);
-			break;
-		}
-		case 1:
-		{
-			result = cpu_get_operand_internal_register(order, instructionAddress, &instructionLength);
-			break;
-		}
-		case 2:
-		{
-			result = cpu_get_operand_variable_32(order, instructionAddress, &instructionLength);
-			break;
-		}
-		case 7:
-		{
-			uint8 extendedKind = (order >> 3) & 0x7;
+    switch (k)
+    {
+        case 0:
+        {
+            result = cpu_get_operand_6_bit_literal(order, instructionAddress, &instructionLength);
+            break;
+        }
+        case 1:
+        {
+            result = cpu_get_operand_internal_register(order, instructionAddress, &instructionLength);
+            break;
+        }
+        case 2:
+        {
+            result = cpu_get_operand_variable_32(order, instructionAddress, &instructionLength);
+            break;
+        }
+        case 7:
+        {
+            uint8 extendedKind = (order >> 3) & 0x7;
 
-			if (extendedKind == 0)
-			{
-				result = cpu_get_operand_extended_literal(order, instructionAddress, &instructionLength);
-			}
-			else
-			{
-				cpu_set_interrupt(INT_ILLEGAL_ORDERS);
-			}
-			break;
-		}
-		default:
-		{
-			cpu_set_interrupt(INT_ILLEGAL_ORDERS);
-		}
-	}
+            if (extendedKind == 0)
+            {
+                result = cpu_get_operand_extended_literal(order, instructionAddress, &instructionLength);
+            }
+            else
+            {
+                cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+            }
+            break;
+        }
+        default:
+        {
+            cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+        }
+    }
 
-	cpu_set_register_32(reg_co, instructionAddress + instructionLength);
+    cpu_set_register_32(reg_co, instructionAddress + instructionLength);
 
-	return result;
+    return result;
 }
 
 static void cpu_set_operand(uint16 order, t_uint64 value)
 {
-	t_addr addr;
-	uint8 instructionLength = 1;
-	uint16 k = cpu_get_k(order);
-	uint32 instructionAddress = cpu_get_register_32(reg_co);
+    t_addr addr;
+    uint8 instructionLength = 1;
+    uint16 k = cpu_get_k(order);
+    uint32 instructionAddress = cpu_get_register_32(reg_co);
 
-	switch (k)
-	{
-		case 2:
-		{
-			addr = cpu_get_operand_address_variable_32(order, instructionAddress, &instructionLength);
-			sac_write_32_bit_word(addr, value & 0xFFFFFFFF);
-			break;
-		}
-		default:
-		{
-			cpu_set_interrupt(INT_ILLEGAL_ORDERS);
-		}
-	}
+    switch (k)
+    {
+        case 2:
+        {
+            addr = cpu_get_operand_address_variable_32(order, instructionAddress, &instructionLength);
+            sac_write_32_bit_word(addr, value & 0xFFFFFFFF);
+            break;
+        }
+        default:
+        {
+            cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+        }
+    }
 
-	cpu_set_register_32(reg_co, instructionAddress + instructionLength);
+    cpu_set_register_32(reg_co, instructionAddress + instructionLength);
 }
 
 static t_uint64 cpu_sign_extend_6_bit(t_uint64 value)
 {
-	t_uint64 result = value & 0x3F;
-	result |= (value & 0x20) ? 0xFFFFFFFFFFFFFFC0 : 0;
-	return result;
+    t_uint64 result = value & 0x3F;
+    result |= (value & 0x20) ? 0xFFFFFFFFFFFFFFC0 : 0;
+    return result;
 }
 
 static void cpu_execute_next_order(void)
 {
-	uint16 order;
-	uint16 cr;
+    uint16 order;
+    uint16 cr;
 
-	if (interrupt == 0)
-	{
-		order = sac_read_16_bit_word(cpu_get_register_32(reg_co));
-		cr = cpu_get_cr(order);
+    if (interrupt == 0)
+    {
+        order = sac_read_16_bit_word(cpu_get_register_32(reg_co));
+        cr = cpu_get_cr(order);
 
-		crDispatchTable[cr].execute(order, crDispatchTable[cr].innerTable);
-	}
-	else
-	{
-		cpu_start_interrupt_processing();
-	}
+        crDispatchTable[cr].execute(order, crDispatchTable[cr].innerTable);
+    }
+    else
+    {
+        cpu_start_interrupt_processing();
+    }
 }
 
 static void cpu_execute_illegal_order(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+    cpu_set_interrupt(INT_ILLEGAL_ORDERS);
 }
 
 static void cpu_start_interrupt_processing(void)
 {
-	printf("Interrupt %hu detected - processing TBD\n", cpu_get_interrupt_number());
-	cpu_stopped = 1; /* TODO: temporary halt CPU until implement interrupt processing */
+    printf("Interrupt %hu detected - processing TBD\n", cpu_get_interrupt_number());
+    cpu_stopped = 1; /* TODO: temporary halt CPU until implement interrupt processing */
 }
 
 static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	uint16 f = cpu_get_f(order);
-	innerTable[f].execute(order, innerTable[f].innerTable);
+    uint16 f = cpu_get_f(order);
+    innerTable[f].execute(order, innerTable[f].innerTable);
 }
 
 static void cpu_execute_organisational_relative_jump(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "-> ");
-	int32 relative = (int32)(cpu_get_operand(order) & 0xFFFFFFFF);
-	int32 relativeTo = (int32)cpu_get_register_32(reg_co);
-	uint32 newCo = (uint32)(relativeTo + relative);
-	cpu_set_register_32(reg_co, newCo);
-	// TODO: cross-segment generates interrupt
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "-> ");
+    int32 relative = (int32)(cpu_get_operand(order) & 0xFFFFFFFF);
+    int32 relativeTo = (int32)cpu_get_register_32(reg_co);
+    uint32 newCo = (uint32)(relativeTo + relative);
+    cpu_set_register_32(reg_co, newCo);
+    // TODO: cross-segment generates interrupt
 
-	/* The real MU5 did not have a STOP instruction, see comment above the declaration of cpu_stopped */
-	if (relative == 0)
-	{
-		cpu_stopped = 1;
-	}
+    /* The real MU5 did not have a STOP instruction, see comment above the declaration of cpu_stopped */
+    if (relative == 0)
+    {
+        cpu_stopped = 1;
+    }
 }
 
 static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "JUMP ");
-	cpu_set_register_32(reg_co, cpu_get_operand(order) & 0x7FFFFFFF);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "JUMP ");
+    cpu_set_register_32(reg_co, cpu_get_operand(order) & 0x7FFFFFFF);
 }
 
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "SF=NB+ ");
-	uint16 newSF = cpu_calculate_base_offset(reg_nb, cpu_get_operand(order));
-	cpu_set_register_16(reg_sf, newSF);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "SF=NB+ ");
+    uint16 newSF = cpu_calculate_base_offset(reg_nb, cpu_get_operand(order));
+    cpu_set_register_16(reg_sf, newSF);
 }
 
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB= ");
-	t_uint64 newBase = cpu_get_operand(order); /* TODO: the operand may not be a secondary operand - see p59 */
-	cpu_set_register_16(reg_sn, (newBase >> 48) & 0xFFFF);
-	cpu_set_register_16(reg_nb, newBase & 0xFFFE); /* LS bit of NB is always zero */
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB= ");
+    t_uint64 newBase = cpu_get_operand(order); /* TODO: the operand may not be a secondary operand - see p59 */
+    cpu_set_register_16(reg_sn, (newBase >> 48) & 0xFFFF);
+    cpu_set_register_16(reg_nb, newBase & 0xFFFE); /* LS bit of NB is always zero */
 }
 
 static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB=SF+ ");
-	uint16 newNB = cpu_calculate_base_offset(reg_sf, cpu_get_operand(order));
-	cpu_set_register_16(reg_nb, newNB & 0xFFFE); /* LS bit of NB is always zero */
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB=SF+ ");
+    uint16 newNB = cpu_calculate_base_offset(reg_sf, cpu_get_operand(order));
+    cpu_set_register_16(reg_nb, newNB & 0xFFFE); /* LS bit of NB is always zero */
 }
 
 static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS STACK ");
-	uint16 newSF = cpu_get_register_16(reg_sf) + 2;
-	cpu_set_register_16(reg_sf, newSF);
-	sac_write_64_bit_word(cpu_get_name_segment_address(reg_sf, 0), cpu_get_operand(order) & 0xFFFFFFFF);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS STACK ");
+    uint16 newSF = cpu_get_register_16(reg_sf) + 2;
+    cpu_set_register_16(reg_sf, newSF);
+    sac_write_64_bit_word(cpu_get_name_segment_address(reg_sf, 0), cpu_get_operand(order) & 0xFFFFFFFF);
 }
 
 static void cpu_check_b_overflow(t_uint64 result)
 {
-	uint32 ms = result >> 32;
-	uint8 sign = result >> 31 & 1;
-	if (!(sign == 0 && ms == 0) && !(sign == 1 && ms == ~0))
-	{
-		cpu_set_register_bit_32(reg_bod, mask_bod_bovf, 1);
-		if (!cpu_get_register_bit_32(reg_bod, mask_bod_ibovf))
-		{
-			cpu_set_interrupt(INT_PROGRAM_FAULTS);
-		}
-	}
-	else
-	{
-		cpu_set_register_bit_32(reg_bod, mask_bod_bovf, 0);
-	}
+    uint32 ms = result >> 32;
+    uint8 sign = result >> 31 & 1;
+    if (!(sign == 0 && ms == 0) && !(sign == 1 && ms == ~0))
+    {
+        cpu_set_register_bit_32(reg_bod, mask_bod_bovf, 1);
+        if (!cpu_get_register_bit_32(reg_bod, mask_bod_ibovf))
+        {
+            cpu_set_interrupt(INT_PROGRAM_FAULTS);
+        }
+    }
+    else
+    {
+        cpu_set_register_bit_32(reg_bod, mask_bod_bovf, 0);
+    }
 }
 
 static void cpu_execute_b_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B= ");
-	cpu_set_register_32(reg_b, cpu_get_operand(order) & 0xFFFFFFFF);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "B= ");
+    cpu_set_register_32(reg_b, cpu_get_operand(order) & 0xFFFFFFFF);
 }
 
 static void cpu_execute_b_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B*= ");
-	uint16 newSF = cpu_get_register_16(reg_sf) + 2;
-	cpu_set_register_16(reg_sf, newSF);
-	sac_write_64_bit_word(cpu_get_name_segment_address(reg_sf, 0), cpu_get_register_32(reg_b));
-	cpu_set_register_32(reg_b, cpu_get_operand(order) & 0xFFFFFFFF);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "B*= ");
+    uint16 newSF = cpu_get_register_16(reg_sf) + 2;
+    cpu_set_register_16(reg_sf, newSF);
+    sac_write_64_bit_word(cpu_get_name_segment_address(reg_sf, 0), cpu_get_register_32(reg_b));
+    cpu_set_register_32(reg_b, cpu_get_operand(order) & 0xFFFFFFFF);
 }
 
 static void cpu_execute_b_store(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B=> ");
-	cpu_set_operand(order, cpu_get_register_32(reg_b));
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "B=> ");
+    cpu_set_operand(order, cpu_get_register_32(reg_b));
 }
 
 static void cpu_execute_b_add(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B+ ");
-	t_int64 augend = cpu_get_register_32(reg_b);
-	t_int64 addend = cpu_get_operand(order) & 0xFFFFFFFF;
-	t_int64 result = augend + addend;
-	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
-	cpu_check_b_overflow(result);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "B+ ");
+    t_int64 augend = cpu_get_register_32(reg_b);
+    t_int64 addend = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 result = augend + addend;
+    cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+    cpu_check_b_overflow(result);
 }
 
 static void cpu_execute_b_sub(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B- ");
-	t_int64 minuend = cpu_get_register_32(reg_b);
-	t_int64 subtrahend = cpu_get_operand(order) & 0xFFFFFFFF;
-	t_int64 result = minuend - subtrahend;
-	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
-	cpu_check_b_overflow(result);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "B- ");
+    t_int64 minuend = cpu_get_register_32(reg_b);
+    t_int64 subtrahend = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 result = minuend - subtrahend;
+    cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+    cpu_check_b_overflow(result);
 }
 
 static void cpu_execute_b_mul(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B* ");
-	t_int64 multiplicand = cpu_get_register_32(reg_b);
-	t_int64 multiplier = cpu_get_operand(order) & 0xFFFFFFFF;
-	t_int64 result = multiplicand * multiplier;
-	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
-	cpu_check_b_overflow(result);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "B* ");
+    t_int64 multiplicand = cpu_get_register_32(reg_b);
+    t_int64 multiplier = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 result = multiplicand * multiplier;
+    cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+    cpu_check_b_overflow(result);
 }
 
 /* MU5 Basic Programming Manual lists this as a dummy order so implementation is a guess */
 static void cpu_execute_b_div(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B DIV ");
-	t_int64 dividend = cpu_get_register_32(reg_b);
-	t_int64 divisor = cpu_get_operand(order) & 0xFFFFFFFF;
-	if (divisor == 0)
-	{
-		cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
-	}
-	else
-	{
-		t_int64 result = dividend / divisor;
-		cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
-	}
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "B DIV ");
+    t_int64 dividend = cpu_get_register_32(reg_b);
+    t_int64 divisor = cpu_get_operand(order) & 0xFFFFFFFF;
+    if (divisor == 0)
+    {
+        cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
+    }
+    else
+    {
+        t_int64 result = dividend / divisor;
+        cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+    }
 }
 
 static void cpu_execute_b_xor(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B XOR ");
-	t_uint64 xorend = cpu_get_register_32(reg_b);
-	t_uint64 xorand = cpu_get_operand(order) & 0xFFFFFFFF;
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "B XOR ");
+    t_uint64 xorend = cpu_get_register_32(reg_b);
+    t_uint64 xorand = cpu_get_operand(order) & 0xFFFFFFFF;
     t_uint64 result = xorend ^ xorand;
-	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+    cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
 }
 
 static void cpu_execute_b_or(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B OR ");
-	t_uint64 orend = cpu_get_register_32(reg_b);
-	t_uint64 orand = cpu_get_operand(order) & 0xFFFFFFFF;
-	t_uint64 result = orend | orand;
-	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "B OR ");
+    t_uint64 orend = cpu_get_register_32(reg_b);
+    t_uint64 orand = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_uint64 result = orend | orand;
+    cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
 }
 
 static void cpu_execute_b_shift_left(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B <- ");
-	t_int64 value = cpu_get_register_32(reg_b); /* signed, for arithmetic shift */
-	t_int64 shift = cpu_sign_extend_6_bit(cpu_get_operand(order));
-	t_int64 result = value << shift;
-	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
-	cpu_check_b_overflow(result);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "B <- ");
+    t_int64 value = cpu_get_register_32(reg_b); /* signed, for arithmetic shift */
+    t_int64 shift = cpu_sign_extend_6_bit(cpu_get_operand(order));
+    t_int64 result = value << shift;
+    cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+    cpu_check_b_overflow(result);
 }
 
 static void cpu_execute_b_and(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B AND ");
-	t_uint64 andend = cpu_get_register_32(reg_b);
-	t_uint64 andand = cpu_get_operand(order) & 0xFFFFFFFF;
-	t_uint64 result = andend & andand;
-	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "B AND ");
+    t_uint64 andend = cpu_get_register_32(reg_b);
+    t_uint64 andand = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_uint64 result = andend & andand;
+    cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
 }
 
 static void cpu_execute_b_reverse_sub(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B RSUB ");
-	t_int64 subtrahend = cpu_get_register_32(reg_b);
-	t_int64 minuend = cpu_get_operand(order) & 0xFFFFFFFF;
-	t_int64 result = minuend - subtrahend;
-	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
-	cpu_check_b_overflow(result);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "B RSUB ");
+    t_int64 subtrahend = cpu_get_register_32(reg_b);
+    t_int64 minuend = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 result = minuend - subtrahend;
+    cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+    cpu_check_b_overflow(result);
 }
 
 /* MU5 Basic Programming Manual lists this as a dummy order so implementation is a guess */
 static void cpu_execute_b_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B RDIV ");
-	t_int64 divisor = cpu_get_register_32(reg_b);
-	t_int64 dividend = cpu_get_operand(order) & 0xFFFFFFFF;
-	if (divisor == 0)
-	{
-		cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
-	}
-	else
-	{
-		t_int64 result = dividend / divisor;
-		cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
-	}
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "B RDIV ");
+    t_int64 divisor = cpu_get_register_32(reg_b);
+    t_int64 dividend = cpu_get_operand(order) & 0xFFFFFFFF;
+    if (divisor == 0)
+    {
+        cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
+    }
+    else
+    {
+        t_int64 result = dividend / divisor;
+        cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+    }
 }
 
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A+ ");
-	t_int64 augend = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
-	t_int64 addend = cpu_get_operand(order) & 0xFFFFFFFF;
-	t_int64 result = augend + addend;
-	cpu_set_register_64(reg_a, (t_uint64)result);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "A+ ");
+    t_int64 augend = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
+    t_int64 addend = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 result = augend + addend;
+    cpu_set_register_64(reg_a, (t_uint64)result);
 }
 
 static void cpu_execute_acc_fixed_sub(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A+ ");
-	t_int64 minuend = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
-	t_int64 subtrahend = cpu_get_operand(order) & 0xFFFFFFFF;
-	t_int64 result = minuend - subtrahend;
-	cpu_set_register_64(reg_a, (t_uint64)result);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "A+ ");
+    t_int64 minuend = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
+    t_int64 subtrahend = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 result = minuend - subtrahend;
+    cpu_set_register_64(reg_a, (t_uint64)result);
 }
 
 static void cpu_execute_acc_fixed_mul(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A* ");
-	uint32 multiplicand = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
-	uint32 multiplier = cpu_get_operand(order) & 0xFFFFFFFF;
-	t_uint64 result = multiplicand * multiplier;
-	cpu_set_register_64(reg_a, result);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "A* ");
+    uint32 multiplicand = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
+    uint32 multiplier = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_uint64 result = multiplicand * multiplier;
+    cpu_set_register_64(reg_a, result);
 }
 
 /* MU5 Basic Programming Manual lists this as a dummy order so implementation is a guess */
 static void cpu_execute_acc_fixed_div(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A/ ");
-	uint32 dividend = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
-	uint32 divisor = cpu_get_operand(order) & 0xFFFFFFFF;
-	if (divisor == 0)
-	{
-		cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
-	}
-	else
-	{
-		t_int64 result = dividend / divisor;
-		cpu_set_register_64(reg_a, (t_uint64)result);
-	}
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "A/ ");
+    uint32 dividend = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
+    uint32 divisor = cpu_get_operand(order) & 0xFFFFFFFF;
+    if (divisor == 0)
+    {
+        cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
+    }
+    else
+    {
+        t_int64 result = dividend / divisor;
+        cpu_set_register_64(reg_a, (t_uint64)result);
+    }
 }
 
 static void cpu_execute_acc_fixed_xor(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A XOR ");
-	t_uint64 xorend = cpu_get_register_64(reg_a);
-	t_uint64 xorand = cpu_get_operand(order);
-	t_uint64 result = (xorend ^ xorand) & 0xFFFFFFFF;
-	cpu_set_register_64(reg_a, result);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "A XOR ");
+    t_uint64 xorend = cpu_get_register_64(reg_a);
+    t_uint64 xorand = cpu_get_operand(order);
+    t_uint64 result = (xorend ^ xorand) & 0xFFFFFFFF;
+    cpu_set_register_64(reg_a, result);
 }
 
 static void cpu_execute_acc_fixed_or(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A OR ");
-	t_uint64 orend = cpu_get_register_64(reg_a);
-	t_uint64 orand = cpu_get_operand(order);
-	t_uint64 result = (orend ^ orand) & 0xFFFFFFFF;
-	cpu_set_register_64(reg_a, result);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "A OR ");
+    t_uint64 orend = cpu_get_register_64(reg_a);
+    t_uint64 orand = cpu_get_operand(order);
+    t_uint64 result = (orend ^ orand) & 0xFFFFFFFF;
+    cpu_set_register_64(reg_a, result);
 }
 
 static void cpu_execute_acc_fixed_shift_left(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A <- ");
-	t_uint64 value = cpu_get_register_64(reg_a); /* unsigned for logical shift */
-	t_int64 shift = cpu_sign_extend_6_bit(cpu_get_operand(order));
-	t_int64 result = value << shift;
-	cpu_set_register_64(reg_a, result);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "A <- ");
+    t_uint64 value = cpu_get_register_64(reg_a); /* unsigned for logical shift */
+    t_int64 shift = cpu_sign_extend_6_bit(cpu_get_operand(order));
+    t_int64 result = value << shift;
+    cpu_set_register_64(reg_a, result);
 }
 
 static void cpu_execute_acc_fixed_and(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A AND ");
-	t_uint64 andend = cpu_get_register_64(reg_a);
-	t_uint64 andand = cpu_get_operand(order) & 0xFFFFFFFF;
-	t_uint64 result = (andend & andand) & 0xFFFFFFFF;
-	cpu_set_register_64(reg_a, result);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "A AND ");
+    t_uint64 andend = cpu_get_register_64(reg_a);
+    t_uint64 andand = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_uint64 result = (andend & andand) & 0xFFFFFFFF;
+    cpu_set_register_64(reg_a, result);
 }
 
 static void cpu_execute_acc_fixed_reverse_sub(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A RSUB ");
-	t_int64 subtrahend = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
-	t_int64 minuend = cpu_get_operand(order) & 0xFFFFFFFF;
-	t_int64 result = minuend - subtrahend;
-	cpu_set_register_64(reg_a, (t_uint64)result);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "A RSUB ");
+    t_int64 subtrahend = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
+    t_int64 minuend = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 result = minuend - subtrahend;
+    cpu_set_register_64(reg_a, (t_uint64)result);
 }
 
 /* MU5 Basic Programming Manual lists this as a dummy order so implementation is a guess */
 static void cpu_execute_acc_fixed_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A RDIV ");
-	uint32 divisor = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
-	uint32 dividend = cpu_get_operand(order) & 0xFFFFFFFF;
-	if (divisor == 0)
-	{
-		cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
-	}
-	else
-	{
-		t_int64 result = dividend / divisor;
-		cpu_set_register_64(reg_a, (t_uint64)result);
-	}
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "A RDIV ");
+    uint32 divisor = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
+    uint32 dividend = cpu_get_operand(order) & 0xFFFFFFFF;
+    if (divisor == 0)
+    {
+        cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
+    }
+    else
+    {
+        t_int64 result = dividend / divisor;
+        cpu_set_register_64(reg_a, (t_uint64)result);
+    }
 }
 
 static t_uint64 cpu_get_acc_value()
 {
-	t_uint64 result = (cpu_get_register_bit_64(reg_aod, mask_aod_opsiz64)) ? cpu_get_register_64(reg_a) : cpu_get_register_64(reg_a) >> 32;
-	return result;
+    t_uint64 result = (cpu_get_register_bit_64(reg_aod, mask_aod_opsiz64)) ? cpu_get_register_64(reg_a) : cpu_get_register_64(reg_a) >> 32;
+    return result;
 }
 
 static void cpu_execute_flp_load_single(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A=(32) ");
-	cpu_set_register_bit_64(reg_aod, mask_aod_opsiz64, 0);
-	cpu_set_register_64(reg_a, (cpu_get_operand(order) << 32) & 0xFFFFFFFF00000000);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "A=(32) ");
+    cpu_set_register_bit_64(reg_aod, mask_aod_opsiz64, 0);
+    cpu_set_register_64(reg_a, (cpu_get_operand(order) << 32) & 0xFFFFFFFF00000000);
 }
 
 static void cpu_execute_flp_load_double(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A=(64) ");
-	cpu_set_register_bit_64(reg_aod, mask_aod_opsiz64, 1);
-	cpu_set_register_64(reg_a, cpu_get_operand(order));
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "A=(64) ");
+    cpu_set_register_bit_64(reg_aod, mask_aod_opsiz64, 1);
+    cpu_set_register_64(reg_a, cpu_get_operand(order));
 }
 
 static void cpu_execute_flp_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -1439,8 +1439,8 @@ static void cpu_execute_flp_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTa
 
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A*= ");
     newSF = cpu_get_register_16(reg_sf) + 2;
-	cpu_set_register_16(reg_sf, newSF);
-	sac_write_64_bit_word(cpu_get_name_segment_address(reg_sf, 0), cpu_get_acc_value());
+    cpu_set_register_16(reg_sf, newSF);
+    sac_write_64_bit_word(cpu_get_name_segment_address(reg_sf, 0), cpu_get_acc_value());
     if (cpu_get_register_bit_64(reg_aod, mask_aod_opsiz64))
     {
         newA = cpu_get_operand(order);
@@ -1455,7 +1455,7 @@ static void cpu_execute_flp_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTa
 
 static void cpu_execute_flp_store(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	t_uint64 a = cpu_get_register_64(reg_a);
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A=> ");
+    t_uint64 a = cpu_get_register_64(reg_a);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "A=> ");
     cpu_set_operand(order, cpu_get_acc_value());
 }
