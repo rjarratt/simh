@@ -242,6 +242,8 @@ static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructi
 static t_uint64 cpu_get_operand_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand(uint16 order);
 static void cpu_set_operand(uint16 order, t_uint64 value);
+static t_uint64 cpu_sign_extend_6_bit(t_uint64 value);
+
 static void cpu_execute_next_order(void);
 static void cpu_execute_illegal_order(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_start_interrupt_processing(void);
@@ -277,7 +279,15 @@ static void cpu_execute_b_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* acc fixed order functions */
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_acc_fixed_sub(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_acc_fixed_mul(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_acc_fixed_div(uint16 order, DISPATCH_ENTRY *innerTable); /* did not exist in real MU5, for HASE simulator comparison */
+static void cpu_execute_acc_fixed_xor(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_acc_fixed_or(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_acc_fixed_shift_left(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_acc_fixed_and(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_acc_fixed_reverse_sub(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_acc_fixed_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable); /* did not exist in real MU5, for HASE simulator comparison */
 
 /* floating point order functions */
 static void cpu_execute_flp_load_single(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -424,22 +434,22 @@ static DISPATCH_ENTRY bDispatchTable[] =
 
 static DISPATCH_ENTRY accFixedDispatchTable[] =
 {
-	{ cpu_execute_illegal_order, NULL },   /* 0 */
-	{ cpu_execute_illegal_order, NULL },   /* 1 */
-	{ cpu_execute_illegal_order, NULL },   /* 2 */
-	{ cpu_execute_illegal_order, NULL },   /* 3 */
-	{ cpu_execute_acc_fixed_add, NULL },   /* 4 */
-	{ cpu_execute_illegal_order, NULL },   /* 5 */
-	{ cpu_execute_acc_fixed_mul, NULL },   /* 6 */
-	{ cpu_execute_illegal_order, NULL },   /* 7 */
-	{ cpu_execute_illegal_order, NULL },   /* 8 */
-	{ cpu_execute_illegal_order, NULL },   /* 9 */
-	{ cpu_execute_illegal_order, NULL },   /* 10 */
-	{ cpu_execute_illegal_order, NULL },   /* 11*/
-	{ cpu_execute_illegal_order, NULL },   /* 12 */
-	{ cpu_execute_illegal_order, NULL },   /* 13 */
-	{ cpu_execute_illegal_order, NULL },   /* 14 */
-	{ cpu_execute_illegal_order, NULL },   /* 15 */
+	{ cpu_execute_illegal_order, NULL },         /* 0 */
+	{ cpu_execute_illegal_order, NULL },         /* 1 */
+	{ cpu_execute_illegal_order, NULL },         /* 2 */
+	{ cpu_execute_illegal_order, NULL },         /* 3 */
+	{ cpu_execute_acc_fixed_add, NULL },         /* 4 */
+	{ cpu_execute_acc_fixed_sub, NULL },         /* 5 */
+	{ cpu_execute_acc_fixed_mul, NULL },         /* 6 */
+	{ cpu_execute_acc_fixed_div, NULL },         /* 7 */
+	{ cpu_execute_acc_fixed_xor, NULL },         /* 8 */
+	{ cpu_execute_acc_fixed_or,  NULL },         /* 9 */
+	{ cpu_execute_acc_fixed_shift_left, NULL },  /* 10 */
+	{ cpu_execute_acc_fixed_and, NULL },         /* 11*/
+	{ cpu_execute_acc_fixed_reverse_sub, NULL }, /* 12 */
+	{ cpu_execute_illegal_order, NULL },         /* 13 */
+	{ cpu_execute_illegal_order, NULL },         /* 14 */
+	{ cpu_execute_acc_fixed_reverse_div, NULL }, /* 15 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
 };
 
 static DISPATCH_ENTRY floatingPointDispatchTable[] =
@@ -815,7 +825,7 @@ static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAd
 {
 	t_uint64 result = 0;
 	result = order & 0x3F;
-	result |= (result & 0x20) ? 0xFFFFFFFFFFFFFFC0 : 0; /* sign extend */
+	result = cpu_sign_extend_6_bit(result);
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "%lld\n", result);
 	return result;
 }
@@ -1050,6 +1060,13 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
 	cpu_set_register_32(reg_co, instructionAddress + instructionLength);
 }
 
+static t_uint64 cpu_sign_extend_6_bit(t_uint64 value)
+{
+	t_uint64 result = value & 0x3F;
+	result |= (value & 0x20) ? 0xFFFFFFFFFFFFFFC0 : 0;
+	return result;
+}
+
 static void cpu_execute_next_order(void)
 {
 	uint16 order;
@@ -1244,8 +1261,8 @@ static void cpu_execute_b_or(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_b_shift_left(uint16 order, DISPATCH_ENTRY *innerTable)
 {
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "B <- ");
-	t_int64 value = cpu_get_register_32(reg_b);
-	t_int64 shift = cpu_get_operand(order) & 0xFFFFFFFF;
+	t_int64 value = cpu_get_register_32(reg_b); /* signed, for arithmetic shift */
+	t_int64 shift = cpu_sign_extend_6_bit(cpu_get_operand(order));
 	t_int64 result = value << shift;
 	cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
 	cpu_check_b_overflow(result);
@@ -1290,7 +1307,19 @@ static void cpu_execute_b_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable)
 {
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A+ ");
-	cpu_set_register_64(reg_a, cpu_get_register_64(reg_a) + cpu_get_operand(order)); // TODO: overflow
+	t_int64 augend = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
+	t_int64 addend = cpu_get_operand(order) & 0xFFFFFFFF;
+	t_int64 result = augend + addend;
+	cpu_set_register_64(reg_a, (t_uint64)result);
+}
+
+static void cpu_execute_acc_fixed_sub(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A+ ");
+	t_int64 minuend = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
+	t_int64 subtrahend = cpu_get_operand(order) & 0xFFFFFFFF;
+	t_int64 result = minuend - subtrahend;
+	cpu_set_register_64(reg_a, (t_uint64)result);
 }
 
 static void cpu_execute_acc_fixed_mul(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -1300,6 +1329,85 @@ static void cpu_execute_acc_fixed_mul(uint16 order, DISPATCH_ENTRY *innerTable)
 	uint32 multiplier = cpu_get_operand(order) & 0xFFFFFFFF;
 	t_uint64 result = multiplicand * multiplier;
 	cpu_set_register_64(reg_a, result);
+}
+
+/* MU5 Basic Programming Manual lists this as a dummy order so implementation is a guess */
+static void cpu_execute_acc_fixed_div(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A/ ");
+	uint32 dividend = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
+	uint32 divisor = cpu_get_operand(order) & 0xFFFFFFFF;
+	if (divisor == 0)
+	{
+		cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
+	}
+	else
+	{
+		t_int64 result = dividend / divisor;
+		cpu_set_register_64(reg_a, (t_uint64)result);
+	}
+}
+
+static void cpu_execute_acc_fixed_xor(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A XOR ");
+	t_uint64 xorend = cpu_get_register_64(reg_a);
+	t_uint64 xorand = cpu_get_operand(order);
+	t_uint64 result = (xorend ^ xorand) & 0xFFFFFFFF;
+	cpu_set_register_64(reg_a, result);
+}
+
+static void cpu_execute_acc_fixed_or(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A OR ");
+	t_uint64 orend = cpu_get_register_64(reg_a);
+	t_uint64 orand = cpu_get_operand(order);
+	t_uint64 result = (orend ^ orand) & 0xFFFFFFFF;
+	cpu_set_register_64(reg_a, result);
+}
+
+static void cpu_execute_acc_fixed_shift_left(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A <- ");
+	t_uint64 value = cpu_get_register_64(reg_a); /* unsigned for logical shift */
+	t_int64 shift = cpu_sign_extend_6_bit(cpu_get_operand(order));
+	t_int64 result = value << shift;
+	cpu_set_register_64(reg_a, result);
+}
+
+static void cpu_execute_acc_fixed_and(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A AND ");
+	t_uint64 andend = cpu_get_register_64(reg_a);
+	t_uint64 andand = cpu_get_operand(order) & 0xFFFFFFFF;
+	t_uint64 result = (andend & andand) & 0xFFFFFFFF;
+	cpu_set_register_64(reg_a, result);
+}
+
+static void cpu_execute_acc_fixed_reverse_sub(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A RSUB ");
+	t_int64 subtrahend = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
+	t_int64 minuend = cpu_get_operand(order) & 0xFFFFFFFF;
+	t_int64 result = minuend - subtrahend;
+	cpu_set_register_64(reg_a, (t_uint64)result);
+}
+
+/* MU5 Basic Programming Manual lists this as a dummy order so implementation is a guess */
+static void cpu_execute_acc_fixed_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A RDIV ");
+	uint32 divisor = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
+	uint32 dividend = cpu_get_operand(order) & 0xFFFFFFFF;
+	if (divisor == 0)
+	{
+		cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
+	}
+	else
+	{
+		t_int64 result = dividend / divisor;
+		cpu_set_register_64(reg_a, (t_uint64)result);
+	}
 }
 
 static void cpu_execute_flp_load_single(uint16 order, DISPATCH_ENTRY *innerTable)
