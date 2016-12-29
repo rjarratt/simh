@@ -266,6 +266,7 @@ static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *inn
 static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* store-to-store order functions */
+static void cpu_execute_sts1_xd_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable);
 
 static void cpu_execute_sts2_d_load(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -406,7 +407,7 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
 static DISPATCH_ENTRY sts1DispatchTable[] =
 {
     { cpu_execute_illegal_order, NULL },   /* 0 */
-    { cpu_execute_illegal_order, NULL },   /* 1 */
+    { cpu_execute_sts1_xd_load,  NULL },   /* 1 */
     { cpu_execute_sts1_stack,    NULL },   /* 2 */
     { cpu_execute_illegal_order, NULL },   /* 3 */
     { cpu_execute_illegal_order, NULL },   /* 4 */
@@ -960,7 +961,7 @@ static t_addr cpu_get_operand_address_variable_64(uint16 order, uint32 instructi
     t_addr result;
     uint8 n = order & 0x3F;
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "V64 %hu\n", n);
-    result = cpu_get_name_segment_address(reg_nb, n) >> 1; /* address in 64-bit units for 64-bit access */
+    result = cpu_get_name_segment_address(reg_nb, n << 1); /* address in 64-bit units for 64-bit access */
 
     return result;
 }
@@ -1268,6 +1269,12 @@ static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_EN
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB=SF+ ");
     uint16 newNB = cpu_calculate_base_offset(reg_sf, cpu_get_operand(order));
     cpu_set_register_16(reg_nb, newNB & 0xFFFE); /* LS bit of NB is always zero */
+}
+
+static void cpu_execute_sts1_xd_load(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS XD= ");
+    cpu_set_register_64(reg_xd, cpu_get_operand(order));
 }
 
 static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable)
