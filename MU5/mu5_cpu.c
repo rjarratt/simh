@@ -290,8 +290,10 @@ static void cpu_execute_acc_fixed_reverse_sub(uint16 order, DISPATCH_ENTRY *inne
 static void cpu_execute_acc_fixed_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable); /* did not exist in real MU5, for HASE simulator comparison */
 
 /* floating point order functions */
+static t_uint64 cpu_get_acc_value();
 static void cpu_execute_flp_load_single(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_flp_load_double(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_flp_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_flp_store(uint16 order, DISPATCH_ENTRY *innerTable);
 
 DEVICE cpu_dev = {
@@ -434,42 +436,42 @@ static DISPATCH_ENTRY bDispatchTable[] =
 
 static DISPATCH_ENTRY accFixedDispatchTable[] =
 {
-	{ cpu_execute_illegal_order, NULL },         /* 0 */
-	{ cpu_execute_illegal_order, NULL },         /* 1 */
-	{ cpu_execute_illegal_order, NULL },         /* 2 */
-	{ cpu_execute_illegal_order, NULL },         /* 3 */
-	{ cpu_execute_acc_fixed_add, NULL },         /* 4 */
-	{ cpu_execute_acc_fixed_sub, NULL },         /* 5 */
-	{ cpu_execute_acc_fixed_mul, NULL },         /* 6 */
-	{ cpu_execute_acc_fixed_div, NULL },         /* 7 */
-	{ cpu_execute_acc_fixed_xor, NULL },         /* 8 */
-	{ cpu_execute_acc_fixed_or,  NULL },         /* 9 */
-	{ cpu_execute_acc_fixed_shift_left, NULL },  /* 10 */
-	{ cpu_execute_acc_fixed_and, NULL },         /* 11*/
+	{ cpu_execute_illegal_order,         NULL }, /* 0 */
+	{ cpu_execute_illegal_order,         NULL }, /* 1 */
+	{ cpu_execute_illegal_order,         NULL }, /* 2 */
+	{ cpu_execute_illegal_order,         NULL }, /* 3 */
+	{ cpu_execute_acc_fixed_add,         NULL }, /* 4 */
+	{ cpu_execute_acc_fixed_sub,         NULL }, /* 5 */
+	{ cpu_execute_acc_fixed_mul,         NULL }, /* 6 */
+	{ cpu_execute_acc_fixed_div,         NULL }, /* 7 */
+	{ cpu_execute_acc_fixed_xor,         NULL }, /* 8 */
+	{ cpu_execute_acc_fixed_or,          NULL }, /* 9 */
+	{ cpu_execute_acc_fixed_shift_left,  NULL }, /* 10 */
+	{ cpu_execute_acc_fixed_and,         NULL }, /* 11*/
 	{ cpu_execute_acc_fixed_reverse_sub, NULL }, /* 12 */
-	{ cpu_execute_illegal_order, NULL },         /* 13 */
-	{ cpu_execute_illegal_order, NULL },         /* 14 */
+	{ cpu_execute_illegal_order,         NULL }, /* 13 */
+	{ cpu_execute_illegal_order,         NULL }, /* 14 */
 	{ cpu_execute_acc_fixed_reverse_div, NULL }, /* 15 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
 };
 
 static DISPATCH_ENTRY floatingPointDispatchTable[] =
 {
-	{ cpu_execute_flp_load_single, NULL }, /* 0 */
-	{ cpu_execute_flp_load_double, NULL }, /* 1 */
-	{ cpu_execute_illegal_order,   NULL }, /* 2 */
-	{ cpu_execute_flp_store, NULL },       /* 3 */
-	{ cpu_execute_illegal_order, NULL },   /* 4 */
-	{ cpu_execute_illegal_order, NULL },   /* 5 */
-	{ cpu_execute_illegal_order, NULL },   /* 6 */
-	{ cpu_execute_illegal_order, NULL },   /* 7 */
-	{ cpu_execute_illegal_order, NULL },   /* 8 */
-	{ cpu_execute_illegal_order, NULL },   /* 9 */
-	{ cpu_execute_illegal_order, NULL },   /* 10 */
-	{ cpu_execute_illegal_order, NULL },   /* 11*/
-	{ cpu_execute_illegal_order, NULL },   /* 12 */
-	{ cpu_execute_illegal_order, NULL },   /* 13 */
-	{ cpu_execute_illegal_order, NULL },   /* 14 */
-	{ cpu_execute_illegal_order, NULL },   /* 15 */
+	{ cpu_execute_flp_load_single,    NULL }, /* 0 */
+	{ cpu_execute_flp_load_double,    NULL }, /* 1 */
+	{ cpu_execute_flp_stack_and_load, NULL }, /* 2 */
+	{ cpu_execute_flp_store,          NULL }, /* 3 */
+	{ cpu_execute_illegal_order,      NULL }, /* 4 */
+	{ cpu_execute_illegal_order,      NULL }, /* 5 */
+	{ cpu_execute_illegal_order,      NULL }, /* 6 */
+	{ cpu_execute_illegal_order,      NULL }, /* 7 */
+	{ cpu_execute_illegal_order,      NULL }, /* 8 */
+	{ cpu_execute_illegal_order,      NULL }, /* 9 */
+	{ cpu_execute_illegal_order,      NULL }, /* 10 */
+	{ cpu_execute_illegal_order,      NULL }, /* 11*/
+	{ cpu_execute_illegal_order,      NULL }, /* 12 */
+	{ cpu_execute_illegal_order,      NULL }, /* 13 */
+	{ cpu_execute_illegal_order,      NULL }, /* 14 */
+	{ cpu_execute_illegal_order,      NULL }, /* 15 */
 };
 
 static DISPATCH_ENTRY crDispatchTable[] =
@@ -1410,6 +1412,12 @@ static void cpu_execute_acc_fixed_reverse_div(uint16 order, DISPATCH_ENTRY *inne
 	}
 }
 
+static t_uint64 cpu_get_acc_value()
+{
+	t_uint64 result = (cpu_get_register_bit_64(reg_aod, mask_aod_opsiz64)) ? cpu_get_register_64(reg_a) : cpu_get_register_64(reg_a) >> 32;
+	return result;
+}
+
 static void cpu_execute_flp_load_single(uint16 order, DISPATCH_ENTRY *innerTable)
 {
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A=(32) ");
@@ -1424,16 +1432,30 @@ static void cpu_execute_flp_load_double(uint16 order, DISPATCH_ENTRY *innerTable
 	cpu_set_register_64(reg_a, cpu_get_operand(order));
 }
 
+static void cpu_execute_flp_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    uint16 newSF;
+    t_uint64 newA;
+
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "A*= ");
+    newSF = cpu_get_register_16(reg_sf) + 2;
+	cpu_set_register_16(reg_sf, newSF);
+	sac_write_64_bit_word(cpu_get_name_segment_address(reg_sf, 0), cpu_get_acc_value());
+    if (cpu_get_register_bit_64(reg_aod, mask_aod_opsiz64))
+    {
+        newA = cpu_get_operand(order);
+    }
+    else
+    {
+        newA = (cpu_get_operand(order) << 32) & 0xFFFFFFFF00000000;
+    }
+
+    cpu_set_register_64(reg_a, newA);
+}
+
 static void cpu_execute_flp_store(uint16 order, DISPATCH_ENTRY *innerTable)
 {
 	t_uint64 a = cpu_get_register_64(reg_a);
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "A=> ");
-	if (cpu_get_register_bit_64(reg_aod, mask_aod_opsiz64) == 1)
-	{
-		cpu_set_operand(order, a);
-	}
-	else
-	{
-		cpu_set_operand(order, a >> 32);
-	}
+    cpu_set_operand(order, cpu_get_acc_value());
 }
