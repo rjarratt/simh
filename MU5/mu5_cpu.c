@@ -279,6 +279,7 @@ static void cpu_descriptor_modify(REG *descriptorReg, int32 modifier);
 
 static void cpu_execute_sts1_xd_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_sts1_xd_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable);
 
 static void cpu_execute_sts2_d_load(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -423,7 +424,7 @@ static DISPATCH_ENTRY sts1DispatchTable[] =
     { cpu_execute_illegal_order, NULL },   /* 0 */
     { cpu_execute_sts1_xd_load,  NULL },   /* 1 */
     { cpu_execute_sts1_stack,    NULL },   /* 2 */
-    { cpu_execute_illegal_order, NULL },   /* 3 */
+    { cpu_execute_sts1_xd_store, NULL },   /* 3 */
     { cpu_execute_illegal_order, NULL },   /* 4 */
     { cpu_execute_illegal_order, NULL },   /* 5 */
     { cpu_execute_illegal_order, NULL },   /* 6 */
@@ -1376,6 +1377,13 @@ static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable)
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS STACK ");
     cpu_push_value(cpu_get_operand(order) & 0xFFFFFFFF);
 }
+
+static void cpu_execute_sts1_xd_store(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS XD=> ");
+    cpu_set_operand(order, cpu_get_register_64(reg_xd));
+}
+
 
 static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable)
 {
