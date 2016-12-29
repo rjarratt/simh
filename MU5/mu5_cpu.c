@@ -283,6 +283,7 @@ static void cpu_execute_sts1_xd_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable);
 
 static void cpu_execute_sts2_d_load(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_sts2_d_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_d_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_mod(uint16 order, DISPATCH_ENTRY *innerTable);
 
@@ -441,22 +442,22 @@ static DISPATCH_ENTRY sts1DispatchTable[] =
 
 static DISPATCH_ENTRY sts2DispatchTable[] =
 {
-    { cpu_execute_illegal_order, NULL },   /* 0 */
-    { cpu_execute_sts2_d_load,   NULL },   /* 1 */
-    { cpu_execute_illegal_order, NULL },   /* 2 */
-    { cpu_execute_sts2_d_store,  NULL },   /* 3 */
-    { cpu_execute_illegal_order, NULL },   /* 4 */
-    { cpu_execute_illegal_order, NULL },   /* 5 */
-    { cpu_execute_sts2_mod,      NULL },   /* 6 */
-    { cpu_execute_illegal_order, NULL },   /* 7 */
-    { cpu_execute_illegal_order, NULL },   /* 8 */
-    { cpu_execute_illegal_order, NULL },   /* 9 */
-    { cpu_execute_illegal_order, NULL },   /* 10 */
-    { cpu_execute_illegal_order, NULL },   /* 11*/
-    { cpu_execute_illegal_order, NULL },   /* 12 */
-    { cpu_execute_illegal_order, NULL },   /* 13 */
-    { cpu_execute_illegal_order, NULL },   /* 14 */
-    { cpu_execute_illegal_order, NULL },   /* 15 */
+    { cpu_execute_illegal_order,         NULL },   /* 0 */
+    { cpu_execute_sts2_d_load,           NULL },   /* 1 */
+    { cpu_execute_sts2_d_stack_and_load, NULL },   /* 2 */
+    { cpu_execute_sts2_d_store,          NULL },   /* 3 */
+    { cpu_execute_illegal_order,         NULL },   /* 4 */
+    { cpu_execute_illegal_order,         NULL },   /* 5 */
+    { cpu_execute_sts2_mod,              NULL },   /* 6 */
+    { cpu_execute_illegal_order,         NULL },   /* 7 */
+    { cpu_execute_illegal_order,         NULL },   /* 8 */
+    { cpu_execute_illegal_order,         NULL },   /* 9 */
+    { cpu_execute_illegal_order,         NULL },   /* 10 */
+    { cpu_execute_illegal_order,         NULL },   /* 11*/
+    { cpu_execute_illegal_order,         NULL },   /* 12 */
+    { cpu_execute_illegal_order,         NULL },   /* 13 */
+    { cpu_execute_illegal_order,         NULL },   /* 14 */
+    { cpu_execute_illegal_order,         NULL },   /* 15 */
 };
 
 static DISPATCH_ENTRY bDispatchTable[] =
@@ -1402,6 +1403,13 @@ static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_sts2_d_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS D= ");
+    cpu_set_register_64(reg_d, cpu_get_operand(order));
+}
+
+static void cpu_execute_sts2_d_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS D*= ");
+    cpu_push_value(cpu_get_register_64(reg_d));
     cpu_set_register_64(reg_d, cpu_get_operand(order));
 }
 
