@@ -836,7 +836,7 @@ static uint16 cpu_get_extended_k(uint16 order)
 
 static uint16 cpu_get_extended_n(uint16 order)
 {
-    uint16 result = order & 0x3;
+    uint16 result = order & 0x7;
     return result;
 }
 
@@ -903,6 +903,12 @@ static t_uint64 cpu_get_operand_extended_variable_32(uint16 order, uint32 instru
             result = sac_read_32_bit_word(addr);
             *instructionLength += 1;
             sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 Z %u\n", addr);
+            break;
+        }
+        case 4:
+        {
+            result = cpu_pop_value();
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "STACK Z 0\n");
             break;
         }
         default:
@@ -1052,12 +1058,6 @@ static t_uint64 cpu_get_operand(uint16 order)
         case 2:
         {
             result = cpu_get_operand_variable_32(order, instructionAddress, &instructionLength);
-            break;
-        }
-        case 6:
-        {
-            sim_debug(LOG_CPU_DECODE, &cpu_dev, "STACK\n"); /* TODO: not properly implemented */
-            result = cpu_pop_value();
             break;
         }
         case 7:
