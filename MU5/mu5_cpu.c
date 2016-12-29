@@ -243,7 +243,8 @@ static t_uint64 cpu_get_operand_variable_32(uint16 order, uint32 instructionAddr
 static t_uint64 cpu_get_operand(uint16 order);
 static void cpu_set_operand(uint16 order, t_uint64 value);
 static t_uint64 cpu_sign_extend_6_bit(t_uint64 value);
-static void cpu_add_value_to_stack(t_uint64 value);
+static void cpu_push_value(t_uint64 value);
+static t_uint64 cpu_pop_value(void);
 
 static void cpu_execute_next_order(void);
 static void cpu_execute_illegal_order(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -1014,6 +1015,12 @@ static t_uint64 cpu_get_operand(uint16 order)
             result = cpu_get_operand_variable_32(order, instructionAddress, &instructionLength);
             break;
         }
+        case 6:
+        {
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "STACK\n"); /* TODO: not properly implemented */
+            result = cpu_pop_value();
+            break;
+        }
         case 7:
         {
             uint8 extendedKind = (order >> 3) & 0x7;
@@ -1070,11 +1077,20 @@ static t_uint64 cpu_sign_extend_6_bit(t_uint64 value)
     return result;
 }
 
-static void cpu_add_value_to_stack(t_uint64 value)
+static void cpu_push_value(t_uint64 value)
 {
     uint16 newSF = cpu_get_register_16(reg_sf) + 2;
     cpu_set_register_16(reg_sf, newSF);
     sac_write_64_bit_word(cpu_get_name_segment_address(reg_sf, 0), value);
+}
+
+static t_uint64 cpu_pop_value(void)
+{
+    t_uint64 result;
+    uint16 sf = cpu_get_register_16(reg_sf);
+    result = sac_read_64_bit_word(cpu_get_name_segment_address(reg_sf, 0));
+    cpu_set_register_16(reg_sf, sf - 2);
+    return result;
 }
 
 static void cpu_execute_next_order(void)
@@ -1159,7 +1175,7 @@ static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_EN
 static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS STACK ");
-    cpu_add_value_to_stack(cpu_get_operand(order) & 0xFFFFFFFF);
+    cpu_push_value(cpu_get_operand(order) & 0xFFFFFFFF);
 }
 
 static void cpu_check_b_overflow(t_uint64 result)
@@ -1189,7 +1205,7 @@ static void cpu_execute_b_load(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_b_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B*= ");
-    cpu_add_value_to_stack(cpu_get_register_32(reg_b));
+    cpu_push_value(cpu_get_register_32(reg_b));
     cpu_set_register_32(reg_b, cpu_get_operand(order) & 0xFFFFFFFF);
 }
 
@@ -1441,7 +1457,7 @@ static void cpu_execute_flp_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTa
     t_uint64 newA;
 
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A*= ");
-    cpu_add_value_to_stack(cpu_get_acc_value());
+    cpu_push_value(cpu_get_acc_value());
     if (cpu_get_register_bit_64(reg_aod, mask_aod_opsiz64))
     {
         newA = cpu_get_operand(order);
