@@ -282,6 +282,7 @@ static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable);
 
 static void cpu_execute_sts2_d_load(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_sts2_d_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_mod(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* B order functions */
@@ -442,7 +443,7 @@ static DISPATCH_ENTRY sts2DispatchTable[] =
     { cpu_execute_illegal_order, NULL },   /* 0 */
     { cpu_execute_sts2_d_load,   NULL },   /* 1 */
     { cpu_execute_illegal_order, NULL },   /* 2 */
-    { cpu_execute_illegal_order, NULL },   /* 3 */
+    { cpu_execute_sts2_d_store,  NULL },   /* 3 */
     { cpu_execute_illegal_order, NULL },   /* 4 */
     { cpu_execute_illegal_order, NULL },   /* 5 */
     { cpu_execute_sts2_mod,      NULL },   /* 6 */
@@ -1173,6 +1174,12 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
             sac_write_32_bit_word(addr, value & 0xFFFFFFFF);
             break;
         }
+        case 3:
+        {
+            addr = cpu_get_operand_address_variable_64(order, instructionAddress, &instructionLength);
+            sac_write_64_bit_word(addr, value);
+            break;
+        }
         default:
         {
             cpu_set_interrupt(INT_ILLEGAL_ORDERS);
@@ -1388,6 +1395,12 @@ static void cpu_execute_sts2_d_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS D= ");
     cpu_set_register_64(reg_d, cpu_get_operand(order));
+}
+
+static void cpu_execute_sts2_d_store(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS D=> ");
+    cpu_set_operand(order, cpu_get_register_64(reg_d));
 }
 
 static void cpu_execute_sts2_mod(uint16 order, DISPATCH_ENTRY *innerTable)
