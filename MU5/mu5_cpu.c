@@ -242,7 +242,9 @@ static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructio
 static t_uint64 cpu_get_operand_extended_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
+static t_addr cpu_get_operand_address_variable_64(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
+static t_uint64 cpu_get_operand_variable_64(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand(uint16 order);
 static void cpu_set_operand(uint16 order, t_uint64 value);
 static t_uint64 cpu_sign_extend_6_bit(t_uint64 value);
@@ -265,6 +267,8 @@ static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_EN
 
 /* store-to-store order functions */
 static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable);
+
+static void cpu_execute_sts2_d_load(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* B order functions */
 static void cpu_check_b_overflow(t_uint64 result);
@@ -419,6 +423,26 @@ static DISPATCH_ENTRY sts1DispatchTable[] =
     { cpu_execute_illegal_order, NULL },   /* 15 */
 };
 
+static DISPATCH_ENTRY sts2DispatchTable[] =
+{
+    { cpu_execute_illegal_order, NULL },   /* 0 */
+    { cpu_execute_sts2_d_load,   NULL },   /* 1 */
+    { cpu_execute_illegal_order, NULL },   /* 2 */
+    { cpu_execute_illegal_order, NULL },   /* 3 */
+    { cpu_execute_illegal_order, NULL },   /* 4 */
+    { cpu_execute_illegal_order, NULL },   /* 5 */
+    { cpu_execute_illegal_order, NULL },   /* 6 */
+    { cpu_execute_illegal_order, NULL },   /* 7 */
+    { cpu_execute_illegal_order, NULL },   /* 8 */
+    { cpu_execute_illegal_order, NULL },   /* 9 */
+    { cpu_execute_illegal_order, NULL },   /* 10 */
+    { cpu_execute_illegal_order, NULL },   /* 11*/
+    { cpu_execute_illegal_order, NULL },   /* 12 */
+    { cpu_execute_illegal_order, NULL },   /* 13 */
+    { cpu_execute_illegal_order, NULL },   /* 14 */
+    { cpu_execute_illegal_order, NULL },   /* 15 */
+};
+
 static DISPATCH_ENTRY bDispatchTable[] =
 {
     { cpu_execute_b_load,           NULL },   /* 0 */
@@ -483,7 +507,7 @@ static DISPATCH_ENTRY crDispatchTable[] =
 {
     { cpu_execute_cr_level, organisationalDispatchTable }, /* 0 */
     { cpu_execute_cr_level, sts1DispatchTable },           /* 1 */
-    { cpu_execute_cr_level, NULL },                        /* 2 */
+    { cpu_execute_cr_level, sts2DispatchTable },           /* 2 */
     { cpu_execute_cr_level, bDispatchTable },              /* 3 */
     { cpu_execute_cr_level, NULL },                        /* 4 */
     { cpu_execute_cr_level, accFixedDispatchTable },       /* 5 */
@@ -931,6 +955,16 @@ static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructi
     return result;
 }
 
+static t_addr cpu_get_operand_address_variable_64(uint16 order, uint32 instructionAddress, int *instructionLength)
+{
+    t_addr result;
+    uint8 n = order & 0x3F;
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "V64 %hu\n", n);
+    result = cpu_get_name_segment_address(reg_nb, n) >> 1; /* address in 64-bit units for 64-bit access */
+
+    return result;
+}
+
 static t_uint64 cpu_get_operand_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
     t_uint64 result = 0;
@@ -938,6 +972,17 @@ static t_uint64 cpu_get_operand_variable_32(uint16 order, uint32 instructionAddr
 
     addr = cpu_get_operand_address_variable_32(order, instructionAddress, instructionLength);
     result = sac_read_32_bit_word(addr);
+
+    return result;
+}
+
+static t_uint64 cpu_get_operand_variable_64(uint16 order, uint32 instructionAddress, int *instructionLength)
+{
+    t_uint64 result = 0;
+    t_addr addr;
+
+    addr = cpu_get_operand_address_variable_64(order, instructionAddress, instructionLength);
+    result = sac_read_64_bit_word(addr);
 
     return result;
 }
@@ -1058,6 +1103,11 @@ static t_uint64 cpu_get_operand(uint16 order)
         case 2:
         {
             result = cpu_get_operand_variable_32(order, instructionAddress, &instructionLength);
+            break;
+        }
+        case 3:
+        {
+            result = cpu_get_operand_variable_64(order, instructionAddress, &instructionLength);
             break;
         }
         case 7:
@@ -1224,6 +1274,12 @@ static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS STACK ");
     cpu_push_value(cpu_get_operand(order) & 0xFFFFFFFF);
+}
+
+static void cpu_execute_sts2_d_load(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS D= ");
+    cpu_set_register_64(reg_d, cpu_get_operand(order));
 }
 
 static void cpu_check_b_overflow(t_uint64 result)
