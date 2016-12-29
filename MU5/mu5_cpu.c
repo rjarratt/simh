@@ -275,8 +275,11 @@ static uint32 cpu_get_descriptor_bound(t_uint64 descriptor);
 static uint32 cpu_get_descriptor_origin(t_uint64 descriptor);
 static void cpu_set_descriptor_bound(t_uint64 *descriptor, uint32 bound);
 static void cpu_set_descriptor_origin(t_uint64 *descriptor, uint32 origin);
+static void cpu_descriptor_modify(REG *descriptorReg, int32 modifier);
+
 static void cpu_execute_sts1_xd_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable);
 
 static void cpu_execute_sts2_d_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_mod(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -423,7 +426,7 @@ static DISPATCH_ENTRY sts1DispatchTable[] =
     { cpu_execute_illegal_order, NULL },   /* 4 */
     { cpu_execute_illegal_order, NULL },   /* 5 */
     { cpu_execute_illegal_order, NULL },   /* 6 */
-    { cpu_execute_illegal_order, NULL },   /* 7 */
+    { cpu_execute_sts1_xmod,     NULL },   /* 7 */
     { cpu_execute_illegal_order, NULL },   /* 8 */
     { cpu_execute_illegal_order, NULL },   /* 9 */
     { cpu_execute_illegal_order, NULL },   /* 10 */
@@ -1332,6 +1335,29 @@ static void cpu_set_descriptor_origin(t_uint64 *descriptor, uint32 origin)
     *descriptor = (*descriptor & 0xFFFFFFFF00000000) | origin;
 }
 
+static void cpu_descriptor_modify(uint16 order, REG *descriptorReg)
+{
+    t_uint64 d = cpu_get_register_64(descriptorReg);
+    uint8 type = cpu_get_descriptor_type(d);
+    uint8 subtype = cpu_get_descriptor_subtype(d);
+    int32 modifier = cpu_get_operand(order) & 0xFFFFFFFF;
+    uint32 bound = cpu_get_descriptor_bound(d);
+    uint32 origin = cpu_get_descriptor_origin(d);
+    /* TODO: scaling not implemented, p49 */
+    /* TODO: indirect descriptor processing not implemented, p49 */
+    /* TODO: procedure call processing not implemented, p49 */
+    if (!cpu_get_descriptor_bound_check_inhibit(d) && (type == 0 || type == 1 || type == 2 || (type == 3 && subtype == 0) || (type == 3 && subtype == 1) || (type == 3 && subtype == 2)))
+    {
+        if (modifier < 0 || modifier >= bound)
+        {
+            cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: bound check interrupt */
+        }
+    }
+    cpu_set_descriptor_bound(&d, bound - modifier);
+    cpu_set_descriptor_origin(&d, origin + modifier);
+    cpu_set_register_64(descriptorReg, d);
+}
+
 static void cpu_execute_sts1_xd_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS XD= ");
@@ -1344,6 +1370,20 @@ static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable)
     cpu_push_value(cpu_get_operand(order) & 0xFFFFFFFF);
 }
 
+static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS XMOD ");
+    t_uint64 d = cpu_get_register_64(reg_xd);
+    uint8 type = cpu_get_descriptor_type(d);
+    uint8 subtype = cpu_get_descriptor_subtype(d);
+    if (type == 3 && (subtype >= 3 && subtype <= 31))
+    {
+        cpu_set_interrupt(INT_ILLEGAL_ORDERS); /* TODO: better interrupt handling */
+    }
+
+    cpu_descriptor_modify(order, reg_xd);
+}
+
 static void cpu_execute_sts2_d_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS D= ");
@@ -1353,24 +1393,7 @@ static void cpu_execute_sts2_d_load(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_sts2_mod(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS MOD ");
-    t_uint64 d = cpu_get_register_64(reg_d);
-    uint8 type = cpu_get_descriptor_type(d);
-    uint8 subtype = cpu_get_descriptor_subtype(d);
-    int32 mod = cpu_get_operand(order) & 0xFFFFFFFF;
-    uint32 bound = cpu_get_descriptor_bound(d);
-    uint32 origin = cpu_get_descriptor_origin(d);
-    /* TODO: scaling not implemented, p49 */
-    /* TODO: indirect descriptor processing not implemented, p49 */
-    if (!cpu_get_descriptor_bound_check_inhibit(d) && (type == 0 || type == 1 || type == 2 || (type == 3 && subtype == 0) || (type == 3 && subtype == 1) || (type == 3 && subtype == 2)))
-    {
-        if (mod < 0 || mod >= bound)
-        {
-            cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: bound check interrupt */
-        }
-    }
-    cpu_set_descriptor_bound(&d, bound - mod);
-    cpu_set_descriptor_origin(&d, origin + mod);
-    cpu_set_register_64(reg_d, d);
+    cpu_descriptor_modify(order, reg_d);
 }
 
 static void cpu_check_b_overflow(t_uint64 result)
