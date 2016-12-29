@@ -31,7 +31,7 @@ static uint32 LocalStore[MAXMEMORY];
 
 t_uint64 sac_read_64_bit_word(t_addr address)
 {
-    t_uint64 result = sac_read_32_bit_word(address + 1) << 32 & sac_read_32_bit_word(address);
+    t_uint64 result = sac_read_32_bit_word(address) << 32 | sac_read_32_bit_word(address + 1);
     return result;
 }
 
