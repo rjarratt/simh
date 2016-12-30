@@ -523,9 +523,9 @@ static DISPATCH_ENTRY floatingPointDispatchTable[] =
 static DISPATCH_ENTRY crDispatchTable[] =
 {
     { cpu_execute_cr_level, organisationalDispatchTable }, /* 0 */
-    { cpu_execute_cr_level, sts1DispatchTable },           /* 1 */
-    { cpu_execute_cr_level, sts2DispatchTable },           /* 2 */
-    { cpu_execute_cr_level, bDispatchTable },              /* 3 */
+    { cpu_execute_cr_level, bDispatchTable },              /* 1 */
+    { cpu_execute_cr_level, sts1DispatchTable },           /* 2 */
+    { cpu_execute_cr_level, sts2DispatchTable },           /* 3 */
     { cpu_execute_cr_level, NULL },                        /* 4 */
     { cpu_execute_cr_level, accFixedDispatchTable },       /* 5 */
     { cpu_execute_cr_level, NULL },                        /* 6 */
