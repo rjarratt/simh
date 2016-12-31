@@ -1561,9 +1561,9 @@ static void cpu_check_b_overflow(t_uint64 result)
 
 static void cpu_test_b_value(t_int64 value)
 {
-    cpu_set_register_bit_16(reg_ms, mask_ms_t1, cpu_get_register_bit_32(reg_bod, mask_bod_bovf));
-    cpu_set_register_bit_16(reg_ms, mask_ms_t2, value == 0);
-    cpu_set_register_bit_16(reg_ms, mask_ms_t0, value < 0);
+    cpu_set_register_bit_16(reg_ms, mask_ms_t0, cpu_get_register_bit_32(reg_bod, mask_bod_bovf));
+    cpu_set_register_bit_16(reg_ms, mask_ms_t1, value != 0);
+    cpu_set_register_bit_16(reg_ms, mask_ms_t2, value < 0);
 }
 
 static void cpu_execute_b_load(uint16 order, DISPATCH_ENTRY *innerTable)
