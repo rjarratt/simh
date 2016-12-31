@@ -272,7 +272,14 @@ static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTR
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_branch_eq(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_branch_ne(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_branch_ge(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_branch_lt(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_branch_le(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_branch_gt(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_branch_ovf(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_branch_bn(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* store-to-store order functions */
 static uint8 cpu_get_descriptor_type(t_uint64 descriptor);
@@ -398,22 +405,22 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
     { cpu_execute_organisational_NB_load_SF_plus, NULL }, /* 29 */
     { cpu_execute_illegal_order,                  NULL }, /* 30 */
     { cpu_execute_illegal_order,                  NULL }, /* 31 */
-    { cpu_execute_illegal_order,                  NULL }, /* 32 */
+    { cpu_execute_organisational_branch_eq,       NULL }, /* 32 */
     { cpu_execute_organisational_branch_ne,       NULL }, /* 33 */
-    { cpu_execute_illegal_order,                  NULL }, /* 34 */
-    { cpu_execute_illegal_order,                  NULL }, /* 35 */
-    { cpu_execute_illegal_order,                  NULL }, /* 36 */
-    { cpu_execute_illegal_order,                  NULL }, /* 37 */
-    { cpu_execute_illegal_order,                  NULL }, /* 38 */
-    { cpu_execute_illegal_order,                  NULL }, /* 39 */
-    { cpu_execute_illegal_order,                  NULL }, /* 40 */
-    { cpu_execute_illegal_order,                  NULL }, /* 41 */
-    { cpu_execute_illegal_order,                  NULL }, /* 42 */
-    { cpu_execute_illegal_order,                  NULL }, /* 43 */
-    { cpu_execute_illegal_order,                  NULL }, /* 44 */
-    { cpu_execute_illegal_order,                  NULL }, /* 45 */
-    { cpu_execute_illegal_order,                  NULL }, /* 46 */
-    { cpu_execute_illegal_order,                  NULL }, /* 47 */
+    { cpu_execute_organisational_branch_ge,       NULL }, /* 34 */
+    { cpu_execute_organisational_branch_lt,       NULL }, /* 35 */
+    { cpu_execute_organisational_branch_le,       NULL }, /* 36 */
+    { cpu_execute_organisational_branch_gt,       NULL }, /* 37 */
+    { cpu_execute_organisational_branch_ovf,      NULL }, /* 38 */
+    { cpu_execute_organisational_branch_bn,       NULL }, /* 39 */
+    { cpu_execute_organisational_branch_eq,       NULL }, /* 40 */
+    { cpu_execute_organisational_branch_ne,       NULL }, /* 41 */
+    { cpu_execute_organisational_branch_ge,       NULL }, /* 42 */
+    { cpu_execute_organisational_branch_lt,       NULL }, /* 43 */
+    { cpu_execute_organisational_branch_le,       NULL }, /* 44 */
+    { cpu_execute_organisational_branch_gt,       NULL }, /* 45 */
+    { cpu_execute_organisational_branch_ovf,      NULL }, /* 46 */
+    { cpu_execute_organisational_branch_bn,       NULL }, /* 47 */
     { cpu_execute_illegal_order,                  NULL }, /* 48 */
     { cpu_execute_illegal_order,                  NULL }, /* 49 */
     { cpu_execute_illegal_order,                  NULL }, /* 50 */
@@ -1414,10 +1421,53 @@ static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_EN
     uint16 newNB = cpu_calculate_base_offset(reg_sf, cpu_get_operand(order));
     cpu_set_register_16(reg_nb, newNB & 0xFFFE); /* LS bit of NB is always zero */
 }
+
+static void cpu_execute_organisational_branch_eq(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "= 0 ");
+    cpu_jump_relative(order, !cpu_get_register_bit_16(reg_ms, mask_ms_t1));
+}
+
 static void cpu_execute_organisational_branch_ne(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "/= 0 ");
     cpu_jump_relative(order, cpu_get_register_bit_16(reg_ms, mask_ms_t1));
+}
+
+static void cpu_execute_organisational_branch_ge(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, ">= 0 ");
+    cpu_jump_relative(order, !cpu_get_register_bit_16(reg_ms, mask_ms_t1) || !cpu_get_register_bit_16(reg_ms, mask_ms_t2));
+}
+
+static void cpu_execute_organisational_branch_lt(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "< 0 ");
+    cpu_jump_relative(order, cpu_get_register_bit_16(reg_ms, mask_ms_t2));
+}
+
+static void cpu_execute_organisational_branch_le(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "<= 0 ");
+    cpu_jump_relative(order, !cpu_get_register_bit_16(reg_ms, mask_ms_t1) || cpu_get_register_bit_16(reg_ms, mask_ms_t2));
+}
+
+static void cpu_execute_organisational_branch_gt(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "> 0 ");
+    cpu_jump_relative(order, cpu_get_register_bit_16(reg_ms, mask_ms_t1) && !cpu_get_register_bit_16(reg_ms, mask_ms_t2));
+}
+
+static void cpu_execute_organisational_branch_ovf(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "OVERFLOW ");
+    cpu_jump_relative(order, cpu_get_register_bit_16(reg_ms, mask_ms_t0));
+}
+
+static void cpu_execute_organisational_branch_bn(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "Bn ");
+    cpu_jump_relative(order, cpu_get_register_bit_16(reg_ms, mask_ms_bn));
 }
 
 static uint8 cpu_get_descriptor_type(t_uint64 descriptor)
