@@ -1704,6 +1704,7 @@ static void cpu_execute_b_compare_and_increment(uint16 order, DISPATCH_ENTRY *in
     cpu_test_b_value(b - comparand);
     b++;
     cpu_check_b_overflow(b);
+    cpu_set_register_32(reg_b, b & 0xFFFFFFFF);
 }
 
 static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable)
