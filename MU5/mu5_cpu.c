@@ -246,6 +246,7 @@ static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructi
 static t_addr cpu_get_operand_address_variable_64(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_variable_64(uint16 order, uint32 instructionAddress, int *instructionLength);
+static t_addr cpu_get_operand_address_by_descriptor_vector_access(t_uint64 descriptor, uint32 modifier);
 static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand(uint16 order);
 static void cpu_set_operand(uint16 order, t_uint64 value);
@@ -271,10 +272,11 @@ static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_EN
 static uint8 cpu_get_descriptor_type(t_uint64 descriptor);
 static uint8 cpu_get_descriptor_subtype(t_uint64 descriptor);
 static uint8 cpu_get_descriptor_size(t_uint64 descriptor);
-static uint8 cpu_get_descriptor_scale(t_uint64 descriptor);
+static uint8 cpu_get_descriptor_unscaled(t_uint64 descriptor);
 static uint8 cpu_get_descriptor_bound_check_inhibit(t_uint64 descriptor);
 static uint32 cpu_get_descriptor_bound(t_uint64 descriptor);
 static uint32 cpu_get_descriptor_origin(t_uint64 descriptor);
+static uint32 cpu_get_descriptor_origin_address(t_uint64 descriptor);
 static void cpu_set_descriptor_bound(t_uint64 *descriptor, uint32 bound);
 static void cpu_set_descriptor_origin(t_uint64 *descriptor, uint32 origin);
 static void cpu_descriptor_modify(REG *descriptorReg, int32 modifier);
@@ -1012,6 +1014,61 @@ static t_uint64 cpu_get_operand_variable_64(uint16 order, uint32 instructionAddr
     return result;
 }
 
+/* see p 90 of Morris and Ibbett and p23 of programming manual */
+static t_addr cpu_get_operand_address_by_descriptor_vector_access(t_uint64 descriptor, uint32 modifier)
+{
+    t_addr result;
+    uint8 unscaled = cpu_get_descriptor_unscaled(descriptor);
+    uint32 origin = cpu_get_descriptor_origin_address(descriptor);
+    if (unscaled)
+    {
+        result = origin + modifier;
+    }
+    else
+    {
+        switch (cpu_get_descriptor_size(descriptor))
+        {
+            case 0: /* 1-bit */
+            {
+                result = origin + (modifier >> 3);
+                break;
+            }
+            case 1: /* 4-bit */
+            {
+                result = origin + (modifier >> 1);
+                break;
+            }
+            case 2: /* 8-bit */
+            {
+                result = origin + modifier;
+                break;
+            }
+            case 3: /* 16-bit */
+            {
+                result = origin + (modifier << 1);
+                break;
+            }
+            case 4: /* 32-bit */
+            {
+                result = origin + (modifier << 2);
+                break;
+            }
+            case 5: /* 64-bit */
+            {
+                result = origin + (modifier << 3);
+                break;
+            }
+            default:
+            {
+                cpu_set_interrupt(INT_ILLEGAL_ORDERS); /* TODO: needs to be an interrupt about a bad descriptor */
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+
 static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
     t_uint64 result = 0;
@@ -1025,7 +1082,7 @@ static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instruction
     d = sac_read_64_bit_word(daddr);
     cpu_set_register_64(reg_d, d);
 
-    addr = cpu_get_descriptor_origin(d) + cpu_get_register_32(reg_b);
+    addr = cpu_get_operand_address_by_descriptor_vector_access(d, cpu_get_register_32(reg_b));
     result = sac_read_64_bit_word(addr);
 
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "SB NB %hu\n", n);
@@ -1157,7 +1214,7 @@ static t_uint64 cpu_get_operand(uint16 order)
             break;
         }
         case 4:
-        case 5:
+        case 5: /* RNI - From a programmer's perspective, k=5 was a spare, so in the hardware it was treated as being identical to k=4.*/
         {
             result = cpu_get_operand_from_descriptor(order, instructionAddress, &instructionLength);
             break;
@@ -1345,7 +1402,7 @@ static uint8 cpu_get_descriptor_size(t_uint64 descriptor)
     return result;
 }
 
-static uint8 cpu_get_descriptor_scale(t_uint64 descriptor)
+static uint8 cpu_get_descriptor_unscaled(t_uint64 descriptor)
 {
     uint8 result = (descriptor >> 58) & 0x1;
     return result;
@@ -1367,6 +1424,11 @@ static uint32 cpu_get_descriptor_origin(t_uint64 descriptor)
 {
     uint32 result = descriptor & 0xFFFFFFFF;
     return result;
+}
+
+static uint32 cpu_get_descriptor_origin_address(t_uint64 descriptor)
+{
+    return cpu_get_descriptor_origin(descriptor) >> 2; /* origin is specified in bytes */
 }
 
 static void cpu_set_descriptor_bound(t_uint64 *descriptor, uint32 bound)

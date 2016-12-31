@@ -1,19 +1,14 @@
+Contrary to the HASE example, the second descriptor has to have an origin of 524368 because the values in the vector are 64-bit rather than 32-bit.
+At least that has to be the case until I understand how 32-bit values can be loaded into ACC and operated on by the AU orders.
+
 CO     Oct/Hex  Hex     Instruction
 65536  01C00    0E00    Org NBld V32 Z 0
 65537  01A06    0D06    Org SFNBpl lit Z 6
 65538   1000    2000    B LD lit Z 0
 65539   7100    E200    ACC LD lit Z 0
 65540   7240    E500    ACC SLD SB NB 0
-SF = SF + 2
-ACC => [VA 4] 
-DR = [VA 0] 
-ACC = [DR.origin + B] 
+65541   5641    AD01    ACC MUL SB NB 1
 
-
-65541
-ACC MUL SB NB 1
-DR = [VA 1]
-ACC = ACC * [DR.origin + B] 
 65542
 B CINC lit Z 9
 Set T1 & T2 according to B - 9 
