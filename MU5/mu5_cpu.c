@@ -235,6 +235,7 @@ static uint8 cpu_get_interrupt_number(void);
 static uint16 cpu_get_cr(uint16 order);
 static uint16 cpu_get_f(uint16 order);
 static uint16 cpu_get_k(uint16 order);
+static uint16 cpu_get_n(uint16 order);
 static uint16 cpu_get_extended_k(uint16 order);
 static uint16 cpu_get_extended_n(uint16 order);
 static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAddress, int *instructionLength);
@@ -245,6 +246,7 @@ static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructi
 static t_addr cpu_get_operand_address_variable_64(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_variable_64(uint16 order, uint32 instructionAddress, int *instructionLength);
+static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand(uint16 order);
 static void cpu_set_operand(uint16 order, t_uint64 value);
 static t_uint64 cpu_sign_extend_6_bit(t_uint64 value);
@@ -329,7 +331,7 @@ DEVICE cpu_dev = {
     cpu_mod,          /* modifiers */
     1,                /* numunits */
     16,               /* aradix */
-    16,               /* awidth */
+    32,               /* awidth */
     1,                /* aincr */
     16,               /* dradix */
     32,               /* dwidth */
@@ -869,6 +871,12 @@ static uint16 cpu_get_k(uint16 order)
     return k;
 }
 
+static uint16 cpu_get_n(uint16 order)
+{
+    uint16 result = order & 0x3F;
+    return result;
+}
+
 static uint16 cpu_get_extended_k(uint16 order)
 {
     uint16 result = (order >> 3) & 0x7;
@@ -884,7 +892,7 @@ static uint16 cpu_get_extended_n(uint16 order)
 static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
     t_uint64 result = 0;
-    result = order & 0x3F;
+    result = cpu_get_n(order);
     result = cpu_sign_extend_6_bit(result);
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "%lld\n", result);
     return result;
@@ -965,7 +973,7 @@ static t_uint64 cpu_get_operand_extended_variable_32(uint16 order, uint32 instru
 static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
     t_addr result;
-    uint8 n = order & 0x3F;
+    uint8 n = cpu_get_n(order);
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 %hu\n", n);
     result = cpu_get_name_segment_address(reg_nb, n);
 
@@ -975,7 +983,7 @@ static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructi
 static t_addr cpu_get_operand_address_variable_64(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
     t_addr result;
-    uint8 n = order & 0x3F;
+    uint16 n = cpu_get_n(order);
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "V64 %hu\n", n);
     result = cpu_get_name_segment_address(reg_nb, n << 1); /* address in 64-bit units for 64-bit access */
 
@@ -1000,6 +1008,27 @@ static t_uint64 cpu_get_operand_variable_64(uint16 order, uint32 instructionAddr
 
     addr = cpu_get_operand_address_variable_64(order, instructionAddress, instructionLength);
     result = sac_read_64_bit_word(addr);
+
+    return result;
+}
+
+static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength)
+{
+    t_uint64 result = 0;
+    t_uint64 d;
+    t_addr daddr;
+    t_addr addr;
+    uint16 n = cpu_get_n(order);
+
+    daddr = cpu_get_name_segment_address(reg_nb, n << 1); /* address in 64-bit units for 64-bit access */
+    /* TODO: refactor 64-bit address calculation */
+    d = sac_read_64_bit_word(daddr);
+    cpu_set_register_64(reg_d, d);
+
+    addr = cpu_get_descriptor_origin(d) + cpu_get_register_32(reg_b);
+    result = sac_read_64_bit_word(addr);
+
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "SB NB %hu\n", n);
 
     return result;
 }
@@ -1125,6 +1154,12 @@ static t_uint64 cpu_get_operand(uint16 order)
         case 3:
         {
             result = cpu_get_operand_variable_64(order, instructionAddress, &instructionLength);
+            break;
+        }
+        case 4:
+        case 5:
+        {
+            result = cpu_get_operand_from_descriptor(order, instructionAddress, &instructionLength);
             break;
         }
         case 7:
