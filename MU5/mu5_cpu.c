@@ -103,8 +103,8 @@ BITFIELD bod_bits[] = {
     ENDBITS
 };
 
-static t_uint64 mask_bod_bovf = 0xFFFFFFDF;
-static t_uint64 mask_bod_ibovf = 0xFFFFFFFE;
+static uint32 mask_bod_bovf = 0xFFFFFFDF;
+static uint32 mask_bod_ibovf = 0xFFFFFFFE;
 
 BITFIELD ms_bits[] = {
     BIT(L0IF),    /* Level 0 interrupt flip-flop */
@@ -221,16 +221,16 @@ static t_stat cpu_reset(DEVICE *dptr);
 static SIM_INLINE void cpu_set_register_16(REG *reg, uint16 value);
 static SIM_INLINE void cpu_set_register_32(REG *reg, uint32 value);
 static SIM_INLINE void cpu_set_register_64(REG *reg, t_uint64 value);
-static SIM_INLINE void cpu_set_register_bit_16(REG *reg, uint16 mask, uint8 value);
-static SIM_INLINE void cpu_set_register_bit_32(REG *reg, uint32 mask, uint8 value);
-static SIM_INLINE void cpu_set_register_bit_64(REG *reg, t_uint64 mask, uint8 value);
+static SIM_INLINE void cpu_set_register_bit_16(REG *reg, uint16 mask, int value);
+static SIM_INLINE void cpu_set_register_bit_32(REG *reg, uint32 mask, int value);
+static SIM_INLINE void cpu_set_register_bit_64(REG *reg, t_uint64 mask, int value);
 static SIM_INLINE uint16 cpu_get_register_16(REG *reg);
 static SIM_INLINE uint32 cpu_get_register_32(REG *reg);
 static SIM_INLINE t_uint64 cpu_get_register_64(REG *reg);
-static SIM_INLINE t_uint64 cpu_get_register_bit_16(REG *reg, uint16 mask);
-static SIM_INLINE t_uint64 cpu_get_register_bit_32(REG *reg, uint32 mask);
-static SIM_INLINE t_uint64 cpu_get_register_bit_64(REG *reg, t_uint64 mask);
-static uint16 cpu_calculate_base_offset(REG *reg, int16 offset);
+static SIM_INLINE int cpu_get_register_bit_16(REG *reg, uint16 mask);
+static SIM_INLINE int cpu_get_register_bit_32(REG *reg, uint32 mask);
+static SIM_INLINE int cpu_get_register_bit_64(REG *reg, t_uint64 mask);
+static uint16 cpu_calculate_base_offset(REG *reg, t_int64 offset);
 static t_addr cpu_get_name_segment_address(REG *reg, int16 offset);
 
 static void cpu_set_interrupt(uint8 number);
@@ -283,7 +283,7 @@ static uint32 cpu_get_descriptor_origin(t_uint64 descriptor);
 static uint32 cpu_get_descriptor_origin_address(t_uint64 descriptor);
 static void cpu_set_descriptor_bound(t_uint64 *descriptor, uint32 bound);
 static void cpu_set_descriptor_origin(t_uint64 *descriptor, uint32 origin);
-static void cpu_descriptor_modify(REG *descriptorReg, int32 modifier);
+static void cpu_descriptor_modify(uint16 order, REG *descriptorReg);
 
 static void cpu_execute_sts1_xd_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -297,7 +297,7 @@ static void cpu_execute_sts2_mod(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* B order functions */
 static void cpu_check_b_overflow(t_uint64 result);
-static void cpu_test_b_value(int32 value);
+static void cpu_test_b_value(t_int64 value);
 static void cpu_execute_b_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_store(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -694,7 +694,7 @@ static SIM_INLINE void cpu_set_register_64(REG *reg, t_uint64 value)
     *(t_uint64 *)(reg->loc) = value;
 }
 
-static SIM_INLINE void cpu_set_register_bit_16(REG *reg, uint16 mask, uint8 value)
+static SIM_INLINE void cpu_set_register_bit_16(REG *reg, uint16 mask, int value)
 {
     assert(reg->width == 16);
     if (value)
@@ -757,9 +757,9 @@ static SIM_INLINE t_uint64 cpu_get_register_64(REG *reg)
     return result;
 }
 
-static SIM_INLINE t_uint64 cpu_get_register_bit_16(REG *reg, uint16 mask)
+static SIM_INLINE int cpu_get_register_bit_16(REG *reg, uint16 mask)
 {
-    t_uint64 result;
+    int result;
     assert(reg->width == 16);
     if (*(uint16 *)(reg->loc) & ~mask)
     {
@@ -773,9 +773,9 @@ static SIM_INLINE t_uint64 cpu_get_register_bit_16(REG *reg, uint16 mask)
     return result;
 }
 
-static SIM_INLINE t_uint64 cpu_get_register_bit_32(REG *reg, uint32 mask)
+static SIM_INLINE int cpu_get_register_bit_32(REG *reg, uint32 mask)
 {
-    uint32 result;
+    int result;
     assert(reg->width == 32);
     if (*(uint32 *)(reg->loc) & ~mask)
     {
@@ -789,9 +789,9 @@ static SIM_INLINE t_uint64 cpu_get_register_bit_32(REG *reg, uint32 mask)
     return result;
 }
 
-static SIM_INLINE t_uint64 cpu_get_register_bit_64(REG *reg, t_uint64 mask)
+static SIM_INLINE int cpu_get_register_bit_64(REG *reg, t_uint64 mask)
 {
-    uint32 result;
+    int result;
     assert(reg->width == 64);
     if (*(t_uint64 *)(reg->loc) & ~mask)
     {
@@ -805,9 +805,9 @@ static SIM_INLINE t_uint64 cpu_get_register_bit_64(REG *reg, t_uint64 mask)
     return result;
 }
 
-static uint16 cpu_calculate_base_offset(REG *reg, int16 offset)
+static uint16 cpu_calculate_base_offset(REG *reg, t_int64 offset)
 {
-    int32 result = cpu_get_register_16(reg) + offset;
+    t_int64 result = cpu_get_register_16(reg) + offset;
     if (result < 0 || result > 65535)
     {
         cpu_set_interrupt(INT_SOFTWARE_INTERRUPT); /* TODO: must be segment overflow interrupt */
@@ -923,7 +923,7 @@ static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructio
 {
     t_uint64 result = 0;
     int i;
-    uint8 nprime = cpu_get_extended_n(order);
+    uint16 nprime = cpu_get_extended_n(order);
     uint8 unsignedLiteral = (order >> 2) & 0x1;
 
     if (nprime > 2)
@@ -994,7 +994,7 @@ static t_uint64 cpu_get_operand_extended_variable_32(uint16 order, uint32 instru
 static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
     t_addr result;
-    uint8 n = cpu_get_n(order);
+    uint16 n = cpu_get_n(order);
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 %hu\n", n);
     result = cpu_get_name_segment_address(reg_nb, n);
 
@@ -1118,7 +1118,7 @@ static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructi
     {
         case 0:
         {
-            result = (cpu_get_register_16(reg_ms) << 48) | (cpu_get_register_16(reg_nb) << 32) | cpu_get_register_32(reg_co);
+            result = ((t_uint64)cpu_get_register_16(reg_ms) << 48) | ((t_uint64)cpu_get_register_16(reg_nb) << 32) | cpu_get_register_32(reg_co);
             break;
         }
         case 1:
@@ -1183,7 +1183,7 @@ static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructi
         }
         case 36:
         {
-            result = (cpu_get_register_32(reg_bod) << 32) | cpu_get_register_32(reg_b);
+            result = ((t_uint64)cpu_get_register_32(reg_bod) << 32) | cpu_get_register_32(reg_b);
             break;
         }
         case 48:
@@ -1206,7 +1206,7 @@ static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructi
 static t_uint64 cpu_get_operand(uint16 order)
 {
     t_uint64 result = 0;
-    uint8 instructionLength = 1;
+    int instructionLength = 1;
     uint16 k = cpu_get_k(order);
     uint32 instructionAddress = cpu_get_register_32(reg_co);
 
@@ -1275,7 +1275,7 @@ static t_uint64 cpu_get_operand(uint16 order)
 static void cpu_set_operand(uint16 order, t_uint64 value)
 {
     t_addr addr;
-    uint8 instructionLength = 1;
+    int instructionLength = 1;
     uint16 k = cpu_get_k(order);
     uint32 instructionAddress = cpu_get_register_32(reg_co);
 
@@ -1473,7 +1473,7 @@ static void cpu_descriptor_modify(uint16 order, REG *descriptorReg)
     /* TODO: procedure call processing not implemented, p49 */
     if (!cpu_get_descriptor_bound_check_inhibit(d) && (type == 0 || type == 1 || type == 2 || (type == 3 && subtype == 0) || (type == 3 && subtype == 1) || (type == 3 && subtype == 2)))
     {
-        if (modifier < 0 || modifier >= bound)
+        if (modifier < 0 || (uint32)modifier >= bound)
         {
             cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: bound check interrupt */
         }
@@ -1559,7 +1559,7 @@ static void cpu_check_b_overflow(t_uint64 result)
     }
 }
 
-static void cpu_test_b_value(int32 value)
+static void cpu_test_b_value(t_int64 value)
 {
     cpu_set_register_bit_16(reg_ms, mask_ms_t1, cpu_get_register_bit_32(reg_bod, mask_bod_bovf));
     cpu_set_register_bit_16(reg_ms, mask_ms_t2, value == 0);
