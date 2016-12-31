@@ -8,11 +8,11 @@ CO     Oct/Hex  Hex     Instruction
 65539   7100    E200    ACC LD lit Z 0
 65540   7240    E500    ACC SLD SB NB 0
 65541   5641    AD01    ACC MUL SB NB 1
-
-65542
-B CINC lit Z 9
+65542   1E09    3C09    B CINC lit Z 9
 Set T1 & T2 according to B - 9 
 B = B + 1 
+
+
 65543
 ACC ADD stack Z 0
 ACC = ACC + [VA 4]
