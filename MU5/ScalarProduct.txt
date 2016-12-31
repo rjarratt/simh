@@ -11,11 +11,4 @@ CO     Oct/Hex  Hex     Instruction
 65542   1E09    3C09    B CINC lit Z 9
 65543   54724   A9D4    ACC ADD stack Z 0
 65544           10BC    Org BRne lit Z -4
-If T1 /= 0, CO = CO - 4
-
-65545
-ACC ST V32 NB 4
-ACC => [VA 2.0]
-65546
-ACC STOP lit Z 0
-Stops simulation 
+65545   7324    E684    ACC ST V32 NB 4
