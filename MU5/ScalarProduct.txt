@@ -1,0 +1,33 @@
+CO     Oct/Hex  Hex     Instruction
+65536  01C00    0E00    Org NBld V32 Z 0
+65537  01A06    0D06    Org SFNBpl lit Z 6
+65538   1000    2000    B LD lit Z 0
+65539   7100    E200    ACC LD lit Z 0
+65540   7240    E500    ACC SLD SB NB 0
+SF = SF + 2
+ACC => [VA 4] 
+DR = [VA 0] 
+ACC = [DR.origin + B] 
+
+
+65541
+ACC MUL SB NB 1
+DR = [VA 1]
+ACC = ACC * [DR.origin + B] 
+65542
+B CINC lit Z 9
+Set T1 & T2 according to B - 9 
+B = B + 1 
+65543
+ACC ADD stack Z 0
+ACC = ACC + [VA 4]
+SF = SF - 2
+65544
+Org BRne lit Z -4
+If T1 /= 0, CO = CO - 4
+65545
+ACC ST V32 NB 4
+ACC => [VA 2.0]
+65546
+ACC STOP lit Z 0
+Stops simulation 
