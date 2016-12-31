@@ -266,11 +266,13 @@ static void cpu_start_interrupt_processing(void);
 static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* organisational order functions */
+static void cpu_jump_relative(uint16 order, int performJump);
 static void cpu_execute_organisational_relative_jump(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_branch_ne(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* store-to-store order functions */
 static uint8 cpu_get_descriptor_type(t_uint64 descriptor);
@@ -397,7 +399,7 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
     { cpu_execute_illegal_order,                  NULL }, /* 30 */
     { cpu_execute_illegal_order,                  NULL }, /* 31 */
     { cpu_execute_illegal_order,                  NULL }, /* 32 */
-    { cpu_execute_illegal_order,                  NULL }, /* 33 */
+    { cpu_execute_organisational_branch_ne,       NULL }, /* 33 */
     { cpu_execute_illegal_order,                  NULL }, /* 34 */
     { cpu_execute_illegal_order,                  NULL }, /* 35 */
     { cpu_execute_illegal_order,                  NULL }, /* 36 */
@@ -1360,20 +1362,29 @@ static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable)
     innerTable[f].execute(order, innerTable[f].innerTable);
 }
 
+static void cpu_jump_relative(uint16 order, int performJump)
+{
+    int32 relativeTo = (int32)cpu_get_register_32(reg_co); /* Get CO before it is advanced by getting operand as we jump relative to instruction */
+    int32 relative = (int32)(cpu_get_operand(order) & 0xFFFFFFFF);
+    uint32 newCo = (uint32)(relativeTo + relative);
+
+    if (performJump)
+    {
+        cpu_set_register_32(reg_co, newCo);
+        // TODO: cross-segment generates interrupt
+
+        /* The real MU5 did not have a STOP instruction, see comment above the declaration of cpu_stopped */
+        if (relative == 0)
+        {
+            cpu_stopped = 1;
+        }
+    }
+}
+
 static void cpu_execute_organisational_relative_jump(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "-> ");
-    int32 relative = (int32)(cpu_get_operand(order) & 0xFFFFFFFF);
-    int32 relativeTo = (int32)cpu_get_register_32(reg_co);
-    uint32 newCo = (uint32)(relativeTo + relative);
-    cpu_set_register_32(reg_co, newCo);
-    // TODO: cross-segment generates interrupt
-
-    /* The real MU5 did not have a STOP instruction, see comment above the declaration of cpu_stopped */
-    if (relative == 0)
-    {
-        cpu_stopped = 1;
-    }
+    cpu_jump_relative(order, 1);
 }
 
 static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -1403,6 +1414,12 @@ static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_EN
     uint16 newNB = cpu_calculate_base_offset(reg_sf, cpu_get_operand(order));
     cpu_set_register_16(reg_nb, newNB & 0xFFFE); /* LS bit of NB is always zero */
 }
+static void cpu_execute_organisational_branch_ne(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "/= 0 ");
+    cpu_jump_relative(order, cpu_get_register_bit_16(reg_ms, mask_ms_t1));
+}
+
 static uint8 cpu_get_descriptor_type(t_uint64 descriptor)
 {
     uint8 result = descriptor >> 62;

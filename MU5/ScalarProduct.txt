@@ -9,17 +9,10 @@ CO     Oct/Hex  Hex     Instruction
 65540   7240    E500    ACC SLD SB NB 0
 65541   5641    AD01    ACC MUL SB NB 1
 65542   1E09    3C09    B CINC lit Z 9
-Set T1 & T2 according to B - 9 
-B = B + 1 
-
-
-65543
-ACC ADD stack Z 0
-ACC = ACC + [VA 4]
-SF = SF - 2
-65544
-Org BRne lit Z -4
+65543   54724   A9D4    ACC ADD stack Z 0
+65544           10BC    Org BRne lit Z -4
 If T1 /= 0, CO = CO - 4
+
 65545
 ACC ST V32 NB 4
 ACC => [VA 2.0]
