@@ -2,9 +2,11 @@ Oct/Hex  Hex   Order
 01C121   0E51  Org NBld V32 Z 0
          0000
  3133    62C3  STS D_LD V64 NB 3
+ 2130    42C0  STS XD_LD V64 NB 0
 
-STS XD_LD V64 NB 0
-Loads the XDR register with the descriptor held in VA 16; the origin of this descriptor points to the first source string which contains just one element, ¨. 
+
+
+
 STS SMVB lit Z 32
 SMVB moves (strictly speaking, copies) one byte from the source string to the destination string. The Origin fields of DR and XDR are each incremented by 1 and the Length fields are decremented by one. The destination string initially contains 16 bytes, held as two sequential words in the Local Store, each containing the string '-------'. At the end of the SMVB instruction the first word, i.e. the word currently in FRc, contains '¨-------'. 
 STS XD_LD V64 NB 1
