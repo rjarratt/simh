@@ -32,3 +32,5 @@ uint32 sac_read_32_bit_word(t_addr address);
 void sac_write_32_bit_word(t_addr address, uint32 value);
 uint16 sac_read_16_bit_word(t_addr address);
 void sac_write_16_bit_word(t_addr address, uint16 value);
+uint8 sac_read_8_bit_word(t_addr address);
+void sac_write_8_bit_word(t_addr address, uint8 value);
