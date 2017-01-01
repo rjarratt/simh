@@ -37,3 +37,10 @@ in this Software without prior written authorization from Robert Jarratt.
 #define INT_ILLEGAL_ORDERS 5
 #define INT_PROGRAM_FAULTS 6
 #define INT_SOFTWARE_INTERRUPT 7
+
+#define DESCRIPTOR_SIZE_1_BIT 0
+#define DESCRIPTOR_SIZE_4_BIT 2
+#define DESCRIPTOR_SIZE_8_BIT 3
+#define DESCRIPTOR_SIZE_16_BIT 4
+#define DESCRIPTOR_SIZE_32_BIT 5
+#define DESCRIPTOR_SIZE_64_BIT 6

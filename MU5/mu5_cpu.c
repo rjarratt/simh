@@ -251,6 +251,8 @@ static t_addr cpu_get_operand_address_variable_64(uint16 order, uint32 instructi
 static t_uint64 cpu_get_operand_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_variable_64(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_addr cpu_get_operand_address_by_descriptor_vector_access(t_uint64 descriptor, uint32 modifier);
+static t_uint64 cpu_get_operand_by_descriptor_vector(t_uint64 descriptor, uint32 modifier);
+static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 modifier, t_uint64 value);
 static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand(uint16 order);
 static void cpu_set_operand(uint16 order, t_uint64 value);
@@ -281,6 +283,7 @@ static void cpu_execute_organisational_branch_gt(uint16 order, DISPATCH_ENTRY *i
 static void cpu_execute_organisational_branch_ovf(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_branch_bn(uint16 order, DISPATCH_ENTRY *innerTable);
 
+
 /* store-to-store order functions */
 static uint8 cpu_get_descriptor_type(t_uint64 descriptor);
 static uint8 cpu_get_descriptor_subtype(t_uint64 descriptor);
@@ -292,12 +295,15 @@ static uint32 cpu_get_descriptor_origin(t_uint64 descriptor);
 static uint32 cpu_get_descriptor_origin_address(t_uint64 descriptor);
 static void cpu_set_descriptor_bound(t_uint64 *descriptor, uint32 bound);
 static void cpu_set_descriptor_origin(t_uint64 *descriptor, uint32 origin);
-static void cpu_descriptor_modify(uint16 order, REG *descriptorReg);
+static void cpu_execute_descriptor_modify(uint16 order, REG *descriptorReg);
 
+static void cpu_parse_sts_string_to_string_operand(uint16 order, uint8 *mask, uint8 *filler);
+static int cpu_check_string_descriptor(t_uint64 descriptor);
 static void cpu_execute_sts1_xd_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_xd_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_sts1_smvb(uint16 order, DISPATCH_ENTRY *innerTable);
 
 static void cpu_execute_sts2_d_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_d_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -450,7 +456,7 @@ static DISPATCH_ENTRY sts1DispatchTable[] =
     { cpu_execute_illegal_order, NULL },   /* 6 */
     { cpu_execute_sts1_xmod,     NULL },   /* 7 */
     { cpu_execute_illegal_order, NULL },   /* 8 */
-    { cpu_execute_illegal_order, NULL },   /* 9 */
+    { cpu_execute_sts1_smvb,     NULL },   /* 9 */
     { cpu_execute_illegal_order, NULL },   /* 10 */
     { cpu_execute_illegal_order, NULL },   /* 11*/
     { cpu_execute_illegal_order, NULL },   /* 12 */
@@ -1056,32 +1062,32 @@ static t_addr cpu_get_operand_address_by_descriptor_vector_access(t_uint64 descr
     {
         switch (cpu_get_descriptor_size(descriptor))
         {
-            case 0: /* 1-bit */
+            case DESCRIPTOR_SIZE_1_BIT:
             {
                 result = origin + (modifier >> 3);
                 break;
             }
-            case 1: /* 4-bit */
+            case DESCRIPTOR_SIZE_4_BIT:
             {
                 result = origin + (modifier >> 1);
                 break;
             }
-            case 2: /* 8-bit */
+            case DESCRIPTOR_SIZE_8_BIT:
             {
                 result = origin + modifier;
                 break;
             }
-            case 3: /* 16-bit */
+            case DESCRIPTOR_SIZE_16_BIT:
             {
                 result = origin + (modifier << 1);
                 break;
             }
-            case 4: /* 32-bit */
+            case DESCRIPTOR_SIZE_32_BIT:
             {
                 result = origin + (modifier << 2);
                 break;
             }
-            case 5: /* 64-bit */
+            case DESCRIPTOR_SIZE_64_BIT:
             {
                 result = origin + (modifier << 3);
                 break;
@@ -1097,12 +1103,108 @@ static t_addr cpu_get_operand_address_by_descriptor_vector_access(t_uint64 descr
     return result;
 }
 
+static t_uint64 cpu_get_operand_by_descriptor_vector(t_uint64 descriptor, uint32 modifier)
+{
+    t_addr addr;
+    t_uint64 result;
+
+    addr = cpu_get_operand_address_by_descriptor_vector_access(descriptor, modifier);
+    
+    switch (cpu_get_descriptor_size(descriptor))
+    {
+        case DESCRIPTOR_SIZE_1_BIT:
+        {
+            assert(0); /* TODO: Implement bit access */
+            result = 0;
+            break;
+        }
+        case DESCRIPTOR_SIZE_4_BIT:
+        {
+            assert(0); /* TODO: Implement nibble access */
+            result = 0;
+            break;
+        }
+        case DESCRIPTOR_SIZE_8_BIT:
+        {
+            result = sac_read_8_bit_word(addr);
+            break;
+        }
+        case DESCRIPTOR_SIZE_16_BIT:
+        {
+            result = sac_read_16_bit_word(addr);
+            break;
+        }
+        case DESCRIPTOR_SIZE_32_BIT:
+        {
+            result = sac_read_32_bit_word(addr);
+            break;
+        }
+        case DESCRIPTOR_SIZE_64_BIT:
+        {
+            result = sac_read_64_bit_word(addr);
+            break;
+        }
+        default:
+        {
+            cpu_set_interrupt(INT_ILLEGAL_ORDERS); /* TODO: needs to be an interrupt about a bad descriptor */
+            break;
+        }
+    }
+
+    return result;
+}
+
+static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 modifier, t_uint64 value)
+{
+    t_addr addr;
+
+    addr = cpu_get_operand_address_by_descriptor_vector_access(descriptor, modifier);
+
+    switch (cpu_get_descriptor_size(descriptor))
+    {
+        case DESCRIPTOR_SIZE_1_BIT:
+        {
+            assert(0); /* TODO: Implement bit access */
+            break;
+        }
+        case DESCRIPTOR_SIZE_4_BIT:
+        {
+            assert(0); /* TODO: Implement nibble access */
+            break;
+        }
+        case DESCRIPTOR_SIZE_8_BIT:
+        {
+            sac_write_8_bit_word(addr, value & 0xFF);
+            break;
+        }
+        case DESCRIPTOR_SIZE_16_BIT:
+        {
+            sac_write_16_bit_word(addr, value & 0xFFFF);
+            break;
+        }
+        case DESCRIPTOR_SIZE_32_BIT:
+        {
+            sac_write_32_bit_word(addr, value & 0xFFFFFFFF);
+            break;
+        }
+        case DESCRIPTOR_SIZE_64_BIT:
+        {
+            sac_write_64_bit_word(addr, value);
+            break;
+        }
+        default:
+        {
+            cpu_set_interrupt(INT_ILLEGAL_ORDERS); /* TODO: needs to be an interrupt about a bad descriptor */
+            break;
+        }
+    }
+}
+
 static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
     t_uint64 result = 0;
     t_uint64 d;
     t_addr daddr;
-    t_addr addr;
     uint16 n = cpu_get_n(order);
 
     daddr = cpu_get_name_segment_address(reg_nb, n << 1); /* address in 64-bit units for 64-bit access */
@@ -1110,8 +1212,7 @@ static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instruction
     d = sac_read_64_bit_word(daddr);
     cpu_set_register_64(reg_d, d);
 
-    addr = cpu_get_operand_address_by_descriptor_vector_access(d, cpu_get_register_32(reg_b));
-    result = sac_read_64_bit_word(addr);
+    result = cpu_get_operand_by_descriptor_vector(d, cpu_get_register_32(reg_b));
 
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "SB NB %hu\n", n);
 
@@ -1527,27 +1628,62 @@ static void cpu_set_descriptor_origin(t_uint64 *descriptor, uint32 origin)
     *descriptor = (*descriptor & 0xFFFFFFFF00000000) | origin;
 }
 
-static void cpu_descriptor_modify(uint16 order, REG *descriptorReg)
+static void cpu_descriptor_modify(REG *descriptorReg, int32 modifier)
 {
     t_uint64 d = cpu_get_register_64(descriptorReg);
     uint8 type = cpu_get_descriptor_type(d);
     uint8 subtype = cpu_get_descriptor_subtype(d);
-    int32 modifier = cpu_get_operand(order) & 0xFFFFFFFF;
     uint32 bound = cpu_get_descriptor_bound(d);
     uint32 origin = cpu_get_descriptor_origin(d);
     /* TODO: scaling not implemented, p49 */
     /* TODO: indirect descriptor processing not implemented, p49 */
     /* TODO: procedure call processing not implemented, p49 */
-    if (!cpu_get_descriptor_bound_check_inhibit(d) && (type == 0 || type == 1 || type == 2 || (type == 3 && subtype == 0) || (type == 3 && subtype == 1) || (type == 3 && subtype == 2)))
-    {
-        if (modifier < 0 || (uint32)modifier >= bound)
-        {
-            cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: bound check interrupt */
-        }
-    }
+    /* TODO: re-enable bounds check once understand why BOUND=1 MOD 1 should/should not create a bound check interrupt */
+    //if (!cpu_get_descriptor_bound_check_inhibit(d) && (type == 0 || type == 1 || type == 2 || (type == 3 && subtype == 0) || (type == 3 && subtype == 1) || (type == 3 && subtype == 2)))
+    //{
+    //    if (modifier < 0 || (uint32)modifier >= bound)
+    //    {
+    //        cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: bound check interrupt */
+    //    }
+    //}
     cpu_set_descriptor_bound(&d, bound - modifier);
     cpu_set_descriptor_origin(&d, origin + modifier);
     cpu_set_register_64(descriptorReg, d);
+}
+
+static void cpu_execute_descriptor_modify(uint16 order, REG *descriptorReg)
+{
+    int32 modifier = cpu_get_operand(order) & 0xFFFFFFFF;
+    cpu_descriptor_modify(descriptorReg, modifier);
+}
+
+static void cpu_parse_sts_string_to_string_operand(uint16 order, uint8 *mask, uint8 *filler)
+{
+    t_uint64 operand = cpu_get_operand(order);
+
+    if (mask != NULL)
+    {
+        *mask = (operand >> 8) & 0xFF;
+    }
+
+    if (filler != NULL)
+    {
+        *filler = operand & 0xFF;
+    }
+}
+
+static int cpu_check_string_descriptor(t_uint64 descriptor)
+{
+    int result = 1;
+    uint8 type = cpu_get_descriptor_type(descriptor);
+    uint8 size = cpu_get_descriptor_size(descriptor);
+    if (type > 2 || size != DESCRIPTOR_SIZE_8_BIT)
+    {
+        cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+        result = 0;
+    }
+
+    return result;
 }
 
 static void cpu_execute_sts1_xd_load(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -1572,15 +1708,48 @@ static void cpu_execute_sts1_xd_store(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS XMOD ");
-    t_uint64 d = cpu_get_register_64(reg_xd);
-    uint8 type = cpu_get_descriptor_type(d);
-    uint8 subtype = cpu_get_descriptor_subtype(d);
+    t_uint64 xd = cpu_get_register_64(reg_xd);
+    uint8 type = cpu_get_descriptor_type(xd);
+    uint8 subtype = cpu_get_descriptor_subtype(xd);
     if (type == 3 && (subtype >= 3 && subtype <= 31))
     {
         cpu_set_interrupt(INT_ILLEGAL_ORDERS); /* TODO: better interrupt handling */
     }
 
-    cpu_descriptor_modify(order, reg_xd);
+    cpu_execute_descriptor_modify(order, reg_xd);
+}
+
+static void cpu_execute_sts1_smvb(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS SMVB ");
+    t_uint64 d = cpu_get_register_64(reg_d);
+    t_uint64 xd = cpu_get_register_64(reg_xd);
+    uint8 mask;
+    uint8 filler;
+    uint32 db = cpu_get_descriptor_bound(d);
+    uint32 xdb = cpu_get_descriptor_bound(xd);
+    uint32 dorig = cpu_get_descriptor_origin(d);
+    uint32 xdorig = cpu_get_descriptor_origin(xd);
+    cpu_parse_sts_string_to_string_operand(order, &mask, &filler);
+
+    if (cpu_check_string_descriptor(d) && cpu_check_string_descriptor(xd))
+    {
+        if (db == 0)
+        {
+            cpu_set_interrupt(INT_ILLEGAL_ORDERS); /* TODO: BCH (bounds check) interrupt */
+        }
+        else if (xdb == 0)
+        {
+            cpu_set_operand_by_descriptor_vector(d, 0, filler & ~mask);
+            cpu_descriptor_modify(reg_d, 1);
+        }
+        else
+        {
+            cpu_set_operand_by_descriptor_vector(d, 0, cpu_get_operand_by_descriptor_vector(xd, 0) & ~mask);
+            cpu_descriptor_modify(reg_d, 1);
+            cpu_descriptor_modify(reg_xd, 1);
+        }
+    }
 }
 
 static void cpu_execute_sts2_d_load(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -1605,7 +1774,7 @@ static void cpu_execute_sts2_d_store(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_sts2_mod(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS MOD ");
-    cpu_descriptor_modify(order, reg_d);
+    cpu_execute_descriptor_modify(order, reg_d);
 }
 
 static void cpu_check_b_overflow(t_uint64 result)
