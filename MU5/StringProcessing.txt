@@ -19,13 +19,13 @@ Oct/Hex  Hex   Order
  31303    62C3  STS D_LD V64 NB 3
  3D700    7BC0  STS BSCN lit Z 104
           0068
+ 39700    73C0  STS BMVB lit Z 72
+          0048
+ 31303    62C4  STS D_LD V64 NB 4
+ 3E700    7DC0  STS BCMP lit Z 48   0111 1101 11
+          0030
 
-STS BMVB lit Z 72
-Moves (replaces) the 'h' in hello with 'H'. 
-STS D_LD V64 NB 4
-Loads the descriptor held in VA20; this descriptor points to a string of digits '00083576' held in Block 3 of the Local Store. 
-STS BCMP lit Z 48
-This Byte Compare instruction tests each character in turn for equality with ASCII character 48 (i.e. 0); it terminates when it finds the first non-zero digit, i.e. 8 and leaves the descriptor in DR pointing to this digit. 
+
 B LD S0 D 0
 Loads the character to which DR is now pointing into the B register; on completion, the value in B is the ASCII decimal code for '8', i.e. 56. 
 B LD lit Z 0

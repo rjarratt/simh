@@ -287,6 +287,7 @@ static void cpu_set_operand(uint16 order, t_uint64 value);
 static t_uint64 cpu_sign_extend_6_bit(t_uint64 value);
 static void cpu_push_value(t_uint64 value);
 static t_uint64 cpu_pop_value(void);
+static void cpu_test_value(t_int64 value);
 
 static void cpu_execute_next_order(void);
 static void cpu_execute_illegal_order(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -340,6 +341,7 @@ static void cpu_execute_sts2_d_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_mod(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_bmvb(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_bscn(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_sts2_bcmp(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* B order functions */
 static void cpu_check_b_overflow(t_uint64 result);
@@ -512,7 +514,7 @@ static DISPATCH_ENTRY sts2DispatchTable[] =
     { cpu_execute_sts1_smvf,             NULL },   /* 11*/
     { cpu_execute_illegal_order,         NULL },   /* 12 */
     { cpu_execute_sts2_bscn,             NULL },   /* 13 */
-    { cpu_execute_illegal_order,         NULL },   /* 14 */
+    { cpu_execute_sts2_bcmp,             NULL },   /* 14 */
     { cpu_execute_illegal_order,         NULL },   /* 15 */
 };
 
@@ -1453,6 +1455,12 @@ static t_uint64 cpu_pop_value(void)
     return result;
 }
 
+static void cpu_test_value(t_int64 value)
+{
+    cpu_set_register_bit_16(reg_ms, mask_ms_t1, value != 0);
+    cpu_set_register_bit_16(reg_ms, mask_ms_t2, value < 0);
+}
+
 static void cpu_execute_next_order(void)
 {
     uint16 order;
@@ -1840,11 +1848,45 @@ static void cpu_execute_sts2_bscn(uint16 order, DISPATCH_ENTRY *innerTable)
             }
         }
 
-        cpu_set_register_bit_16(reg_ms, mask_ms_t1, !found);
-        cpu_set_register_bit_16(reg_ms, mask_ms_t2, !found);
+        cpu_test_value(found ? 0 : -1);
     }
 }
 
+static void cpu_execute_sts2_bcmp(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS BCMP ");
+    t_uint64 d = cpu_get_register_64(reg_d);
+    uint8 mask;
+    uint8 byte;
+    uint32 db = cpu_get_descriptor_bound(d);
+    uint32 dorig = cpu_get_descriptor_origin(d);
+    unsigned int i;
+    int compareResult = 0;
+    cpu_parse_sts_string_to_string_operand(order, &mask, &byte);
+
+    if (cpu_check_string_descriptor(d))
+    {
+        for (i = 0; i < db && compareResult == 0; i++)
+        {
+            uint8 sourceByte = (uint8)cpu_get_operand_by_descriptor_vector(d, i);
+            printf("cf %c and %c\n", sourceByte, byte);
+            if (byte == sourceByte)
+            {
+                cpu_descriptor_modify(reg_d, 1);
+            }
+            else if (sourceByte > byte)
+            {
+                compareResult = 1;
+            }
+            else
+            {
+                compareResult = -1;
+            }
+        }
+
+        cpu_test_value(compareResult);
+    }
+}
 
 static void cpu_execute_sts1_smve(uint16 order, DISPATCH_ENTRY *innerTable)
 {
@@ -1931,8 +1973,7 @@ static void cpu_check_b_overflow(t_uint64 result)
 static void cpu_test_b_value(t_int64 value)
 {
     cpu_set_register_bit_16(reg_ms, mask_ms_t0, cpu_get_register_bit_32(reg_bod, mask_bod_bovf));
-    cpu_set_register_bit_16(reg_ms, mask_ms_t1, value != 0);
-    cpu_set_register_bit_16(reg_ms, mask_ms_t2, value < 0);
+    cpu_test_value(value);
 }
 
 static void cpu_execute_b_load(uint16 order, DISPATCH_ENTRY *innerTable)
