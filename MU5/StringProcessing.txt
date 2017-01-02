@@ -16,12 +16,10 @@ Oct/Hex  Hex   Order
  21300    42C0  STS XD_LD V64 NB 0
  2B700    57C0  STS SMVF lit Z 32
           0020
+ 31303    62C3  STS D_LD V64 NB 3
+ 3D700    7BC0  STS BSCN lit Z 104
+          0068
 
-
-STS D_LD V64 NB 3
-Re-loads the descriptor that points to the start of the destination string. 
-STS BSCN lit Z 104
-Scans the destination string looking for ASCII character 104 (h); the order terminates when if finds the 'h' in 'hello'. 
 STS BMVB lit Z 72
 Moves (replaces) the 'h' in hello with 'H'. 
 STS D_LD V64 NB 4

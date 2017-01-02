@@ -319,6 +319,7 @@ static void cpu_execute_sts2_d_stack_and_load(uint16 order, DISPATCH_ENTRY *inne
 static void cpu_execute_sts2_d_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_mod(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_bmvb(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_sts2_bscn(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* B order functions */
 static void cpu_check_b_overflow(t_uint64 result);
@@ -490,7 +491,7 @@ static DISPATCH_ENTRY sts2DispatchTable[] =
     { cpu_execute_illegal_order,         NULL },   /* 10 */
     { cpu_execute_sts1_smvf,             NULL },   /* 11*/
     { cpu_execute_illegal_order,         NULL },   /* 12 */
-    { cpu_execute_illegal_order,         NULL },   /* 13 */
+    { cpu_execute_sts2_bscn,             NULL },   /* 13 */
     { cpu_execute_illegal_order,         NULL },   /* 14 */
     { cpu_execute_illegal_order,         NULL },   /* 15 */
 };
@@ -1774,20 +1775,49 @@ static void cpu_execute_sts2_bmvb(uint16 order, DISPATCH_ENTRY *innerTable)
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS BMVB ");
     t_uint64 d = cpu_get_register_64(reg_d);
     uint8 mask;
-    uint8 filler;
+    uint8 byte;
     uint32 db = cpu_get_descriptor_bound(d);
     uint32 dorig = cpu_get_descriptor_origin(d);
-    cpu_parse_sts_string_to_string_operand(order, &mask, &filler);
+    cpu_parse_sts_string_to_string_operand(order, &mask, &byte);
 
     if (cpu_check_string_descriptor(d))
     {
         if (db != 0)
         {
-            cpu_set_operand_by_descriptor_vector(d, 0, filler & ~mask);
+            cpu_set_operand_by_descriptor_vector(d, 0, byte & ~mask);
             cpu_descriptor_modify(reg_d, 1);
         }
     }
 }
+
+static void cpu_execute_sts2_bscn(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS BSCN ");
+    t_uint64 d = cpu_get_register_64(reg_d);
+    uint8 mask;
+    uint8 byte;
+    uint32 db = cpu_get_descriptor_bound(d);
+    uint32 dorig = cpu_get_descriptor_origin(d);
+    unsigned int i;
+    int found = 0;
+    cpu_parse_sts_string_to_string_operand(order, &mask, &byte);
+
+    if (cpu_check_string_descriptor(d))
+    {
+        for (i = 0; i < db && !found; i++)
+        {
+            found = byte == (uint8)cpu_get_operand_by_descriptor_vector(d, i);
+            if (!found)
+            {
+                cpu_descriptor_modify(reg_d, 1);
+            }
+        }
+
+        cpu_set_register_bit_16(reg_ms, mask_ms_t1, !found);
+        cpu_set_register_bit_16(reg_ms, mask_ms_t2, !found);
+    }
+}
+
 
 static void cpu_execute_sts1_smve(uint16 order, DISPATCH_ENTRY *innerTable)
 {
