@@ -1624,21 +1624,12 @@ static void cpu_set_descriptor_origin(t_uint64 *descriptor, uint32 origin)
 static void cpu_descriptor_modify(REG *descriptorReg, int32 modifier)
 {
     t_uint64 d = cpu_get_register_64(descriptorReg);
-    uint8 type = cpu_get_descriptor_type(d);
-    uint8 subtype = cpu_get_descriptor_subtype(d);
     uint32 bound = cpu_get_descriptor_bound(d);
     uint32 origin = cpu_get_descriptor_origin(d);
     /* TODO: scaling not implemented, p49 */
     /* TODO: indirect descriptor processing not implemented, p49 */
     /* TODO: procedure call processing not implemented, p49 */
     /* TODO: re-enable bounds check once understand why BOUND=1 MOD 1 should/should not create a bound check interrupt */
-    //if (!cpu_get_descriptor_bound_check_inhibit(d) && (type == 0 || type == 1 || type == 2 || (type == 3 && subtype == 0) || (type == 3 && subtype == 1) || (type == 3 && subtype == 2)))
-    //{
-    //    if (modifier < 0 || (uint32)modifier >= bound)
-    //    {
-    //        cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: bound check interrupt */
-    //    }
-    //}
     cpu_set_descriptor_bound(&d, bound - modifier);
     cpu_set_descriptor_origin(&d, origin + modifier);
     cpu_set_register_64(descriptorReg, d);
@@ -1646,7 +1637,19 @@ static void cpu_descriptor_modify(REG *descriptorReg, int32 modifier)
 
 static void cpu_execute_descriptor_modify(uint16 order, REG *descriptorReg)
 {
+    t_uint64 d = cpu_get_register_64(descriptorReg);
+    uint8 type = cpu_get_descriptor_type(d);
+    uint8 subtype = cpu_get_descriptor_subtype(d);
+    uint32 bound = cpu_get_descriptor_bound(d);
     int32 modifier = cpu_get_operand(order) & 0xFFFFFFFF;
+    if (!cpu_get_descriptor_bound_check_inhibit(d) && (type == 0 || type == 1 || type == 2 || (type == 3 && subtype == 0) || (type == 3 && subtype == 1) || (type == 3 && subtype == 2)))
+    {
+        if (modifier < 0 || (uint32)modifier >= bound)
+        {
+            cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: bound check interrupt */
+        }
+    }
+
     cpu_descriptor_modify(descriptorReg, modifier);
 }
 
