@@ -6,19 +6,18 @@ Oct/Hex  Hex   Order
  29700    53C0  STS SMVB lit Z 32
           0020
  21301    42C1  STS XD_LD V64 NB 1
- 3B700    77C0       STS SMVE lit Z 32
+ 2A700    55C0  STS SMVE lit Z 32
           0020
  39700    73C0  STS BMVB lit Z 32
           0020
+ 21302    42C2  STS XD_LD V64 NB 2
+ 2A700    55C0       STS SMVE lit Z 34
+          0022
+ 21300    42C0  STS XD_LD V64 NB 0
+ 2B700    57C0  STS SMVF lit Z 32
+          0020
 
-STS XD_LD V64 NB 2
-Loads the XDR register with the descriptor held in VA 18; the origin of this descriptor points to the third source string; this contains the word world. 
-STS SMVE lit Z 34
-At the end of this SMVE instruction the first destination word contains '¨hello w' while the second, the word currently shown in FRc, contains 'orld----'. 
-STS XD_LD V64 NB 0
-Re-loads the XDR register with the descriptor of the first source string. 
-STS SMVF lit Z 32
-This SMVF (String MoVe and Fill) instruction moves the single byte (¨) in the source string to the destination string. The destination string is not yet full, however, so at the end of the first store cycle, instead of a second load cycle, further store cycles are sent through OBS to Dop with the function field changed to BMVB. This causes the remainder of the 16-byte destination string to be filled with copies of BYTE, in this case with spaces. 
+
 STS D_LD V64 NB 3
 Re-loads the descriptor that points to the start of the destination string. 
 STS BSCN lit Z 104
