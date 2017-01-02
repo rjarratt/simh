@@ -338,6 +338,7 @@ static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_smvb(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_smve(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_smvf(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_sts1_scmp(uint16 order, DISPATCH_ENTRY *innerTable);
 
 static void cpu_execute_sts2_d_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_d_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -498,7 +499,7 @@ static DISPATCH_ENTRY sts1DispatchTable[] =
     { cpu_execute_sts1_smvf,     NULL },   /* 11*/
     { cpu_execute_illegal_order, NULL },   /* 12 */
     { cpu_execute_illegal_order, NULL },   /* 13 */
-    { cpu_execute_illegal_order, NULL },   /* 14 */
+    { cpu_execute_sts1_scmp,     NULL },   /* 14 */
     { cpu_execute_illegal_order, NULL },   /* 15 */
 };
 
@@ -2037,6 +2038,46 @@ static void cpu_execute_sts1_smvf(uint16 order, DISPATCH_ENTRY *innerTable)
             cpu_descriptor_modify(reg_d, n);
             cpu_descriptor_modify(reg_xd, (xdb < db) ? xdb : db);
         }
+    }
+}
+
+static void cpu_execute_sts1_scmp(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS SCMP ");
+    t_uint64 d = cpu_get_register_64(reg_d);
+    t_uint64 xd = cpu_get_register_64(reg_xd);
+    uint8 mask;
+    uint8 filler;
+    uint32 db = cpu_get_descriptor_bound(d);
+    uint32 xdb = cpu_get_descriptor_bound(xd);
+    uint32 dorig = cpu_get_descriptor_origin(d);
+    uint32 xdorig = cpu_get_descriptor_origin(xd);
+    unsigned int i;
+    unsigned int n = (xdb < db) ? db : xdb;
+    int compareResult = 0;
+    cpu_parse_sts_string_to_string_operand(order, &mask, &filler);
+
+    if (cpu_check_string_descriptor(d))
+    {
+        for (i = 0; i < n && compareResult == 0; i++)
+        {
+            uint8 sourceByte = (i < xdb) ? cpu_get_operand_by_descriptor_vector(xd, i) & 0xFF : filler;
+            uint8 destByte = (uint8)cpu_get_operand_by_descriptor_vector(d, i);
+            if (destByte == sourceByte)
+            {
+                cpu_descriptor_modify(reg_d, 1);
+            }
+            else if (sourceByte > destByte)
+            {
+                compareResult = 1;
+            }
+            else
+            {
+                compareResult = -1;
+            }
+        }
+
+        cpu_test_value(compareResult);
     }
 }
 

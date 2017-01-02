@@ -25,28 +25,15 @@ Oct/Hex  Hex   Order
  3E700    7DC0  STS BCMP lit Z 48   0111 1101 11
           0030
  10765    21F5  B LD S0 D 0
-
-
-Loads the character to which DR is now pointing into the B register; on completion, the value in B is the ASCII decimal code for '8', i.e. 56. 
-B LD lit Z 0
-Resets B to 0. 
-STS XD_LD V64 NB 5
-Loads XDR with the descriptor in VA21; this descriptor points to the start of the string 'Let_there_be_light.' 
-STS D_LD V64 NB 6
-Loads DR with the descriptor in VA22; this descriptor points to the start of the string 'light.' 
-STS SCMP lit Z 46
-Following the first cycle, the String Compare instruction is executed as a sequence of load cycles and compare cycles in which it compares corresponding bytes of the source and destination strings; it terminates when they differ or when it reaches the end of the destination string; if it reaches the end of the source string before finding an inequality, it uses BYTE as further source bytes. In this case BYTE is the full stop character, so that if the word being sought is at the end of the sentence, as it is here, it will actually be found. 
-Org BReq lit Z 6
-If/when the SCMP instruction finds equality (i.e. the test bits T1 and T2 are set to =0), this instruction causes a branch to the ACC STOP instruction. 
-STS BSCN lit Z 95
-Scans the destination string looking for the _ character i.e. the SCMP instruction terminated before the end of the current word was reached, so the descriptor now needs to be moved forward to the start of the next word. This BSCN order leaves DR pointing to the (underscore) separator, so the next instruction: 
-STS MOD lit Z 1
-moves DR forwards by 1 to point to the start of the next word. 
-STS XD_LD V64 NB 5
-Re-loads XDR to point to the start of 'light'. 
-B ADD lit Z 1
-Increments the B register, so that when the loop terminates, B indicates which word in the destination string is the one being sought. 
-Org BR lit Z -6
-Branches back to the SCMP order at the start of the loop. 
-ACC STOP lit Z 0
-Stops the simulation but, before it reaches the accumulator, causes the contents of those Name Store words and OBS buffers that have been updated to be written back to Local Store. 
+ 10000    2000  B LD lit Z 0
+ 21305    42C5  STS XD_LD V64 NB 5
+ 31306    62C6  STS D_LD V64 NB 6
+ 2E700    5DC0  STS SCMP lit Z 46
+          002E
+020006    1007  Org BReq lit Z 7   (Different to web site because the literals take up space too)
+ 3D700    7BC0  STS BSCN lit Z 95
+          005F
+ 36001    6C01  STS MOD lit Z 1
+ 21305    42C5  STS XD_LD V64 NB 5
+ 14001    2801  B ADD lit Z 1
+ 0000     0038  Org BR lit Z -8   (Different to web site because the literals take up space too)
