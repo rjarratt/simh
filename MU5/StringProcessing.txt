@@ -24,9 +24,9 @@ Oct/Hex  Hex   Order
  31303    62C4  STS D_LD V64 NB 4
  3E700    7DC0  STS BCMP lit Z 48   0111 1101 11
           0030
+ 10765    21F5  B LD S0 D 0
 
 
-B LD S0 D 0
 Loads the character to which DR is now pointing into the B register; on completion, the value in B is the ASCII decimal code for '8', i.e. 56. 
 B LD lit Z 0
 Resets B to 0. 

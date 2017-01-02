@@ -273,6 +273,8 @@ static uint16 cpu_get_extended_n(uint16 order);
 static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_extended_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
+static t_uint64 cpu_get_operand_extended_b_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength);
+static t_uint64 cpu_get_operand_extended_zero_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_addr cpu_get_operand_address_variable_64(uint16 order, uint32 instructionAddress, int *instructionLength);
@@ -281,7 +283,9 @@ static t_uint64 cpu_get_operand_variable_64(uint16 order, uint32 instructionAddr
 static t_addr cpu_get_operand_byte_address_by_descriptor_vector_access(t_uint64 descriptor, uint32 modifier);
 static t_uint64 cpu_get_operand_by_descriptor_vector(t_uint64 descriptor, uint32 modifier);
 static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 modifier, t_uint64 value);
-static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength);
+static t_uint64 cpu_get_operand_b_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength);
+static t_uint64 cpu_get_operand_zero_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength);
+static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength, uint32 modifier);
 static t_uint64 cpu_get_operand(uint16 order);
 static void cpu_set_operand(uint16 order, t_uint64 value);
 static t_uint64 cpu_sign_extend_6_bit(t_uint64 value);
@@ -996,6 +1000,7 @@ static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructio
     return result;
 }
 
+/* TODO: These extended routines repeat the same n' code and should be written only once if possible */
 static t_uint64 cpu_get_operand_extended_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
     t_uint64 result = 0;
@@ -1014,6 +1019,52 @@ static t_uint64 cpu_get_operand_extended_variable_32(uint16 order, uint32 instru
         {
             result = cpu_pop_value();
             sim_debug(LOG_CPU_DECODE, &cpu_dev, "STACK Z 0\n");
+            break;
+        }
+        default:
+        {
+            cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+            break;
+        }
+    }
+
+    return result;
+}
+
+/* TODO: These extended routines repeat the same n' code and should be written only once if possible */
+static t_uint64 cpu_get_operand_extended_b_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength)
+{
+    t_uint64 result = 0;
+
+    switch (cpu_get_extended_n(order))
+    {
+        case 5:
+        {
+            result = cpu_get_operand_by_descriptor_vector(cpu_get_register_64(reg_d), 0); /* TODO: Not sure what sense this mode has, B doesn't appear to come into it at all */
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "B D 0\n");
+            break;
+        }
+        default:
+        {
+            cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+            break;
+        }
+    }
+
+    return result;
+}
+
+/* TODO: These extended routines repeat the same n' code and should be written only once if possible */
+static t_uint64 cpu_get_operand_extended_zero_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength)
+{
+    t_uint64 result = 0;
+
+    switch (cpu_get_extended_n(order))
+    {
+        case 5:
+        {
+            result = result = cpu_get_operand_by_descriptor_vector(cpu_get_register_64(reg_d), 0);
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "S0 D 0\n");
             break;
         }
         default:
@@ -1220,7 +1271,31 @@ static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 mod
     }
 }
 
-static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength)
+static t_uint64 cpu_get_operand_b_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength)
+{
+    t_uint64 result = 0;
+    uint16 n = cpu_get_n(order);
+
+    result = cpu_get_operand_from_descriptor(order, instructionAddress, instructionLength, cpu_get_register_32(reg_b));
+
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "SB NB %hu\n", n);
+
+    return result;
+}
+
+static t_uint64 cpu_get_operand_zero_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength)
+{
+    t_uint64 result = 0;
+    uint16 n = cpu_get_n(order);
+
+    result = cpu_get_operand_from_descriptor(order, instructionAddress, instructionLength, 0);
+
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "S0 %hu\n", n);
+
+    return result;
+}
+
+static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength, uint32 modifier)
 {
     t_uint64 result = 0;
     t_uint64 d;
@@ -1232,9 +1307,7 @@ static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instruction
     d = sac_read_64_bit_word(daddr);
     cpu_set_register_64(reg_d, d);
 
-    result = cpu_get_operand_by_descriptor_vector(d, cpu_get_register_32(reg_b));
-
-    sim_debug(LOG_CPU_DECODE, &cpu_dev, "SB NB %hu\n", n);
+    result = cpu_get_operand_by_descriptor_vector(d, modifier);
 
     return result;
 }
@@ -1365,7 +1438,12 @@ static t_uint64 cpu_get_operand(uint16 order)
         case 4:
         case 5: /* RNI - From a programmer's perspective, k=5 was a spare, so in the hardware it was treated as being identical to k=4.*/
         {
-            result = cpu_get_operand_from_descriptor(order, instructionAddress, &instructionLength);
+            result = cpu_get_operand_b_relative_descriptor(order, instructionAddress, &instructionLength);
+            break;
+        }
+        case 6:
+        {
+            result = cpu_get_operand_zero_relative_descriptor(order, instructionAddress, &instructionLength);
             break;
         }
         case 7:
@@ -1380,6 +1458,17 @@ static t_uint64 cpu_get_operand(uint16 order)
                 case 2:
                 {
                     result = cpu_get_operand_extended_variable_32(order, instructionAddress, &instructionLength);
+                    break;
+                }
+                case 4:
+                case 5:
+                {
+                    result = cpu_get_operand_extended_b_relative_descriptor(order, instructionAddress, &instructionLength);
+                    break;
+                }
+                case 6:
+                {
+                    result = cpu_get_operand_extended_zero_relative_descriptor(order, instructionAddress, &instructionLength);
                     break;
                 }
                 default:
@@ -1869,7 +1958,6 @@ static void cpu_execute_sts2_bcmp(uint16 order, DISPATCH_ENTRY *innerTable)
         for (i = 0; i < db && compareResult == 0; i++)
         {
             uint8 sourceByte = (uint8)cpu_get_operand_by_descriptor_vector(d, i);
-            printf("cf %c and %c\n", sourceByte, byte);
             if (byte == sourceByte)
             {
                 cpu_descriptor_modify(reg_d, 1);
