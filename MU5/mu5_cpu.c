@@ -316,6 +316,7 @@ static void cpu_execute_sts2_d_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_d_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_d_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_mod(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_sts2_bmvb(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_smve(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* B order functions */
@@ -484,7 +485,7 @@ static DISPATCH_ENTRY sts2DispatchTable[] =
     { cpu_execute_sts2_mod,              NULL },   /* 6 */
     { cpu_execute_illegal_order,         NULL },   /* 7 */
     { cpu_execute_illegal_order,         NULL },   /* 8 */
-    { cpu_execute_illegal_order,         NULL },   /* 9 */
+    { cpu_execute_sts2_bmvb,             NULL },   /* 9 */
     { cpu_execute_illegal_order,         NULL },   /* 10 */
     { cpu_execute_sts2_smve,             NULL },   /* 11*/
     { cpu_execute_illegal_order,         NULL },   /* 12 */
@@ -1767,6 +1768,26 @@ static void cpu_execute_sts2_mod(uint16 order, DISPATCH_ENTRY *innerTable)
     cpu_execute_descriptor_modify(order, reg_d);
 }
 
+static void cpu_execute_sts2_bmvb(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS BMVB ");
+    t_uint64 d = cpu_get_register_64(reg_d);
+    uint8 mask;
+    uint8 filler;
+    uint32 db = cpu_get_descriptor_bound(d);
+    uint32 dorig = cpu_get_descriptor_origin(d);
+    cpu_parse_sts_string_to_string_operand(order, &mask, &filler);
+
+    if (cpu_check_string_descriptor(d))
+    {
+        if (db != 0)
+        {
+            cpu_set_operand_by_descriptor_vector(d, 0, filler & ~mask);
+            cpu_descriptor_modify(reg_d, 1);
+        }
+    }
+}
+
 static void cpu_execute_sts2_smve(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS SMVE ");
@@ -1788,10 +1809,8 @@ static void cpu_execute_sts2_smve(uint16 order, DISPATCH_ENTRY *innerTable)
             int n = (xdb > db) ? db : xdb;
             for (i = 0; i < n; i++)
             {
-                printf("%c", (char)cpu_get_operand_by_descriptor_vector(xd, i));
                 cpu_set_operand_by_descriptor_vector(d, i, cpu_get_operand_by_descriptor_vector(xd, i) & ~mask);
             }
-            printf("\n");
             cpu_descriptor_modify(reg_d, n);
             cpu_descriptor_modify(reg_xd, n);
             if (xdb < db)
@@ -1801,6 +1820,7 @@ static void cpu_execute_sts2_smve(uint16 order, DISPATCH_ENTRY *innerTable)
         }
     }
 }
+
 static void cpu_check_b_overflow(t_uint64 result)
 {
     uint32 ms = result >> 32;
