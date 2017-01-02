@@ -139,6 +139,26 @@ static uint16 mask_ms_t2 = 0xFDFF;
 static uint16 mask_ms_t1 = 0xF9FF;
 static uint16 mask_ms_t0 = 0xF7FF;
 
+BITFIELD dod_bits[] = {
+    BIT(XCH),  /* XCHK digit */
+    BIT(ITS),  /* Illegal Type/Size */
+    BIT(EMS),  /* Excutive Mode Subtype used in non-executive mode */
+    BIT(SSS),  /* Short Source String in store to store order */
+    BIT(NZT), /* Non-Zero Truncation when storing secondary operand */
+    BIT(BCH),  /* Bound Check Fail during secondary operand access */
+    BIT(SSSI), /* SSS Interrupt Inhibit */
+    BIT(NZTI), /* NZT Interrupt Inhibit */
+    BIT(BCHI), /* BCH Interrupt Inhibit */
+    BITNCF(23),
+    ENDBITS
+};
+
+static uint16 mask_dod_sss = 0xFFF7;
+static uint16 mask_dod_bch = 0xFFDF;
+static uint16 mask_dod_sssi = 0xFFBF;
+static uint16 mask_dod_bchi = 0xFEFF;
+
+
 /* Register backing values */
 static uint32 reg_b_backing_value;     /* B register */
 static uint32 reg_bod_backing_value;   /* BOD register */
@@ -174,7 +194,7 @@ static REG cpu_reg[] =
     { HRDATAD(CO,   reg_co_backing_value,      32,    "Program counter") },
     { HRDATAD(D,    reg_d_backing_value,       64,    "Data descriptor register") },
     { HRDATAD(XD,   reg_xd_backing_value,      64,    "XD register") },
-    { HRDATAD(DOD,  reg_dod_backing_value,     32,    "DOD register") },
+    { GRDATADF(DOD, reg_dod_backing_value, 16, 32, 0, "DOD register", dod_bits) },
     { HRDATAD(DT,   reg_dt_backing_value,      32,    "DT register") },
     { HRDATAD(XDT,  reg_xdt_backing_value,     32,    "XDT register") },
     { NULL }
@@ -1732,7 +1752,11 @@ static void cpu_execute_sts1_smvb(uint16 order, DISPATCH_ENTRY *innerTable)
     {
         if (db == 0)
         {
-            cpu_set_interrupt(INT_ILLEGAL_ORDERS); /* TODO: BCH (bounds check) interrupt */
+            if (!cpu_get_register_bit_32(reg_dod, mask_dod_bchi))
+            {
+                cpu_set_register_bit_32(reg_dod, mask_dod_bch, 1);
+                cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+            }
         }
         else if (xdb == 0)
         {
@@ -1847,9 +1871,10 @@ static void cpu_execute_sts1_smve(uint16 order, DISPATCH_ENTRY *innerTable)
             }
             cpu_descriptor_modify(reg_d, n);
             cpu_descriptor_modify(reg_xd, n);
-            if (xdb < db)
+            if (xdb < db && !cpu_get_register_bit_32(reg_dod, mask_dod_sssi))
             {
-                // TODO: SSS interrupt, unless inhibited, see p53
+                cpu_set_register_bit_32(reg_dod, mask_dod_sss, 1);
+                cpu_set_interrupt(INT_ILLEGAL_ORDERS);
             }
         }
     }
