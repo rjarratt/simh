@@ -5,13 +5,13 @@ Oct/Hex  Hex   Order
  21300    42C0  STS XD_LD V64 NB 0
  29700    53C0  STS SMVB lit Z 32
           0020
-SMVB moves (strictly speaking, copies) one byte from the source string to the destination string. The Origin fields of DR and XDR are each incremented by 1 and the Length fields are decremented by one. The destination string initially contains 16 bytes, held as two sequential words in the Local Store, each containing the string '-------'. At the end of the SMVB instruction the first word, i.e. the word currently in FRc, contains '¨-------'. 
+ 21301    42C1  STS XD_LD V64 NB 1
+ 3B700    77C0       STS SMVE lit Z 32
+          0020
 
 
-STS XD_LD V64 NB 1
-Loads the XDR register with the descriptor held in VA 17; the origin of this descriptor points to the second source string; this contains the word hello. 
-STS SMVE lit Z 32
-SMVE moves (i.e. copies) the source string to the destination string using an alternating sequence of load cycles and store cycles; at the end the first word of the destination string contains '¨hello--'. 
+
+
 STS BMVB lit Z 32
 During its first cycle, BMVB load the operand (32, the ASCII decimal value of the 'space' character) into the MASK_BYTE register and then moves one copy of BYTE to the destination string; the first word of the destination string now contains '¨hello -'. 
 STS XD_LD V64 NB 2

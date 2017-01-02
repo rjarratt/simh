@@ -300,7 +300,6 @@ static uint8 cpu_get_descriptor_unscaled(t_uint64 descriptor);
 static uint8 cpu_get_descriptor_bound_check_inhibit(t_uint64 descriptor);
 static uint32 cpu_get_descriptor_bound(t_uint64 descriptor);
 static uint32 cpu_get_descriptor_origin(t_uint64 descriptor);
-static uint32 cpu_get_descriptor_origin_address(t_uint64 descriptor);
 static void cpu_set_descriptor_bound(t_uint64 *descriptor, uint32 bound);
 static void cpu_set_descriptor_origin(t_uint64 *descriptor, uint32 origin);
 static void cpu_execute_descriptor_modify(uint16 order, REG *descriptorReg);
@@ -317,6 +316,7 @@ static void cpu_execute_sts2_d_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_d_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_d_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_mod(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_sts2_smve(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* B order functions */
 static void cpu_check_b_overflow(t_uint64 result);
@@ -486,7 +486,7 @@ static DISPATCH_ENTRY sts2DispatchTable[] =
     { cpu_execute_illegal_order,         NULL },   /* 8 */
     { cpu_execute_illegal_order,         NULL },   /* 9 */
     { cpu_execute_illegal_order,         NULL },   /* 10 */
-    { cpu_execute_illegal_order,         NULL },   /* 11*/
+    { cpu_execute_sts2_smve,             NULL },   /* 11*/
     { cpu_execute_illegal_order,         NULL },   /* 12 */
     { cpu_execute_illegal_order,         NULL },   /* 13 */
     { cpu_execute_illegal_order,         NULL },   /* 14 */
@@ -1767,6 +1767,40 @@ static void cpu_execute_sts2_mod(uint16 order, DISPATCH_ENTRY *innerTable)
     cpu_execute_descriptor_modify(order, reg_d);
 }
 
+static void cpu_execute_sts2_smve(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS SMVE ");
+    t_uint64 d = cpu_get_register_64(reg_d);
+    t_uint64 xd = cpu_get_register_64(reg_xd);
+    uint8 mask;
+    uint8 filler;
+    uint32 db = cpu_get_descriptor_bound(d);
+    uint32 xdb = cpu_get_descriptor_bound(xd);
+    uint32 dorig = cpu_get_descriptor_origin(d);
+    uint32 xdorig = cpu_get_descriptor_origin(xd);
+    cpu_parse_sts_string_to_string_operand(order, &mask, &filler);
+
+    if (cpu_check_string_descriptor(d) && cpu_check_string_descriptor(xd))
+    {
+        if (db != 0)
+        {
+            int i;
+            int n = (xdb > db) ? db : xdb;
+            for (i = 0; i < n; i++)
+            {
+                printf("%c", (char)cpu_get_operand_by_descriptor_vector(xd, i));
+                cpu_set_operand_by_descriptor_vector(d, i, cpu_get_operand_by_descriptor_vector(xd, i) & ~mask);
+            }
+            printf("\n");
+            cpu_descriptor_modify(reg_d, n);
+            cpu_descriptor_modify(reg_xd, n);
+            if (xdb < db)
+            {
+                // TODO: SSS interrupt, unless inhibited, see p53
+            }
+        }
+    }
+}
 static void cpu_check_b_overflow(t_uint64 result)
 {
     uint32 ms = result >> 32;
