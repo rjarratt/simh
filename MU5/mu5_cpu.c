@@ -23,7 +23,15 @@ Except as contained in this notice, the name of Robert Jarratt shall not be
 used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Robert Jarratt.
 
+MU5 is a big-endian machine. Instructions are addressed in 16-bit units,
+the memory is addressed in 32-bit words, but it is fundamentally a 64-bit
+machine. The memory loading command takes a byte address the origin and
+32-bit word addresses are calculated from there. The program counter has 
+to be loaded as 16-bit word address though, so to calculate it, take the 
+byte address and shift it right by 1 bit.
+
 Known Limitations
+-----------------
 Z register is not implemented.
 B DIV implementation is a guess (not defined in MU5 Basic Programming Manual)
 
@@ -250,7 +258,7 @@ static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructi
 static t_addr cpu_get_operand_address_variable_64(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_variable_64(uint16 order, uint32 instructionAddress, int *instructionLength);
-static t_addr cpu_get_operand_address_by_descriptor_vector_access(t_uint64 descriptor, uint32 modifier);
+static t_addr cpu_get_operand_byte_address_by_descriptor_vector_access(t_uint64 descriptor, uint32 modifier);
 static t_uint64 cpu_get_operand_by_descriptor_vector(t_uint64 descriptor, uint32 modifier);
 static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 modifier, t_uint64 value);
 static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength);
@@ -597,8 +605,6 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
 {
     t_stat r = SCPE_OK;
     int b;
-    uint16 word;
-    int msb;
     t_addr origin, limit;
 
     if (flag) /* dump? */
@@ -608,7 +614,7 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
     else
     {
         origin = 0;
-        limit = (t_addr)cpu_unit.capac * 2;
+        limit = (t_addr)cpu_unit.capac * 4; /* Capacity is in 32-bit words, we need bytes here */
         if (sim_switches & SWMASK('O')) /* Origin option */
         {
             origin = (t_addr)get_uint(cptr, 16, limit, &r);
@@ -621,7 +627,6 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
 
     if (r == SCPE_OK)
     {
-        msb = 1;
         while ((b = Fgetc(ptr)) != EOF)
         {
             if (origin >= limit)
@@ -630,18 +635,8 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
                 break;
             }
 
-            if (msb)
-            {
-                word = b << 8;
-            }
-            else
-            {
-                word |= b;
-                sac_write_16_bit_word(origin, word);
-                origin = origin + 1;
-            }
-
-            msb = !msb;
+            sac_write_8_bit_word(origin, b & 0xFF);
+            origin = origin + 1;
         }
     }
 
@@ -1049,11 +1044,11 @@ static t_uint64 cpu_get_operand_variable_64(uint16 order, uint32 instructionAddr
 }
 
 /* see p 90 of Morris and Ibbett and p23 of programming manual */
-static t_addr cpu_get_operand_address_by_descriptor_vector_access(t_uint64 descriptor, uint32 modifier)
+static t_addr cpu_get_operand_byte_address_by_descriptor_vector_access(t_uint64 descriptor, uint32 modifier)
 {
     t_addr result;
     uint8 unscaled = cpu_get_descriptor_unscaled(descriptor);
-    uint32 origin = cpu_get_descriptor_origin_address(descriptor);
+    uint32 origin = cpu_get_descriptor_origin(descriptor);
     if (unscaled)
     {
         result = origin + modifier;
@@ -1108,7 +1103,7 @@ static t_uint64 cpu_get_operand_by_descriptor_vector(t_uint64 descriptor, uint32
     t_addr addr;
     t_uint64 result;
 
-    addr = cpu_get_operand_address_by_descriptor_vector_access(descriptor, modifier);
+    addr = cpu_get_operand_byte_address_by_descriptor_vector_access(descriptor, modifier);
     
     switch (cpu_get_descriptor_size(descriptor))
     {
@@ -1136,12 +1131,12 @@ static t_uint64 cpu_get_operand_by_descriptor_vector(t_uint64 descriptor, uint32
         }
         case DESCRIPTOR_SIZE_32_BIT:
         {
-            result = sac_read_32_bit_word(addr);
+            result = sac_read_32_bit_word(addr >> 2); /* TODO: 32-bit word routine takes a word address, not a byte address. Need to make memory access consistent */
             break;
         }
         case DESCRIPTOR_SIZE_64_BIT:
         {
-            result = sac_read_64_bit_word(addr);
+            result = sac_read_64_bit_word(addr >> 2); /* TODO: 64-bit word routine takes a word address, not a byte address. Need to make memory access consistent */
             break;
         }
         default:
@@ -1158,7 +1153,7 @@ static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 mod
 {
     t_addr addr;
 
-    addr = cpu_get_operand_address_by_descriptor_vector_access(descriptor, modifier);
+    addr = cpu_get_operand_byte_address_by_descriptor_vector_access(descriptor, modifier);
 
     switch (cpu_get_descriptor_size(descriptor))
     {
@@ -1184,12 +1179,12 @@ static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 mod
         }
         case DESCRIPTOR_SIZE_32_BIT:
         {
-            sac_write_32_bit_word(addr, value & 0xFFFFFFFF);
+            sac_write_32_bit_word(addr >> 2, value & 0xFFFFFFFF); /* TODO: 32-bit word routine takes a word address, not a byte address. Need to make memory access consistent */
             break;
         }
         case DESCRIPTOR_SIZE_64_BIT:
         {
-            sac_write_64_bit_word(addr, value);
+            sac_write_64_bit_word(addr >> 2, value); /* TODO: 64-bit word routine takes a word address, not a byte address. Need to make memory access consistent */
             break;
         }
         default:
@@ -1611,11 +1606,6 @@ static uint32 cpu_get_descriptor_origin(t_uint64 descriptor)
 {
     uint32 result = descriptor & 0xFFFFFFFF;
     return result;
-}
-
-static uint32 cpu_get_descriptor_origin_address(t_uint64 descriptor)
-{
-    return cpu_get_descriptor_origin(descriptor) >> 2; /* origin is specified in bytes */
 }
 
 static void cpu_set_descriptor_bound(t_uint64 *descriptor, uint32 bound)

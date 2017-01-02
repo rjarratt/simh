@@ -55,7 +55,7 @@ void sac_write_32_bit_word(t_addr address, uint32 value)
 uint16 sac_read_16_bit_word(t_addr address)
 {
     uint32 fullWord = sac_read_32_bit_word(address >> 1);
-    uint16 result = (address & 1) ? fullWord >> 16 : fullWord & 0xFFFF;
+    uint16 result = (address & 1) ? fullWord & 0xFFFF : fullWord >> 16;
     return result;
 }
 
@@ -64,11 +64,11 @@ void sac_write_16_bit_word(t_addr address, uint16 value)
     uint32 fullWord = sac_read_32_bit_word(address >> 1);
     if (address & 1)
     {
-        fullWord = (value << 16) | (fullWord & 0xFFFF);
+        fullWord = (fullWord & 0xFFFF0000) | value;
     }
     else
     {
-        fullWord = (fullWord & 0xFFFF0000) | value;
+        fullWord = (value << 16) | (fullWord & 0xFFFF);
     }
     sac_write_32_bit_word(address >> 1, fullWord);
 }
@@ -76,16 +76,17 @@ void sac_write_16_bit_word(t_addr address, uint16 value)
 uint8 sac_read_8_bit_word(t_addr address)
 {
     uint32 fullWord = sac_read_32_bit_word(address >> 2);
-    uint8 result = fullWord >> ((address & 0x3) << 3);
+    uint8 byteNumber = 3 - (address & 0x3);
+    uint8 result = fullWord >> (byteNumber << 3);
     return result;
 }
 
 void sac_write_8_bit_word(t_addr address, uint8 value)
 {
     uint32 fullWord = sac_read_32_bit_word(address >> 2);
-    uint8 byteNumber = address & 0x3;
-    uint32 mask = 0xFF << (byteNumber < 3);
-    uint32 shiftedValue = (uint32)value << (byteNumber < 3);
+    uint8 byteNumber = 3 - (address & 0x3);
+    uint32 mask = 0xFF << (byteNumber << 3);
+    uint32 shiftedValue = (uint32)value << (byteNumber << 3);
     fullWord = (fullWord & ~mask) | shiftedValue;
     sac_write_32_bit_word(address >> 2, fullWord);
 }

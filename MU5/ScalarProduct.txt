@@ -2,12 +2,8 @@ Contrary to the HASE example, the second descriptor has to have an origin of 524
 At least that has to be the case until I understand how 32-bit values can be loaded into ACC and operated on by the AU orders.
 
 CO     Oct/Hex  Hex     Instruction
-65536  01C00    0E00    Org NBld V32 Z 0  Looks like I have mistakenly coded this to load literal 0 rather 
-than from location 0. Might have to be:
-01C121   0E51  Org NBld V32 Z 0
-         0000
-
-
+65536 01C121    0E51    Org NBld V32 Z 0
+        0000
 65537  01A06    0D06    Org SFNBpl lit Z 6
 65538   1000    2000    B LD lit Z 0
 65539   7100    E200    ACC LD lit Z 0
