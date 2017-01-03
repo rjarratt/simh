@@ -352,6 +352,7 @@ static void cpu_execute_sts2_bcmp(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_check_b_overflow(t_uint64 result);
 static void cpu_test_b_value(t_int64 value);
 static void cpu_execute_b_load(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_b_load_and_decrement(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_add(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -364,6 +365,7 @@ static void cpu_execute_b_shift_left(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_and(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_reverse_sub(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable); /* did not exist in real MU5, for HASE simulator comparison */
+static void cpu_execute_b_compare(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_compare_and_increment(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* acc fixed order functions */
@@ -526,7 +528,7 @@ static DISPATCH_ENTRY sts2DispatchTable[] =
 static DISPATCH_ENTRY bDispatchTable[] =
 {
     { cpu_execute_b_load,                  NULL },   /* 0 */
-    { cpu_execute_illegal_order,           NULL },   /* 1 */
+    { cpu_execute_b_load_and_decrement,    NULL },   /* 1 */
     { cpu_execute_b_stack_and_load,        NULL },   /* 2 */
     { cpu_execute_b_store,                 NULL },   /* 3 */
     { cpu_execute_b_add,                   NULL },   /* 4 */
@@ -538,7 +540,7 @@ static DISPATCH_ENTRY bDispatchTable[] =
     { cpu_execute_b_shift_left,            NULL },   /* 10 */
     { cpu_execute_b_and,                   NULL },   /* 11*/
     { cpu_execute_b_reverse_sub,           NULL },   /* 12 */
-    { cpu_execute_illegal_order,           NULL },   /* 13 */
+    { cpu_execute_b_compare,               NULL },   /* 13 */
     { cpu_execute_b_compare_and_increment, NULL },   /* 14 */
     { cpu_execute_b_reverse_div,           NULL },   /* 15 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
 };
@@ -2111,6 +2113,15 @@ static void cpu_execute_b_load(uint16 order, DISPATCH_ENTRY *innerTable)
     cpu_set_register_32(reg_b, cpu_get_operand(order) & 0xFFFFFFFF);
 }
 
+static void cpu_execute_b_load_and_decrement(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "B=' ");
+    t_int64 b = cpu_get_operand(order) & 0xFFFFFFFF;
+    b--;
+    cpu_check_b_overflow(b);
+    cpu_set_register_32(reg_b, b & 0xFFFFFFFF);
+}
+
 static void cpu_execute_b_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B*= ");
@@ -2233,6 +2244,14 @@ static void cpu_execute_b_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)
         t_int64 result = dividend / divisor;
         cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
     }
+}
+
+static void cpu_execute_b_compare(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "B COMP ");
+    t_uint64 b = cpu_get_register_32(reg_b);
+    t_int64 comparand = cpu_get_operand(order);
+    cpu_test_b_value(b - comparand);
 }
 
 static void cpu_execute_b_compare_and_increment(uint16 order, DISPATCH_ENTRY *innerTable)
