@@ -101,6 +101,7 @@ BITFIELD aod_bits[] = {
     ENDBITS
 };
 
+static t_uint64 mask_aod = 0x000000000000EFFF;
 static t_uint64 mask_aod_zdiv = 0xFFFFFFFFFFFFFFFB;
 static t_uint64 mask_aod_fxpovf = 0xFFFFFFFFFFFFFFFE;
 static t_uint64 mask_aod_opsiz64 = 0xFFFFFFFFFFFFEFFF;
@@ -378,6 +379,9 @@ static void cpu_execute_fp_signed_compare(uint16 order, DISPATCH_ENTRY *innerTab
 static void cpu_execute_fp_signed_convert(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* fixed point unsigned order functions */
+static void cpu_execute_fp_unsigned_load_single(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_fp_unsigned_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_fp_unsigned_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_fp_unsigned_add(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_fp_unsigned_sub(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_fp_unsigned_mul(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -387,6 +391,7 @@ static void cpu_execute_fp_unsigned_or(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_fp_unsigned_shift_left(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_fp_unsigned_and(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_fp_unsigned_reverse_sub(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_fp_unsigned_compare(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_fp_unsigned_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable); /* did not exist in real MU5, for HASE simulator comparison */
 
 /* floating point order functions */
@@ -576,10 +581,10 @@ static DISPATCH_ENTRY accFPSignedDispatchTable[] =
 
 static DISPATCH_ENTRY accFPUnsignedDispatchTable[] =
 {
-    { cpu_execute_fp_signed_load_single,    NULL }, /* 0 */
-    { cpu_execute_illegal_order,            NULL }, /* 1 */
-    { cpu_execute_fp_signed_stack_and_load, NULL }, /* 2 */
-    { cpu_execute_fp_signed_store,          NULL }, /* 3 */
+    { cpu_execute_fp_unsigned_load_single,    NULL }, /* 0 */
+    { cpu_execute_illegal_order,              NULL }, /* 1 */
+    { cpu_execute_fp_unsigned_stack_and_load, NULL }, /* 2 */
+    { cpu_execute_fp_unsigned_store,          NULL }, /* 3 */
     { cpu_execute_fp_unsigned_add,            NULL }, /* 4 */
     { cpu_execute_fp_unsigned_sub,            NULL }, /* 5 */
     { cpu_execute_fp_unsigned_mul,            NULL }, /* 6 */
@@ -589,9 +594,9 @@ static DISPATCH_ENTRY accFPUnsignedDispatchTable[] =
     { cpu_execute_fp_unsigned_shift_left,     NULL }, /* 10 */
     { cpu_execute_fp_unsigned_and,            NULL }, /* 11*/
     { cpu_execute_fp_unsigned_reverse_sub,    NULL }, /* 12 */
-    { cpu_execute_fp_signed_compare,        NULL }, /* 13 */
-    { cpu_execute_fp_signed_convert,        NULL }, /* 14 */
-    { cpu_execute_fp_unsigned_reverse_div,    NULL }, /* 15 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
+    { cpu_execute_fp_unsigned_compare,        NULL }, /* 13 */
+    { cpu_execute_illegal_order,              NULL }, /* 14 */
+    { cpu_execute_illegal_order,              NULL }, /* 15 */
 };
 
 static DISPATCH_ENTRY floatingPointDispatchTable[] =
@@ -2331,6 +2336,24 @@ static void cpu_execute_fp_signed_convert(uint16 order, DISPATCH_ENTRY *innerTab
     cpu_set_interrupt(INT_ILLEGAL_ORDERS);
 }
 
+static void cpu_execute_fp_unsigned_load_single(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "AOD=(32) ");
+    cpu_set_register_64(reg_aod, cpu_get_operand(order) & mask_aod);
+}
+
+static void cpu_execute_fp_unsigned_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "AOD*= ");
+    cpu_push_value(cpu_get_register_32(reg_aod) & mask_aod);
+    cpu_set_register_64(reg_aod, cpu_get_operand(order) & mask_aod);
+}
+
+static void cpu_execute_fp_unsigned_store(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "AOD=> ");
+    cpu_set_operand(order, cpu_get_register_64(reg_aod) & mask_aod);
+}
 static void cpu_execute_fp_unsigned_add(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A+ ");
@@ -2435,6 +2458,15 @@ static void cpu_execute_fp_unsigned_reverse_div(uint16 order, DISPATCH_ENTRY *in
         t_int64 result = dividend / divisor;
         cpu_set_register_64(reg_a, (t_uint64)result);
     }
+}
+
+static void cpu_execute_fp_unsigned_compare(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "A COMP ");
+    t_uint64 a = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
+    t_uint64 comparand = cpu_get_operand(order) & 0xFFFFFFFF;
+    cpu_test_value((t_int64)a - (t_int64)comparand);
+    cpu_set_register_bit_16(reg_ms, mask_ms_t0, 0);
 }
 
 static t_uint64 cpu_get_acc_value()
