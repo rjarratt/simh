@@ -411,6 +411,7 @@ static void cpu_execute_fp_unsigned_reverse_div(uint16 order, DISPATCH_ENTRY *in
 static void cpu_execute_fp_decimal_load_double(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_fp_decimal_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_fp_decimal_store(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_fp_decimal_compare(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* floating point order functions */
 static t_uint64 cpu_get_acc_value();
@@ -631,7 +632,7 @@ static DISPATCH_ENTRY accFPDecimalDispatchTable[] =
     {  cpu_execute_illegal_order,            NULL }, /* 9 */
     {  cpu_execute_illegal_order,            NULL }, /* 10 */
     {  cpu_execute_illegal_order,            NULL }, /* 11*/
-    {  cpu_execute_illegal_order,            NULL }, /* 12 */
+    { cpu_execute_fp_decimal_compare,        NULL }, /* 12 */
     {  cpu_execute_illegal_order,            NULL }, /* 13 */
     {  cpu_execute_illegal_order,            NULL }, /* 14 */
     {  cpu_execute_illegal_order,            NULL }, /* 15 */
@@ -2667,6 +2668,14 @@ static void cpu_execute_fp_decimal_store(uint16 order, DISPATCH_ENTRY *innerTabl
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "AEX=> ");
     cpu_set_operand(order, cpu_get_register_64(reg_aex));
+}
+
+static void cpu_execute_fp_decimal_compare(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "AODCOMP ");
+    t_uint64 aod = cpu_get_register_64(reg_aod) & mask_aod;
+    int result = aod == cpu_get_operand(order);
+    cpu_set_register_bit_16(reg_ms, mask_ms_t0, result);
 }
 
 static void cpu_execute_flp_load_single(uint16 order, DISPATCH_ENTRY *innerTable)
