@@ -336,6 +336,7 @@ static void cpu_execute_descriptor_modify(uint16 order, REG *descriptorReg);
 
 static void cpu_parse_sts_string_to_string_operand(uint16 order, uint8 *mask, uint8 *filler);
 static int cpu_check_string_descriptor(t_uint64 descriptor);
+static void cpu_execute_sts1_xdo_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_xd_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_xd_store(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -345,6 +346,7 @@ static void cpu_execute_sts1_smve(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_smvf(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_scmp(uint16 order, DISPATCH_ENTRY *innerTable);
 
+static void cpu_execute_sts2_do_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_d_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_d_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_d_store(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -520,7 +522,7 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
 
 static DISPATCH_ENTRY sts1DispatchTable[] =
 {
-    { cpu_execute_illegal_order, NULL },   /* 0 */
+    { cpu_execute_sts1_xdo_load, NULL },   /* 0 */
     { cpu_execute_sts1_xd_load,  NULL },   /* 1 */
     { cpu_execute_sts1_stack,    NULL },   /* 2 */
     { cpu_execute_sts1_xd_store, NULL },   /* 3 */
@@ -540,7 +542,7 @@ static DISPATCH_ENTRY sts1DispatchTable[] =
 
 static DISPATCH_ENTRY sts2DispatchTable[] =
 {
-    { cpu_execute_illegal_order,         NULL },   /* 0 */
+    { cpu_execute_sts2_do_load,          NULL },   /* 0 */
     { cpu_execute_sts2_d_load,           NULL },   /* 1 */
     { cpu_execute_sts2_d_stack_and_load, NULL },   /* 2 */
     { cpu_execute_sts2_d_store,          NULL },   /* 3 */
@@ -1875,6 +1877,15 @@ static int cpu_check_string_descriptor(t_uint64 descriptor)
     return result;
 }
 
+static void cpu_execute_sts1_xdo_load(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    t_uint64 xd;
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS XDO= ");
+    xd = cpu_get_register_64(reg_xd) & 0xFFFFFFFF00000000;
+    xd = xd | (cpu_get_operand(order) & 0xFFFFFFFF);
+    cpu_set_register_64(reg_xd, xd);
+}
+
 static void cpu_execute_sts1_xd_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS XD= ");
@@ -1943,6 +1954,15 @@ static void cpu_execute_sts1_smvb(uint16 order, DISPATCH_ENTRY *innerTable)
             cpu_descriptor_modify(reg_xd, 1);
         }
     }
+}
+
+static void cpu_execute_sts2_do_load(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    t_uint64 d;
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS DO= ");
+    d = cpu_get_register_64(reg_d) & 0xFFFFFFFF00000000;
+    d = d | (cpu_get_operand(order) & 0xFFFFFFFF);
+    cpu_set_register_64(reg_d, d);
 }
 
 static void cpu_execute_sts2_d_load(uint16 order, DISPATCH_ENTRY *innerTable)
