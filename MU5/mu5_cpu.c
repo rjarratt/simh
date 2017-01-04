@@ -407,6 +407,11 @@ static void cpu_execute_fp_unsigned_reverse_sub(uint16 order, DISPATCH_ENTRY *in
 static void cpu_execute_fp_unsigned_compare(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_fp_unsigned_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable); /* did not exist in real MU5, for HASE simulator comparison */
 
+/* fixed point decimal order functions */
+static void cpu_execute_fp_decimal_load_double(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_fp_decimal_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_fp_decimal_store(uint16 order, DISPATCH_ENTRY *innerTable);
+
 /* floating point order functions */
 static t_uint64 cpu_get_acc_value();
 static void cpu_execute_flp_load_single(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -612,6 +617,26 @@ static DISPATCH_ENTRY accFPUnsignedDispatchTable[] =
     { cpu_execute_fp_unsigned_reverse_div,    NULL }, /* 15 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
 };
 
+static DISPATCH_ENTRY accFPDecimalDispatchTable[] =
+{
+    { cpu_execute_illegal_order,             NULL }, /* 0 */
+    { cpu_execute_fp_decimal_load_double,    NULL }, /* 1 */
+    { cpu_execute_fp_decimal_stack_and_load, NULL }, /* 2 */
+    { cpu_execute_fp_decimal_store,          NULL }, /* 3 */
+    {  cpu_execute_illegal_order,            NULL }, /* 4 */
+    {  cpu_execute_illegal_order,            NULL }, /* 5 */
+    {  cpu_execute_illegal_order,            NULL }, /* 6 */
+    {  cpu_execute_illegal_order,            NULL }, /* 7 */
+    {  cpu_execute_illegal_order,            NULL }, /* 8 */
+    {  cpu_execute_illegal_order,            NULL }, /* 9 */
+    {  cpu_execute_illegal_order,            NULL }, /* 10 */
+    {  cpu_execute_illegal_order,            NULL }, /* 11*/
+    {  cpu_execute_illegal_order,            NULL }, /* 12 */
+    {  cpu_execute_illegal_order,            NULL }, /* 13 */
+    {  cpu_execute_illegal_order,            NULL }, /* 14 */
+    {  cpu_execute_illegal_order,            NULL }, /* 15 */
+};
+
 static DISPATCH_ENTRY floatingPointDispatchTable[] =
 {
     { cpu_execute_flp_load_single,    NULL }, /* 0 */
@@ -640,7 +665,7 @@ static DISPATCH_ENTRY crDispatchTable[] =
     { cpu_execute_cr_level, sts2DispatchTable },           /* 3 */
     { cpu_execute_cr_level, accFPSignedDispatchTable },    /* 4 */
     { cpu_execute_cr_level, accFPUnsignedDispatchTable },  /* 5 */
-    { cpu_execute_cr_level, NULL },                        /* 6 */
+    { cpu_execute_cr_level, accFPDecimalDispatchTable },   /* 6 */
     { cpu_execute_cr_level, floatingPointDispatchTable }   /* 7 */
 };
 
@@ -2623,6 +2648,25 @@ static t_uint64 cpu_get_acc_value()
 {
     t_uint64 result = (cpu_get_register_bit_64(reg_aod, mask_aod_opsiz64)) ? cpu_get_register_64(reg_a) : cpu_get_register_64(reg_a) >> 32;
     return result;
+}
+
+static void cpu_execute_fp_decimal_load_double(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "AEX=(64) ");
+    cpu_set_register_64(reg_aex, cpu_get_operand(order));
+}
+
+static void cpu_execute_fp_decimal_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "AEX*= ");
+    cpu_push_value(cpu_get_register_64(reg_aex));
+    cpu_set_register_64(reg_a, cpu_get_operand(order));
+}
+
+static void cpu_execute_fp_decimal_store(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "AEX=> ");
+    cpu_set_operand(order, cpu_get_register_64(reg_aex));
 }
 
 static void cpu_execute_flp_load_single(uint16 order, DISPATCH_ENTRY *innerTable)
