@@ -101,6 +101,8 @@ BITFIELD aod_bits[] = {
     ENDBITS
 };
 
+static t_uint64 mask_aod_zdiv = 0xFFFFFFFFFFFFFFFB;
+static t_uint64 mask_aod_fxpovf = 0xFFFFFFFFFFFFFFFE;
 static t_uint64 mask_aod_opsiz64 = 0xFFFFFFFFFFFFEFFF;
 
 BITFIELD bod_bits[] = {
@@ -368,17 +370,24 @@ static void cpu_execute_b_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_compare(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_compare_and_increment(uint16 order, DISPATCH_ENTRY *innerTable);
 
-/* acc fixed order functions */
-static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable);
-static void cpu_execute_acc_fixed_sub(uint16 order, DISPATCH_ENTRY *innerTable);
-static void cpu_execute_acc_fixed_mul(uint16 order, DISPATCH_ENTRY *innerTable);
-static void cpu_execute_acc_fixed_div(uint16 order, DISPATCH_ENTRY *innerTable); /* did not exist in real MU5, for HASE simulator comparison */
-static void cpu_execute_acc_fixed_xor(uint16 order, DISPATCH_ENTRY *innerTable);
-static void cpu_execute_acc_fixed_or(uint16 order, DISPATCH_ENTRY *innerTable);
-static void cpu_execute_acc_fixed_shift_left(uint16 order, DISPATCH_ENTRY *innerTable);
-static void cpu_execute_acc_fixed_and(uint16 order, DISPATCH_ENTRY *innerTable);
-static void cpu_execute_acc_fixed_reverse_sub(uint16 order, DISPATCH_ENTRY *innerTable);
-static void cpu_execute_acc_fixed_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable); /* did not exist in real MU5, for HASE simulator comparison */
+/* fixed point signed order functions */
+static void cpu_execute_fp_signed_load_single(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_fp_signed_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_fp_signed_store(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_fp_signed_compare(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_fp_signed_convert(uint16 order, DISPATCH_ENTRY *innerTable);
+
+/* fixed point unsigned order functions */
+static void cpu_execute_fp_unsigned_add(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_fp_unsigned_sub(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_fp_unsigned_mul(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_fp_unsigned_div(uint16 order, DISPATCH_ENTRY *innerTable); /* did not exist in real MU5, for HASE simulator comparison */
+static void cpu_execute_fp_unsigned_xor(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_fp_unsigned_or(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_fp_unsigned_shift_left(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_fp_unsigned_and(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_fp_unsigned_reverse_sub(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_fp_unsigned_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable); /* did not exist in real MU5, for HASE simulator comparison */
 
 /* floating point order functions */
 static t_uint64 cpu_get_acc_value();
@@ -545,24 +554,44 @@ static DISPATCH_ENTRY bDispatchTable[] =
     { cpu_execute_b_reverse_div,           NULL },   /* 15 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
 };
 
-static DISPATCH_ENTRY accFixedDispatchTable[] =
+static DISPATCH_ENTRY accFPSignedDispatchTable[] =
 {
-    { cpu_execute_illegal_order,         NULL }, /* 0 */
-    { cpu_execute_illegal_order,         NULL }, /* 1 */
-    { cpu_execute_illegal_order,         NULL }, /* 2 */
-    { cpu_execute_illegal_order,         NULL }, /* 3 */
-    { cpu_execute_acc_fixed_add,         NULL }, /* 4 */
-    { cpu_execute_acc_fixed_sub,         NULL }, /* 5 */
-    { cpu_execute_acc_fixed_mul,         NULL }, /* 6 */
-    { cpu_execute_acc_fixed_div,         NULL }, /* 7 */
-    { cpu_execute_acc_fixed_xor,         NULL }, /* 8 */
-    { cpu_execute_acc_fixed_or,          NULL }, /* 9 */
-    { cpu_execute_acc_fixed_shift_left,  NULL }, /* 10 */
-    { cpu_execute_acc_fixed_and,         NULL }, /* 11*/
-    { cpu_execute_acc_fixed_reverse_sub, NULL }, /* 12 */
-    { cpu_execute_illegal_order,         NULL }, /* 13 */
-    { cpu_execute_illegal_order,         NULL }, /* 14 */
-    { cpu_execute_acc_fixed_reverse_div, NULL }, /* 15 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
+    { cpu_execute_fp_signed_load_single,    NULL }, /* 0 */
+    { cpu_execute_illegal_order,            NULL }, /* 1 */
+    { cpu_execute_fp_signed_stack_and_load, NULL }, /* 2 */
+    { cpu_execute_fp_signed_store,          NULL }, /* 3 */
+    { cpu_execute_illegal_order,            NULL }, /* 4 */
+    { cpu_execute_illegal_order,            NULL }, /* 5 */
+    { cpu_execute_illegal_order,            NULL }, /* 6 */
+    { cpu_execute_illegal_order,            NULL }, /* 7 */
+    { cpu_execute_illegal_order,            NULL }, /* 8 */
+    { cpu_execute_illegal_order,            NULL }, /* 9 */
+    { cpu_execute_illegal_order,            NULL }, /* 10 */
+    { cpu_execute_illegal_order,            NULL }, /* 11*/
+    { cpu_execute_illegal_order,            NULL }, /* 12 */
+    { cpu_execute_fp_signed_compare,        NULL }, /* 13 */
+    { cpu_execute_fp_signed_convert,        NULL }, /* 14 */
+    { cpu_execute_illegal_order,            NULL }, /* 15 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
+};
+
+static DISPATCH_ENTRY accFPUnsignedDispatchTable[] =
+{
+    { cpu_execute_fp_signed_load_single,    NULL }, /* 0 */
+    { cpu_execute_illegal_order,            NULL }, /* 1 */
+    { cpu_execute_fp_signed_stack_and_load, NULL }, /* 2 */
+    { cpu_execute_fp_signed_store,          NULL }, /* 3 */
+    { cpu_execute_fp_unsigned_add,            NULL }, /* 4 */
+    { cpu_execute_fp_unsigned_sub,            NULL }, /* 5 */
+    { cpu_execute_fp_unsigned_mul,            NULL }, /* 6 */
+    { cpu_execute_fp_unsigned_div,            NULL }, /* 7 */
+    { cpu_execute_fp_unsigned_xor,            NULL }, /* 8 */
+    { cpu_execute_fp_unsigned_or,             NULL }, /* 9 */
+    { cpu_execute_fp_unsigned_shift_left,     NULL }, /* 10 */
+    { cpu_execute_fp_unsigned_and,            NULL }, /* 11*/
+    { cpu_execute_fp_unsigned_reverse_sub,    NULL }, /* 12 */
+    { cpu_execute_fp_signed_compare,        NULL }, /* 13 */
+    { cpu_execute_fp_signed_convert,        NULL }, /* 14 */
+    { cpu_execute_fp_unsigned_reverse_div,    NULL }, /* 15 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
 };
 
 static DISPATCH_ENTRY floatingPointDispatchTable[] =
@@ -591,8 +620,8 @@ static DISPATCH_ENTRY crDispatchTable[] =
     { cpu_execute_cr_level, bDispatchTable },              /* 1 */
     { cpu_execute_cr_level, sts1DispatchTable },           /* 2 */
     { cpu_execute_cr_level, sts2DispatchTable },           /* 3 */
-    { cpu_execute_cr_level, NULL },                        /* 4 */
-    { cpu_execute_cr_level, accFixedDispatchTable },       /* 5 */
+    { cpu_execute_cr_level, accFPSignedDispatchTable },    /* 4 */
+    { cpu_execute_cr_level, accFPUnsignedDispatchTable },  /* 5 */
     { cpu_execute_cr_level, NULL },                        /* 6 */
     { cpu_execute_cr_level, floatingPointDispatchTable }   /* 7 */
 };
@@ -2265,7 +2294,44 @@ static void cpu_execute_b_compare_and_increment(uint16 order, DISPATCH_ENTRY *in
     cpu_set_register_32(reg_b, b & 0xFFFFFFFF);
 }
 
-static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable)
+static void cpu_execute_fp_signed_load_single(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "X=(32) ");
+    cpu_set_register_32(reg_x, cpu_get_operand(order) & 0xFFFFFFFF);
+}
+
+static void cpu_execute_fp_signed_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "X*= ");
+    cpu_push_value(cpu_get_register_32(reg_x));
+    cpu_set_register_32(reg_a, cpu_get_operand(order) & 0xFFFFFFFF);
+}
+
+static void cpu_execute_fp_signed_store(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "X=> ");
+    cpu_set_operand(order, cpu_get_register_32(reg_x));
+}
+
+static void cpu_execute_fp_signed_compare(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    int t0;
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "X COMP ");
+    t_uint64 x = cpu_get_register_32(reg_x);
+    t_int64 comparand = cpu_get_operand(order) & 0xFFFFFFFF;
+    cpu_test_value(x - comparand);
+    t0 = cpu_get_register_bit_64(reg_aod, mask_aod_fxpovf) | cpu_get_register_bit_64(reg_aod, mask_aod_zdiv);
+    cpu_set_register_bit_16(reg_ms, mask_ms_t0, t0);
+}
+
+static void cpu_execute_fp_signed_convert(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "X CONV ");
+    /* TODO: Implement convert to floating point */
+    cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+}
+
+static void cpu_execute_fp_unsigned_add(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A+ ");
     t_int64 augend = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
@@ -2274,7 +2340,7 @@ static void cpu_execute_acc_fixed_add(uint16 order, DISPATCH_ENTRY *innerTable)
     cpu_set_register_64(reg_a, (t_uint64)result);
 }
 
-static void cpu_execute_acc_fixed_sub(uint16 order, DISPATCH_ENTRY *innerTable)
+static void cpu_execute_fp_unsigned_sub(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A+ ");
     t_int64 minuend = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
@@ -2283,7 +2349,7 @@ static void cpu_execute_acc_fixed_sub(uint16 order, DISPATCH_ENTRY *innerTable)
     cpu_set_register_64(reg_a, (t_uint64)result);
 }
 
-static void cpu_execute_acc_fixed_mul(uint16 order, DISPATCH_ENTRY *innerTable)
+static void cpu_execute_fp_unsigned_mul(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A* ");
     uint32 multiplicand = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
@@ -2293,7 +2359,7 @@ static void cpu_execute_acc_fixed_mul(uint16 order, DISPATCH_ENTRY *innerTable)
 }
 
 /* MU5 Basic Programming Manual lists this as a dummy order so implementation is a guess */
-static void cpu_execute_acc_fixed_div(uint16 order, DISPATCH_ENTRY *innerTable)
+static void cpu_execute_fp_unsigned_div(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A/ ");
     uint32 dividend = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
@@ -2309,7 +2375,7 @@ static void cpu_execute_acc_fixed_div(uint16 order, DISPATCH_ENTRY *innerTable)
     }
 }
 
-static void cpu_execute_acc_fixed_xor(uint16 order, DISPATCH_ENTRY *innerTable)
+static void cpu_execute_fp_unsigned_xor(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A XOR ");
     t_uint64 xorend = cpu_get_register_64(reg_a);
@@ -2318,7 +2384,7 @@ static void cpu_execute_acc_fixed_xor(uint16 order, DISPATCH_ENTRY *innerTable)
     cpu_set_register_64(reg_a, result);
 }
 
-static void cpu_execute_acc_fixed_or(uint16 order, DISPATCH_ENTRY *innerTable)
+static void cpu_execute_fp_unsigned_or(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A OR ");
     t_uint64 orend = cpu_get_register_64(reg_a);
@@ -2327,7 +2393,7 @@ static void cpu_execute_acc_fixed_or(uint16 order, DISPATCH_ENTRY *innerTable)
     cpu_set_register_64(reg_a, result);
 }
 
-static void cpu_execute_acc_fixed_shift_left(uint16 order, DISPATCH_ENTRY *innerTable)
+static void cpu_execute_fp_unsigned_shift_left(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A <- ");
     t_uint64 value = cpu_get_register_64(reg_a); /* unsigned for logical shift */
@@ -2336,7 +2402,7 @@ static void cpu_execute_acc_fixed_shift_left(uint16 order, DISPATCH_ENTRY *inner
     cpu_set_register_64(reg_a, result);
 }
 
-static void cpu_execute_acc_fixed_and(uint16 order, DISPATCH_ENTRY *innerTable)
+static void cpu_execute_fp_unsigned_and(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A AND ");
     t_uint64 andend = cpu_get_register_64(reg_a);
@@ -2345,7 +2411,7 @@ static void cpu_execute_acc_fixed_and(uint16 order, DISPATCH_ENTRY *innerTable)
     cpu_set_register_64(reg_a, result);
 }
 
-static void cpu_execute_acc_fixed_reverse_sub(uint16 order, DISPATCH_ENTRY *innerTable)
+static void cpu_execute_fp_unsigned_reverse_sub(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A RSUB ");
     t_int64 subtrahend = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
@@ -2355,7 +2421,7 @@ static void cpu_execute_acc_fixed_reverse_sub(uint16 order, DISPATCH_ENTRY *inne
 }
 
 /* MU5 Basic Programming Manual lists this as a dummy order so implementation is a guess */
-static void cpu_execute_acc_fixed_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)
+static void cpu_execute_fp_unsigned_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A RDIV ");
     uint32 divisor = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
@@ -2411,7 +2477,6 @@ static void cpu_execute_flp_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTa
 
 static void cpu_execute_flp_store(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-    t_uint64 a = cpu_get_register_64(reg_a);
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A=> ");
     cpu_set_operand(order, cpu_get_acc_value());
 }
