@@ -155,6 +155,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\MU5\mu5_cpu.c" />
+    <ClCompile Include="..\MU5\mu5_cpu_test.c" />
     <ClCompile Include="..\MU5\mu5_sac.c" />
     <ClCompile Include="..\MU5\mu5_sys.c" />
     <ClCompile Include="..\scp.c" />
@@ -170,6 +171,7 @@
     <ClCompile Include="..\sim_video.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\MU5\mu5_cpu_test.h" />
     <ClInclude Include="..\MU5\mu5_defs.h" />
     <ClInclude Include="..\MU5\mu5_sac.h" />
     <ClInclude Include="..\scp.h" />

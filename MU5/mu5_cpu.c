@@ -40,6 +40,7 @@ B DIV implementation is a guess (not defined in MU5 Basic Programming Manual)
 #include <assert.h>
 #include "mu5_defs.h"
 #include "mu5_sac.h"
+#include "mu5_cpu_test.h"
 
 /* Debug flags */
 #define LOG_CPU_PERF          (1 << 0)
@@ -781,8 +782,17 @@ t_stat parse_sym(CONST char *cptr, t_addr addr, UNIT *uptr, t_value *val, int32 
 /* reset routine */
 static t_stat cpu_reset(DEVICE *dptr)
 {
-    //cpu_set_register_32(reg_co, 0); /* TODO: probably needs to be reset to start of OS (upper half of memory) */
-    return SCPE_OK;
+    t_stat result = SCPE_OK;
+    if (sim_switches & SWMASK('T'))
+    {
+        result = cpu_selftest();
+    }
+    else
+    {
+        //cpu_set_register_32(reg_co, 0); /* TODO: probably needs to be reset to start of OS (upper half of memory) */
+    }
+
+    return result;
 }
 
 /* memory examine */
