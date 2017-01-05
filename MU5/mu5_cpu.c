@@ -333,6 +333,7 @@ static uint32 cpu_get_descriptor_bound(t_uint64 descriptor);
 static uint32 cpu_get_descriptor_origin(t_uint64 descriptor);
 static void cpu_set_descriptor_bound(t_uint64 *descriptor, uint32 bound);
 static void cpu_set_descriptor_origin(t_uint64 *descriptor, uint32 origin);
+static void cpu_descriptor_modify(REG *descriptorReg, int32 modifier, int originOnly);
 static void cpu_execute_descriptor_modify(uint16 order, REG *descriptorReg);
 
 static void cpu_parse_sts_string_to_string_operand(uint16 order, uint8 *mask, uint8 *filler);
@@ -343,6 +344,7 @@ static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_xd_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_xdb_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_xchk(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_sts1_smod(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_smvb(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_smve(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -532,7 +534,7 @@ static DISPATCH_ENTRY sts1DispatchTable[] =
     { cpu_execute_sts1_xd_store, NULL },   /* 3 */
     { cpu_execute_sts1_xdb_load, NULL },   /* 4 */
     { cpu_execute_sts1_xchk,     NULL },   /* 5 */
-    { cpu_execute_illegal_order, NULL },   /* 6 */
+    { cpu_execute_sts1_smod,     NULL },   /* 6 */
     { cpu_execute_sts1_xmod,     NULL },   /* 7 */
     { cpu_execute_illegal_order, NULL },   /* 8 */
     { cpu_execute_sts1_smvb,     NULL },   /* 9 */
@@ -1820,7 +1822,7 @@ static void cpu_set_descriptor_origin(t_uint64 *descriptor, uint32 origin)
     *descriptor = (*descriptor & 0xFFFFFFFF00000000) | origin;
 }
 
-static void cpu_descriptor_modify(REG *descriptorReg, int32 modifier)
+static void cpu_descriptor_modify(REG *descriptorReg, int32 modifier, int originOnly)
 {
     t_uint64 d = cpu_get_register_64(descriptorReg);
     uint32 bound = cpu_get_descriptor_bound(d);
@@ -1828,8 +1830,11 @@ static void cpu_descriptor_modify(REG *descriptorReg, int32 modifier)
     /* TODO: scaling not implemented, p49 */
     /* TODO: indirect descriptor processing not implemented, p49 */
     /* TODO: procedure call processing not implemented, p49 */
-    /* TODO: re-enable bounds check once understand why BOUND=1 MOD 1 should/should not create a bound check interrupt */
-    cpu_set_descriptor_bound(&d, bound - modifier);
+    if (!originOnly)
+    {
+        cpu_set_descriptor_bound(&d, bound - modifier);
+    }
+
     cpu_set_descriptor_origin(&d, origin + modifier);
     cpu_set_register_64(descriptorReg, d);
 }
@@ -1849,7 +1854,7 @@ static void cpu_execute_descriptor_modify(uint16 order, REG *descriptorReg)
         }
     }
 
-    cpu_descriptor_modify(descriptorReg, modifier);
+    cpu_descriptor_modify(descriptorReg, modifier, FALSE);
 }
 
 static void cpu_parse_sts_string_to_string_operand(uint16 order, uint8 *mask, uint8 *filler)
@@ -1926,6 +1931,13 @@ static void cpu_execute_sts1_xchk(uint16 order, DISPATCH_ENTRY *innerTable)
     cpu_set_register_bit_32(reg_dod, mask_dod_xch, result);
 }
 
+static void cpu_execute_sts1_smod(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS SMOD ");
+    int32 modifier = cpu_get_operand(order) & 0xFFFFFFFF;
+    cpu_descriptor_modify(reg_d, modifier, TRUE);
+}
+
 static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS XMOD ");
@@ -1966,13 +1978,13 @@ static void cpu_execute_sts1_smvb(uint16 order, DISPATCH_ENTRY *innerTable)
         else if (xdb == 0)
         {
             cpu_set_operand_by_descriptor_vector(d, 0, filler & ~mask);
-            cpu_descriptor_modify(reg_d, 1);
+            cpu_descriptor_modify(reg_d, 1, FALSE);
         }
         else
         {
             cpu_set_operand_by_descriptor_vector(d, 0, cpu_get_operand_by_descriptor_vector(xd, 0) & ~mask);
-            cpu_descriptor_modify(reg_d, 1);
-            cpu_descriptor_modify(reg_xd, 1);
+            cpu_descriptor_modify(reg_d, 1, FALSE);
+            cpu_descriptor_modify(reg_xd, 1, FALSE);
         }
     }
 }
@@ -2035,7 +2047,7 @@ static void cpu_execute_sts2_bmvb(uint16 order, DISPATCH_ENTRY *innerTable)
         if (db != 0)
         {
             cpu_set_operand_by_descriptor_vector(d, 0, byte & ~mask);
-            cpu_descriptor_modify(reg_d, 1);
+            cpu_descriptor_modify(reg_d, 1, FALSE);
         }
     }
 }
@@ -2059,7 +2071,7 @@ static void cpu_execute_sts2_bscn(uint16 order, DISPATCH_ENTRY *innerTable)
             found = byte == (uint8)cpu_get_operand_by_descriptor_vector(d, i);
             if (!found)
             {
-                cpu_descriptor_modify(reg_d, 1);
+                cpu_descriptor_modify(reg_d, 1, FALSE);
             }
         }
 
@@ -2086,7 +2098,7 @@ static void cpu_execute_sts2_bcmp(uint16 order, DISPATCH_ENTRY *innerTable)
             uint8 sourceByte = (uint8)cpu_get_operand_by_descriptor_vector(d, i);
             if (byte == sourceByte)
             {
-                cpu_descriptor_modify(reg_d, 1);
+                cpu_descriptor_modify(reg_d, 1, FALSE);
             }
             else if (sourceByte > byte)
             {
@@ -2125,8 +2137,8 @@ static void cpu_execute_sts1_smve(uint16 order, DISPATCH_ENTRY *innerTable)
             {
                 cpu_set_operand_by_descriptor_vector(d, i, cpu_get_operand_by_descriptor_vector(xd, i) & ~mask);
             }
-            cpu_descriptor_modify(reg_d, n);
-            cpu_descriptor_modify(reg_xd, n);
+            cpu_descriptor_modify(reg_d, n, FALSE);
+            cpu_descriptor_modify(reg_xd, n, FALSE);
             if (xdb < db && !cpu_get_register_bit_32(reg_dod, mask_dod_sssi))
             {
                 cpu_set_register_bit_32(reg_dod, mask_dod_sss, 1);
@@ -2160,8 +2172,8 @@ static void cpu_execute_sts1_smvf(uint16 order, DISPATCH_ENTRY *innerTable)
                 t_uint64 value = (i < xdb) ? cpu_get_operand_by_descriptor_vector(xd, i) : filler;
                 cpu_set_operand_by_descriptor_vector(d, i, value & ~mask);
             }
-            cpu_descriptor_modify(reg_d, n);
-            cpu_descriptor_modify(reg_xd, (xdb < db) ? xdb : db);
+            cpu_descriptor_modify(reg_d, n, FALSE);
+            cpu_descriptor_modify(reg_xd, (xdb < db) ? xdb : db, FALSE);
         }
     }
 }
@@ -2190,7 +2202,7 @@ static void cpu_execute_sts1_scmp(uint16 order, DISPATCH_ENTRY *innerTable)
             uint8 destByte = (uint8)cpu_get_operand_by_descriptor_vector(d, i);
             if (destByte == sourceByte)
             {
-                cpu_descriptor_modify(reg_d, 1);
+                cpu_descriptor_modify(reg_d, 1, FALSE);
             }
             else if (sourceByte > destByte)
             {
