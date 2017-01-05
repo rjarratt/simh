@@ -289,6 +289,7 @@ static t_uint64 cpu_get_operand_variable_64(uint16 order, uint32 instructionAddr
 static t_addr cpu_get_operand_byte_address_by_descriptor_vector_access(t_uint64 descriptor, uint32 modifier);
 static t_uint64 cpu_get_operand_by_descriptor_vector(t_uint64 descriptor, uint32 modifier);
 static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 modifier, t_uint64 value);
+static void cpu_process_source_to_destination_descriptor_vector(t_uint64 operand, t_uint64 (*func)(t_uint64 source, t_uint64 destination, t_uint64 operand));
 static t_uint64 cpu_get_operand_b_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_zero_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength, uint32 modifier);
@@ -338,6 +339,8 @@ static void cpu_execute_descriptor_modify(uint16 order, REG *descriptorReg);
 
 static void cpu_parse_sts_string_to_string_operand(uint16 order, uint8 *mask, uint8 *filler);
 static int cpu_check_string_descriptor(t_uint64 descriptor);
+static t_uint64 cpu_sts1_smve_element_operation(t_uint64 source, t_uint64 destination, t_uint64 operand);
+static t_uint64 cpu_sts1_slgc_element_operation(t_uint64 source, t_uint64 destination, t_uint64 operand);
 static void cpu_execute_sts1_xdo_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_xd_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -346,6 +349,7 @@ static void cpu_execute_sts1_xdb_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_xchk(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_smod(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_sts1_slgc(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_smvb(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_smve(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_smvf(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -536,7 +540,7 @@ static DISPATCH_ENTRY sts1DispatchTable[] =
     { cpu_execute_sts1_xchk,     NULL },   /* 5 */
     { cpu_execute_sts1_smod,     NULL },   /* 6 */
     { cpu_execute_sts1_xmod,     NULL },   /* 7 */
-    { cpu_execute_illegal_order, NULL },   /* 8 */
+    { cpu_execute_sts1_slgc,     NULL },   /* 8 */
     { cpu_execute_sts1_smvb,     NULL },   /* 9 */
     { cpu_execute_sts1_smve,     NULL },   /* 10 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
     { cpu_execute_sts1_smvf,     NULL },   /* 11*/
@@ -1355,6 +1359,33 @@ static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 mod
     }
 }
 
+static void cpu_process_source_to_destination_descriptor_vector(t_uint64 operand, t_uint64(*func)(t_uint64 source, t_uint64 destination, t_uint64 operand))
+{
+    t_uint64 d = cpu_get_register_64(reg_d);
+    t_uint64 xd = cpu_get_register_64(reg_xd);
+    uint32 db = cpu_get_descriptor_bound(d);
+    uint32 xdb = cpu_get_descriptor_bound(xd);
+
+    if (db != 0)
+    {
+        int i;
+        int n = (xdb < db) ? xdb : db;
+        for (i = 0; i < n; i++)
+        {
+            t_uint64 source = cpu_get_operand_by_descriptor_vector(xd, i);
+            t_uint64 destination = cpu_get_operand_by_descriptor_vector(d, i);
+            cpu_set_operand_by_descriptor_vector(d, i, func(source, destination, operand));
+        }
+        cpu_descriptor_modify(reg_d, n, FALSE);
+        cpu_descriptor_modify(reg_xd, n, FALSE);
+        if (xdb < db && !cpu_get_register_bit_32(reg_dod, mask_dod_sssi))
+        {
+            cpu_set_register_bit_32(reg_dod, mask_dod_sss, 1);
+            cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+        }
+    }
+}
+
 static t_uint64 cpu_get_operand_b_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
     t_uint64 result = 0;
@@ -1886,6 +1917,41 @@ static int cpu_check_string_descriptor(t_uint64 descriptor)
     return result;
 }
 
+/* operand is the mask to apply to the source to get the destination */
+static t_uint64 cpu_sts1_smve_element_operation(t_uint64 source, t_uint64 destination, t_uint64 operand)
+{
+    return source & operand;
+}
+
+static t_uint64 cpu_sts1_slgc_element_operation(t_uint64 source, t_uint64 destination, t_uint64 operand)
+{
+    t_uint64 mask;
+    t_uint64 result = 0;
+    t_uint64 lnValue;
+
+    /* L0 bits */
+    mask = ~source & ~destination;
+    lnValue = (operand & 0x80000) ? 0xFFFFFFFFFFFFFFFF : 0;
+    result |= lnValue & mask;
+
+    /* L1 bits */
+    mask = ~source & destination;
+    lnValue = (operand & 0x40000) ? 0xFFFFFFFFFFFFFFFF : 0;
+    result |= lnValue & mask;
+
+    /* L2 bits */
+    mask = source & ~destination;
+    lnValue = (operand & 0x20000) ? 0xFFFFFFFFFFFFFFFF : 0;
+    result |= lnValue & mask;
+
+    /* L3 bits */
+    mask = source & destination;
+    lnValue = (operand & 0x10000) ? 0xFFFFFFFFFFFFFFFF : 0;
+    result |= lnValue & mask;
+
+    return result;
+}
+
 static void cpu_execute_sts1_xdo_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     t_uint64 xd;
@@ -1952,6 +2018,14 @@ static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable)
     cpu_execute_descriptor_modify(order, reg_xd);
 }
 
+static void cpu_execute_sts1_slgc(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    t_uint64 operand;
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS SLGC ");
+    operand = cpu_get_operand(order);
+    cpu_process_source_to_destination_descriptor_vector(operand, cpu_sts1_slgc_element_operation);
+}
+
 static void cpu_execute_sts1_smvb(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS SMVB ");
@@ -1986,6 +2060,91 @@ static void cpu_execute_sts1_smvb(uint16 order, DISPATCH_ENTRY *innerTable)
             cpu_descriptor_modify(reg_d, 1, FALSE);
             cpu_descriptor_modify(reg_xd, 1, FALSE);
         }
+    }
+}
+
+static void cpu_execute_sts1_smve(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS SMVE ");
+    t_uint64 d = cpu_get_register_64(reg_d);
+    t_uint64 xd = cpu_get_register_64(reg_xd);
+    uint8 mask;
+    uint8 filler;
+    cpu_parse_sts_string_to_string_operand(order, &mask, &filler);
+
+    if (cpu_check_string_descriptor(d) && cpu_check_string_descriptor(xd))
+    {
+        cpu_process_source_to_destination_descriptor_vector(~mask, cpu_sts1_smve_element_operation);
+    }
+}
+
+static void cpu_execute_sts1_smvf(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS SMVF ");
+    t_uint64 d = cpu_get_register_64(reg_d);
+    t_uint64 xd = cpu_get_register_64(reg_xd);
+    uint8 mask;
+    uint8 filler;
+    uint32 db = cpu_get_descriptor_bound(d);
+    uint32 xdb = cpu_get_descriptor_bound(xd);
+    uint32 dorig = cpu_get_descriptor_origin(d);
+    uint32 xdorig = cpu_get_descriptor_origin(xd);
+    cpu_parse_sts_string_to_string_operand(order, &mask, &filler);
+
+    if (cpu_check_string_descriptor(d) && cpu_check_string_descriptor(xd))
+    {
+        if (db != 0)
+        {
+            unsigned int i;
+            unsigned int n = (xdb < db) ? db : xdb;
+            for (i = 0; i < n; i++)
+            {
+                t_uint64 value = (i < xdb) ? cpu_get_operand_by_descriptor_vector(xd, i) : filler;
+                cpu_set_operand_by_descriptor_vector(d, i, value & ~mask);
+            }
+            cpu_descriptor_modify(reg_d, n, FALSE);
+            cpu_descriptor_modify(reg_xd, (xdb < db) ? xdb : db, FALSE);
+        }
+    }
+}
+
+static void cpu_execute_sts1_scmp(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS SCMP ");
+    t_uint64 d = cpu_get_register_64(reg_d);
+    t_uint64 xd = cpu_get_register_64(reg_xd);
+    uint8 mask;
+    uint8 filler;
+    uint32 db = cpu_get_descriptor_bound(d);
+    uint32 xdb = cpu_get_descriptor_bound(xd);
+    uint32 dorig = cpu_get_descriptor_origin(d);
+    uint32 xdorig = cpu_get_descriptor_origin(xd);
+    unsigned int i;
+    unsigned int n = (xdb < db) ? db : xdb;
+    int compareResult = 0;
+    cpu_parse_sts_string_to_string_operand(order, &mask, &filler);
+
+    if (cpu_check_string_descriptor(d))
+    {
+        for (i = 0; i < n && compareResult == 0; i++)
+        {
+            uint8 sourceByte = (i < xdb) ? cpu_get_operand_by_descriptor_vector(xd, i) & 0xFF : filler;
+            uint8 destByte = (uint8)cpu_get_operand_by_descriptor_vector(d, i);
+            if (destByte == sourceByte)
+            {
+                cpu_descriptor_modify(reg_d, 1, FALSE);
+            }
+            else if (sourceByte > destByte)
+            {
+                compareResult = 1;
+            }
+            else
+            {
+                compareResult = -1;
+            }
+        }
+
+        cpu_test_value(compareResult);
     }
 }
 
@@ -2101,110 +2260,6 @@ static void cpu_execute_sts2_bcmp(uint16 order, DISPATCH_ENTRY *innerTable)
                 cpu_descriptor_modify(reg_d, 1, FALSE);
             }
             else if (sourceByte > byte)
-            {
-                compareResult = 1;
-            }
-            else
-            {
-                compareResult = -1;
-            }
-        }
-
-        cpu_test_value(compareResult);
-    }
-}
-
-static void cpu_execute_sts1_smve(uint16 order, DISPATCH_ENTRY *innerTable)
-{
-    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS SMVE ");
-    t_uint64 d = cpu_get_register_64(reg_d);
-    t_uint64 xd = cpu_get_register_64(reg_xd);
-    uint8 mask;
-    uint8 filler;
-    uint32 db = cpu_get_descriptor_bound(d);
-    uint32 xdb = cpu_get_descriptor_bound(xd);
-    uint32 dorig = cpu_get_descriptor_origin(d);
-    uint32 xdorig = cpu_get_descriptor_origin(xd);
-    cpu_parse_sts_string_to_string_operand(order, &mask, &filler);
-
-    if (cpu_check_string_descriptor(d) && cpu_check_string_descriptor(xd))
-    {
-        if (db != 0)
-        {
-            int i;
-            int n = (xdb < db) ? xdb : db;
-            for (i = 0; i < n; i++)
-            {
-                cpu_set_operand_by_descriptor_vector(d, i, cpu_get_operand_by_descriptor_vector(xd, i) & ~mask);
-            }
-            cpu_descriptor_modify(reg_d, n, FALSE);
-            cpu_descriptor_modify(reg_xd, n, FALSE);
-            if (xdb < db && !cpu_get_register_bit_32(reg_dod, mask_dod_sssi))
-            {
-                cpu_set_register_bit_32(reg_dod, mask_dod_sss, 1);
-                cpu_set_interrupt(INT_ILLEGAL_ORDERS);
-            }
-        }
-    }
-}
-
-static void cpu_execute_sts1_smvf(uint16 order, DISPATCH_ENTRY *innerTable)
-{
-    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS SMVF ");
-    t_uint64 d = cpu_get_register_64(reg_d);
-    t_uint64 xd = cpu_get_register_64(reg_xd);
-    uint8 mask;
-    uint8 filler;
-    uint32 db = cpu_get_descriptor_bound(d);
-    uint32 xdb = cpu_get_descriptor_bound(xd);
-    uint32 dorig = cpu_get_descriptor_origin(d);
-    uint32 xdorig = cpu_get_descriptor_origin(xd);
-    cpu_parse_sts_string_to_string_operand(order, &mask, &filler);
-
-    if (cpu_check_string_descriptor(d) && cpu_check_string_descriptor(xd))
-    {
-        if (db != 0)
-        {
-            unsigned int i;
-            unsigned int n = (xdb < db) ? db : xdb;
-            for (i = 0; i < n; i++)
-            {
-                t_uint64 value = (i < xdb) ? cpu_get_operand_by_descriptor_vector(xd, i) : filler;
-                cpu_set_operand_by_descriptor_vector(d, i, value & ~mask);
-            }
-            cpu_descriptor_modify(reg_d, n, FALSE);
-            cpu_descriptor_modify(reg_xd, (xdb < db) ? xdb : db, FALSE);
-        }
-    }
-}
-
-static void cpu_execute_sts1_scmp(uint16 order, DISPATCH_ENTRY *innerTable)
-{
-    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS SCMP ");
-    t_uint64 d = cpu_get_register_64(reg_d);
-    t_uint64 xd = cpu_get_register_64(reg_xd);
-    uint8 mask;
-    uint8 filler;
-    uint32 db = cpu_get_descriptor_bound(d);
-    uint32 xdb = cpu_get_descriptor_bound(xd);
-    uint32 dorig = cpu_get_descriptor_origin(d);
-    uint32 xdorig = cpu_get_descriptor_origin(xd);
-    unsigned int i;
-    unsigned int n = (xdb < db) ? db : xdb;
-    int compareResult = 0;
-    cpu_parse_sts_string_to_string_operand(order, &mask, &filler);
-
-    if (cpu_check_string_descriptor(d))
-    {
-        for (i = 0; i < n && compareResult == 0; i++)
-        {
-            uint8 sourceByte = (i < xdb) ? cpu_get_operand_by_descriptor_vector(xd, i) & 0xFF : filler;
-            uint8 destByte = (uint8)cpu_get_operand_by_descriptor_vector(d, i);
-            if (destByte == sourceByte)
-            {
-                cpu_descriptor_modify(reg_d, 1, FALSE);
-            }
-            else if (sourceByte > destByte)
             {
                 compareResult = 1;
             }
