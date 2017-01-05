@@ -364,6 +364,7 @@ static void cpu_execute_sts2_d_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_db_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_mdr(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_mod(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_sts2_rmod(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_bmvb(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_bscn(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_bcmp(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -563,7 +564,7 @@ static DISPATCH_ENTRY sts2DispatchTable[] =
     { cpu_execute_sts2_db_load,          NULL },   /* 4 */
     { cpu_execute_sts2_mdr,              NULL },   /* 5 */
     { cpu_execute_sts2_mod,              NULL },   /* 6 */
-    { cpu_execute_illegal_order,         NULL },   /* 7 */
+    { cpu_execute_sts2_rmod,             NULL },   /* 7 */
     { cpu_execute_illegal_order,         NULL },   /* 8 */
     { cpu_execute_sts2_bmvb,             NULL },   /* 9 */
     { cpu_execute_illegal_order,         NULL },   /* 10 */
@@ -2257,7 +2258,7 @@ static void cpu_execute_sts2_db_load(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_sts2_mdr(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     t_uint64 d;
-    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS MOD ");
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS MDR ");
     cpu_execute_descriptor_modify(order, reg_d);
 
     /* RNI - I don't remember too much about MDR, just that it did what it
@@ -2276,6 +2277,17 @@ static void cpu_execute_sts2_mod(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS MOD ");
     cpu_execute_descriptor_modify(order, reg_d);
+}
+
+static void cpu_execute_sts2_rmod(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    t_uint64 operand;
+    t_uint64 d;
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS RMOD ");
+    operand = cpu_get_operand(order);
+    d = cpu_get_register_64(reg_d);
+    d = (operand & 0xFFFFFFFF00000000) | ( (d & 0xFFFFFFFF) + (operand & 0xFFFFFFFF));
+    cpu_set_register_64(reg_d, d);
 }
 
 static void cpu_execute_sts2_bmvb(uint16 order, DISPATCH_ENTRY *innerTable)
