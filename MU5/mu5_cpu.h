@@ -1,4 +1,4 @@
-/* mu5_cpu_test.h: MU5 simulator CPU test definitions
+/* mu5_cpu.h: MU5 CPU definitions
 
 Copyright (c) 2016-2017, Robert Jarratt
 
@@ -22,9 +22,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 Except as contained in this notice, the name of Robert Jarratt shall not be
 used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Robert Jarratt.
-*/
+*/#pragma once
 
-#include "mu5_defs.h"
-
-#pragma once
-t_stat cpu_selftest(void);
+/* Debug flags */
+#define LOG_CPU_PERF          (1 << 0)
+#define LOG_CPU_DECODE        (1 << 1)
+#define LOG_CPU_SELFTEST      (1 << 2)

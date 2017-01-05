@@ -39,12 +39,9 @@ B DIV implementation is a guess (not defined in MU5 Basic Programming Manual)
 
 #include <assert.h>
 #include "mu5_defs.h"
+#include "mu5_cpu.h"
 #include "mu5_sac.h"
 #include "mu5_cpu_test.h"
-
-/* Debug flags */
-#define LOG_CPU_PERF          (1 << 0)
-#define LOG_CPU_DECODE        (1 << 1)
 
 /* This structure is used to allow instruction execution to be table driven. It allows for tables to be nested. At each level the
    execute() function does anything it needs to do before invoking the function on the inner table. The leaf tables have a NULL for
@@ -236,9 +233,10 @@ static MTAB cpu_mod[] =
 /* Debug Flags */
 static DEBTAB cpu_debtab[] =
 {
-    { "PERF",    LOG_CPU_PERF,      "CPU performance" },
-    { "EVENT",   SIM_DBG_EVENT,     "event dispatch activities" },
-    { "DECODE",  LOG_CPU_DECODE,    "decode instructions" },
+    { "PERF",     LOG_CPU_PERF,      "CPU performance" },
+    { "EVENT",    SIM_DBG_EVENT,     "event dispatch activities" },
+    { "DECODE",   LOG_CPU_DECODE,    "decode instructions" },
+    { "SELFTEST", LOG_CPU_SELFTEST,  "self test output" },
     { NULL,         0 }
 };
 

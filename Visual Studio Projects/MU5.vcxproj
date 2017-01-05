@@ -171,6 +171,7 @@
     <ClCompile Include="..\sim_video.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\MU5\mu5_cpu.h" />
     <ClInclude Include="..\MU5\mu5_cpu_test.h" />
     <ClInclude Include="..\MU5\mu5_defs.h" />
     <ClInclude Include="..\MU5\mu5_sac.h" />
