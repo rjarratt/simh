@@ -158,10 +158,11 @@ BITFIELD dod_bits[] = {
     ENDBITS
 };
 
-static uint16 mask_dod_sss = 0xFFF7;
-static uint16 mask_dod_bch = 0xFFDF;
-static uint16 mask_dod_sssi = 0xFFBF;
-static uint16 mask_dod_bchi = 0xFEFF;
+static uint32 mask_dod_xch = 0xFFFFFFFE;
+static uint32 mask_dod_sss = 0xFFFFFFF7;
+static uint32 mask_dod_bch = 0xFFFFFFDF;
+static uint32 mask_dod_sssi = 0xFFFFFFBF;
+static uint32 mask_dod_bchi = 0xFFFFFEFF;
 
 
 /* Register backing values */
@@ -341,6 +342,7 @@ static void cpu_execute_sts1_xd_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_xd_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_xdb_load(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_sts1_xchk(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_smvb(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_smve(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -529,7 +531,7 @@ static DISPATCH_ENTRY sts1DispatchTable[] =
     { cpu_execute_sts1_stack,    NULL },   /* 2 */
     { cpu_execute_sts1_xd_store, NULL },   /* 3 */
     { cpu_execute_sts1_xdb_load, NULL },   /* 4 */
-    { cpu_execute_illegal_order, NULL },   /* 5 */
+    { cpu_execute_sts1_xchk,     NULL },   /* 5 */
     { cpu_execute_illegal_order, NULL },   /* 6 */
     { cpu_execute_sts1_xmod,     NULL },   /* 7 */
     { cpu_execute_illegal_order, NULL },   /* 8 */
@@ -1913,6 +1915,15 @@ static void cpu_execute_sts1_xdb_load(uint16 order, DISPATCH_ENTRY *innerTable)
     xd = cpu_get_register_64(reg_xd) & 0xFF000000FFFFFFFF;
     xd = xd | ((cpu_get_operand(order) & 0xFFFFFF) << 32);
     cpu_set_register_64(reg_xd, xd);
+}
+
+static void cpu_execute_sts1_xchk(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS XCHK ");
+    uint32 check = cpu_get_operand(order) & 0xFFFFFFFF;
+    uint32 xdb = cpu_get_descriptor_bound(cpu_get_register_64(reg_xd));
+    int result = check >= 0 && check < xdb;
+    cpu_set_register_bit_32(reg_dod, mask_dod_xch, result);
 }
 
 static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable)
