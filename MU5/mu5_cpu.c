@@ -336,7 +336,8 @@ static void cpu_set_descriptor_origin(t_uint64 *descriptor, uint32 origin);
 static void cpu_descriptor_modify(REG *descriptorReg, int32 modifier, int originOnly);
 static void cpu_execute_descriptor_modify(uint16 order, REG *descriptorReg);
 
-static void cpu_parse_sts_string_to_string_operand(uint16 order, uint8 *mask, uint8 *filler);
+static void cpu_parse_sts_string_to_string_operand(t_uint64 operand, uint8 *mask, uint8 *filler);
+static void cpu_parse_sts_string_to_string_operand_from_order(uint16 order, uint8 *mask, uint8 *filler);
 static int cpu_check_string_descriptor(t_uint64 descriptor);
 static int cpu_check_32bit_descriptor(t_uint64 descriptor);
 static t_uint64 cpu_sts1_smve_element_operation(t_uint64 source, t_uint64 destination, t_uint64 operand);
@@ -365,6 +366,7 @@ static void cpu_execute_sts2_db_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_mdr(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_mod(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_rmod(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_sts2_blgc(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_bmvb(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_bscn(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_bcmp(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -565,7 +567,7 @@ static DISPATCH_ENTRY sts2DispatchTable[] =
     { cpu_execute_sts2_mdr,              NULL },   /* 5 */
     { cpu_execute_sts2_mod,              NULL },   /* 6 */
     { cpu_execute_sts2_rmod,             NULL },   /* 7 */
-    { cpu_execute_illegal_order,         NULL },   /* 8 */
+    { cpu_execute_sts2_blgc,             NULL },   /* 8 */
     { cpu_execute_sts2_bmvb,             NULL },   /* 9 */
     { cpu_execute_illegal_order,         NULL },   /* 10 */
     { cpu_execute_sts1_smvf,             NULL },   /* 11*/
@@ -1893,10 +1895,8 @@ static void cpu_execute_descriptor_modify(uint16 order, REG *descriptorReg)
     cpu_descriptor_modify(descriptorReg, modifier, FALSE);
 }
 
-static void cpu_parse_sts_string_to_string_operand(uint16 order, uint8 *mask, uint8 *filler)
+static void cpu_parse_sts_string_to_string_operand(t_uint64 operand, uint8 *mask, uint8 *filler)
 {
-    t_uint64 operand = cpu_get_operand(order);
-
     if (mask != NULL)
     {
         *mask = (operand >> 8) & 0xFF;
@@ -1906,6 +1906,13 @@ static void cpu_parse_sts_string_to_string_operand(uint16 order, uint8 *mask, ui
     {
         *filler = operand & 0xFF;
     }
+}
+
+static void cpu_parse_sts_string_to_string_operand_from_order(uint16 order, uint8 *mask, uint8 *filler)
+{
+    t_uint64 operand = cpu_get_operand(order);
+
+    cpu_parse_sts_string_to_string_operand(operand, mask, filler);
 }
 
 static int cpu_check_string_descriptor(t_uint64 descriptor)
@@ -2049,7 +2056,7 @@ static void cpu_execute_sts1_smvb(uint16 order, DISPATCH_ENTRY *innerTable)
     uint32 xdb = cpu_get_descriptor_bound(xd);
     uint32 dorig = cpu_get_descriptor_origin(d);
     uint32 xdorig = cpu_get_descriptor_origin(xd);
-    cpu_parse_sts_string_to_string_operand(order, &mask, &filler);
+    cpu_parse_sts_string_to_string_operand_from_order(order, &mask, &filler);
 
     if (cpu_check_string_descriptor(d) && cpu_check_string_descriptor(xd))
     {
@@ -2082,7 +2089,7 @@ static void cpu_execute_sts1_smve(uint16 order, DISPATCH_ENTRY *innerTable)
     t_uint64 xd = cpu_get_register_64(reg_xd);
     uint8 mask;
     uint8 filler;
-    cpu_parse_sts_string_to_string_operand(order, &mask, &filler);
+    cpu_parse_sts_string_to_string_operand_from_order(order, &mask, &filler);
 
     if (cpu_check_string_descriptor(d) && cpu_check_string_descriptor(xd))
     {
@@ -2101,7 +2108,7 @@ static void cpu_execute_sts1_smvf(uint16 order, DISPATCH_ENTRY *innerTable)
     uint32 xdb = cpu_get_descriptor_bound(xd);
     uint32 dorig = cpu_get_descriptor_origin(d);
     uint32 xdorig = cpu_get_descriptor_origin(xd);
-    cpu_parse_sts_string_to_string_operand(order, &mask, &filler);
+    cpu_parse_sts_string_to_string_operand_from_order(order, &mask, &filler);
 
     if (cpu_check_string_descriptor(d) && cpu_check_string_descriptor(xd))
     {
@@ -2172,7 +2179,7 @@ static void cpu_execute_sts1_scmp(uint16 order, DISPATCH_ENTRY *innerTable)
     unsigned int i;
     unsigned int n = (xdb < db) ? db : xdb;
     int compareResult = 0;
-    cpu_parse_sts_string_to_string_operand(order, &mask, &filler);
+    cpu_parse_sts_string_to_string_operand_from_order(order, &mask, &filler);
 
     if (cpu_check_string_descriptor(d))
     {
@@ -2286,8 +2293,28 @@ static void cpu_execute_sts2_rmod(uint16 order, DISPATCH_ENTRY *innerTable)
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS RMOD ");
     operand = cpu_get_operand(order);
     d = cpu_get_register_64(reg_d);
-    d = (operand & 0xFFFFFFFF00000000) | ( (d & 0xFFFFFFFF) + (operand & 0xFFFFFFFF));
+    d = (operand & 0xFFFFFFFF00000000) | ((d & 0xFFFFFFFF) + (operand & 0xFFFFFFFF));
     cpu_set_register_64(reg_d, d);
+}
+
+static void cpu_execute_sts2_blgc(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    t_uint64 d = cpu_get_register_64(reg_d);
+    t_uint64 operand;
+    uint8 byte;
+    int i;
+    int n = cpu_get_descriptor_bound(d);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS BLGC ");
+    operand = cpu_get_operand(order);
+    cpu_parse_sts_string_to_string_operand(operand, NULL, &byte);
+    if (cpu_check_string_descriptor(d))
+    {
+        for (i = 0; i < n; i++)
+        {
+            t_uint64 destination = cpu_get_operand_by_descriptor_vector(d, i);
+            cpu_set_operand_by_descriptor_vector(d, i, cpu_sts1_slgc_element_operation((t_uint64)byte, destination, operand));
+        }
+    }
 }
 
 static void cpu_execute_sts2_bmvb(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -2298,7 +2325,7 @@ static void cpu_execute_sts2_bmvb(uint16 order, DISPATCH_ENTRY *innerTable)
     uint8 byte;
     uint32 db = cpu_get_descriptor_bound(d);
     uint32 dorig = cpu_get_descriptor_origin(d);
-    cpu_parse_sts_string_to_string_operand(order, &mask, &byte);
+    cpu_parse_sts_string_to_string_operand_from_order(order, &mask, &byte);
 
     if (cpu_check_string_descriptor(d))
     {
@@ -2320,7 +2347,7 @@ static void cpu_execute_sts2_bscn(uint16 order, DISPATCH_ENTRY *innerTable)
     uint32 dorig = cpu_get_descriptor_origin(d);
     unsigned int i;
     int found = 0;
-    cpu_parse_sts_string_to_string_operand(order, &mask, &byte);
+    cpu_parse_sts_string_to_string_operand_from_order(order, &mask, &byte);
 
     if (cpu_check_string_descriptor(d))
     {
@@ -2347,7 +2374,7 @@ static void cpu_execute_sts2_bcmp(uint16 order, DISPATCH_ENTRY *innerTable)
     uint32 dorig = cpu_get_descriptor_origin(d);
     unsigned int i;
     int compareResult = 0;
-    cpu_parse_sts_string_to_string_operand(order, &mask, &byte);
+    cpu_parse_sts_string_to_string_operand_from_order(order, &mask, &byte);
 
     if (cpu_check_string_descriptor(d))
     {
