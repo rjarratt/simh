@@ -353,6 +353,7 @@ static void cpu_execute_sts1_slgc(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_smvb(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_smve(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_smvf(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_sts1_talu(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts1_scmp(uint16 order, DISPATCH_ENTRY *innerTable);
 
 static void cpu_execute_sts2_do_load(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -544,7 +545,7 @@ static DISPATCH_ENTRY sts1DispatchTable[] =
     { cpu_execute_sts1_smvb,     NULL },   /* 9 */
     { cpu_execute_sts1_smve,     NULL },   /* 10 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
     { cpu_execute_sts1_smvf,     NULL },   /* 11*/
-    { cpu_execute_illegal_order, NULL },   /* 12 */
+    { cpu_execute_sts1_talu,     NULL },   /* 12 */
     { cpu_execute_illegal_order, NULL },   /* 13 */
     { cpu_execute_sts1_scmp,     NULL },   /* 14 */
     { cpu_execute_illegal_order, NULL },   /* 15 */
@@ -2105,6 +2106,44 @@ static void cpu_execute_sts1_smvf(uint16 order, DISPATCH_ENTRY *innerTable)
             cpu_descriptor_modify(reg_d, n, FALSE);
             cpu_descriptor_modify(reg_xd, (xdb < db) ? xdb : db, FALSE);
         }
+    }
+}
+
+static void cpu_execute_sts1_talu(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS TALU ");
+    t_uint64 d = cpu_get_register_64(reg_d);
+    t_uint64 xd = cpu_get_register_64(reg_xd);
+    uint32 db = cpu_get_descriptor_bound(d);
+    uint32 dorig = cpu_get_descriptor_origin(d);
+    uint8 dt = cpu_get_descriptor_type(d);
+    uint8 ds = cpu_get_descriptor_size(d);
+    unsigned int i;
+    int found = FALSE;
+    uint32 comparand = cpu_get_operand(order) & 0xFFFFFFFF;
+    // TODO: get mask from XD? see p57 of manual
+    //cpu_parse_sts_string_to_string_operand(order, &mask, &filler);
+
+    if ((dt == 0 || dt == 2) && ds == DESCRIPTOR_SIZE_32_BIT)
+    {
+        for (i = 0; i < db && !found; i++)
+        {
+            uint32 source = cpu_get_operand_by_descriptor_vector(d, i) & 0xFFFFFFFF;
+            if (source == comparand)
+            {
+                found = TRUE;
+            }
+            else
+            {
+                cpu_descriptor_modify(reg_d, 1, FALSE);
+            }
+        }
+
+        cpu_test_value(found? 0 : 1);
+    }
+    else
+    {
+        cpu_set_interrupt(INT_ILLEGAL_ORDERS);
     }
 }
 
