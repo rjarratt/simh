@@ -368,6 +368,7 @@ static void cpu_execute_sts2_mod(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_rmod(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_blgc(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_bmvb(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_sts2_bmve(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_bscn(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_bcmp(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_sub2(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -569,7 +570,7 @@ static DISPATCH_ENTRY sts2DispatchTable[] =
     { cpu_execute_sts2_rmod,             NULL },   /* 7 */
     { cpu_execute_sts2_blgc,             NULL },   /* 8 */
     { cpu_execute_sts2_bmvb,             NULL },   /* 9 */
-    { cpu_execute_illegal_order,         NULL },   /* 10 */
+    { cpu_execute_sts2_bmve,             NULL },   /* 10 */
     { cpu_execute_sts1_smvf,             NULL },   /* 11*/
     { cpu_execute_illegal_order,         NULL },   /* 12 */
     { cpu_execute_sts2_bscn,             NULL },   /* 13 */
@@ -2332,6 +2333,29 @@ static void cpu_execute_sts2_bmvb(uint16 order, DISPATCH_ENTRY *innerTable)
         {
             cpu_set_operand_by_descriptor_vector(d, 0, byte & ~mask);
             cpu_descriptor_modify(reg_d, 1, FALSE);
+        }
+    }
+}
+
+static void cpu_execute_sts2_bmve(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS BMVE ");
+    t_uint64 d = cpu_get_register_64(reg_d);
+    uint8 mask;
+    uint8 byte;
+    uint32 db = cpu_get_descriptor_bound(d);
+    unsigned int i;
+    cpu_parse_sts_string_to_string_operand_from_order(order, &mask, &byte);
+
+    if (cpu_check_string_descriptor(d))
+    {
+        if (db != 0)
+        {
+            for (i = 0; i < db; i++)
+            {
+                cpu_set_operand_by_descriptor_vector(d, i, byte & ~mask);
+            }
+            cpu_descriptor_modify(reg_d, db, FALSE);
         }
     }
 }
