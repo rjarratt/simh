@@ -362,6 +362,7 @@ static void cpu_execute_sts2_d_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_d_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_d_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_db_load(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_sts2_mdr(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_mod(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_bmvb(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_bscn(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -560,7 +561,7 @@ static DISPATCH_ENTRY sts2DispatchTable[] =
     { cpu_execute_sts2_d_stack_and_load, NULL },   /* 2 */
     { cpu_execute_sts2_d_store,          NULL },   /* 3 */
     { cpu_execute_sts2_db_load,          NULL },   /* 4 */
-    { cpu_execute_illegal_order,         NULL },   /* 5 */
+    { cpu_execute_sts2_mdr,              NULL },   /* 5 */
     { cpu_execute_sts2_mod,              NULL },   /* 6 */
     { cpu_execute_illegal_order,         NULL },   /* 7 */
     { cpu_execute_illegal_order,         NULL },   /* 8 */
@@ -2251,6 +2252,24 @@ static void cpu_execute_sts2_db_load(uint16 order, DISPATCH_ENTRY *innerTable)
     d = cpu_get_register_64(reg_d) & 0xFF000000FFFFFFFF;
     d = d | ((cpu_get_operand(order) & 0xFFFFFF) << 32);
     cpu_set_register_64(reg_d, d);
+}
+
+static void cpu_execute_sts2_mdr(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    t_uint64 d;
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS MOD ");
+    cpu_execute_descriptor_modify(order, reg_d);
+
+    /* RNI - I don't remember too much about MDR, just that it did what it
+       says in the manual. So I don't remember if there were any checks
+       (though I think not) but clearly it would have to have a Size field
+       of 64. Sometimes the engineers just left the programmers to their own
+       devices and it was their tough luck if they got it wrong. But it would
+       have just been the OS or compiler writers who needed to get things
+       right, not the users.
+    */
+    d = cpu_get_register_64(reg_d);
+    cpu_set_register_64(reg_d, cpu_get_operand_by_descriptor_vector(d, 0));
 }
 
 static void cpu_execute_sts2_mod(uint16 order, DISPATCH_ENTRY *innerTable)
