@@ -2138,15 +2138,14 @@ static void cpu_execute_sts1_talu(uint16 order, DISPATCH_ENTRY *innerTable)
     uint8 ds = cpu_get_descriptor_size(d);
     unsigned int i;
     int found = FALSE;
-    uint32 comparand = cpu_get_operand(order) & 0xFFFFFFFF;
-    // TODO: get mask from XD? see p57 of manual
-    //cpu_parse_sts_string_to_string_operand(order, &mask, &filler);
+    uint32 mask = cpu_get_register_64(reg_xd) >> 32;
+    uint32 comparand = ~mask & (cpu_get_operand(order) & 0xFFFFFFFF);
 
     if (cpu_check_32bit_descriptor(d))
     {
         for (i = 0; i < db && !found; i++)
         {
-            uint32 source = cpu_get_operand_by_descriptor_vector(d, i) & 0xFFFFFFFF;
+            uint32 source = ~mask & (cpu_get_operand_by_descriptor_vector(d, i) & 0xFFFFFFFF);
             if (source == comparand)
             {
                 found = TRUE;
