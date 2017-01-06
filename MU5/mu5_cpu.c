@@ -233,11 +233,12 @@ static MTAB cpu_mod[] =
 /* Debug Flags */
 static DEBTAB cpu_debtab[] =
 {
-    { "PERF",     LOG_CPU_PERF,      "CPU performance" },
-    { "EVENT",    SIM_DBG_EVENT,     "event dispatch activities" },
-    { "DECODE",   LOG_CPU_DECODE,    "decode instructions" },
-    { "SELFTEST", LOG_CPU_SELFTEST,  "self test output" },
-    { NULL,         0 }
+    { "PERF",         LOG_CPU_PERF,      "CPU performance" },
+    { "EVENT",        SIM_DBG_EVENT,     "event dispatch activities" },
+    { "DECODE",       LOG_CPU_DECODE,    "decode instructions" },
+    { "SELFTEST",     LOG_CPU_SELFTEST,  "self test output" },
+    { "SELFTESTFAIL", LOG_CPU_SELFTEST_FAIL,  "self test failure output" },
+    { NULL,           0 }
 };
 
 static const char* cpu_description(DEVICE *dptr) {
