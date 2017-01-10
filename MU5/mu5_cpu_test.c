@@ -33,8 +33,11 @@ in this Software without prior written authorization from Robert Jarratt.
 #define CR_B 1
 #define CR_STS1 2
 #define CR_STS2 3
+#define CR_FLOAT 7
 
 #define F_LOAD_XDO 0
+
+#define F_LOAD_64 1
 
 #define K_LITERAL 0
 
@@ -66,13 +69,30 @@ static REG *cpu_selftest_get_register(char *name);
 static void cpu_selftest_set_register(char *name, t_uint64 value);
 static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 
+static void cpu_selftest_load_operand_6_bit_positive_literal(void);
+static void cpu_selftest_load_operand_6_bit_negative_literal(void);
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(void);
 
 UNITTEST tests[] =
 {
-    { "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD }
+	{ "Load operand 6-bit positive literal", cpu_selftest_load_operand_6_bit_positive_literal },
+	{ "Load operand 6-bit negative literal", cpu_selftest_load_operand_6_bit_negative_literal },
+	{ "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD }
 };
 
+static void cpu_selftest_load_operand_6_bit_positive_literal()
+{
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals("A", 0x000000000000001F);
+}
+
+static void cpu_selftest_load_operand_6_bit_negative_literal()
+{
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x3F);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals("A", 0xFFFFFFFFFFFFFFFF);
+}
 
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD()
 {
