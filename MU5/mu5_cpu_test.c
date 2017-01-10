@@ -30,7 +30,9 @@ in this Software without prior written authorization from Robert Jarratt.
 #include "mu5_cpu_test.h"
 #include "mu5_sac.h"
 
-#define CR_STS1 1
+#define CR_B 1
+#define CR_STS1 2
+#define CR_STS2 3
 
 #define F_LOAD_XDO 0
 
@@ -74,11 +76,11 @@ UNITTEST tests[] =
 
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD()
 {
-    cpu_selftest_set_register("D", 0xAAAAAAAA00000000);
+    cpu_selftest_set_register("XD", 0xAAAAAAAA00000000);
     cpu_selftest_load_order_extended(CR_STS1, F_LOAD_XDO, K_LITERAL, NP_64_BIT_LITERAL);
-    cpu_selftest_load_64_bit_literal(0xFFFFFFFFFFFFFFFF);
+    cpu_selftest_load_64_bit_literal(0xBBBBBBBBFFFFFFFF);
     cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals("D", 0xAAAAAAAAFFFFFFFF);
+    cpu_selftest_assert_reg_equals("XD", 0xAAAAAAAAFFFFFFFF);
 }
 
 static void cpu_selftest_reset(UNITTEST *test)
@@ -97,7 +99,7 @@ static void cpu_selftest_load_order(uint8 cr, uint8 f, uint8 k, uint8 n)
     order |= (k & 0x7) << 6;
     order |= n & 0x3F;
     sac_write_16_bit_word(testContext.currentLoadLocation, order);
-    testContext.currentLoadLocation += 2;
+    testContext.currentLoadLocation += 1;
 }
 
 static void cpu_selftest_load_order_extended(uint8 cr, uint8 f, uint8 k, uint8 np)
@@ -122,7 +124,7 @@ static void cpu_selftest_load_64_bit_literal(t_uint64 value)
 static void cpu_selftest_run_code(void)
 {
     cpu_selftest_set_register("CO", 0);
-    sim_instr();
+	cpu_execute_next_order();
 }
 
 static REG *cpu_selftest_get_register(char *name)

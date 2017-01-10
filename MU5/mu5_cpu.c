@@ -300,7 +300,6 @@ static void cpu_push_value(t_uint64 value);
 static t_uint64 cpu_pop_value(void);
 static void cpu_test_value(t_int64 value);
 
-static void cpu_execute_next_order(void);
 static void cpu_execute_illegal_order(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_start_interrupt_processing(void);
 
@@ -1682,7 +1681,7 @@ static void cpu_test_value(t_int64 value)
     cpu_set_register_bit_16(reg_ms, mask_ms_t2, value < 0);
 }
 
-static void cpu_execute_next_order(void)
+void cpu_execute_next_order(void)
 {
     uint16 order;
     uint16 cr;

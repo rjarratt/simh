@@ -29,3 +29,5 @@ in this Software without prior written authorization from Robert Jarratt.
 #define LOG_CPU_DECODE        (1 << 1)
 #define LOG_CPU_SELFTEST      (1 << 2)
 #define LOG_CPU_SELFTEST_FAIL (1 << 3)
+
+void cpu_execute_next_order(void);
