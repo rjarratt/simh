@@ -29,6 +29,11 @@ in this Software without prior written authorization from Robert Jarratt.
 
 static uint32 LocalStore[MAXMEMORY];
 
+void sac_clear_all_memory(void)
+{
+	memset(LocalStore, 0, sizeof(uint32) * MAXMEMORY);
+}
+
 t_uint64 sac_read_64_bit_word(t_addr address)
 {
     t_uint64 result = ((t_uint64)sac_read_32_bit_word(address) << 32) | sac_read_32_bit_word(address + 1);

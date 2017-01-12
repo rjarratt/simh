@@ -58,6 +58,8 @@ in this Software without prior written authorization from Robert Jarratt.
 #define K_IR 1
 #define K_V32 2
 #define K_V64 3
+#define K_SB 4
+#define K_SB_5 5
 
 #define NP_64_BIT_LITERAL 2
 
@@ -82,6 +84,9 @@ static void cpu_selftest_reset(UNITTEST *test);
 static void cpu_selftest_load_order(uint8 cr, uint8 f, uint8 k, uint8 n);
 static void cpu_selftest_load_order_extended(uint8 cr, uint8 f, uint8 k, uint8 np);
 static void cpu_selftest_load_64_bit_literal(t_uint64 value);
+static t_uint64 cpu_selftest_create_descriptor(uint8 type, uint8 size, uint32 bound, uint32 origin);
+static void cpu_selftest_load_32_bit_value_to_descriptor_location(uint32 origin, uint32 offset, uint32 value);
+static uint32 cpu_selftest_byte_address_from_word_address(uint32 address);
 static void cpu_selftest_run_code(void);
 static REG *cpu_selftest_get_register(char *name);
 static void cpu_selftest_set_register(char *name, t_uint64 value);
@@ -106,14 +111,14 @@ static void cpu_selftest_load_operand_internal_register_48(void);
 static void cpu_selftest_load_operand_32_bit_variable(void);
 static void cpu_selftest_load_operand_32_bit_variable_6_bit_offset_is_unsigned(void);
 static void cpu_selftest_load_operand_64_bit_variable(void);
+static void cpu_selftest_load_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_4(void);
+static void cpu_selftest_load_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_5(void);
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(void);
 
 UNITTEST tests[] =
 {
 	{ "Load operand 6-bit positive literal", cpu_selftest_load_operand_6_bit_positive_literal },
     { "Load operand 6-bit negative literal", cpu_selftest_load_operand_6_bit_negative_literal },
-    { "Load operand 32-bit variable", cpu_selftest_load_operand_32_bit_variable },
-    { "Load operand 32-bit variable 6-bit offset is unsigned", cpu_selftest_load_operand_32_bit_variable_6_bit_offset_is_unsigned },
 	{ "Load operand internal register 0", cpu_selftest_load_operand_internal_register_0 },
 	{ "Load operand internal register 1", cpu_selftest_load_operand_internal_register_1 },
     { "Load operand internal register 2", cpu_selftest_load_operand_internal_register_2 },
@@ -128,9 +133,16 @@ UNITTEST tests[] =
     { "Load operand internal register 33", cpu_selftest_load_operand_internal_register_33 },
     { "Load operand internal register 34", cpu_selftest_load_operand_internal_register_34 },
     { "Load operand internal register 48", cpu_selftest_load_operand_internal_register_48 },
-    { "Load operand 64-bit variable", cpu_selftest_load_operand_64_bit_variable },
-    { "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD }
+	{ "Load operand 32-bit variable", cpu_selftest_load_operand_32_bit_variable },
+	{ "Load operand 32-bit variable 6-bit offset is unsigned", cpu_selftest_load_operand_32_bit_variable_6_bit_offset_is_unsigned },
+	{ "Load operand 64-bit variable", cpu_selftest_load_operand_64_bit_variable },
+	{ "Load operand via B-relative descriptor at 6-bit offset for k=4", cpu_selftest_load_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_4 },
+	{ "Load operand via B-relative descriptor at 6-bit offset for k=5", cpu_selftest_load_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_5 },
+	{ "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD }
 };
+
+// TODO: Tests for longer literals
+// TODO: test that CO is advanced correctly for normal orders and longer ones too.
 
 static void cpu_selftest_load_operand_6_bit_positive_literal()
 {
@@ -234,12 +246,11 @@ static void cpu_selftest_load_operand_internal_register_20(void)
 
 static void cpu_selftest_load_operand_internal_register_32(void)
 {
-	// TODO: Awaiting clarification on IR n=32 and n=36
-	//cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 32);
-	//cpu_selftest_set_register(REG_BOD, 0xAAAAAAA);
-	//cpu_selftest_set_register(REG_B, 0xBBBBBBBB);
-	//cpu_selftest_run_code();
-	//cpu_selftest_assert_reg_equals(REG_A, 0xAAAAAAABBBBBBBB);
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 32);
+	cpu_selftest_set_register(REG_BOD, 0xAAAAAAA);
+	cpu_selftest_set_register(REG_B, 0xBBBBBBBB);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0xAAAAAAABBBBBBBB);
 }
 
 static void cpu_selftest_load_operand_internal_register_33(void)
@@ -298,10 +309,41 @@ static void cpu_selftest_load_operand_64_bit_variable(void)
     cpu_selftest_assert_reg_equals(REG_A, 0xBBBBBBBBAAAAAAAA);
 }
 
-
 // TODO: p17 SN relative
 // TODO: p17 SN interrupt on overflow
 // TODO: p17 long instruction offset is signed (?)
+
+static void cpu_selftest_load_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_4()
+{
+	uint32 base = 0x00F0;
+	uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
+	uint32 vecoffset = 1;
+	int8 n = 0x1;
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_SB, n);
+	cpu_selftest_set_register(REG_NB, base);
+	cpu_selftest_set_register(REG_B, vecoffset);
+	sac_write_64_bit_word(base + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
+	cpu_selftest_load_32_bit_value_to_descriptor_location(vecorigin, vecoffset, 0xAAAAAAAA);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAAAAAA);
+}
+
+static void cpu_selftest_load_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_5()
+{
+	uint32 base = 0x00F0;
+	uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
+	uint32 vecoffset = 1;
+	int8 n = 0x1;
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_SB_5, n);
+	cpu_selftest_set_register(REG_NB, base);
+	cpu_selftest_set_register(REG_B, vecoffset);
+	sac_write_64_bit_word(base + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
+	cpu_selftest_load_32_bit_value_to_descriptor_location(vecorigin, vecoffset, 0xAAAAAAAA);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAAAAAA);
+}
+
+// TODO: all other descriptor sizes
 
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD()
 {
@@ -314,6 +356,7 @@ static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD()
 
 static void cpu_selftest_reset(UNITTEST *test)
 {
+	sac_clear_all_memory();
     // TODO: Loop to reset all registers
 	cpu_selftest_set_register(REG_A, 0x0);
 	cpu_selftest_set_register(REG_AEX, 0x0);
@@ -363,6 +406,27 @@ static void cpu_selftest_load_64_bit_literal(t_uint64 value)
 {
     sac_write_64_bit_word(testContext.currentLoadLocation, value);
     testContext.currentLoadLocation += 8;
+}
+
+static t_uint64 cpu_selftest_create_descriptor(uint8 type, uint8 size, uint32 bound, uint32 origin)
+{
+	t_uint64 result = 0;
+	result |= (t_uint64)(type & 0x3) << 62;
+	result |= (t_uint64)(size & 0x7) << 59;
+	result |= (t_uint64)bound << 32;
+	result |= origin;
+
+	return result;
+}
+
+static void cpu_selftest_load_32_bit_value_to_descriptor_location(uint32 origin, uint32 offset, uint32 value)
+{
+	sac_write_32_bit_word((origin + (offset << 2)) >> 2, 0xAAAAAAAA); /* right shift 2 because descriptors are in byte addresses */
+}
+
+static uint32 cpu_selftest_byte_address_from_word_address(uint32 address)
+{
+	return address << 2;
 }
 
 static void cpu_selftest_run_code(void)

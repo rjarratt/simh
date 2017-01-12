@@ -1505,8 +1505,8 @@ static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructi
         }
         case 32:
         {
-            result = cpu_get_register_32(reg_b);
-            break;
+			result = ((t_uint64)cpu_get_register_32(reg_bod) << 32) | cpu_get_register_32(reg_b);
+			break;
         }
         case 33:
         {
@@ -1520,6 +1520,7 @@ static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructi
         }
         case 36:
         {
+			/* This one exists in the Morris and Ibbett book, but is not present in the MU5 Programming Manual */
             result = ((t_uint64)cpu_get_register_32(reg_bod) << 32) | cpu_get_register_32(reg_b);
             break;
         }
@@ -1896,7 +1897,7 @@ static void cpu_execute_descriptor_modify(uint16 order, REG *descriptorReg)
     uint8 subtype = cpu_get_descriptor_subtype(d);
     uint32 bound = cpu_get_descriptor_bound(d);
     int32 modifier = cpu_get_operand(order) & MASK_32;
-    if (!cpu_get_descriptor_bound_check_inhibit(d) && (type == 0 || type == 1 || type == 2 || (type == 3 && subtype == 0) || (type == 3 && subtype == 1) || (type == 3 && subtype == 2)))
+    if (!cpu_get_descriptor_bound_check_inhibit(d) && (type == DESCRIPTOR_TYPE_GENERAL_VECTOR || type == DESCRIPTOR_TYPE_GENERAL_STRING || type == DESCRIPTOR_TYPE_ADDRESS_VECTOR || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 0) || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 1) || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 2)))
     {
         if (modifier < 0 || (uint32)modifier >= bound)
         {
@@ -1932,7 +1933,7 @@ static int cpu_check_string_descriptor(t_uint64 descriptor)
     int result = 1;
     uint8 type = cpu_get_descriptor_type(descriptor);
     uint8 size = cpu_get_descriptor_size(descriptor);
-    if (type > 2 || size != DESCRIPTOR_SIZE_8_BIT)
+    if (type > DESCRIPTOR_TYPE_ADDRESS_VECTOR || size != DESCRIPTOR_SIZE_8_BIT)
     {
         cpu_set_interrupt(INT_ILLEGAL_ORDERS);
         result = 0;
@@ -1945,7 +1946,7 @@ static int cpu_check_32bit_descriptor(t_uint64 descriptor)
 {
     uint8 dt = cpu_get_descriptor_type(descriptor);
     uint8 ds = cpu_get_descriptor_size(descriptor);
-    return (dt == 0 || dt == 2) && ds == DESCRIPTOR_SIZE_32_BIT;
+    return (dt == DESCRIPTOR_TYPE_GENERAL_VECTOR || dt == DESCRIPTOR_TYPE_ADDRESS_VECTOR) && ds == DESCRIPTOR_SIZE_32_BIT;
 }
 
 /* operand is the mask to apply to the source to get the destination */
@@ -2041,7 +2042,7 @@ static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable)
     t_uint64 xd = cpu_get_register_64(reg_xd);
     uint8 type = cpu_get_descriptor_type(xd);
     uint8 subtype = cpu_get_descriptor_subtype(xd);
-    if (type == 3 && (subtype >= 3 && subtype <= 31))
+    if (type == DESCRIPTOR_TYPE_MISCELLANEOUS && (subtype >= DESCRIPTOR_TYPE_MISCELLANEOUS && subtype <= 31))
     {
         cpu_set_interrupt(INT_ILLEGAL_ORDERS); /* TODO: better interrupt handling */
     }
@@ -2146,8 +2147,6 @@ static void cpu_execute_sts1_talu(uint16 order, DISPATCH_ENTRY *innerTable)
     t_uint64 xd = cpu_get_register_64(reg_xd);
     uint32 db = cpu_get_descriptor_bound(d);
     uint32 dorig = cpu_get_descriptor_origin(d);
-    uint8 dt = cpu_get_descriptor_type(d);
-    uint8 ds = cpu_get_descriptor_size(d);
     unsigned int i;
     int found = FALSE;
     uint32 mask = cpu_get_register_64(reg_xd) >> 32;
