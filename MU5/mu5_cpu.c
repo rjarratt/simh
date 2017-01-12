@@ -72,6 +72,9 @@ absolute jump to the start of the OS code. The first thing this did was
 to set the MS register to some appropriate setting.
 
 */
+
+#define MASK_32 0xFFFFFFFF
+
 static int cpu_stopped = 0;
 
 int32 sim_emax;
@@ -1359,7 +1362,7 @@ static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 mod
         }
         case DESCRIPTOR_SIZE_32_BIT:
         {
-            sac_write_32_bit_word(addr >> 2, value & 0xFFFFFFFF); /* TODO: 32-bit word routine takes a word address, not a byte address. Need to make memory access consistent */
+            sac_write_32_bit_word(addr >> 2, value & MASK_32); /* TODO: 32-bit word routine takes a word address, not a byte address. Need to make memory access consistent */
             break;
         }
         case DESCRIPTOR_SIZE_64_BIT:
@@ -1446,7 +1449,7 @@ static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instruction
 static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
     t_uint64 result = 0;
-    uint8 n = order & 0x7;
+    uint8 n = order & 0x3F;
 
     switch (n)
     {
@@ -1462,12 +1465,12 @@ static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructi
         }
         case 2:
         {
-            result = (cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg_nb);
+            result = ((cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg_nb)) & MASK_32;
             break;
         }
         case 3:
         {
-            result = (cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg_sf);
+            result = ((cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg_sf)) & MASK_32;
             break;
         }
         case 4:
@@ -1634,7 +1637,7 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
         case 2:
         {
             addr = cpu_get_operand_address_variable_32(order, instructionAddress, &instructionLength);
-            sac_write_32_bit_word(addr, value & 0xFFFFFFFF);
+            sac_write_32_bit_word(addr, value & MASK_32);
             break;
         }
         case 3:
@@ -1719,7 +1722,7 @@ static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_jump_relative(uint16 order, int performJump)
 {
     int32 relativeTo = (int32)cpu_get_register_32(reg_co); /* Get CO before it is advanced by getting operand as we jump relative to instruction */
-    int32 relative = (int32)(cpu_get_operand(order) & 0xFFFFFFFF);
+    int32 relative = (int32)(cpu_get_operand(order) & MASK_32);
     uint32 newCo = (uint32)(relativeTo + relative);
 
     if (performJump)
@@ -1855,7 +1858,7 @@ static uint32 cpu_get_descriptor_bound(t_uint64 descriptor)
 
 static uint32 cpu_get_descriptor_origin(t_uint64 descriptor)
 {
-    uint32 result = descriptor & 0xFFFFFFFF;
+    uint32 result = descriptor & MASK_32;
     return result;
 }
 
@@ -1892,7 +1895,7 @@ static void cpu_execute_descriptor_modify(uint16 order, REG *descriptorReg)
     uint8 type = cpu_get_descriptor_type(d);
     uint8 subtype = cpu_get_descriptor_subtype(d);
     uint32 bound = cpu_get_descriptor_bound(d);
-    int32 modifier = cpu_get_operand(order) & 0xFFFFFFFF;
+    int32 modifier = cpu_get_operand(order) & MASK_32;
     if (!cpu_get_descriptor_bound_check_inhibit(d) && (type == 0 || type == 1 || type == 2 || (type == 3 && subtype == 0) || (type == 3 && subtype == 1) || (type == 3 && subtype == 2)))
     {
         if (modifier < 0 || (uint32)modifier >= bound)
@@ -1985,7 +1988,7 @@ static void cpu_execute_sts1_xdo_load(uint16 order, DISPATCH_ENTRY *innerTable)
     t_uint64 xd;
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS XDO= ");
     xd = cpu_get_register_64(reg_xd) & 0xFFFFFFFF00000000;
-    xd = xd | (cpu_get_operand(order) & 0xFFFFFFFF);
+    xd = xd | (cpu_get_operand(order) & MASK_32);
     cpu_set_register_64(reg_xd, xd);
 }
 
@@ -1998,7 +2001,7 @@ static void cpu_execute_sts1_xd_load(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS STACK ");
-    cpu_push_value(cpu_get_operand(order) & 0xFFFFFFFF);
+    cpu_push_value(cpu_get_operand(order) & MASK_32);
 }
 
 static void cpu_execute_sts1_xd_store(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -2019,7 +2022,7 @@ static void cpu_execute_sts1_xdb_load(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_sts1_xchk(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS XCHK ");
-    uint32 check = cpu_get_operand(order) & 0xFFFFFFFF;
+    uint32 check = cpu_get_operand(order) & MASK_32;
     uint32 xdb = cpu_get_descriptor_bound(cpu_get_register_64(reg_xd));
     int result = check >= 0 && check < xdb;
     cpu_set_register_bit_32(reg_dod, mask_dod_xch, result);
@@ -2028,7 +2031,7 @@ static void cpu_execute_sts1_xchk(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_sts1_smod(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS SMOD ");
-    int32 modifier = cpu_get_operand(order) & 0xFFFFFFFF;
+    int32 modifier = cpu_get_operand(order) & MASK_32;
     cpu_descriptor_modify(reg_d, modifier, TRUE);
 }
 
@@ -2148,13 +2151,13 @@ static void cpu_execute_sts1_talu(uint16 order, DISPATCH_ENTRY *innerTable)
     unsigned int i;
     int found = FALSE;
     uint32 mask = cpu_get_register_64(reg_xd) >> 32;
-    uint32 comparand = ~mask & (cpu_get_operand(order) & 0xFFFFFFFF);
+    uint32 comparand = ~mask & (cpu_get_operand(order) & MASK_32);
 
     if (cpu_check_32bit_descriptor(d))
     {
         for (i = 0; i < db && !found; i++)
         {
-            uint32 source = ~mask & (cpu_get_operand_by_descriptor_vector(d, i) & 0xFFFFFFFF);
+            uint32 source = ~mask & (cpu_get_operand_by_descriptor_vector(d, i) & MASK_32);
             if (source == comparand)
             {
                 found = TRUE;
@@ -2223,10 +2226,10 @@ static void cpu_execute_sts1_sub1(uint16 order, DISPATCH_ENTRY *innerTable)
     if (cpu_check_32bit_descriptor(xd))
     {
         cpu_set_register_64(reg_xd, xd);
-        b -= cpu_get_operand_by_descriptor_vector(xd, 0) & 0xFFFFFFFF;
-        b *= cpu_get_operand_by_descriptor_vector(xd, 1) & 0xFFFFFFFF;
+        b -= cpu_get_operand_by_descriptor_vector(xd, 0) & MASK_32;
+        b *= cpu_get_operand_by_descriptor_vector(xd, 1) & MASK_32;
         cpu_set_register_32(reg_b, b);
-        cpu_set_descriptor_bound(&d, cpu_get_operand_by_descriptor_vector(xd, 2) & 0xFFFFFFFF);
+        cpu_set_descriptor_bound(&d, cpu_get_operand_by_descriptor_vector(xd, 2) & MASK_32);
         cpu_set_register_64(reg_d, d);
         cpu_descriptor_modify(reg_d, b, FALSE);
         cpu_descriptor_modify(reg_xd, 3, FALSE);
@@ -2238,7 +2241,7 @@ static void cpu_execute_sts2_do_load(uint16 order, DISPATCH_ENTRY *innerTable)
     t_uint64 d;
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS DO= ");
     d = cpu_get_register_64(reg_d) & 0xFFFFFFFF00000000;
-    d = d | (cpu_get_operand(order) & 0xFFFFFFFF);
+    d = d | (cpu_get_operand(order) & MASK_32);
     cpu_set_register_64(reg_d, d);
 }
 
@@ -2301,7 +2304,7 @@ static void cpu_execute_sts2_rmod(uint16 order, DISPATCH_ENTRY *innerTable)
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS RMOD ");
     operand = cpu_get_operand(order);
     d = cpu_get_register_64(reg_d);
-    d = (operand & 0xFFFFFFFF00000000) | ((d & 0xFFFFFFFF) + (operand & 0xFFFFFFFF));
+    d = (operand & 0xFFFFFFFF00000000) | ((d & MASK_32) + (operand & MASK_32));
     cpu_set_register_64(reg_d, d);
 }
 
@@ -2439,10 +2442,10 @@ static void cpu_execute_sts2_sub2(uint16 order, DISPATCH_ENTRY *innerTable)
 
     if (cpu_check_32bit_descriptor(xd))
     {
-        b -= cpu_get_operand_by_descriptor_vector(xd, 0) & 0xFFFFFFFF;
-        b *= cpu_get_operand_by_descriptor_vector(xd, 1) & 0xFFFFFFFF;
+        b -= cpu_get_operand_by_descriptor_vector(xd, 0) & MASK_32;
+        b *= cpu_get_operand_by_descriptor_vector(xd, 1) & MASK_32;
         cpu_set_register_32(reg_b, b);
-        cpu_set_descriptor_bound(&d, cpu_get_operand_by_descriptor_vector(xd, 2) & 0xFFFFFFFF);
+        cpu_set_descriptor_bound(&d, cpu_get_operand_by_descriptor_vector(xd, 2) & MASK_32);
         cpu_set_register_64(reg_d, d);
         cpu_descriptor_modify(reg_d, b, FALSE);
         cpu_descriptor_modify(reg_xd, 3, FALSE);
@@ -2476,23 +2479,23 @@ static void cpu_test_b_value(t_int64 value)
 static void cpu_execute_b_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B= ");
-    cpu_set_register_32(reg_b, cpu_get_operand(order) & 0xFFFFFFFF);
+    cpu_set_register_32(reg_b, cpu_get_operand(order) & MASK_32);
 }
 
 static void cpu_execute_b_load_and_decrement(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B=' ");
-    t_int64 b = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 b = cpu_get_operand(order) & MASK_32;
     b--;
     cpu_check_b_overflow(b);
-    cpu_set_register_32(reg_b, b & 0xFFFFFFFF);
+    cpu_set_register_32(reg_b, b & MASK_32);
 }
 
 static void cpu_execute_b_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B*= ");
     cpu_push_value(cpu_get_register_32(reg_b));
-    cpu_set_register_32(reg_b, cpu_get_operand(order) & 0xFFFFFFFF);
+    cpu_set_register_32(reg_b, cpu_get_operand(order) & MASK_32);
 }
 
 static void cpu_execute_b_store(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -2505,9 +2508,9 @@ static void cpu_execute_b_add(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B+ ");
     t_int64 augend = cpu_get_register_32(reg_b);
-    t_int64 addend = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 addend = cpu_get_operand(order) & MASK_32;
     t_int64 result = augend + addend;
-    cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+    cpu_set_register_32(reg_b, (uint32)(result & MASK_32));
     cpu_check_b_overflow(result);
 }
 
@@ -2515,9 +2518,9 @@ static void cpu_execute_b_sub(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B- ");
     t_int64 minuend = cpu_get_register_32(reg_b);
-    t_int64 subtrahend = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 subtrahend = cpu_get_operand(order) & MASK_32;
     t_int64 result = minuend - subtrahend;
-    cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+    cpu_set_register_32(reg_b, (uint32)(result & MASK_32));
     cpu_check_b_overflow(result);
 }
 
@@ -2525,9 +2528,9 @@ static void cpu_execute_b_mul(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B* ");
     t_int64 multiplicand = cpu_get_register_32(reg_b);
-    t_int64 multiplier = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 multiplier = cpu_get_operand(order) & MASK_32;
     t_int64 result = multiplicand * multiplier;
-    cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+    cpu_set_register_32(reg_b, (uint32)(result & MASK_32));
     cpu_check_b_overflow(result);
 }
 
@@ -2536,7 +2539,7 @@ static void cpu_execute_b_div(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B DIV ");
     t_int64 dividend = cpu_get_register_32(reg_b);
-    t_int64 divisor = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 divisor = cpu_get_operand(order) & MASK_32;
     if (divisor == 0)
     {
         cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
@@ -2544,7 +2547,7 @@ static void cpu_execute_b_div(uint16 order, DISPATCH_ENTRY *innerTable)
     else
     {
         t_int64 result = dividend / divisor;
-        cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+        cpu_set_register_32(reg_b, (uint32)(result & MASK_32));
     }
 }
 
@@ -2552,18 +2555,18 @@ static void cpu_execute_b_xor(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B XOR ");
     t_uint64 xorend = cpu_get_register_32(reg_b);
-    t_uint64 xorand = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_uint64 xorand = cpu_get_operand(order) & MASK_32;
     t_uint64 result = xorend ^ xorand;
-    cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+    cpu_set_register_32(reg_b, (uint32)(result & MASK_32));
 }
 
 static void cpu_execute_b_or(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B OR ");
     t_uint64 orend = cpu_get_register_32(reg_b);
-    t_uint64 orand = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_uint64 orand = cpu_get_operand(order) & MASK_32;
     t_uint64 result = orend | orand;
-    cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+    cpu_set_register_32(reg_b, (uint32)(result & MASK_32));
 }
 
 static void cpu_execute_b_shift_left(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -2572,7 +2575,7 @@ static void cpu_execute_b_shift_left(uint16 order, DISPATCH_ENTRY *innerTable)
     t_int64 value = cpu_get_register_32(reg_b); /* signed, for arithmetic shift */
     t_int64 shift = cpu_sign_extend_6_bit(cpu_get_operand(order));
     t_int64 result = value << shift;
-    cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+    cpu_set_register_32(reg_b, (uint32)(result & MASK_32));
     cpu_check_b_overflow(result);
 }
 
@@ -2580,18 +2583,18 @@ static void cpu_execute_b_and(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B AND ");
     t_uint64 andend = cpu_get_register_32(reg_b);
-    t_uint64 andand = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_uint64 andand = cpu_get_operand(order) & MASK_32;
     t_uint64 result = andend & andand;
-    cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+    cpu_set_register_32(reg_b, (uint32)(result & MASK_32));
 }
 
 static void cpu_execute_b_reverse_sub(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B RSUB ");
     t_int64 subtrahend = cpu_get_register_32(reg_b);
-    t_int64 minuend = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 minuend = cpu_get_operand(order) & MASK_32;
     t_int64 result = minuend - subtrahend;
-    cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+    cpu_set_register_32(reg_b, (uint32)(result & MASK_32));
     cpu_check_b_overflow(result);
 }
 
@@ -2600,7 +2603,7 @@ static void cpu_execute_b_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B RDIV ");
     t_int64 divisor = cpu_get_register_32(reg_b);
-    t_int64 dividend = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 dividend = cpu_get_operand(order) & MASK_32;
     if (divisor == 0)
     {
         cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
@@ -2608,7 +2611,7 @@ static void cpu_execute_b_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)
     else
     {
         t_int64 result = dividend / divisor;
-        cpu_set_register_32(reg_b, (uint32)(result & 0xFFFFFFFF));
+        cpu_set_register_32(reg_b, (uint32)(result & MASK_32));
     }
 }
 
@@ -2628,7 +2631,7 @@ static void cpu_execute_b_compare_and_increment(uint16 order, DISPATCH_ENTRY *in
     cpu_test_b_value(b - comparand);
     b++;
     cpu_check_b_overflow(b);
-    cpu_set_register_32(reg_b, b & 0xFFFFFFFF);
+    cpu_set_register_32(reg_b, b & MASK_32);
 }
 
 static void cpu_check_x_overflow(t_uint64 result)
@@ -2653,14 +2656,14 @@ static void cpu_check_x_overflow(t_uint64 result)
 static void cpu_execute_fp_signed_load_single(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "X=(32) ");
-    cpu_set_register_32(reg_x, cpu_get_operand(order) & 0xFFFFFFFF);
+    cpu_set_register_32(reg_x, cpu_get_operand(order) & MASK_32);
 }
 
 static void cpu_execute_fp_signed_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "X*= ");
     cpu_push_value(cpu_get_register_32(reg_x));
-    cpu_set_register_32(reg_a, cpu_get_operand(order) & 0xFFFFFFFF);
+    cpu_set_register_32(reg_a, cpu_get_operand(order) & MASK_32);
 }
 
 static void cpu_execute_fp_signed_store(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -2672,10 +2675,10 @@ static void cpu_execute_fp_signed_store(uint16 order, DISPATCH_ENTRY *innerTable
 static void cpu_execute_fp_signed_add(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "X+ ");
-    t_int64 augend = cpu_get_register_32(reg_x) & 0xFFFFFFFF;
-    t_int64 addend = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 augend = cpu_get_register_32(reg_x) & MASK_32;
+    t_int64 addend = cpu_get_operand(order) & MASK_32;
     t_int64 result = augend + addend;
-    cpu_set_register_32(reg_x, (uint32)(result & 0xFFFFFFFF));
+    cpu_set_register_32(reg_x, (uint32)(result & MASK_32));
     cpu_check_x_overflow(result);
 }
 
@@ -2683,9 +2686,9 @@ static void cpu_execute_fp_signed_sub(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "X- ");
     t_int64 minuend = cpu_get_register_32(reg_x);
-    t_int64 subtrahend = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 subtrahend = cpu_get_operand(order) & MASK_32;
     t_int64 result = minuend - subtrahend;
-    cpu_set_register_32(reg_x, (uint32)(result & 0xFFFFFFFF));
+    cpu_set_register_32(reg_x, (uint32)(result & MASK_32));
     cpu_check_x_overflow(result);
 }
 
@@ -2693,9 +2696,9 @@ static void cpu_execute_fp_signed_mul(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "X* ");
     t_int64 multiplicand = cpu_get_register_64(reg_x);
-    t_int64 multiplier = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 multiplier = cpu_get_operand(order) & MASK_32;
     t_int64 result = multiplicand * multiplier;
-    cpu_set_register_32(reg_x, (uint32)(result & 0xFFFFFFFF));
+    cpu_set_register_32(reg_x, (uint32)(result & MASK_32));
     cpu_check_x_overflow(result);
 }
 
@@ -2703,7 +2706,7 @@ static void cpu_execute_fp_signed_div(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "X/ ");
     t_int64 dividend = cpu_get_register_32(reg_x);
-    t_int64 divisor = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 divisor = cpu_get_operand(order) & MASK_32;
     if (divisor == 0)
     {
         cpu_set_register_bit_64(reg_aod, mask_aod_zdiv, 1);
@@ -2715,7 +2718,7 @@ static void cpu_execute_fp_signed_div(uint16 order, DISPATCH_ENTRY *innerTable)
     else
     {
         t_int64 result = dividend / divisor;
-        cpu_set_register_32(reg_x, (uint32)(result & 0xFFFFFFFF));
+        cpu_set_register_32(reg_x, (uint32)(result & MASK_32));
     }
 }
 
@@ -2723,7 +2726,7 @@ static void cpu_execute_fp_signed_xor(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "X XOR ");
     uint32 xorend = cpu_get_register_32(reg_x);
-    uint32 xorand = cpu_get_operand(order) & 0xFFFFFFFF;
+    uint32 xorand = cpu_get_operand(order) & MASK_32;
     uint32 result = xorend ^ xorand;
     cpu_set_register_32(reg_x, result);
 }
@@ -2732,7 +2735,7 @@ static void cpu_execute_fp_signed_or(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "X OR ");
     uint32 orend = cpu_get_register_32(reg_x);
-    uint32 orand = cpu_get_operand(order) & 0xFFFFFFFF;
+    uint32 orand = cpu_get_operand(order) & MASK_32;
     uint32 result = orend | orand;
     cpu_set_register_32(reg_x, result);
 }
@@ -2743,7 +2746,7 @@ static void cpu_execute_fp_signed_shift_left(uint16 order, DISPATCH_ENTRY *inner
     t_int64 value = cpu_get_register_32(reg_x); /* signed for arithmetic shift */
     t_int64 shift = cpu_sign_extend_6_bit(cpu_get_operand(order));
     t_int64 result = value << shift;
-    cpu_set_register_32(reg_x, (uint32)(result & 0xFFFFFFFF));
+    cpu_set_register_32(reg_x, (uint32)(result & MASK_32));
     cpu_check_x_overflow(result);
 }
 
@@ -2751,7 +2754,7 @@ static void cpu_execute_fp_signed_and(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "X AND ");
     uint32 andend = cpu_get_register_32(reg_x);
-    uint32 andand = cpu_get_operand(order) & 0xFFFFFFFF;
+    uint32 andand = cpu_get_operand(order) & MASK_32;
     uint32 result = andend & andand;
     cpu_set_register_32(reg_x, result);
 }
@@ -2760,9 +2763,9 @@ static void cpu_execute_fp_signed_reverse_sub(uint16 order, DISPATCH_ENTRY *inne
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "X RSUB ");
     t_int64 subtrahend = cpu_get_register_32(reg_x);
-    t_int64 minuend = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 minuend = cpu_get_operand(order) & MASK_32;
     t_int64 result = minuend - subtrahend;
-    cpu_set_register_32(reg_x, (uint32)(result & 0xFFFFFFFF));
+    cpu_set_register_32(reg_x, (uint32)(result & MASK_32));
     cpu_check_x_overflow(result);
 }
 
@@ -2771,7 +2774,7 @@ static void cpu_execute_fp_signed_compare(uint16 order, DISPATCH_ENTRY *innerTab
     int t0;
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "X COMP ");
     t_uint64 x = cpu_get_register_32(reg_x);
-    t_int64 comparand = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 comparand = cpu_get_operand(order) & MASK_32;
     cpu_test_value(x - comparand);
     t0 = cpu_get_register_bit_64(reg_aod, mask_aod_fxpovf) | cpu_get_register_bit_64(reg_aod, mask_aod_zdiv);
     cpu_set_register_bit_16(reg_ms, mask_ms_t0, t0);
@@ -2788,7 +2791,7 @@ static void cpu_execute_fp_signed_reverse_div(uint16 order, DISPATCH_ENTRY *inne
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "X RDIV ");
     t_int64 divisor = cpu_get_register_32(reg_x);
-    t_int64 dividend = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 dividend = cpu_get_operand(order) & MASK_32;
     if (divisor == 0)
     {
         cpu_set_register_bit_64(reg_aod, mask_aod_zdiv, 1);
@@ -2800,7 +2803,7 @@ static void cpu_execute_fp_signed_reverse_div(uint16 order, DISPATCH_ENTRY *inne
     else
     {
         t_int64 result = dividend / divisor;
-        cpu_set_register_32(reg_x, (uint32)(result & 0xFFFFFFFF));
+        cpu_set_register_32(reg_x, (uint32)(result & MASK_32));
     }
 }
 
@@ -2826,8 +2829,8 @@ static void cpu_execute_fp_unsigned_store(uint16 order, DISPATCH_ENTRY *innerTab
 static void cpu_execute_fp_unsigned_add(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A+ ");
-    t_int64 augend = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
-    t_int64 addend = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 augend = cpu_get_register_64(reg_a) & MASK_32;
+    t_int64 addend = cpu_get_operand(order) & MASK_32;
     t_int64 result = augend + addend;
     cpu_set_register_64(reg_a, (t_uint64)result);
 }
@@ -2835,8 +2838,8 @@ static void cpu_execute_fp_unsigned_add(uint16 order, DISPATCH_ENTRY *innerTable
 static void cpu_execute_fp_unsigned_sub(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A- ");
-    t_int64 minuend = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
-    t_int64 subtrahend = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 minuend = cpu_get_register_64(reg_a) & MASK_32;
+    t_int64 subtrahend = cpu_get_operand(order) & MASK_32;
     t_int64 result = minuend - subtrahend;
     cpu_set_register_64(reg_a, (t_uint64)result);
 }
@@ -2844,8 +2847,8 @@ static void cpu_execute_fp_unsigned_sub(uint16 order, DISPATCH_ENTRY *innerTable
 static void cpu_execute_fp_unsigned_mul(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A* ");
-    uint32 multiplicand = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
-    uint32 multiplier = cpu_get_operand(order) & 0xFFFFFFFF;
+    uint32 multiplicand = cpu_get_register_64(reg_a) & MASK_32;
+    uint32 multiplier = cpu_get_operand(order) & MASK_32;
     t_uint64 result = multiplicand * multiplier;
     cpu_set_register_64(reg_a, result);
 }
@@ -2854,8 +2857,8 @@ static void cpu_execute_fp_unsigned_mul(uint16 order, DISPATCH_ENTRY *innerTable
 static void cpu_execute_fp_unsigned_div(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A/ ");
-    uint32 dividend = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
-    uint32 divisor = cpu_get_operand(order) & 0xFFFFFFFF;
+    uint32 dividend = cpu_get_register_64(reg_a) & MASK_32;
+    uint32 divisor = cpu_get_operand(order) & MASK_32;
     if (divisor == 0)
     {
         cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
@@ -2872,7 +2875,7 @@ static void cpu_execute_fp_unsigned_xor(uint16 order, DISPATCH_ENTRY *innerTable
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A XOR ");
     t_uint64 xorend = cpu_get_register_64(reg_a);
     t_uint64 xorand = cpu_get_operand(order);
-    t_uint64 result = (xorend ^ xorand) & 0xFFFFFFFF;
+    t_uint64 result = (xorend ^ xorand) & MASK_32;
     cpu_set_register_64(reg_a, result);
 }
 
@@ -2881,7 +2884,7 @@ static void cpu_execute_fp_unsigned_or(uint16 order, DISPATCH_ENTRY *innerTable)
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A OR ");
     t_uint64 orend = cpu_get_register_64(reg_a);
     t_uint64 orand = cpu_get_operand(order);
-    t_uint64 result = (orend | orand) & 0xFFFFFFFF;
+    t_uint64 result = (orend | orand) & MASK_32;
     cpu_set_register_64(reg_a, result);
 }
 
@@ -2898,16 +2901,16 @@ static void cpu_execute_fp_unsigned_and(uint16 order, DISPATCH_ENTRY *innerTable
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A AND ");
     t_uint64 andend = cpu_get_register_64(reg_a);
-    t_uint64 andand = cpu_get_operand(order) & 0xFFFFFFFF;
-    t_uint64 result = (andend & andand) & 0xFFFFFFFF;
+    t_uint64 andand = cpu_get_operand(order) & MASK_32;
+    t_uint64 result = (andend & andand) & MASK_32;
     cpu_set_register_64(reg_a, result);
 }
 
 static void cpu_execute_fp_unsigned_reverse_sub(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A RSUB ");
-    t_int64 subtrahend = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
-    t_int64 minuend = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_int64 subtrahend = cpu_get_register_64(reg_a) & MASK_32;
+    t_int64 minuend = cpu_get_operand(order) & MASK_32;
     t_int64 result = minuend - subtrahend;
     cpu_set_register_64(reg_a, (t_uint64)result);
 }
@@ -2916,8 +2919,8 @@ static void cpu_execute_fp_unsigned_reverse_sub(uint16 order, DISPATCH_ENTRY *in
 static void cpu_execute_fp_unsigned_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A RDIV ");
-    uint32 divisor = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
-    uint32 dividend = cpu_get_operand(order) & 0xFFFFFFFF;
+    uint32 divisor = cpu_get_register_64(reg_a) & MASK_32;
+    uint32 dividend = cpu_get_operand(order) & MASK_32;
     if (divisor == 0)
     {
         cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
@@ -2932,8 +2935,8 @@ static void cpu_execute_fp_unsigned_reverse_div(uint16 order, DISPATCH_ENTRY *in
 static void cpu_execute_fp_unsigned_compare(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A COMP ");
-    t_uint64 a = cpu_get_register_64(reg_a) & 0xFFFFFFFF;
-    t_uint64 comparand = cpu_get_operand(order) & 0xFFFFFFFF;
+    t_uint64 a = cpu_get_register_64(reg_a) & MASK_32;
+    t_uint64 comparand = cpu_get_operand(order) & MASK_32;
     cpu_test_value((t_int64)a - (t_int64)comparand);
     cpu_set_register_bit_16(reg_ms, mask_ms_t0, 0);
 }

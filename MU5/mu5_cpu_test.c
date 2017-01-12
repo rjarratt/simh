@@ -31,9 +31,19 @@ in this Software without prior written authorization from Robert Jarratt.
 #include "mu5_sac.h"
 
 #define REG_A "A"
+#define REG_AEX "AEX"
+#define REG_B "B"
+#define REG_BOD "BOD"
 #define REG_D "D"
 #define REG_XD "XD"
+#define REG_DT "DT"
+#define REG_XDT "XDT"
+#define REG_DOD "DOD"
 #define REG_NB "NB"
+#define REG_XNB "XNB"
+#define REG_SN "SN"
+#define REG_SF "SF"
+#define REG_MS "MS"
 
 #define CR_B 1
 #define CR_STS1 2
@@ -45,6 +55,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_LOAD_64 1
 
 #define K_LITERAL 0
+#define K_IR 1
 #define K_V32 2
 #define K_V64 3
 
@@ -78,6 +89,20 @@ static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 
 static void cpu_selftest_load_operand_6_bit_positive_literal(void);
 static void cpu_selftest_load_operand_6_bit_negative_literal(void);
+static void cpu_selftest_load_operand_internal_register_0(void);
+static void cpu_selftest_load_operand_internal_register_1(void);
+static void cpu_selftest_load_operand_internal_register_2(void);
+static void cpu_selftest_load_operand_internal_register_3(void);
+static void cpu_selftest_load_operand_internal_register_4(void);
+static void cpu_selftest_load_operand_internal_register_16(void);
+static void cpu_selftest_load_operand_internal_register_17(void);
+static void cpu_selftest_load_operand_internal_register_18(void);
+static void cpu_selftest_load_operand_internal_register_19(void);
+static void cpu_selftest_load_operand_internal_register_20(void);
+static void cpu_selftest_load_operand_internal_register_32(void);
+static void cpu_selftest_load_operand_internal_register_33(void);
+static void cpu_selftest_load_operand_internal_register_34(void);
+static void cpu_selftest_load_operand_internal_register_48(void);
 static void cpu_selftest_load_operand_32_bit_variable(void);
 static void cpu_selftest_load_operand_32_bit_variable_6_bit_offset_is_unsigned(void);
 static void cpu_selftest_load_operand_64_bit_variable(void);
@@ -89,6 +114,20 @@ UNITTEST tests[] =
     { "Load operand 6-bit negative literal", cpu_selftest_load_operand_6_bit_negative_literal },
     { "Load operand 32-bit variable", cpu_selftest_load_operand_32_bit_variable },
     { "Load operand 32-bit variable 6-bit offset is unsigned", cpu_selftest_load_operand_32_bit_variable_6_bit_offset_is_unsigned },
+	{ "Load operand internal register 0", cpu_selftest_load_operand_internal_register_0 },
+	{ "Load operand internal register 1", cpu_selftest_load_operand_internal_register_1 },
+    { "Load operand internal register 2", cpu_selftest_load_operand_internal_register_2 },
+    { "Load operand internal register 3", cpu_selftest_load_operand_internal_register_3 },
+    { "Load operand internal register 4", cpu_selftest_load_operand_internal_register_4 },
+    { "Load operand internal register 16", cpu_selftest_load_operand_internal_register_16 },
+    { "Load operand internal register 17", cpu_selftest_load_operand_internal_register_17 },
+    { "Load operand internal register 18", cpu_selftest_load_operand_internal_register_18 },
+    { "Load operand internal register 19", cpu_selftest_load_operand_internal_register_19 },
+    { "Load operand internal register 20", cpu_selftest_load_operand_internal_register_20 },
+    { "Load operand internal register 32", cpu_selftest_load_operand_internal_register_32 },
+    { "Load operand internal register 33", cpu_selftest_load_operand_internal_register_33 },
+    { "Load operand internal register 34", cpu_selftest_load_operand_internal_register_34 },
+    { "Load operand internal register 48", cpu_selftest_load_operand_internal_register_48 },
     { "Load operand 64-bit variable", cpu_selftest_load_operand_64_bit_variable },
     { "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD }
 };
@@ -105,6 +144,125 @@ static void cpu_selftest_load_operand_6_bit_negative_literal()
 	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x3F);
 	cpu_selftest_run_code();
 	cpu_selftest_assert_reg_equals(REG_A, 0xFFFFFFFFFFFFFFFF);
+}
+
+static void cpu_selftest_load_operand_internal_register_0(void)
+{
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 0);
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 0);
+	cpu_selftest_set_register(REG_MS, 0xAAAA);
+	cpu_selftest_set_register(REG_NB, 0xBBBB);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBB00000000);
+	cpu_execute_next_order();
+	cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBB00000001);
+}
+
+static void cpu_selftest_load_operand_internal_register_1(void)
+{
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 1);
+	cpu_selftest_set_register(REG_XNB, 0xAAAAAAAA);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAAAAAA);
+}
+
+static void cpu_selftest_load_operand_internal_register_2(void)
+{
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 2);
+	cpu_selftest_set_register(REG_SN, 0xAAAA);
+	cpu_selftest_set_register(REG_NB, 0xBBBB);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAABBBB);
+}
+
+static void cpu_selftest_load_operand_internal_register_3(void)
+{
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 3);
+	cpu_selftest_set_register(REG_SN, 0xAAAA);
+	cpu_selftest_set_register(REG_SF, 0xBBBB);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAABBBB);
+}
+
+static void cpu_selftest_load_operand_internal_register_4(void)
+{
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 4);
+	cpu_selftest_set_register(REG_MS, 0x0100);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0x0000000000000001);
+}
+
+static void cpu_selftest_load_operand_internal_register_16(void)
+{
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 16);
+	cpu_selftest_set_register(REG_D, 0xABABABABABABABAB);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0xABABABABABABABAB);
+}
+
+static void cpu_selftest_load_operand_internal_register_17(void)
+{
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 17);
+	cpu_selftest_set_register(REG_XD, 0xABABABABABABABAB);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0xABABABABABABABAB);
+}
+
+static void cpu_selftest_load_operand_internal_register_18(void)
+{
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 18);
+	cpu_selftest_set_register(REG_DT, 0xABABABAB);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0x00000000ABABABAB);
+}
+
+static void cpu_selftest_load_operand_internal_register_19(void)
+{
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 19);
+	cpu_selftest_set_register(REG_XDT, 0xABABABAB);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0x00000000ABABABAB);
+}
+
+static void cpu_selftest_load_operand_internal_register_20(void)
+{
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 20);
+	cpu_selftest_set_register(REG_DOD, 0xABABABAB);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0x00000000ABABABAB);
+}
+
+static void cpu_selftest_load_operand_internal_register_32(void)
+{
+	// TODO: Awaiting clarification on IR n=32 and n=36
+	//cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 32);
+	//cpu_selftest_set_register(REG_BOD, 0xAAAAAAA);
+	//cpu_selftest_set_register(REG_B, 0xBBBBBBBB);
+	//cpu_selftest_run_code();
+	//cpu_selftest_assert_reg_equals(REG_A, 0xAAAAAAABBBBBBBB);
+}
+
+static void cpu_selftest_load_operand_internal_register_33(void)
+{
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 33);
+	cpu_selftest_set_register(REG_BOD, 0xABABABAB);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0x00000000ABABABAB);
+}
+
+static void cpu_selftest_load_operand_internal_register_34(void)
+{
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 34);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0x0000000000000000);
+}
+
+static void cpu_selftest_load_operand_internal_register_48(void)
+{
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 48);
+	cpu_selftest_set_register(REG_AEX, 0xABABABABABABABAB);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0xABABABABABABABAB);
 }
 
 static void cpu_selftest_load_operand_32_bit_variable(void)
@@ -157,9 +315,19 @@ static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD()
 static void cpu_selftest_reset(UNITTEST *test)
 {
     // TODO: Loop to reset all registers
-    cpu_selftest_set_register(REG_A, 0x0);
-    cpu_selftest_set_register(REG_D, 0x0);
-    cpu_selftest_set_register(REG_XD, 0x0);
+	cpu_selftest_set_register(REG_A, 0x0);
+	cpu_selftest_set_register(REG_AEX, 0x0);
+	cpu_selftest_set_register(REG_B, 0x0);
+	cpu_selftest_set_register(REG_BOD, 0x0);
+	cpu_selftest_set_register(REG_D, 0x0);
+	cpu_selftest_set_register(REG_XD, 0x0);
+	cpu_selftest_set_register(REG_DT, 0x0);
+	cpu_selftest_set_register(REG_XDT, 0x0);
+	cpu_selftest_set_register(REG_DOD, 0x0);
+	cpu_selftest_set_register(REG_NB, 0x0);
+	cpu_selftest_set_register(REG_XNB, 0x0);
+	cpu_selftest_set_register(REG_SN, 0x0);
+	cpu_selftest_set_register(REG_SF, 0x0);
 
     testContext.testName = test->name;
     testContext.currentLoadLocation = 0;
