@@ -30,6 +30,11 @@ in this Software without prior written authorization from Robert Jarratt.
 #include "mu5_cpu_test.h"
 #include "mu5_sac.h"
 
+#define REG_A "A"
+#define REG_D "D"
+#define REG_XD "XD"
+#define REG_NB "NB"
+
 #define CR_B 1
 #define CR_STS1 2
 #define CR_STS2 3
@@ -40,6 +45,8 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_LOAD_64 1
 
 #define K_LITERAL 0
+#define K_V32 2
+#define K_V64 3
 
 #define NP_64_BIT_LITERAL 2
 
@@ -71,40 +78,89 @@ static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 
 static void cpu_selftest_load_operand_6_bit_positive_literal(void);
 static void cpu_selftest_load_operand_6_bit_negative_literal(void);
+static void cpu_selftest_load_operand_32_bit_variable(void);
+static void cpu_selftest_load_operand_32_bit_variable_6_bit_offset_is_unsigned(void);
+static void cpu_selftest_load_operand_64_bit_variable(void);
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(void);
 
 UNITTEST tests[] =
 {
 	{ "Load operand 6-bit positive literal", cpu_selftest_load_operand_6_bit_positive_literal },
-	{ "Load operand 6-bit negative literal", cpu_selftest_load_operand_6_bit_negative_literal },
-	{ "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD }
+    { "Load operand 6-bit negative literal", cpu_selftest_load_operand_6_bit_negative_literal },
+    { "Load operand 32-bit variable", cpu_selftest_load_operand_32_bit_variable },
+    { "Load operand 32-bit variable 6-bit offset is unsigned", cpu_selftest_load_operand_32_bit_variable_6_bit_offset_is_unsigned },
+    { "Load operand 64-bit variable", cpu_selftest_load_operand_64_bit_variable },
+    { "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD }
 };
 
 static void cpu_selftest_load_operand_6_bit_positive_literal()
 {
 	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
 	cpu_selftest_run_code();
-	cpu_selftest_assert_reg_equals("A", 0x000000000000001F);
+	cpu_selftest_assert_reg_equals(REG_A, 0x000000000000001F);
 }
 
 static void cpu_selftest_load_operand_6_bit_negative_literal()
 {
 	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x3F);
 	cpu_selftest_run_code();
-	cpu_selftest_assert_reg_equals("A", 0xFFFFFFFFFFFFFFFF);
+	cpu_selftest_assert_reg_equals(REG_A, 0xFFFFFFFFFFFFFFFF);
 }
+
+static void cpu_selftest_load_operand_32_bit_variable(void)
+{
+    uint32 base = 0x00F0;
+    int8 n = 0x1;
+    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_V32, n);
+    cpu_selftest_set_register(REG_NB, base);
+    sac_write_32_bit_word(base + n, 0xAAAAAAAA);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAAAAAA);
+}
+
+static void cpu_selftest_load_operand_32_bit_variable_6_bit_offset_is_unsigned(void)
+{
+    uint32 base = 0x00F0;
+    int8 n = 0x3F;
+    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_V32, n);
+    cpu_selftest_set_register(REG_NB, base);
+    sac_write_32_bit_word(base + n, 0xAAAAAAAA);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAAAAAA);
+}
+
+static void cpu_selftest_load_operand_64_bit_variable(void)
+{
+    uint32 base = 0x00F0;
+    int8 n = 0x1;
+    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_V64, n);
+    cpu_selftest_set_register(REG_NB, base);
+    sac_write_64_bit_word(base + 2*n, 0xBBBBBBBBAAAAAAAA);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0xBBBBBBBBAAAAAAAA);
+}
+
+
+// TODO: p17 SN relative
+// TODO: p17 SN interrupt on overflow
+// TODO: p17 long instruction offset is signed (?)
 
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD()
 {
-    cpu_selftest_set_register("XD", 0xAAAAAAAA00000000);
+    cpu_selftest_set_register(REG_XD, 0xAAAAAAAA00000000);
     cpu_selftest_load_order_extended(CR_STS1, F_LOAD_XDO, K_LITERAL, NP_64_BIT_LITERAL);
     cpu_selftest_load_64_bit_literal(0xBBBBBBBBFFFFFFFF);
     cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals("XD", 0xAAAAAAAAFFFFFFFF);
+    cpu_selftest_assert_reg_equals(REG_XD, 0xAAAAAAAAFFFFFFFF);
 }
 
 static void cpu_selftest_reset(UNITTEST *test)
 {
+    // TODO: Loop to reset all registers
+    cpu_selftest_set_register(REG_A, 0x0);
+    cpu_selftest_set_register(REG_D, 0x0);
+    cpu_selftest_set_register(REG_XD, 0x0);
+
     testContext.testName = test->name;
     testContext.currentLoadLocation = 0;
     testContext.result = SCPE_OK;
