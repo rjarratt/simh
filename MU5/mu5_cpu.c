@@ -1115,6 +1115,15 @@ static t_uint64 cpu_get_operand_extended_variable_32(uint16 order, uint32 instru
 
     switch (cpu_get_extended_n(order))
     {
+        case 0:
+        {
+            t_addr addr = sac_read_16_bit_word(instructionAddress + 1);
+            uint16 offset = cpu_get_register_16(reg_sf);
+            result = sac_read_32_bit_word(addr + offset);
+            *instructionLength += 1;
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 SF %u\n", addr);
+            break;
+        }
         case 1:
         {
             t_addr addr = sac_read_16_bit_word(instructionAddress + 1);

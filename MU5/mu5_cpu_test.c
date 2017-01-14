@@ -75,6 +75,15 @@ in this Software without prior written authorization from Robert Jarratt.
 #define NP_64_BIT_LITERAL_6 6
 #define NP_64_BIT_LITERAL_7 7
 
+#define NP_SF 0
+#define NP_0 1
+#define NP_NB 2
+#define NP_XNB 3
+#define NP_STACK 4
+#define NP_DR 5
+#define NP_NB_REF 6
+#define NP_XNB_REF 7
+
 typedef struct TESTCONTEXT
 {
     char *testName;
@@ -148,6 +157,7 @@ static void cpu_selftest_load_operand_32_bit_unsigned_literal(void);
 static void cpu_selftest_load_operand_64_bit_literal_np_6(void);
 static void cpu_selftest_load_operand_64_bit_literal_np_7(void);
 static void cpu_selftest_load_operand_extended_literal_kp_1(void);
+static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_stack(void);
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(void);
 
 UNITTEST tests[] =
@@ -190,6 +200,7 @@ UNITTEST tests[] =
     { "Load operand 64-bit literal n'=6", cpu_selftest_load_operand_64_bit_literal_np_6 },
     { "Load operand 64-bit literal n'=7", cpu_selftest_load_operand_64_bit_literal_np_7 },
     { "Load operand extended literal k'=1", cpu_selftest_load_operand_extended_literal_kp_1 },
+    { "Load operand 32-bit variable extended offset from stack", cpu_selftest_load_operand_extended_32_bit_variable_offset_from_stack },
     { "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD }
 };
 
@@ -569,7 +580,20 @@ static void cpu_selftest_load_operand_extended_literal_kp_1(void)
     cpu_selftest_assert_reg_equals(REG_A, 0x000000000000FFFF);
 }
 
-static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD()
+static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_stack(void)
+{
+    uint32 base = 0x00F0;
+    uint16 n = 0x1;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_SF);
+    cpu_selftest_load_16_bit_literal(n);
+    sac_write_32_bit_word(base + n, 0xAAAABBBB);
+    cpu_selftest_set_register(REG_SF, base);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAABBBB);
+
+}
+
+static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(void)
 {
     cpu_selftest_set_register(REG_XD, 0xAAAAAAAA00000000);
     cpu_selftest_load_order_extended(CR_STS1, F_LOAD_XDO, K_LITERAL, NP_64_BIT_LITERAL);
