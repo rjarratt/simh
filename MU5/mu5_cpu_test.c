@@ -60,6 +60,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define K_V64 3
 #define K_SB 4
 #define K_SB_5 5
+#define K_S0 6
 
 #define NP_64_BIT_LITERAL 2
 
@@ -122,6 +123,7 @@ static void cpu_selftest_load_operand_b_relative_descriptor_16_bit_value_at_6_bi
 static void cpu_selftest_load_operand_b_relative_descriptor_8_bit_value_at_6_bit_offset(void);
 static void cpu_selftest_load_operand_b_relative_descriptor_4_bit_value_at_6_bit_offset(void);
 static void cpu_selftest_load_operand_b_relative_descriptor_1_bit_value_at_6_bit_offset(void);
+static void cpu_selftest_load_operand_zero_relative_descriptor_64_bit_value_at_6_bit_offset(void);
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(void);
 
 UNITTEST tests[] =
@@ -152,6 +154,7 @@ UNITTEST tests[] =
 	{ "Load operand 8-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_8_bit_value_at_6_bit_offset },
 	{ "Load operand 4-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_4_bit_value_at_6_bit_offset },
 	{ "Load operand 1-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_1_bit_value_at_6_bit_offset },
+	{ "Load operand 64-bit via 0-relative descriptor at 6-bit offset", cpu_selftest_load_operand_zero_relative_descriptor_64_bit_value_at_6_bit_offset },
 	{ "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD }
 };
 
@@ -430,6 +433,19 @@ static void cpu_selftest_load_operand_b_relative_descriptor_1_bit_value_at_6_bit
 	cpu_selftest_load_8_bit_value_to_descriptor_location(vecorigin, 0, 0x40);
 	cpu_selftest_run_code();
 	cpu_selftest_assert_reg_equals(REG_A, 0x0000000000000001);
+}
+
+static void cpu_selftest_load_operand_zero_relative_descriptor_64_bit_value_at_6_bit_offset(void)
+{
+	uint32 base = 0x00F0;
+	uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
+	int8 n = 0x1;
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_S0, n);
+	cpu_selftest_set_register(REG_NB, base);
+	sac_write_64_bit_word(base + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_64_BIT, 2, vecorigin));
+	cpu_selftest_load_64_bit_value_to_descriptor_location(vecorigin, 0, 0xAAAAAAAABBBBBBBB);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0xAAAAAAAABBBBBBBB);
 }
 
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD()
