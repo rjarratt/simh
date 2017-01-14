@@ -1292,15 +1292,17 @@ static t_uint64 cpu_get_operand_by_descriptor_vector(t_uint64 descriptor, uint32
     {
         case DESCRIPTOR_SIZE_1_BIT:
         {
-            assert(0); /* TODO: Implement bit access */
-            result = 0;
-            break;
+			int bit = 7 - (modifier & 7);
+			result = sac_read_8_bit_word(addr);
+			result = (result >> bit) & 1;
+			break;
         }
         case DESCRIPTOR_SIZE_4_BIT:
         {
-            assert(0); /* TODO: Implement nibble access */
-            result = 0;
-            break;
+			int nibble = 1 - (modifier & 1);
+			result = sac_read_8_bit_word(addr);
+			result = (result >> (4 * nibble)) & 0xF;
+			break;
         }
         case DESCRIPTOR_SIZE_8_BIT:
         {
@@ -1309,17 +1311,17 @@ static t_uint64 cpu_get_operand_by_descriptor_vector(t_uint64 descriptor, uint32
         }
         case DESCRIPTOR_SIZE_16_BIT:
         {
-            result = sac_read_16_bit_word(addr);
+            result = sac_read_16_bit_word(addr >> 1); /* TODO: 16-bit word routine takes a 16-bit word address, not a byte address. Need to make memory access consistent */
             break;
         }
         case DESCRIPTOR_SIZE_32_BIT:
         {
-            result = sac_read_32_bit_word(addr >> 2); /* TODO: 32-bit word routine takes a word address, not a byte address. Need to make memory access consistent */
+            result = sac_read_32_bit_word(addr >> 2); /* TODO: 32-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
             break;
         }
         case DESCRIPTOR_SIZE_64_BIT:
         {
-            result = sac_read_64_bit_word(addr >> 2); /* TODO: 64-bit word routine takes a word address, not a byte address. Need to make memory access consistent */
+            result = sac_read_64_bit_word(addr >> 2); /* TODO: 64-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
             break;
         }
         default:
