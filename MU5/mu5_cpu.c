@@ -26,8 +26,8 @@ in this Software without prior written authorization from Robert Jarratt.
 MU5 is a big-endian machine. Instructions are addressed in 16-bit units,
 the memory is addressed in 32-bit words, but it is fundamentally a 64-bit
 machine. The memory loading command takes a byte address the origin and
-32-bit word addresses are calculated from there. The program counter has 
-to be loaded as 16-bit word address though, so to calculate it, take the 
+32-bit word addresses are calculated from there. The program counter has
+to be loaded as 16-bit word address though, so to calculate it, take the
 byte address and shift it right by 1 bit.
 
 Known Limitations
@@ -49,7 +49,7 @@ B DIV implementation is a guess (not defined in MU5 Basic Programming Manual)
 */
 typedef struct DISPATCH_ENTRY
 {
-    void (*execute)(uint16 order, struct DISPATCH_ENTRY *innerTable);
+    void(*execute)(uint16 order, struct DISPATCH_ENTRY *innerTable);
     struct DISPATCH_ENTRY *innerTable;
 } DISPATCH_ENTRY;
 
@@ -98,7 +98,7 @@ BITFIELD aod_bits[] = {
     BIT(IFLPUNF), /* Inhibit floating point underflow interrupt */
     BIT(IFLPOVF), /* Inhibit floating point overflow interrupt */
     BIT(OPSIZ64), /* Operand size (0/1 meaning 32/64 bits */
-    BITNCF(51),    
+    BITNCF(51),
     ENDBITS
 };
 
@@ -129,7 +129,7 @@ BITFIELD ms_bits[] = {
     BIT(ICI),     /* Instruction counter inhibit */
     BIT(BNS),     /* Bypass name store */
     BIT(BCPR),    /* Bypass CPRs */
-                  
+
     BIT(BN),      /* Boolean */
     BIT(T2),      /* T2 - less than 0 */
     BIT(T1),      /* T1 - not equal 0 */
@@ -209,20 +209,20 @@ static REG cpu_reg[] =
 
 REG *reg_b    = &cpu_reg[0];
 REG *reg_bod  = &cpu_reg[1];
-REG *reg_a	  = &cpu_reg[2];
+REG *reg_a    = &cpu_reg[2];
 REG *reg_aod  = &cpu_reg[3];
 REG *reg_aex  = &cpu_reg[4];
-REG *reg_x	  = &cpu_reg[5];
-REG *reg_ms	  = &cpu_reg[6];
-REG *reg_nb	  = &cpu_reg[7];
+REG *reg_x    = &cpu_reg[5];
+REG *reg_ms   = &cpu_reg[6];
+REG *reg_nb   = &cpu_reg[7];
 REG *reg_xnb  = &cpu_reg[8];
-REG *reg_sn	  = &cpu_reg[9];
-REG *reg_sf	  = &cpu_reg[10];
-REG *reg_co	  = &cpu_reg[11];
-REG *reg_d	  = &cpu_reg[12];
-REG *reg_xd	  = &cpu_reg[13];
+REG *reg_sn   = &cpu_reg[9];
+REG *reg_sf   = &cpu_reg[10];
+REG *reg_co   = &cpu_reg[11];
+REG *reg_d    = &cpu_reg[12];
+REG *reg_xd   = &cpu_reg[13];
 REG *reg_dod  = &cpu_reg[14];
-REG *reg_dt	  = &cpu_reg[15];
+REG *reg_dt   = &cpu_reg[15];
 REG *reg_xdt  = &cpu_reg[16];
 
 static uint8 interrupt;
@@ -292,7 +292,7 @@ static t_uint64 cpu_get_operand_variable_64(uint16 order, uint32 instructionAddr
 static t_addr cpu_get_operand_byte_address_by_descriptor_vector_access(t_uint64 descriptor, uint32 modifier);
 static t_uint64 cpu_get_operand_by_descriptor_vector(t_uint64 descriptor, uint32 modifier);
 static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 modifier, t_uint64 value);
-static void cpu_process_source_to_destination_descriptor_vector(t_uint64 operand, t_uint64 (*func)(t_uint64 source, t_uint64 destination, t_uint64 operand));
+static void cpu_process_source_to_destination_descriptor_vector(t_uint64 operand, t_uint64(*func)(t_uint64 source, t_uint64 destination, t_uint64 operand));
 static t_uint64 cpu_get_operand_b_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_zero_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength, uint32 modifier);
@@ -1068,32 +1068,33 @@ static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAd
 static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
     t_uint64 result = 0;
+    uint16 word;
+    int negative;
     int i;
-    uint16 nprime = cpu_get_extended_n(order);
+    uint16 nprime = cpu_get_extended_n(order) & 0x3;
     uint8 unsignedLiteral = (order >> 2) & 0x1;
 
-    if (nprime > 2)
+    int words = (nprime == 2) ? 4 : nprime + 1;
+    for (i = 0; i < words; i++)
     {
-        /* The MU5 Basic Programming Manual does not list n'==3 as valid, but the Roland and Ibbett book lists it as another 64-bit option */
-        cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+        word = sac_read_16_bit_word(instructionAddress + 1 + i);
+        if (i == 0)
+        {
+            negative = (word & 0x8000);
+        }
+        result = result << 16;
+        result |= word;
     }
-    else
+
+    if (!unsignedLiteral && negative)
     {
-        int words = (nprime == 2) ? 4 : nprime + 1;
-        uint16 lastWord;
-        for (i = 0; i < words; i++)
+        for (i = 0; i < 4 - words; i++)
         {
-            lastWord = sac_read_16_bit_word(instructionAddress + 1 + i);
-            result |= (t_uint64)lastWord << (i * 16);
+            result |= (t_uint64)0xFFFF << (3 - i) * 16;
         }
-
-        if (!unsignedLiteral)
-        {
-            result |= (lastWord & 0x8000) ? -1 : 0; /* sign extend */
-        }
-
-        *instructionLength += words;
     }
+
+    *instructionLength += words;
 
     if (unsignedLiteral)
     {
@@ -1287,22 +1288,22 @@ static t_uint64 cpu_get_operand_by_descriptor_vector(t_uint64 descriptor, uint32
     t_uint64 result;
 
     addr = cpu_get_operand_byte_address_by_descriptor_vector_access(descriptor, modifier);
-    
+
     switch (cpu_get_descriptor_size(descriptor))
     {
         case DESCRIPTOR_SIZE_1_BIT:
         {
-			int bit = 7 - (modifier & 7);
-			result = sac_read_8_bit_word(addr);
-			result = (result >> bit) & 1;
-			break;
+            int bit = 7 - (modifier & 7);
+            result = sac_read_8_bit_word(addr);
+            result = (result >> bit) & 1;
+            break;
         }
         case DESCRIPTOR_SIZE_4_BIT:
         {
-			int nibble = 1 - (modifier & 1);
-			result = sac_read_8_bit_word(addr);
-			result = (result >> (4 * nibble)) & 0xF;
-			break;
+            int nibble = 1 - (modifier & 1);
+            result = sac_read_8_bit_word(addr);
+            result = (result >> (4 * nibble)) & 0xF;
+            break;
         }
         case DESCRIPTOR_SIZE_8_BIT:
         {
@@ -1507,8 +1508,8 @@ static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructi
         }
         case 32:
         {
-			result = ((t_uint64)cpu_get_register_32(reg_bod) << 32) | cpu_get_register_32(reg_b);
-			break;
+            result = ((t_uint64)cpu_get_register_32(reg_bod) << 32) | cpu_get_register_32(reg_b);
+            break;
         }
         case 33:
         {
@@ -1522,7 +1523,7 @@ static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructi
         }
         case 36:
         {
-			/* This one exists in the Morris and Ibbett book, but is not present in the MU5 Programming Manual */
+            /* This one exists in the Morris and Ibbett book, but is not present in the MU5 Programming Manual */
             result = ((t_uint64)cpu_get_register_32(reg_bod) << 32) | cpu_get_register_32(reg_b);
             break;
         }
@@ -1588,6 +1589,7 @@ static t_uint64 cpu_get_operand(uint16 order)
             switch (cpu_get_extended_k(order))
             {
                 case 0:
+                case 1:
                 {
                     result = cpu_get_operand_extended_literal(order, instructionAddress, &instructionLength);
                     break;
@@ -2169,7 +2171,7 @@ static void cpu_execute_sts1_talu(uint16 order, DISPATCH_ENTRY *innerTable)
             }
         }
 
-        cpu_test_value(found? 0 : 1);
+        cpu_test_value(found ? 0 : 1);
     }
     else
     {
