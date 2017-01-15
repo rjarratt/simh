@@ -1112,16 +1112,17 @@ static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructio
 static t_uint64 cpu_get_operand_extended_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
     t_uint64 result = 0;
+    uint16 np = cpu_get_extended_n(order);
 
-    switch (cpu_get_extended_n(order))
+    switch (np)
     {
         case 0:
         {
-            t_addr addr = sac_read_16_bit_word(instructionAddress + 1);
-            uint16 offset = cpu_get_register_16(reg_sf);
+			t_addr addr = cpu_get_register_16(reg_sf);
+			uint16 offset = sac_read_16_bit_word(instructionAddress + 1);
             result = sac_read_32_bit_word(addr + offset);
             *instructionLength += 1;
-            sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 SF %u\n", addr);
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 SF %u\n", offset);
             break;
         }
         case 1:
@@ -1132,13 +1133,55 @@ static t_uint64 cpu_get_operand_extended_variable_32(uint16 order, uint32 instru
             sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 Z %u\n", addr);
             break;
         }
-        case 4:
-        {
-            result = cpu_pop_value();
-            sim_debug(LOG_CPU_DECODE, &cpu_dev, "STACK Z 0\n");
-            break;
-        }
-        default:
+		case 2:
+		{
+			t_addr addr = cpu_get_register_16(reg_nb);
+			uint16 offset = sac_read_16_bit_word(instructionAddress + 1);
+			result = sac_read_32_bit_word(addr + offset);
+			*instructionLength += 1;
+			sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 NB %u\n", offset);
+			break;
+		}
+		case 3:
+		{
+			t_addr addr = cpu_get_register_32(reg_xnb) & 0xFFFF;
+			uint16 offset = sac_read_16_bit_word(instructionAddress + 1);
+			result = sac_read_32_bit_word(addr + offset);
+			*instructionLength += 1;
+			sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 XNB %u\n", offset);
+			break;
+		}
+		case 4:
+		{
+			result = cpu_pop_value();
+			sim_debug(LOG_CPU_DECODE, &cpu_dev, "STACK Z 0\n");
+			break;
+		}
+		case 5:
+		{
+			t_uint64 d = cpu_get_register_64(reg_d);
+
+			result = cpu_get_operand_by_descriptor_vector(d, 0); // TODO: Should there be a check for a 32-bit descriptor?
+			sim_debug(LOG_CPU_DECODE, &cpu_dev, "DR\n");
+			break;
+		}
+		case 6:
+		{
+			t_addr addr = cpu_get_register_16(reg_nb);
+			result = sac_read_32_bit_word(addr);
+			*instructionLength += 1;
+			sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 NB 0\n");
+			break;
+		}
+		case 7:
+		{
+			t_addr addr = cpu_get_register_32(reg_xnb) & 0xFFFF;
+			result = sac_read_32_bit_word(addr);
+			*instructionLength += 1;
+			sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 XNB 0\n");
+			break;
+		}
+		default:
         {
             cpu_set_interrupt(INT_ILLEGAL_ORDERS);
             break;
