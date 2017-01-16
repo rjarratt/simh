@@ -75,6 +75,9 @@ to set the MS register to some appropriate setting.
 
 #define MASK_32 0xFFFFFFFF
 
+#define SCALE_32 1
+#define SCALE_64 2
+
 static int cpu_stopped = 0;
 
 int32 sim_emax;
@@ -267,8 +270,10 @@ static SIM_INLINE t_uint64 cpu_get_register_64(REG *reg);
 static SIM_INLINE int cpu_get_register_bit_16(REG *reg, uint16 mask);
 static SIM_INLINE int cpu_get_register_bit_32(REG *reg, uint32 mask);
 static SIM_INLINE int cpu_get_register_bit_64(REG *reg, t_uint64 mask);
-static uint16 cpu_calculate_base_offset(REG *reg, t_int64 offset);
-static t_addr cpu_get_name_segment_address(REG *reg, int16 offset);
+static uint16 cpu_calculate_base_offset_from_addr(t_addr base, t_int64 offset, uint8 scale);
+static t_addr cpu_get_name_segment_address_from_addr(t_addr base, int16 offset, uint8 scale);
+static uint16 cpu_calculate_base_offset_from_reg(REG *reg, t_int64 offset, uint8 scale);
+static t_addr cpu_get_name_segment_address_from_reg(REG *reg, int16 offset, uint8 scale);
 
 static void cpu_set_interrupt(uint8 number);
 static void cpu_clear_interrupt(uint8 number);
@@ -281,9 +286,7 @@ static uint16 cpu_get_extended_k(uint16 order);
 static uint16 cpu_get_extended_n(uint16 order);
 static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructionAddress, int *instructionLength);
-static t_uint64 cpu_get_operand_extended_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
-static t_uint64 cpu_get_operand_extended_b_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength);
-static t_uint64 cpu_get_operand_extended_zero_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength);
+static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 instructionAddress, int *instructionLength, uint8 scale);
 static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_addr cpu_get_operand_address_variable_64(uint16 order, uint32 instructionAddress, int *instructionLength);
@@ -300,6 +303,7 @@ static t_uint64 cpu_get_operand(uint16 order);
 static void cpu_set_operand(uint16 order, t_uint64 value);
 static t_uint64 cpu_sign_extend_6_bit(t_uint64 value);
 static void cpu_push_value(t_uint64 value);
+static t_addr cpu_pop_address(void);
 static t_uint64 cpu_pop_value(void);
 static void cpu_test_value(t_int64 value);
 
@@ -951,20 +955,33 @@ static SIM_INLINE int cpu_get_register_bit_64(REG *reg, t_uint64 mask)
     return result;
 }
 
-static uint16 cpu_calculate_base_offset(REG *reg, t_int64 offset)
+static uint16 cpu_calculate_base_offset_from_addr(t_addr base, t_int64 offset, uint8 scale)
 {
-    t_int64 result = cpu_get_register_16(reg) + offset;
-    if (result < 0 || result > 65535)
-    {
-        cpu_set_interrupt(INT_SOFTWARE_INTERRUPT); /* TODO: must be segment overflow interrupt */
-    }
+	t_int64 result = base + (offset * scale);
+	if (result < 0 || result > 65535)
+	{
+		cpu_set_interrupt(INT_SOFTWARE_INTERRUPT); /* TODO: must be segment overflow interrupt */
+	}
 
-    return (uint16)(result & 0xFFFF);
+	return (uint16)(result & 0xFFFF);
 }
 
-static t_addr cpu_get_name_segment_address(REG *reg, int16 offset)
+static t_addr cpu_get_name_segment_address_from_addr(t_addr base, int16 offset, uint8 scale)
 {
-    t_addr result = (cpu_get_register_16(reg_sn) << 16) | cpu_calculate_base_offset(reg, offset);
+	t_addr result = (cpu_get_register_16(reg_sn) << 16) | cpu_calculate_base_offset_from_addr(base, offset, scale);
+	return result;
+}
+
+static uint16 cpu_calculate_base_offset_from_reg(REG *reg, t_int64 offset, uint8 scale)
+{
+	uint16 result = cpu_calculate_base_offset_from_addr(cpu_get_register_16(reg), offset, scale);
+
+    return result;
+}
+
+static t_addr cpu_get_name_segment_address_from_reg(REG *reg, int16 offset, uint8 scale)
+{
+    t_addr result = cpu_get_name_segment_address_from_addr(cpu_get_register_16(reg), offset, scale);
     return result;
 }
 
@@ -1108,67 +1125,62 @@ static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructio
     return result;
 }
 
-/* TODO: These extended routines repeat the same n' code and should be written only once if possible */
-static t_uint64 cpu_get_operand_extended_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength)
+static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 instructionAddress, int *instructionLength, uint8 scale)
 {
-    t_uint64 result = 0;
+	t_addr result = 0;
     uint16 np = cpu_get_extended_n(order);
 
     switch (np)
     {
         case 0:
         {
-			t_addr addr = cpu_get_register_16(reg_sf);
 			uint16 offset = sac_read_16_bit_word(instructionAddress + 1);
-            result = sac_read_32_bit_word(addr + offset);
+            result = cpu_get_name_segment_address_from_reg(reg_sf, offset, scale);
             *instructionLength += 1;
-            sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 SF %u\n", offset);
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "SF %u\n", offset);
             break;
         }
         case 1:
         {
-            t_addr addr = sac_read_16_bit_word(instructionAddress + 1);
-            result = sac_read_32_bit_word(addr);
-            *instructionLength += 1;
-            sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 Z %u\n", addr);
+			uint16 offset = sac_read_16_bit_word(instructionAddress + 1);
+			result = cpu_get_name_segment_address_from_addr(0, offset, scale);
+			*instructionLength += 1;
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "Z %u\n", offset);
             break;
         }
 		case 2:
 		{
-			t_addr addr = cpu_get_register_16(reg_nb);
 			uint16 offset = sac_read_16_bit_word(instructionAddress + 1);
-			result = sac_read_32_bit_word(addr + offset);
+			result = cpu_get_name_segment_address_from_reg(reg_nb, offset, scale);
 			*instructionLength += 1;
-			sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 NB %u\n", offset);
+			sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB %u\n", offset);
 			break;
 		}
 		case 3:
 		{
 			t_addr addr = cpu_get_register_32(reg_xnb) & 0xFFFF;
 			uint16 offset = sac_read_16_bit_word(instructionAddress + 1);
-			result = sac_read_32_bit_word(addr + offset);
+			result = cpu_get_name_segment_address_from_addr(addr, offset, scale);
 			*instructionLength += 1;
-			sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 XNB %u\n", offset);
+			sim_debug(LOG_CPU_DECODE, &cpu_dev, "XNB %u\n", offset);
 			break;
 		}
 		case 4:
 		{
-			result = cpu_pop_value();
+			result = cpu_pop_address();
 			sim_debug(LOG_CPU_DECODE, &cpu_dev, "STACK Z 0\n");
 			break;
 		}
 		case 5:
 		{
-			t_uint64 d = cpu_get_register_64(reg_d);
-
-			result = cpu_get_operand_by_descriptor_vector(d, 0); // TODO: Should there be a check for a 32-bit descriptor?
+			result = 0;
 			sim_debug(LOG_CPU_DECODE, &cpu_dev, "DR\n");
 			break;
 		}
 		case 6:
 		{
 			t_addr addr = cpu_get_register_16(reg_nb);
-			result = sac_read_32_bit_word(addr);
+			result = addr;
 			*instructionLength += 1;
 			sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 NB 0\n");
 			break;
@@ -1176,58 +1188,12 @@ static t_uint64 cpu_get_operand_extended_variable_32(uint16 order, uint32 instru
 		case 7:
 		{
 			t_addr addr = cpu_get_register_32(reg_xnb) & 0xFFFF;
-			result = sac_read_32_bit_word(addr);
+			result = addr;
 			*instructionLength += 1;
-			sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 XNB 0\n");
+			sim_debug(LOG_CPU_DECODE, &cpu_dev, "XNB 0\n");
 			break;
 		}
 		default:
-        {
-            cpu_set_interrupt(INT_ILLEGAL_ORDERS);
-            break;
-        }
-    }
-
-    return result;
-}
-
-/* TODO: These extended routines repeat the same n' code and should be written only once if possible */
-static t_uint64 cpu_get_operand_extended_b_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength)
-{
-    t_uint64 result = 0;
-
-    switch (cpu_get_extended_n(order))
-    {
-        case 5:
-        {
-            result = cpu_get_operand_by_descriptor_vector(cpu_get_register_64(reg_d), 0); /* TODO: Not sure what sense this mode has, B doesn't appear to come into it at all */
-            sim_debug(LOG_CPU_DECODE, &cpu_dev, "B D 0\n");
-            break;
-        }
-        default:
-        {
-            cpu_set_interrupt(INT_ILLEGAL_ORDERS);
-            break;
-        }
-    }
-
-    return result;
-}
-
-/* TODO: These extended routines repeat the same n' code and should be written only once if possible */
-static t_uint64 cpu_get_operand_extended_zero_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength)
-{
-    t_uint64 result = 0;
-
-    switch (cpu_get_extended_n(order))
-    {
-        case 5:
-        {
-            result = result = cpu_get_operand_by_descriptor_vector(cpu_get_register_64(reg_d), 0);
-            sim_debug(LOG_CPU_DECODE, &cpu_dev, "S0 D 0\n");
-            break;
-        }
-        default:
         {
             cpu_set_interrupt(INT_ILLEGAL_ORDERS);
             break;
@@ -1242,7 +1208,7 @@ static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructi
     t_addr result;
     uint16 n = cpu_get_n(order);
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 %hu\n", n);
-    result = cpu_get_name_segment_address(reg_nb, n);
+    result = cpu_get_name_segment_address_from_reg(reg_nb, n, SCALE_32);
 
     return result;
 }
@@ -1252,7 +1218,7 @@ static t_addr cpu_get_operand_address_variable_64(uint16 order, uint32 instructi
     t_addr result;
     uint16 n = cpu_get_n(order);
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "V64 %hu\n", n);
-    result = cpu_get_name_segment_address(reg_nb, n << 1); /* address in 64-bit units for 64-bit access */
+    result = cpu_get_name_segment_address_from_reg(reg_nb, n, SCALE_64);
 
     return result;
 }
@@ -1491,7 +1457,7 @@ static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instruction
     t_addr daddr;
     uint16 n = cpu_get_n(order);
 
-    daddr = cpu_get_name_segment_address(reg_nb, n << 1); /* address in 64-bit units for 64-bit access */
+    daddr = cpu_get_name_segment_address_from_reg(reg_nb, n, SCALE_64);
     /* TODO: refactor 64-bit address calculation */
     d = sac_read_64_bit_word(daddr);
     cpu_set_register_64(reg_d, d);
@@ -1599,7 +1565,8 @@ static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructi
 static t_uint64 cpu_get_operand(uint16 order)
 {
     t_uint64 result = 0;
-    int instructionLength = 1;
+	uint32 addr;
+	int instructionLength = 1;
     uint16 k = cpu_get_k(order);
     uint32 instructionAddress = cpu_get_register_32(reg_co);
 
@@ -1646,20 +1613,40 @@ static t_uint64 cpu_get_operand(uint16 order)
                     result = cpu_get_operand_extended_literal(order, instructionAddress, &instructionLength);
                     break;
                 }
-                case 2:
-                {
-                    result = cpu_get_operand_extended_variable_32(order, instructionAddress, &instructionLength);
-                    break;
-                }
-                case 4:
+				case 2:
+				{
+					sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 ");
+					addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_32);
+					result = sac_read_32_bit_word(addr);
+					break;
+				}
+				case 3:
+				{
+					sim_debug(LOG_CPU_DECODE, &cpu_dev, "V64 ");
+					addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+					result = sac_read_64_bit_word(addr);
+					break;
+				}
+				case 4:
                 case 5:
                 {
-                    result = cpu_get_operand_extended_b_relative_descriptor(order, instructionAddress, &instructionLength);
+					t_uint64 d;
+					sim_debug(LOG_CPU_DECODE, &cpu_dev, "S[B] ");
+					addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+					if (addr == 0)
+					{
+						d = cpu_get_register_64(reg_d);
+					}
+					else
+					{
+						d = sac_read_64_bit_word(addr);
+					}
+					result = cpu_get_operand_by_descriptor_vector(d, cpu_get_register_32(reg_b));
                     break;
                 }
                 case 6:
                 {
-                    result = cpu_get_operand_extended_zero_relative_descriptor(order, instructionAddress, &instructionLength);
+                    //result = cpu_get_operand_extended_zero_relative_descriptor(order, instructionAddress, &instructionLength);
                     break;
                 }
                 default:
@@ -1723,15 +1710,22 @@ static void cpu_push_value(t_uint64 value)
 {
     uint16 newSF = cpu_get_register_16(reg_sf) + 2;
     cpu_set_register_16(reg_sf, newSF);
-    sac_write_64_bit_word(cpu_get_name_segment_address(reg_sf, 0), value);
+    sac_write_64_bit_word(cpu_get_name_segment_address_from_reg(reg_sf, 0, SCALE_64), value);
+}
+
+static t_addr cpu_pop_address(void)
+{
+	t_addr result;
+	uint16 sf = cpu_get_register_16(reg_sf);
+	result = cpu_get_name_segment_address_from_reg(reg_sf, 0, SCALE_64);
+	cpu_set_register_16(reg_sf, sf - 2);
+	return result;
 }
 
 static t_uint64 cpu_pop_value(void)
 {
     t_uint64 result;
-    uint16 sf = cpu_get_register_16(reg_sf);
-    result = sac_read_64_bit_word(cpu_get_name_segment_address(reg_sf, 0));
-    cpu_set_register_16(reg_sf, sf - 2);
+    result = sac_read_64_bit_word(cpu_pop_address());
     return result;
 }
 
@@ -1810,7 +1804,7 @@ static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTR
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "SF=NB+ ");
-    uint16 newSF = cpu_calculate_base_offset(reg_nb, cpu_get_operand(order));
+    uint16 newSF = cpu_calculate_base_offset_from_reg(reg_nb, cpu_get_operand(order), SCALE_32);
     cpu_set_register_16(reg_sf, newSF);
 }
 
@@ -1825,7 +1819,7 @@ static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *inn
 static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB=SF+ ");
-    uint16 newNB = cpu_calculate_base_offset(reg_sf, cpu_get_operand(order));
+    uint16 newNB = cpu_calculate_base_offset_from_reg(reg_sf, cpu_get_operand(order), SCALE_32);
     cpu_set_register_16(reg_nb, newNB & 0xFFFE); /* LS bit of NB is always zero */
 }
 

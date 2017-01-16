@@ -162,16 +162,23 @@ static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_zero(
 static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_nb(void);
 static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_xnb(void);
 static void cpu_selftest_load_operand_extended_32_bit_variable_from_stack(void);
-static void cpu_selftest_load_operand_extended_32_bit_variable_from_descriptor(void);
 static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_nb_ref(void);
 static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_xnb_ref(void);
+static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_sf(void);
+static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_zero(void);
+static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_nb(void);
+static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_xnb(void);
+static void cpu_selftest_load_operand_extended_64_bit_variable_from_stack(void);
+static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_nb_ref(void);
+static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_xnb_ref(void);
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(void);
 
 UNITTEST tests[] =
 {
     { "Load operand 6-bit positive literal", cpu_selftest_load_operand_6_bit_positive_literal },
     { "Load operand 6-bit negative literal", cpu_selftest_load_operand_6_bit_negative_literal },
-    { "Load operand internal register 0", cpu_selftest_load_operand_internal_register_0 },
+
+	{ "Load operand internal register 0", cpu_selftest_load_operand_internal_register_0 },
     { "Load operand internal register 1", cpu_selftest_load_operand_internal_register_1 },
     { "Load operand internal register 2", cpu_selftest_load_operand_internal_register_2 },
     { "Load operand internal register 3", cpu_selftest_load_operand_internal_register_3 },
@@ -185,7 +192,8 @@ UNITTEST tests[] =
     { "Load operand internal register 33", cpu_selftest_load_operand_internal_register_33 },
     { "Load operand internal register 34", cpu_selftest_load_operand_internal_register_34 },
     { "Load operand internal register 48", cpu_selftest_load_operand_internal_register_48 },
-    { "Load operand 32-bit variable", cpu_selftest_load_operand_32_bit_variable },
+
+	{ "Load operand 32-bit variable", cpu_selftest_load_operand_32_bit_variable },
     { "Load operand 32-bit variable 6-bit offset is unsigned", cpu_selftest_load_operand_32_bit_variable_6_bit_offset_is_unsigned },
     { "Load operand 64-bit variable", cpu_selftest_load_operand_64_bit_variable },
     { "Load operand 32-bit via B-relative descriptor at 6-bit offset for k=4", cpu_selftest_load_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_4 },
@@ -196,7 +204,8 @@ UNITTEST tests[] =
     { "Load operand 4-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_4_bit_value_at_6_bit_offset },
     { "Load operand 1-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_1_bit_value_at_6_bit_offset },
     { "Load operand 64-bit via 0-relative descriptor at 6-bit offset", cpu_selftest_load_operand_zero_relative_descriptor_64_bit_value_at_6_bit_offset },
-    { "Load operand 16-bit signed positive literal", cpu_selftest_load_operand_16_bit_signed_positive_literal },
+
+	{ "Load operand 16-bit signed positive literal", cpu_selftest_load_operand_16_bit_signed_positive_literal },
     { "Load operand 16-bit signed negative literal", cpu_selftest_load_operand_16_bit_signed_negative_literal },
     { "Load operand 32-bit signed positive literal", cpu_selftest_load_operand_32_bit_signed_positive_literal },
     { "Load operand 32-bit signed negative literal", cpu_selftest_load_operand_32_bit_signed_negative_literal },
@@ -207,15 +216,24 @@ UNITTEST tests[] =
     { "Load operand 64-bit literal n'=6", cpu_selftest_load_operand_64_bit_literal_np_6 },
     { "Load operand 64-bit literal n'=7", cpu_selftest_load_operand_64_bit_literal_np_7 },
     { "Load operand extended literal k'=1", cpu_selftest_load_operand_extended_literal_kp_1 },
+
     { "Load operand 32-bit variable extended offset from stack", cpu_selftest_load_operand_extended_32_bit_variable_offset_from_sf },
     { "Load operand 32-bit variable extended offset from zero", cpu_selftest_load_operand_extended_32_bit_variable_offset_from_zero },
     { "Load operand 32-bit variable extended offset from NB", cpu_selftest_load_operand_extended_32_bit_variable_offset_from_nb },
     { "Load operand 32-bit variable extended offset from XNB", cpu_selftest_load_operand_extended_32_bit_variable_offset_from_xnb },
     { "Load operand 32-bit variable extended from stack", cpu_selftest_load_operand_extended_32_bit_variable_from_stack },
-    { "Load operand 32-bit variable extended from descriptor", cpu_selftest_load_operand_extended_32_bit_variable_from_descriptor },
     { "Load operand 32-bit variable extended from (NB)", cpu_selftest_load_operand_extended_32_bit_variable_offset_from_nb_ref },
     { "Load operand 32-bit variable extended from (XNB)", cpu_selftest_load_operand_extended_32_bit_variable_offset_from_xnb_ref },
-    { "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD }
+
+	{ "Load operand 64-bit variable extended offset from stack", cpu_selftest_load_operand_extended_64_bit_variable_offset_from_sf },
+	{ "Load operand 64-bit variable extended offset from zero", cpu_selftest_load_operand_extended_64_bit_variable_offset_from_zero },
+	{ "Load operand 64-bit variable extended offset from NB", cpu_selftest_load_operand_extended_64_bit_variable_offset_from_nb },
+	{ "Load operand 64-bit variable extended offset from XNB", cpu_selftest_load_operand_extended_64_bit_variable_offset_from_xnb },
+	{ "Load operand 64-bit variable extended from stack", cpu_selftest_load_operand_extended_64_bit_variable_from_stack },
+	{ "Load operand 64-bit variable extended from (NB)", cpu_selftest_load_operand_extended_64_bit_variable_offset_from_nb_ref },
+	{ "Load operand 64-bit variable extended from (XNB)", cpu_selftest_load_operand_extended_64_bit_variable_offset_from_xnb_ref },
+
+	{ "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD }
 };
 
 // TODO: test that CO is advanced correctly for normal orders and longer ones too.
@@ -644,22 +662,11 @@ static void cpu_selftest_load_operand_extended_32_bit_variable_from_stack(void)
 {
     uint32 base = 0x00F0;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_STACK);
-    sac_write_64_bit_word(base, 0xAAAABBBB);
+    sac_write_32_bit_word(base, 0xAAAABBBB);
     cpu_selftest_set_register(REG_SF, base);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAABBBB);
     cpu_selftest_assert_reg_equals(REG_SF, base - 2);
-}
-
-static void cpu_selftest_load_operand_extended_32_bit_variable_from_descriptor(void)
-{
-    uint32 base = 0x00F0;
-    uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
-    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_DR);
-    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 1, vecorigin));
-    cpu_selftest_load_32_bit_value_to_descriptor_location(vecorigin, 0, 0xAAAABBBB);
-    cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAABBBB);
 }
 
 static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_nb_ref(void)
@@ -680,6 +687,83 @@ static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_xnb_r
 	cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
 	cpu_selftest_run_code();
 	cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAABBBB);
+}
+
+static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_sf(void)
+{
+	uint32 base = 0x00F0;
+	uint16 n = 0x1;
+	cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V64, NP_SF);
+	cpu_selftest_load_16_bit_literal(n);
+	sac_write_64_bit_word(base + (n * 2), 0xAAAABBBBCCCCDDDD);
+	cpu_selftest_set_register(REG_SF, base);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBBCCCCDDDD);
+}
+
+static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_zero(void)
+{
+	uint16 n = 0x4;
+	cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V64, NP_0);
+	cpu_selftest_load_16_bit_literal(n);
+	sac_write_64_bit_word(n * 2, 0xAAAABBBBCCCCDDDD);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBBCCCCDDDD);
+}
+
+static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_nb(void)
+{
+	uint32 base = 0x00F0;
+	uint16 n = 0x1;
+	cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V64, NP_NB);
+	cpu_selftest_load_16_bit_literal(n);
+	sac_write_64_bit_word(base + (n * 2), 0xAAAABBBBCCCCDDDD);
+	cpu_selftest_set_register(REG_NB, base);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBBCCCCDDDD);
+}
+
+static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_xnb(void)
+{
+	uint32 base = 0x00F0;
+	uint16 n = 0x1;
+	cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V64, NP_XNB);
+	cpu_selftest_load_16_bit_literal(n);
+	sac_write_64_bit_word(base + (n * 2), 0xAAAABBBBCCCCDDDD);
+	cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBBCCCCDDDD);
+}
+
+static void cpu_selftest_load_operand_extended_64_bit_variable_from_stack(void)
+{
+	uint32 base = 0x00F0;
+	cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V64, NP_STACK);
+	sac_write_64_bit_word(base, 0xAAAABBBBCCCCDDDD);
+	cpu_selftest_set_register(REG_SF, base);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBBCCCCDDDD);
+	cpu_selftest_assert_reg_equals(REG_SF, base - 2);
+}
+
+static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_nb_ref(void)
+{
+	uint32 base = 0x00F0;
+	cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V64, NP_NB_REF);
+	sac_write_64_bit_word(base, 0xAAAABBBBCCCCDDDD);
+	cpu_selftest_set_register(REG_NB, base);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBBCCCCDDDD);
+}
+
+static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_xnb_ref(void)
+{
+	uint32 base = 0x00F0;
+	cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V64, NP_XNB);
+	sac_write_64_bit_word(base, 0xAAAABBBBCCCCDDDD);
+	cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBBCCCCDDDD);
 }
 
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(void)
