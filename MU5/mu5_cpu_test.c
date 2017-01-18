@@ -326,10 +326,10 @@ UNITTEST tests[] =
 
     { "Store operand 6-bit literal generates interrupt", cpu_selftest_store_operand_6_bit_literal_generates_interrupt },
     { "Store operand internal register 0 generates an interrupt", cpu_selftest_store_operand_internal_register_0_generates_interrupt },
-    //{ "Store operand internal register 1 generates an interrupt", cpu_selftest_store_operand_internal_register_1_generates_interrupt },
-    //{ "Store operand internal register 2 generates an interrupt", cpu_selftest_store_operand_internal_register_2_generates_interrupt },
-    //{ "Store operand internal register 3 generates an interrupt", cpu_selftest_store_operand_internal_register_3_generates_interrupt },
-    //{ "Store operand internal register 4 generates an interrupt", cpu_selftest_store_operand_internal_register_4_generates_interrupt },
+    { "Store operand internal register 1 generates an interrupt", cpu_selftest_store_operand_internal_register_1_generates_interrupt },
+    { "Store operand internal register 2 generates an interrupt", cpu_selftest_store_operand_internal_register_2_generates_interrupt },
+    { "Store operand internal register 3 generates an interrupt", cpu_selftest_store_operand_internal_register_3_generates_interrupt },
+    { "Store operand internal register 4 generates an interrupt", cpu_selftest_store_operand_internal_register_4_generates_interrupt },
     //{ "Store operand internal register 16", cpu_selftest_store_operand_internal_register_16 },
     //{ "Store operand internal register 17", cpu_selftest_store_operand_internal_register_17 },
     //{ "Store operand internal register 18", cpu_selftest_store_operand_internal_register_18 },
@@ -1395,10 +1395,40 @@ static void cpu_selftest_store_operand_internal_register_0_generates_interrupt(v
     cpu_selftest_assert_interrupt();
 }
 
-//static void cpu_selftest_store_operand_internal_register_1_generates_interrupt(void);
-//static void cpu_selftest_store_operand_internal_register_2_generates_interrupt(void);
-//static void cpu_selftest_store_operand_internal_register_3_generates_interrupt(void);
-//static void cpu_selftest_store_operand_internal_register_4_generates_interrupt(void);
+static void cpu_selftest_store_operand_internal_register_1_generates_interrupt(void)
+{
+    cpu_selftest_load_order(CR_FLOAT, F_STORE_64, K_IR, 1);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_XNB, 0);
+    cpu_selftest_assert_interrupt();
+}
+
+static void cpu_selftest_store_operand_internal_register_2_generates_interrupt(void)
+{
+    cpu_selftest_load_order(CR_FLOAT, F_STORE_64, K_IR, 2);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_SN, 0);
+    cpu_selftest_assert_reg_equals(REG_NB, 0);
+    cpu_selftest_assert_interrupt();
+}
+
+static void cpu_selftest_store_operand_internal_register_3_generates_interrupt(void)
+{
+    cpu_selftest_load_order(CR_FLOAT, F_STORE_64, K_IR, 3);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_SN, 0);
+    cpu_selftest_assert_reg_equals(REG_SF, 0);
+    cpu_selftest_assert_interrupt();
+}
+
+static void cpu_selftest_store_operand_internal_register_4_generates_interrupt(void)
+{
+    cpu_selftest_load_order(CR_FLOAT, F_STORE_64, K_IR, 4);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_MS, 0);
+    cpu_selftest_assert_interrupt();
+}
+
 //static void cpu_selftest_store_operand_internal_register_16(void);
 //static void cpu_selftest_store_operand_internal_register_17(void);
 //static void cpu_selftest_store_operand_internal_register_18(void);
