@@ -277,7 +277,7 @@ static t_addr cpu_get_name_segment_address_from_reg(REG *reg, int16 offset, uint
 
 static void cpu_set_interrupt(uint8 number);
 static void cpu_clear_interrupt(uint8 number);
-static uint8 cpu_get_interrupt_number(void);
+static void cpu_clear_all_interrupts(void);
 static uint16 cpu_get_cr(uint16 order);
 static uint16 cpu_get_f(uint16 order);
 static uint16 cpu_get_k(uint16 order);
@@ -788,13 +788,10 @@ t_stat parse_sym(CONST char *cptr, t_addr addr, UNIT *uptr, t_value *val, int32 
 static t_stat cpu_reset(DEVICE *dptr)
 {
     t_stat result = SCPE_OK;
+    cpu_reset_state();
     if (sim_switches & SWMASK('T'))
     {
         result = cpu_selftest();
-    }
-    else
-    {
-        //cpu_set_register_32(reg_co, 0); /* TODO: probably needs to be reset to start of OS (upper half of memory) */
     }
 
     return result;
@@ -985,6 +982,28 @@ static t_addr cpu_get_name_segment_address_from_reg(REG *reg, int16 offset, uint
     return result;
 }
 
+void cpu_reset_state(void)
+{
+    cpu_clear_all_interrupts();
+    sac_clear_all_memory();
+    cpu_set_register_32(reg_b, 0x0);
+    cpu_set_register_32(reg_bod, 0x0);
+    cpu_set_register_64(reg_a, 0x0);
+    cpu_set_register_64(reg_aex, 0x0);
+    cpu_set_register_32(reg_x, 0x0);
+    cpu_set_register_16(reg_ms, 0x0);
+    cpu_set_register_16(reg_nb, 0x0);
+    cpu_set_register_32(reg_xnb, 0x0);
+    cpu_set_register_16(reg_sn, 0x0);
+    cpu_set_register_16(reg_sf, 0x0);
+    cpu_set_register_32(reg_co, 0x0); /* TODO: probably needs to be reset to start of OS (upper half of memory) */
+    cpu_set_register_64(reg_d, 0x0);
+    cpu_set_register_64(reg_xd, 0x0);
+    cpu_set_register_32(reg_dod, 0x0);
+    cpu_set_register_32(reg_dt, 0x0);
+    cpu_set_register_32(reg_xdt, 0x0);
+}
+
 static void cpu_set_interrupt(uint8 number)
 {
     interrupt |= 1u << number;
@@ -995,7 +1014,12 @@ static void cpu_clear_interrupt(uint8 number)
     interrupt &= ~(1u << number);
 }
 
-static uint8 cpu_get_interrupt_number(void)
+static void cpu_clear_all_interrupts(void)
+{
+    interrupt = 0;
+}
+
+uint8 cpu_get_interrupt_number(void)
 {
     uint8 i;
     uint8 result = 255;
