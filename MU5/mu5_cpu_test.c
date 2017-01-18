@@ -121,6 +121,11 @@ static void cpu_selftest_set_register(char *name, t_uint64 value);
 static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 static void cpu_selftest_assert_fail(void);
 
+static void cpu_selftest_16_bit_instruction_advances_co_by_1(void);
+static void cpu_selftest_32_bit_instruction_advances_co_by_2(void);
+static void cpu_selftest_48_bit_instruction_advances_co_by_3(void);
+static void cpu_selftest_80_bit_instruction_advances_co_by_5(void);
+
 static void cpu_selftest_load_operand_6_bit_positive_literal(void);
 static void cpu_selftest_load_operand_6_bit_negative_literal(void);
 static void cpu_selftest_load_operand_internal_register_0(void);
@@ -204,6 +209,11 @@ static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(void);
 
 UNITTEST tests[] =
 {
+    { "16-bit instruction advances CO by 1", cpu_selftest_16_bit_instruction_advances_co_by_1 },
+    { "32-bit instruction advances CO by 2", cpu_selftest_32_bit_instruction_advances_co_by_2 },
+    { "48-bit instruction advances CO by 3", cpu_selftest_48_bit_instruction_advances_co_by_3 },
+    { "80-bit instruction advances CO by 5", cpu_selftest_80_bit_instruction_advances_co_by_5 },
+
     { "Load operand 6-bit positive literal", cpu_selftest_load_operand_6_bit_positive_literal },
     { "Load operand 6-bit negative literal", cpu_selftest_load_operand_6_bit_negative_literal },
 
@@ -294,7 +304,36 @@ UNITTEST tests[] =
 	{ "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD }
 };
 
-// TODO: test that CO is advanced correctly for normal orders and longer ones too.
+static void cpu_selftest_16_bit_instruction_advances_co_by_1(void)
+{
+    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_CO, 1);
+}
+
+static void cpu_selftest_32_bit_instruction_advances_co_by_2(void)
+{
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, KP_LITERAL, NP_16_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_16_bit_literal(0xFFFF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_CO, 2);
+}
+
+static void cpu_selftest_48_bit_instruction_advances_co_by_3(void)
+{
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, KP_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x7FFFFFFF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_CO, 3);
+}
+
+static void cpu_selftest_80_bit_instruction_advances_co_by_5(void)
+{
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, KP_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0x7FFFFFFFFFFFFFFF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_CO, 5);
+}
 
 static void cpu_selftest_load_operand_6_bit_positive_literal()
 {
