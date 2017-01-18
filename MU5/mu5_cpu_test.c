@@ -330,15 +330,15 @@ UNITTEST tests[] =
     { "Store operand internal register 2 generates an interrupt", cpu_selftest_store_operand_internal_register_2_generates_interrupt },
     { "Store operand internal register 3 generates an interrupt", cpu_selftest_store_operand_internal_register_3_generates_interrupt },
     { "Store operand internal register 4 generates an interrupt", cpu_selftest_store_operand_internal_register_4_generates_interrupt },
-    //{ "Store operand internal register 16", cpu_selftest_store_operand_internal_register_16 },
-    //{ "Store operand internal register 17", cpu_selftest_store_operand_internal_register_17 },
-    //{ "Store operand internal register 18", cpu_selftest_store_operand_internal_register_18 },
-    //{ "Store operand internal register 19", cpu_selftest_store_operand_internal_register_19 },
-    //{ "Store operand internal register 20", cpu_selftest_store_operand_internal_register_20 },
-    //{ "Store operand internal register 32", cpu_selftest_store_operand_internal_register_32 },
-    //{ "Store operand internal register 33", cpu_selftest_store_operand_internal_register_33 },
-    //{ "Store operand internal register 34", cpu_selftest_store_operand_internal_register_34 },
-    //{ "Store operand internal register 48", cpu_selftest_store_operand_internal_register_48 },
+    { "Store operand internal register 16", cpu_selftest_store_operand_internal_register_16 },
+    { "Store operand internal register 17", cpu_selftest_store_operand_internal_register_17 },
+    { "Store operand internal register 18", cpu_selftest_store_operand_internal_register_18 },
+    { "Store operand internal register 19", cpu_selftest_store_operand_internal_register_19 },
+    { "Store operand internal register 20", cpu_selftest_store_operand_internal_register_20 },
+    { "Store operand internal register 32", cpu_selftest_store_operand_internal_register_32 },
+    { "Store operand internal register 33", cpu_selftest_store_operand_internal_register_33 },
+    { "Store operand internal register 34", cpu_selftest_store_operand_internal_register_34 },
+    { "Store operand internal register 48", cpu_selftest_store_operand_internal_register_48 },
     //{ "", cpu_selftest_store_operand_32_bit_variable },
     //{ "", cpu_selftest_store_operand_64_bit_variable },
 
@@ -1429,15 +1429,87 @@ static void cpu_selftest_store_operand_internal_register_4_generates_interrupt(v
     cpu_selftest_assert_interrupt();
 }
 
-//static void cpu_selftest_store_operand_internal_register_16(void);
-//static void cpu_selftest_store_operand_internal_register_17(void);
-//static void cpu_selftest_store_operand_internal_register_18(void);
-//static void cpu_selftest_store_operand_internal_register_19(void);
-//static void cpu_selftest_store_operand_internal_register_20(void);
-//static void cpu_selftest_store_operand_internal_register_32(void);
-//static void cpu_selftest_store_operand_internal_register_33(void);
-//static void cpu_selftest_store_operand_internal_register_34(void);
-//static void cpu_selftest_store_operand_internal_register_48(void);
+static void cpu_selftest_store_operand_internal_register_16(void)
+{
+    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE_64, K_IR, 16);
+    cpu_selftest_set_register(REG_A, 0xABABABABABABABAB);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_D, 0xABABABABABABABAB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_operand_internal_register_17(void)
+{
+    cpu_selftest_load_order(CR_FLOAT, F_STORE_64, K_IR, 17);
+    cpu_selftest_set_register(REG_A, 0xABABABABABABABAB);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_XD, 0xABABABABABABABAB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_operand_internal_register_18(void)
+{
+    cpu_selftest_load_order(CR_FLOAT, F_STORE_64, K_IR, 18);
+    cpu_selftest_set_register(REG_A, 0x00000000ABABABAB);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_DT, 0xABABABAB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_operand_internal_register_19(void)
+{
+    cpu_selftest_load_order(CR_FLOAT, F_STORE_64, K_IR, 19);
+    cpu_selftest_set_register(REG_A, 0x00000000ABABABAB);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_XDT, 0xABABABAB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_operand_internal_register_20(void)
+{
+    cpu_selftest_load_order(CR_FLOAT, F_STORE_64, K_IR, 20);
+    cpu_selftest_set_register(REG_A, 0x00000000ABABABAB);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_DOD, 0xABABABAB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_operand_internal_register_32(void)
+{
+    cpu_selftest_load_order(CR_FLOAT, F_STORE_64, K_IR, 32);
+    cpu_selftest_set_register(REG_A, 0xAAAAAAABBBBBBBB);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_BOD, 0xAAAAAAA);
+    cpu_selftest_assert_reg_equals(REG_B, 0xBBBBBBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_operand_internal_register_33(void)
+{
+    cpu_selftest_load_order(CR_FLOAT, F_STORE_64, K_IR, 33);
+    cpu_selftest_set_register(REG_A, 0x00000000ABABABAB);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_BOD, 0xABABABAB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_operand_internal_register_34(void)
+{
+    cpu_selftest_load_order(CR_FLOAT, F_STORE_64, K_IR, 34);
+    cpu_selftest_set_register(REG_A, 0x00000000ABABABAB);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_operand_internal_register_48(void)
+{
+    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 48);
+    cpu_selftest_set_register(REG_A, 0xABABABABABABABAB);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_AEX, 0xABABABABABABABAB);
+    cpu_selftest_assert_no_interrupt();
+}
+
 //static void cpu_selftest_store_operand_32_bit_variable(void);
 //static void cpu_selftest_store_operand_64_bit_variable(void);
 
