@@ -1646,7 +1646,18 @@ static t_uint64 cpu_get_operand(uint16 order)
                 }
                 case 6:
                 {
-                    //result = cpu_get_operand_extended_zero_relative_descriptor(order, instructionAddress, &instructionLength);
+                    t_uint64 d;
+                    sim_debug(LOG_CPU_DECODE, &cpu_dev, "S[0] ");
+                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+                    if (addr == 0)
+                    {
+                        d = cpu_get_register_64(reg_d);
+                    }
+                    else
+                    {
+                        d = sac_read_64_bit_word(addr);
+                    }
+                    result = cpu_get_operand_by_descriptor_vector(d, 0);
                     break;
                 }
                 default:
