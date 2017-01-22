@@ -288,6 +288,7 @@ static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAd
 static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 instructionAddress, int *instructionLength, uint8 scale);
 static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructionAddress, int *instructionLength);
+static t_uint64 cpu_set_operand_internal_register(uint16 order, t_uint64 value);
 static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_addr cpu_get_operand_address_variable_64(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
@@ -1586,6 +1587,78 @@ static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructi
     return result;
 }
 
+static t_uint64 cpu_set_operand_internal_register(uint16 order, t_uint64 value)
+{
+	t_uint64 result = 0;
+	uint8 n = order & 0x3F;
+
+	switch (n)
+	{
+		case 16:
+		{
+			cpu_set_register_64(reg_d, value);
+			break;
+		}
+		case 17:
+		{
+			cpu_set_register_64(reg_xd, value);
+			break;
+		}
+		case 18:
+		{
+			cpu_set_register_32(reg_dt, value & MASK_32);
+			break;
+		}
+		case 19:
+		{
+			cpu_set_register_32(reg_xdt, value & MASK_32);
+			break;
+		}
+		case 20:
+		{
+			cpu_set_register_32(reg_dod, value & MASK_32);
+			break;
+		}
+		case 32:
+		{
+			cpu_set_register_32(reg_bod, (value >> 32) & MASK_32);
+			cpu_set_register_32(reg_b, value & MASK_32);
+			break;
+		}
+		case 33:
+		{
+			cpu_set_register_32(reg_bod, value & MASK_32);
+			break;
+		}
+		case 34:
+		{
+			/* Z is an "imaginary" register, see p31 of Morris & Ibbett book. Programming Manual section 2.5 describes it used as an overlap suppression mechanism */
+			break;
+		}
+		case 36:
+		{
+			/* This one exists in the Morris and Ibbett book, but is not present in the MU5 Programming Manual */
+			cpu_set_register_32(reg_bod, (value >> 32) & MASK_32);
+			cpu_set_register_32(reg_b, value & MASK_32);
+			break;
+		}
+		case 48:
+		{
+			cpu_set_register_64(reg_aex, value);
+			break;
+		}
+		default:
+		{
+			cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+			break;
+		}
+	}
+
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "R%hu\n", n);
+
+	return result;
+}
+
 static t_uint64 cpu_get_operand(uint16 order)
 {
     t_uint64 result = 0;
@@ -1713,6 +1786,10 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
 
     switch (k)
     {
+		case 1:
+		{
+			cpu_set_operand_internal_register(order, value);
+		}
         case 2:
         {
             addr = cpu_get_operand_address_variable_32(order, instructionAddress, &instructionLength);

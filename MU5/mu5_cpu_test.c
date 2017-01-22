@@ -121,6 +121,8 @@ static REG *cpu_selftest_get_register(char *name);
 static void cpu_selftest_set_register(char *name, t_uint64 value);
 
 static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
+static void cpu_selftest_assert_memory_contents_32(t_addr address, uint32 expectedValue);
+static void cpu_selftest_assert_memory_contents_64(t_addr address, t_uint64 expectedValue);
 static void cpu_selftest_assert_interrupt(void);
 static void cpu_selftest_assert_no_interrupt(void);
 static void cpu_selftest_assert_fail(void);
@@ -339,8 +341,8 @@ UNITTEST tests[] =
     { "Store operand internal register 33", cpu_selftest_store_operand_internal_register_33 },
     { "Store operand internal register 34", cpu_selftest_store_operand_internal_register_34 },
     { "Store operand internal register 48", cpu_selftest_store_operand_internal_register_48 },
-    //{ "", cpu_selftest_store_operand_32_bit_variable },
-    //{ "", cpu_selftest_store_operand_64_bit_variable },
+    { "Store operand 32-bit variable", cpu_selftest_store_operand_32_bit_variable },
+    { "Store operand 64-bit variable", cpu_selftest_store_operand_64_bit_variable },
 
     { "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD }
 };
@@ -1431,7 +1433,7 @@ static void cpu_selftest_store_operand_internal_register_4_generates_interrupt(v
 
 static void cpu_selftest_store_operand_internal_register_16(void)
 {
-    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE_64, K_IR, 16);
+    cpu_selftest_load_order(CR_FLOAT, F_STORE_64, K_IR, 16);
     cpu_selftest_set_register(REG_A, 0xABABABABABABABAB);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_D, 0xABABABABABABABAB);
@@ -1503,15 +1505,36 @@ static void cpu_selftest_store_operand_internal_register_34(void)
 
 static void cpu_selftest_store_operand_internal_register_48(void)
 {
-    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 48);
+    cpu_selftest_load_order(CR_FLOAT, F_STORE_64, K_IR, 48);
     cpu_selftest_set_register(REG_A, 0xABABABABABABABAB);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_AEX, 0xABABABABABABABAB);
     cpu_selftest_assert_no_interrupt();
 }
 
-//static void cpu_selftest_store_operand_32_bit_variable(void);
-//static void cpu_selftest_store_operand_64_bit_variable(void);
+static void cpu_selftest_store_operand_32_bit_variable(void)
+{
+	uint32 base = 0x00F0;
+	int8 n = 0x1;
+	cpu_selftest_load_order(CR_FLOAT, F_STORE_64, K_V32, n);
+	cpu_selftest_set_register(REG_A, 0x00000000AAAAAAAA);
+	cpu_selftest_set_register(REG_NB, base);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_memory_contents_32(base + n, 0xAAAAAAAA);
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_operand_64_bit_variable(void)
+{
+	uint32 base = 0x00F0;
+	int8 n = 0x1;
+	cpu_selftest_load_order(CR_FLOAT, F_STORE_64, K_V64, n);
+	cpu_selftest_set_register(REG_A, 0xAAAAAAAABBBBBBBB);
+	cpu_selftest_set_register(REG_NB, base);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_memory_contents_64(base + 2*n, 0xAAAAAAAABBBBBBBB);
+	cpu_selftest_assert_no_interrupt();
+}
 
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(void)
 {
@@ -1735,6 +1758,26 @@ static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue)
             testContext.result = SCPE_AFAIL;
         }
     }
+}
+
+static void cpu_selftest_assert_memory_contents_32(t_addr address, uint32 expectedValue)
+{
+	uint32 actualValue = sac_read_32_bit_word(address);
+	if (actualValue != expectedValue)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at address %08X to be %08X, but was %08X\n", address, expectedValue, actualValue);
+		testContext.result = SCPE_AFAIL;
+	}
+}
+
+static void cpu_selftest_assert_memory_contents_64(t_addr address, t_uint64 expectedValue)
+{
+	t_uint64 actualValue = sac_read_64_bit_word(address);
+	if (actualValue != expectedValue)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at address %08X to be %016llX, but was %016llX\n", address, expectedValue, actualValue);
+		testContext.result = SCPE_AFAIL;
+	}
 }
 
 static void cpu_selftest_assert_interrupt(void)
