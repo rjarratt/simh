@@ -1809,6 +1809,8 @@ t_stat cpu_selftest(void)
     t_stat result = SCPE_OK;
     int n;
     int i;
+	int countSuccessful = 0;
+	int countFailed = 0;
 
     n = sizeof(tests) / sizeof(UNITTEST);
 
@@ -1819,13 +1821,25 @@ t_stat cpu_selftest(void)
         if (testContext.result == SCPE_OK)
         {
             sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "%s [OK]\n", tests[i].name);
+			countSuccessful++;
         }
         else
         {
             result = SCPE_AFAIL;
             sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "%s [FAIL]\n", tests[i].name);
+			countFailed++;
         }
     }
+
+	sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "\n");
+	if (countFailed == 0)
+	{
+		sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "ALL TESTS PASSED\n");
+	}
+	else
+	{
+		sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "%d of %d TESTS PASSED, %d FAILED\n", countSuccessful, n, countFailed);
+	}
 
     return result;
 }
