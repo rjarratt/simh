@@ -298,8 +298,11 @@ static t_uint64 cpu_get_operand_by_descriptor_vector(t_uint64 descriptor, uint32
 static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 modifier, t_uint64 value);
 static void cpu_process_source_to_destination_descriptor_vector(t_uint64 operand, t_uint64(*func)(t_uint64 source, t_uint64 destination, t_uint64 operand));
 static t_uint64 cpu_get_operand_b_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength);
+static void cpu_set_operand_b_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength, t_uint64 value);
 static t_uint64 cpu_get_operand_zero_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength);
+static void cpu_set_operand_zero_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength, t_uint64 value);
 static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength, uint32 modifier);
+static void cpu_set_operand_from_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength, uint32 modifier, t_uint64 value);
 static t_uint64 cpu_get_operand(uint16 order);
 static void cpu_set_operand(uint16 order, t_uint64 value);
 static t_uint64 cpu_sign_extend_6_bit(t_uint64 value);
@@ -1388,13 +1391,23 @@ static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 mod
     {
         case DESCRIPTOR_SIZE_1_BIT:
         {
-            assert(0); /* TODO: Implement bit access */
-            break;
+			uint8 byte = sac_read_8_bit_word(addr);
+			uint8 shift = 7 - (modifier & 0x7);
+			uint8 bitMask = (uint8)0x1 << shift;
+			uint8 bit = (value & 0x1) << shift;
+			byte = (byte & ~bitMask) | bit;
+			sac_write_8_bit_word(addr, byte);
+			break;
         }
         case DESCRIPTOR_SIZE_4_BIT:
         {
-            assert(0); /* TODO: Implement nibble access */
-            break;
+			uint8 byte = sac_read_8_bit_word(addr);
+			uint8 shift = 4 * (1 - (modifier & 0x1));
+			uint8 nibbleMask = (uint8)0xF << shift;
+			uint8 nibble = (value & 0xF) << shift;
+			byte = (byte & ~nibbleMask) | nibble;
+			sac_write_8_bit_word(addr, byte);
+			break;
         }
         case DESCRIPTOR_SIZE_8_BIT:
         {
@@ -1403,17 +1416,17 @@ static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 mod
         }
         case DESCRIPTOR_SIZE_16_BIT:
         {
-            sac_write_16_bit_word(addr, value & 0xFFFF);
+            sac_write_16_bit_word(addr >> 1, value & 0xFFFF);  /* TODO: 16-bit word routine takes a 16-bit word address, not a byte address. Need to make memory access consistent */
             break;
         }
         case DESCRIPTOR_SIZE_32_BIT:
         {
-            sac_write_32_bit_word(addr >> 2, value & MASK_32); /* TODO: 32-bit word routine takes a word address, not a byte address. Need to make memory access consistent */
+            sac_write_32_bit_word(addr >> 2, value & MASK_32); /* TODO: 32-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
             break;
         }
         case DESCRIPTOR_SIZE_64_BIT:
         {
-            sac_write_64_bit_word(addr >> 2, value); /* TODO: 64-bit word routine takes a word address, not a byte address. Need to make memory access consistent */
+            sac_write_64_bit_word(addr >> 2, value); /* TODO: 64-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
             break;
         }
         default:
@@ -1453,14 +1466,24 @@ static void cpu_process_source_to_destination_descriptor_vector(t_uint64 operand
 
 static t_uint64 cpu_get_operand_b_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
-    t_uint64 result = 0;
-    uint16 n = cpu_get_n(order);
+	t_uint64 result = 0;
+	uint16 n = cpu_get_n(order);
 
-    result = cpu_get_operand_from_descriptor(order, instructionAddress, instructionLength, cpu_get_register_32(reg_b));
+	result = cpu_get_operand_from_descriptor(order, instructionAddress, instructionLength, cpu_get_register_32(reg_b));
 
-    sim_debug(LOG_CPU_DECODE, &cpu_dev, "SB NB %hu\n", n);
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "SB NB %hu\n", n);
 
-    return result;
+	return result;
+}
+
+static void cpu_set_operand_b_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength, t_uint64 value)
+{
+	t_uint64 result = 0;
+	uint16 n = cpu_get_n(order);
+
+	cpu_set_operand_from_descriptor(order, instructionAddress, instructionLength, cpu_get_register_32(reg_b), value);
+
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "SB NB %hu\n", n);
 }
 
 static t_uint64 cpu_get_operand_zero_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength)
@@ -1475,21 +1498,45 @@ static t_uint64 cpu_get_operand_zero_relative_descriptor(uint16 order, uint32 in
     return result;
 }
 
+static void cpu_set_operand_zero_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength, t_uint64 value)
+{
+	t_uint64 result = 0;
+	uint16 n = cpu_get_n(order);
+
+	cpu_set_operand_from_descriptor(order, instructionAddress, instructionLength, 0, value);
+
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "S0 NB %hu\n", n);
+}
+
+
 static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength, uint32 modifier)
 {
-    t_uint64 result = 0;
-    t_uint64 d;
-    t_addr daddr;
-    uint16 n = cpu_get_n(order);
+	t_uint64 result = 0;
+	t_uint64 d;
+	t_addr daddr;
+	uint16 n = cpu_get_n(order);
 
-    daddr = cpu_get_name_segment_address_from_reg(reg_nb, n, SCALE_64);
-    /* TODO: refactor 64-bit address calculation */
-    d = sac_read_64_bit_word(daddr);
-    cpu_set_register_64(reg_d, d);
+	daddr = cpu_get_name_segment_address_from_reg(reg_nb, n, SCALE_64);
+	d = sac_read_64_bit_word(daddr);
+	cpu_set_register_64(reg_d, d);
 
-    result = cpu_get_operand_by_descriptor_vector(d, modifier);
+	result = cpu_get_operand_by_descriptor_vector(d, modifier);
 
-    return result;
+	return result;
+}
+
+static void cpu_set_operand_from_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength, uint32 modifier, t_uint64 value)
+{
+	t_uint64 result = 0;
+	t_uint64 d;
+	t_addr daddr;
+	uint16 n = cpu_get_n(order);
+
+	daddr = cpu_get_name_segment_address_from_reg(reg_nb, n, SCALE_64);
+	d = sac_read_64_bit_word(daddr);
+	/*cpu_set_register_64(reg_d, d);*/ /* TODO: Check, should D be written? */
+
+	cpu_set_operand_by_descriptor_vector(d, modifier, value);
 }
 
 static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructionAddress, int *instructionLength)
@@ -1799,10 +1846,21 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
         case 3:
         {
             addr = cpu_get_operand_address_variable_64(order, instructionAddress, &instructionLength);
-            sac_write_64_bit_word(addr, value);
-            break;
+			sac_write_64_bit_word(addr, value);
+			break;
         }
-        default:
+		case 4:
+		case 5: /* RNI - From a programmer's perspective, k=5 was a spare, so in the hardware it was treated as being identical to k=4.*/
+		{
+			cpu_set_operand_b_relative_descriptor(order, instructionAddress, &instructionLength, value);
+			break;
+		}
+		case 6:
+		{
+			cpu_set_operand_zero_relative_descriptor(order, instructionAddress, &instructionLength, value);
+			break;
+		}
+		default:
         {
             cpu_set_interrupt(INT_ILLEGAL_ORDERS);
         }
