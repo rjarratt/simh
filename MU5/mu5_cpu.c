@@ -1860,6 +1860,66 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
 			cpu_set_operand_zero_relative_descriptor(order, instructionAddress, &instructionLength, value);
 			break;
 		}
+		case 7:
+		{
+			switch (cpu_get_extended_k(order))
+			{
+				case 2:
+				{
+					sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 ");
+					//addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_32);
+					//result = sac_read_32_bit_word(addr);
+					break;
+				}
+				case 3:
+				{
+					sim_debug(LOG_CPU_DECODE, &cpu_dev, "V64 ");
+					//addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+					//result = sac_read_64_bit_word(addr);
+					break;
+				}
+				case 4:
+				case 5:
+				{
+					//t_uint64 d;
+					//sim_debug(LOG_CPU_DECODE, &cpu_dev, "S[B] ");
+					//addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+					//if (addr == 0)
+					//{
+					//	d = cpu_get_register_64(reg_d);
+					//}
+					//else
+					//{
+					//	d = sac_read_64_bit_word(addr);
+					//}
+					//result = cpu_get_operand_by_descriptor_vector(d, cpu_get_register_32(reg_b));
+					break;
+				}
+				case 6:
+				{
+					//t_uint64 d;
+					//sim_debug(LOG_CPU_DECODE, &cpu_dev, "S[0] ");
+					//addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+					//if (addr == 0)
+					//{
+					//	d = cpu_get_register_64(reg_d);
+					//}
+					//else
+					//{
+					//	d = sac_read_64_bit_word(addr);
+					//}
+					//result = cpu_get_operand_by_descriptor_vector(d, 0);
+					break;
+				}
+				default:
+				{
+					cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+					break;
+				}
+			}
+
+			break;
+		}
 		default:
         {
             cpu_set_interrupt(INT_ILLEGAL_ORDERS);

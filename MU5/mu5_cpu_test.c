@@ -255,6 +255,9 @@ static void cpu_selftest_store_operand_b_relative_descriptor_4_bit_value_at_6_bi
 static void cpu_selftest_store_operand_b_relative_descriptor_1_bit_value_at_6_bit_offset(void);
 static void cpu_selftest_store_operand_zero_relative_descriptor_64_bit_value_at_6_bit_offset(void);
 
+static void cpu_selftest_load_operand_extended_literal_kp_0_generates_interrupt(void);
+static void cpu_selftest_load_operand_extended_literal_kp_1_generates_interrupt(void);
+
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(void);
 
 UNITTEST tests[] =
@@ -378,6 +381,9 @@ UNITTEST tests[] =
 	{ "Store operand 4-bit via B-relative descriptor at 6-bit offset", cpu_selftest_store_operand_b_relative_descriptor_4_bit_value_at_6_bit_offset },
 	{ "Store operand 1-bit via B-relative descriptor at 6-bit offset", cpu_selftest_store_operand_b_relative_descriptor_1_bit_value_at_6_bit_offset },
 	{ "Store operand 64-bit via 0-relative descriptor at 6-bit offset", cpu_selftest_store_operand_zero_relative_descriptor_64_bit_value_at_6_bit_offset },
+
+	{ "Load operand to extended literal generates interrupt, k'=0", cpu_selftest_load_operand_extended_literal_kp_0_generates_interrupt },
+	{ "Load operand to extended literal generates interrupt, k'=1", cpu_selftest_load_operand_extended_literal_kp_1_generates_interrupt },
 
     { "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD }
 };
@@ -1697,6 +1703,21 @@ static void cpu_selftest_store_operand_zero_relative_descriptor_64_bit_value_at_
 	cpu_selftest_assert_no_interrupt();
 }
 
+static void cpu_selftest_load_operand_extended_literal_kp_0_generates_interrupt(void)
+{
+	cpu_selftest_load_order_extended(CR_FLOAT, F_STORE_64, KP_LITERAL, NP_64_BIT_LITERAL_6);
+	cpu_selftest_load_64_bit_literal(0xAAAABBBBCCCCDDDD);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_interrupt();
+}
+
+static void cpu_selftest_load_operand_extended_literal_kp_1_generates_interrupt(void)
+{
+	cpu_selftest_load_order_extended(CR_FLOAT, F_STORE_64, KP_LITERAL_1, NP_64_BIT_LITERAL_6);
+	cpu_selftest_load_64_bit_literal(0xAAAABBBBCCCCDDDD);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_interrupt();
+}
 
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(void)
 {
