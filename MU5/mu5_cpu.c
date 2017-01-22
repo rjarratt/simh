@@ -1867,15 +1867,15 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
 				case 2:
 				{
 					sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 ");
-					//addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_32);
-					//result = sac_read_32_bit_word(addr);
+					addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_32);
+					sac_write_32_bit_word(addr, value & MASK_32);
 					break;
 				}
 				case 3:
 				{
 					sim_debug(LOG_CPU_DECODE, &cpu_dev, "V64 ");
-					//addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
-					//result = sac_read_64_bit_word(addr);
+					addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+					sac_write_64_bit_word(addr, value);
 					break;
 				}
 				case 4:
