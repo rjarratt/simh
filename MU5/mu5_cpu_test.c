@@ -277,6 +277,34 @@ static void cpu_selftest_store_operand_extended_64_bit_variable_from_stack(void)
 static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_nb_ref(void);
 static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_xnb_ref(void);
 
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_sf_kp_4(void);
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_sf_kp_5(void);
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_zero(void);
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_nb(void);
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_xnb(void);
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_stack(void);
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_dr(void);
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_nb_ref(void);
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_xnb_ref(void);
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_64_bit_value_from_nb(void);
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_16_bit_value_from_nb(void);
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_8_bit_value_from_nb(void);
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_4_bit_value_from_nb(void);
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_1_bit_value_from_nb(void);
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_sf(void);
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_zero(void);
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_nb(void);
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb(void);
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_stack(void);
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_dr(void);
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_nb_ref(void);
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb_ref(void);
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_64_bit_value_from_nb(void);
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_16_bit_value_from_nb(void);
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_8_bit_value_from_nb(void);
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_4_bit_value_from_nb(void);
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_value_from_nb(void);
+
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(void);
 
 UNITTEST tests[] =
@@ -420,7 +448,36 @@ UNITTEST tests[] =
 	{ "Store operand 64-bit variable extended from (NB)", cpu_selftest_load_operand_extended_64_bit_variable_offset_from_nb_ref },
 	{ "Store operand 64-bit variable extended from (XNB)", cpu_selftest_load_operand_extended_64_bit_variable_offset_from_xnb_ref },
 
-    { "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD }
+	{ "Store operand 32-bit extended from b-relative descriptor from SF for kp=4", cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_sf_kp_4 },
+	{ "Store operand 32-bit extended from b-relative descriptor from SF for kp=5", cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_sf_kp_5 },
+	{ "Store operand 32-bit extended from b-relative descriptor from zero", cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_zero },
+	{ "Store operand 32-bit extended from b-relative descriptor from NB", cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_nb },
+	{ "Store operand 32-bit extended from b-relative descriptor from XNB", cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_xnb },
+	{ "Store operand 32-bit extended from b-relative descriptor from stack", cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_stack },
+	{ "Store operand 32-bit extended from b-relative descriptor from D", cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_dr },
+	{ "Store operand 32-bit extended from b-relative descriptor from (NB)", cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_nb_ref },
+	{ "Store operand 32-bit extended from b-relative descriptor from (XNB)", cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_xnb_ref },
+	{ "Store operand 64-bit extended from b-relative descriptor from NB", cpu_selftest_store_operand_extended_b_relative_descriptor_64_bit_value_from_nb },
+	{ "Store operand 16-bit extended from b-relative descriptor from NB", cpu_selftest_store_operand_extended_b_relative_descriptor_16_bit_value_from_nb },
+	{ "Store operand 8-bit extended from b-relative descriptor from NB", cpu_selftest_store_operand_extended_b_relative_descriptor_8_bit_value_from_nb },
+	{ "Store operand 4-bit extended from b-relative descriptor from NB", cpu_selftest_store_operand_extended_b_relative_descriptor_4_bit_value_from_nb },
+	{ "Store operand 1-bit extended from b-relative descriptor from NB", cpu_selftest_store_operand_extended_b_relative_descriptor_1_bit_value_from_nb },
+
+	{ "Store operand 32-bit extended from 0-relative descriptor from SF", cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_sf },
+	{ "Store operand 32-bit extended from 0-relative descriptor from zero", cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_zero },
+	{ "Store operand 32-bit extended from 0-relative descriptor from NB", cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_nb },
+	{ "Store operand 32-bit extended from 0-relative descriptor from XNB", cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb },
+	{ "Store operand 32-bit extended from 0-relative descriptor from stack", cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_stack },
+	{ "Store operand 32-bit extended from 0-relative descriptor from D", cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_dr },
+	{ "Store operand 32-bit extended from 0-relative descriptor from (NB)", cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_nb_ref },
+	{ "Store operand 32-bit extended from 0-relative descriptor from (XNB)", cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb_ref },
+	{ "Store operand 64-bit extended from 0-relative descriptor from NB", cpu_selftest_store_operand_extended_zero_relative_descriptor_64_bit_value_from_nb },
+	{ "Store operand 16-bit extended from 0-relative descriptor from NB", cpu_selftest_store_operand_extended_zero_relative_descriptor_16_bit_value_from_nb },
+	{ "Store operand 8-bit extended from 0-relative descriptor from NB", cpu_selftest_store_operand_extended_zero_relative_descriptor_8_bit_value_from_nb },
+	{ "Store operand 4-bit extended from 0-relative descriptor from NB", cpu_selftest_store_operand_extended_zero_relative_descriptor_4_bit_value_from_nb },
+	{ "Store operand 1-bit extended from 0-relative descriptor from NB", cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_value_from_nb },
+
+	{ "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD }
 };
 
 // TODO: test for illegal combinations, e.g. store to literal, V32 or V64 (k=2/3) with DR (n'=5).
@@ -1919,6 +1976,34 @@ static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_xnb_
 	cpu_selftest_assert_memory_contents_64_bit(base, 0xAAAABBBBCCCCDDDD);
 	cpu_selftest_assert_no_interrupt();
 }
+
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_sf_kp_4(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_sf_kp_5(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_zero(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_nb(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_xnb(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_stack(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_dr(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_nb_ref(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_xnb_ref(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_64_bit_value_from_nb(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_16_bit_value_from_nb(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_8_bit_value_from_nb(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_4_bit_value_from_nb(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_1_bit_value_from_nb(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_sf(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_zero(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_nb(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_stack(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_dr(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_nb_ref(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb_ref(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_64_bit_value_from_nb(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_16_bit_value_from_nb(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_8_bit_value_from_nb(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_4_bit_value_from_nb(void){ cpu_selftest_assert_fail();}
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_value_from_nb(void){ cpu_selftest_assert_fail();}
 
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(void)
 {
