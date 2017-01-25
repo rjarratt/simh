@@ -1881,18 +1881,18 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
 				case 4:
 				case 5:
 				{
-					//t_uint64 d;
-					//sim_debug(LOG_CPU_DECODE, &cpu_dev, "S[B] ");
-					//addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
-					//if (addr == 0)
-					//{
-					//	d = cpu_get_register_64(reg_d);
-					//}
-					//else
-					//{
-					//	d = sac_read_64_bit_word(addr);
-					//}
-					//result = cpu_get_operand_by_descriptor_vector(d, cpu_get_register_32(reg_b));
+					t_uint64 d;
+					sim_debug(LOG_CPU_DECODE, &cpu_dev, "S[B] ");
+					addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+					if (addr == 0)
+					{
+						d = cpu_get_register_64(reg_d);
+					}
+					else
+					{
+						d = sac_read_64_bit_word(addr);
+					}
+					cpu_set_operand_by_descriptor_vector(d, cpu_get_register_32(reg_b), value);
 					break;
 				}
 				case 6:
