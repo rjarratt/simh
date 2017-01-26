@@ -2282,7 +2282,7 @@ static void cpu_execute_sts1_xd_load(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS STACK ");
-    cpu_push_value(cpu_get_operand(order) & MASK_32);
+    cpu_push_value(cpu_get_operand(order));
 }
 
 static void cpu_execute_sts1_xd_store(uint16 order, DISPATCH_ENTRY *innerTable)

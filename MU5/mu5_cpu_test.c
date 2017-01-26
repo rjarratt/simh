@@ -52,6 +52,8 @@ in this Software without prior written authorization from Robert Jarratt.
 #define CR_FLOAT 7
 
 #define F_LOAD_XDO 0
+#define F_LOAD_XD 1
+#define F_STACK 2
 
 #define F_LOAD_64 1
 #define F_STORE_64 3
@@ -306,6 +308,8 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_4_bit_v
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_value_from_nb(void);
 
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(void);
+static void cpu_selftest_sts1_xd_load_loads_whole_of_XD(void);
+static void cpu_selftest_sts1_stack_stacks_operand(void);
 
 UNITTEST tests[] =
 {
@@ -477,7 +481,9 @@ UNITTEST tests[] =
 	{ "Store operand 4-bit extended from 0-relative descriptor from NB", cpu_selftest_store_operand_extended_zero_relative_descriptor_4_bit_value_from_nb },
 	{ "Store operand 1-bit extended from 0-relative descriptor from NB", cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_value_from_nb },
 
-	{ "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD }
+    { "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD },
+    { "STS1 XD Load Loads whole of XD", cpu_selftest_sts1_xd_load_loads_whole_of_XD },
+    { "STS1 STACK stacks operand", cpu_selftest_sts1_stack_stacks_operand }
 };
 
 // TODO: test for illegal combinations, e.g. store to literal, V32 or V64 (k=2/3) with DR (n'=5).
@@ -2392,7 +2398,6 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_v
     cpu_selftest_assert_no_interrupt();
 }
 
-
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(void)
 {
     cpu_selftest_set_register(REG_XD, 0xAAAAAAAA00000000);
@@ -2400,6 +2405,28 @@ static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(void)
     cpu_selftest_load_64_bit_literal(0xBBBBBBBBFFFFFFFF);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_XD, 0xAAAAAAAAFFFFFFFF);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts1_xd_load_loads_whole_of_XD(void)
+{
+    cpu_selftest_set_register(REG_XD, 0xAAAAAAAA00000000);
+    cpu_selftest_load_order_extended(CR_STS1, F_LOAD_XD, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0xBBBBBBBBFFFFFFFF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_XD, 0xBBBBBBBBFFFFFFFF);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts1_stack_stacks_operand(void)
+{
+    uint32 base = 0x00F0;
+    cpu_selftest_load_order_extended(CR_STS1, F_STACK, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0xBBBBBBBBFFFFFFFF);
+    cpu_selftest_set_register(REG_SF, base);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_64_bit(base + 2, 0xBBBBBBBBFFFFFFFF);
+    cpu_selftest_assert_reg_equals(REG_SF, base + 2);
     cpu_selftest_assert_no_interrupt();
 }
 
