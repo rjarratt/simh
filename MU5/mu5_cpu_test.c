@@ -54,6 +54,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_LOAD_XDO 0
 #define F_LOAD_XD 1
 #define F_STACK 2
+#define F_STORE_XD 3
 
 #define F_LOAD_64 1
 #define F_STORE_64 3
@@ -310,6 +311,8 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_v
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(void);
 static void cpu_selftest_sts1_xd_load_loads_whole_of_XD(void);
 static void cpu_selftest_sts1_stack_stacks_operand(void);
+static void cpu_selftest_sts1_xd_store_stores_xd_to_operand(void);
+static void cpu_selftest_sts1_xd_store_to_secondary_operand_generates_interrupt(void);
 
 UNITTEST tests[] =
 {
@@ -483,7 +486,9 @@ UNITTEST tests[] =
 
     { "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD },
     { "STS1 XD Load Loads whole of XD", cpu_selftest_sts1_xd_load_loads_whole_of_XD },
-    { "STS1 STACK stacks operand", cpu_selftest_sts1_stack_stacks_operand }
+	{ "STS1 STACK stacks operand", cpu_selftest_sts1_stack_stacks_operand },
+	{ "STS1 XD Store stores XD to operand", cpu_selftest_sts1_xd_store_stores_xd_to_operand },
+	{ "STS1 XD Store to secondary operand generates interrupt", cpu_selftest_sts1_xd_store_to_secondary_operand_generates_interrupt }
 };
 
 // TODO: test for illegal combinations, e.g. store to literal, V32 or V64 (k=2/3) with DR (n'=5).
@@ -1656,7 +1661,7 @@ static void cpu_selftest_store_operand_32_bit_variable(void)
 	uint32 base = 0x00F0;
 	int8 n = 0x1;
 	cpu_selftest_load_order(CR_FLOAT, F_STORE_64, K_V32, n);
-	cpu_selftest_set_register(REG_A, 0x00000000AAAAAAAA);
+	cpu_selftest_set_register(REG_A, 0xBBBBBBBBAAAAAAAA);
 	cpu_selftest_set_register(REG_NB, base);
 	cpu_selftest_run_code();
 	cpu_selftest_assert_memory_contents_32_bit(base + n, 0xAAAAAAAA);
@@ -1823,7 +1828,7 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_sf(v
 	uint16 n = 0x1;
 	cpu_selftest_load_order_extended(CR_FLOAT, F_STORE_64, K_V32, NP_SF);
 	cpu_selftest_load_16_bit_literal(n);
-	cpu_selftest_set_register(REG_A, 0x00000000AAAABBBB);
+	cpu_selftest_set_register(REG_A, 0xFFFFFFFFAAAABBBB);
 	cpu_selftest_set_register(REG_SF, base);
 	cpu_selftest_run_code();
 	cpu_selftest_assert_memory_contents_32_bit(base + n, 0xAAAABBBB);
@@ -1835,7 +1840,7 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_zero
 	uint16 n = 0x4;
 	cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_0);
 	cpu_selftest_load_16_bit_literal(n);
-	cpu_selftest_set_register(REG_A, 0x00000000AAAABBBB);
+	cpu_selftest_set_register(REG_A, 0xFFFFFFFFAAAABBBB);
 	cpu_selftest_run_code();
 	cpu_selftest_assert_memory_contents_32_bit(n, 0xAAAABBBB);
 	cpu_selftest_assert_no_interrupt();
@@ -1847,7 +1852,7 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_nb(v
 	uint16 n = 0x1;
 	cpu_selftest_load_order_extended(CR_FLOAT, F_STORE_64, K_V32, NP_NB);
 	cpu_selftest_load_16_bit_literal(n);
-	cpu_selftest_set_register(REG_A, 0x00000000AAAABBBB);
+	cpu_selftest_set_register(REG_A, 0xFFFFFFFFAAAABBBB);
 	cpu_selftest_set_register(REG_NB, base);
 	cpu_selftest_run_code();
 	cpu_selftest_assert_memory_contents_32_bit(base + n, 0xAAAABBBB);
@@ -1860,7 +1865,7 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_xnb(
 	uint16 n = 0x1;
 	cpu_selftest_load_order_extended(CR_FLOAT, F_STORE_64, K_V32, NP_XNB);
 	cpu_selftest_load_16_bit_literal(n);
-	cpu_selftest_set_register(REG_A, 0x00000000AAAABBBB);
+	cpu_selftest_set_register(REG_A, 0xFFFFFFFFAAAABBBB);
 	cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
 	cpu_selftest_run_code();
 	cpu_selftest_assert_memory_contents_32_bit(base + n, 0xAAAABBBB);
@@ -1870,7 +1875,7 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_from_stack(void)
 {
 	uint32 base = 0x00F0;
 	cpu_selftest_load_order_extended(CR_FLOAT, F_STORE_64, K_V32, NP_STACK);
-	cpu_selftest_set_register(REG_A, 0x00000000AAAABBBB);
+	cpu_selftest_set_register(REG_A, 0xFFFFFFFFAAAABBBB);
 	cpu_selftest_set_register(REG_SF, base);
 	cpu_selftest_run_code();
 	cpu_selftest_assert_memory_contents_32_bit(base, 0xAAAABBBB);
@@ -1882,7 +1887,7 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_nb_r
 {
 	uint32 base = 0x00F0;
 	cpu_selftest_load_order_extended(CR_FLOAT, F_STORE_64, K_V32, NP_NB_REF);
-	cpu_selftest_set_register(REG_A, 0x00000000AAAABBBB);
+	cpu_selftest_set_register(REG_A, 0xFFFFFFFFAAAABBBB);
 	cpu_selftest_set_register(REG_NB, base);
 	cpu_selftest_run_code();
 	cpu_selftest_assert_memory_contents_32_bit(base, 0xAAAABBBB);
@@ -1893,7 +1898,7 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_xnb_
 {
 	uint32 base = 0x00F0;
 	cpu_selftest_load_order_extended(CR_FLOAT, F_STORE_64, K_V32, NP_XNB);
-	cpu_selftest_set_register(REG_A, 0x00000000AAAABBBB);
+	cpu_selftest_set_register(REG_A, 0xFFFFFFFFAAAABBBB);
 	cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
 	cpu_selftest_run_code();
 	cpu_selftest_assert_memory_contents_32_bit(base, 0xAAAABBBB);
@@ -2429,6 +2434,30 @@ static void cpu_selftest_sts1_stack_stacks_operand(void)
     cpu_selftest_assert_reg_equals(REG_SF, base + 2);
     cpu_selftest_assert_no_interrupt();
 }
+
+static void cpu_selftest_sts1_xd_store_stores_xd_to_operand(void)
+{
+	uint32 base = 0x00F0;
+	int8 n = 0x2;
+	cpu_selftest_load_order(CR_STS1, F_STORE_XD, K_V64, n);
+	cpu_selftest_set_register(REG_NB, base);
+	cpu_selftest_set_register(REG_XD, 0xAAAAAAAABBBBBBBB);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_memory_contents_64_bit(base + (n * 2), 0xAAAAAAAABBBBBBBB);
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts1_xd_store_to_secondary_operand_generates_interrupt(void)
+{
+	uint32 base = 0x00F0;
+	int8 n = 0x2;
+	cpu_selftest_load_order(CR_STS1, F_STORE_XD, K_SB, n);
+	cpu_selftest_set_register(REG_NB, base);
+	cpu_selftest_set_register(REG_XD, 0xAAAAAAAABBBBBBBB);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_interrupt();
+}
+
 
 static void cpu_selftest_reset(UNITTEST *test)
 {

@@ -284,6 +284,7 @@ static uint16 cpu_get_k(uint16 order);
 static uint16 cpu_get_n(uint16 order);
 static uint16 cpu_get_extended_k(uint16 order);
 static uint16 cpu_get_extended_n(uint16 order);
+static int cpu_operand_is_secondary(uint16 order);
 static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 instructionAddress, int *instructionLength, uint8 scale);
@@ -1099,6 +1100,17 @@ static uint16 cpu_get_extended_n(uint16 order)
 {
     uint16 result = order & 0x7;
     return result;
+}
+
+static int cpu_operand_is_secondary(uint16 order)
+{
+	int result = 0;
+	uint16 k = cpu_get_k(order);
+	uint16 kp = cpu_get_extended_k(order);
+
+	result = (k == 4) || (k == 5) || (k == 6) || ((k == 7) && ((kp == 4) || (kp == 5) || (kp == 6)));
+
+	return result;
 }
 
 static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAddress, int *instructionLength)
@@ -2288,7 +2300,14 @@ static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_sts1_xd_store(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS XD=> ");
-    cpu_set_operand(order, cpu_get_register_64(reg_xd));
+	if (!cpu_operand_is_secondary(order))
+	{
+		cpu_set_operand(order, cpu_get_register_64(reg_xd));
+	}
+	else
+	{
+		cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+	}
 }
 
 static void cpu_execute_sts1_xdb_load(uint16 order, DISPATCH_ENTRY *innerTable)
