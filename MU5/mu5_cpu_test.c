@@ -55,6 +55,8 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_LOAD_XD 1
 #define F_STACK 2
 #define F_STORE_XD 3
+#define F_LOAD_XDB 4
+#define F_XCHK 5
 
 #define F_LOAD_64 1
 #define F_STORE_64 3
@@ -313,6 +315,10 @@ static void cpu_selftest_sts1_xd_load_loads_whole_of_XD(void);
 static void cpu_selftest_sts1_stack_stacks_operand(void);
 static void cpu_selftest_sts1_xd_store_stores_xd_to_operand(void);
 static void cpu_selftest_sts1_xd_store_to_secondary_operand_generates_interrupt(void);
+static void cpu_selftest_sts1_xdb_load_loads_bound_in_XD(void);
+static void cpu_selftest_sts1_xchk_operand_negative_clears_DOD_XCH_bit(void);
+static void cpu_selftest_sts1_xchk_operand_ge_XDB_clears_DOD_XCH_bit(void);
+static void cpu_selftest_sts1_xchk_operand_within_XDB_sets_DOD_XCH_bit(void);
 
 UNITTEST tests[] =
 {
@@ -488,7 +494,11 @@ UNITTEST tests[] =
     { "STS1 XD Load Loads whole of XD", cpu_selftest_sts1_xd_load_loads_whole_of_XD },
 	{ "STS1 STACK stacks operand", cpu_selftest_sts1_stack_stacks_operand },
 	{ "STS1 XD Store stores XD to operand", cpu_selftest_sts1_xd_store_stores_xd_to_operand },
-	{ "STS1 XD Store to secondary operand generates interrupt", cpu_selftest_sts1_xd_store_to_secondary_operand_generates_interrupt }
+	{ "STS1 XD Store to secondary operand generates interrupt", cpu_selftest_sts1_xd_store_to_secondary_operand_generates_interrupt },
+	{ "STS1 XDB Load loads the bound in XD", cpu_selftest_sts1_xdb_load_loads_bound_in_XD },
+	{ "STS1 XCHK clears DOD XCH bit if operand is negative", cpu_selftest_sts1_xchk_operand_negative_clears_DOD_XCH_bit },
+    { "STS1 XCHK clears DOD XCH bit if operand is >= bound", cpu_selftest_sts1_xchk_operand_ge_XDB_clears_DOD_XCH_bit },
+    { "STS1 XCHK sets DOD XCH bit if operand is within XD bound", cpu_selftest_sts1_xchk_operand_within_XDB_sets_DOD_XCH_bit }
 };
 
 // TODO: test for illegal combinations, e.g. store to literal, V32 or V64 (k=2/3) with DR (n'=5).
@@ -2456,6 +2466,49 @@ static void cpu_selftest_sts1_xd_store_to_secondary_operand_generates_interrupt(
 	cpu_selftest_set_register(REG_XD, 0xAAAAAAAABBBBBBBB);
 	cpu_selftest_run_code();
 	cpu_selftest_assert_interrupt();
+}
+
+static void cpu_selftest_sts1_xdb_load_loads_bound_in_XD(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_LOAD_XDB, K_LITERAL, NP_64_BIT_LITERAL);
+	cpu_selftest_load_64_bit_literal(0xFFFFFFFFFFCCCCCC);
+	cpu_selftest_set_register(REG_XD, 0xAAAAAAAABBBBBBBB);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, 0xAACCCCCCBBBBBBBB);
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts1_xchk_operand_negative_clears_DOD_XCH_bit(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_XCHK, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
+	cpu_selftest_set_register(REG_XD, 0xAAAAAAAABBBBBBBB);
+	cpu_selftest_set_register(REG_DOD, 0x00000001);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_DOD, 0x00000000);
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts1_xchk_operand_ge_XDB_clears_DOD_XCH_bit(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_XCHK, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000002);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, 0));
+	cpu_selftest_set_register(REG_DOD, 0x00000001);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_DOD, 0x00000000);
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts1_xchk_operand_within_XDB_sets_DOD_XCH_bit(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_XCHK, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, 0));
+	cpu_selftest_set_register(REG_DOD, 0x00000000);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_DOD, 0x00000001);
+	cpu_selftest_assert_no_interrupt();
 }
 
 
