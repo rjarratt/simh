@@ -57,6 +57,8 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_STORE_XD 3
 #define F_LOAD_XDB 4
 #define F_XCHK 5
+#define F_SMOD 6
+#define F_XMOD 7
 
 #define F_LOAD_64 1
 #define F_STORE_64 3
@@ -89,6 +91,8 @@ in this Software without prior written authorization from Robert Jarratt.
 #define NP_DR 5
 #define NP_NB_REF 6
 #define NP_XNB_REF 7
+
+#define DESCRIPTOR_US_MASK 0x0200000000000000
 
 typedef struct TESTCONTEXT
 {
@@ -319,6 +323,15 @@ static void cpu_selftest_sts1_xdb_load_loads_bound_in_XD(void);
 static void cpu_selftest_sts1_xchk_operand_negative_clears_DOD_XCH_bit(void);
 static void cpu_selftest_sts1_xchk_operand_ge_XDB_clears_DOD_XCH_bit(void);
 static void cpu_selftest_sts1_xchk_operand_within_XDB_sets_DOD_XCH_bit(void);
+static void cpu_selftest_sts1_smod_adds_signed_operand_to_D_origin(void);
+static void cpu_selftest_sts1_smod_scales_modifier_for_type_0(void);
+static void cpu_selftest_sts1_smod_scales_modifier_for_type_1(void);
+static void cpu_selftest_sts1_smod_scales_modifier_for_type_2(void);
+static void cpu_selftest_sts1_smod_does_not_scale_modifier_for_type_0_with_US_set(void);
+static void cpu_selftest_sts1_smod_does_not_scale_modifier_for_type_2_with_US_set(void);
+static void cpu_selftest_sts1_smod_does_not_check_bounds(void);
+
+/* check each desc size scale on MOD */
 
 UNITTEST tests[] =
 {
@@ -498,7 +511,15 @@ UNITTEST tests[] =
 	{ "STS1 XDB Load loads the bound in XD", cpu_selftest_sts1_xdb_load_loads_bound_in_XD },
 	{ "STS1 XCHK clears DOD XCH bit if operand is negative", cpu_selftest_sts1_xchk_operand_negative_clears_DOD_XCH_bit },
     { "STS1 XCHK clears DOD XCH bit if operand is >= bound", cpu_selftest_sts1_xchk_operand_ge_XDB_clears_DOD_XCH_bit },
-    { "STS1 XCHK sets DOD XCH bit if operand is within XD bound", cpu_selftest_sts1_xchk_operand_within_XDB_sets_DOD_XCH_bit }
+    { "STS1 XCHK sets DOD XCH bit if operand is within XD bound", cpu_selftest_sts1_xchk_operand_within_XDB_sets_DOD_XCH_bit },
+	{ "SMOD adds signed operand to D origin", cpu_selftest_sts1_smod_adds_signed_operand_to_D_origin },
+	{ "SMOD scales the modifier for type 0 descriptors", cpu_selftest_sts1_smod_scales_modifier_for_type_0 },
+	{ "SMOD scales the modifier for type 1 descriptors", cpu_selftest_sts1_smod_scales_modifier_for_type_1 },
+	{ "SMOD scales the modifier for type 2 descriptors", cpu_selftest_sts1_smod_scales_modifier_for_type_2 },
+		/* TODO: add tests for type 3 descriptors */
+	{ "SMOD does not scale the modifier for type 0 descriptors with US set", cpu_selftest_sts1_smod_does_not_scale_modifier_for_type_0_with_US_set },
+	{ "SMOD does not scale the modifier for type 2 descriptors with US set", cpu_selftest_sts1_smod_does_not_scale_modifier_for_type_2_with_US_set },
+	{ "SMOD does not check bounds", cpu_selftest_sts1_smod_does_not_check_bounds }
 };
 
 // TODO: test for illegal combinations, e.g. store to literal, V32 or V64 (k=2/3) with DR (n'=5).
@@ -2511,6 +2532,76 @@ static void cpu_selftest_sts1_xchk_operand_within_XDB_sets_DOD_XCH_bit(void)
 	cpu_selftest_assert_no_interrupt();
 }
 
+static void cpu_selftest_sts1_smod_adds_signed_operand_to_D_origin(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_SMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 2, 4));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 2, 3));
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts1_smod_scales_modifier_for_type_0(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_SMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, 4));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, 8));
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts1_smod_scales_modifier_for_type_1(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_SMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 2, 4));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 2, 5));
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts1_smod_scales_modifier_for_type_2(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_SMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_64_BIT, 2, 4));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_64_BIT, 2, 12));
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts1_smod_does_not_scale_modifier_for_type_0_with_US_set(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_SMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, 4) | DESCRIPTOR_US_MASK);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, 8) | DESCRIPTOR_US_MASK);
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts1_smod_does_not_scale_modifier_for_type_2_with_US_set(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_SMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_64_BIT, 2, 4) | DESCRIPTOR_US_MASK);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_64_BIT, 2, 12) | DESCRIPTOR_US_MASK);
+	cpu_selftest_assert_no_interrupt();
+}
+
+
+static void cpu_selftest_sts1_smod_does_not_check_bounds(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_SMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000002);
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, 4));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, 12));
+	cpu_selftest_assert_no_interrupt();
+}
 
 static void cpu_selftest_reset(UNITTEST *test)
 {

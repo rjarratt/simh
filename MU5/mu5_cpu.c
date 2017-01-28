@@ -294,6 +294,7 @@ static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructi
 static t_addr cpu_get_operand_address_variable_64(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_variable_64(uint16 order, uint32 instructionAddress, int *instructionLength);
+static int32 cpu_scale_descriptor_modifier(t_uint64 descriptor, uint32 modifier);
 static t_addr cpu_get_operand_byte_address_by_descriptor_vector_access(t_uint64 descriptor, uint32 modifier);
 static t_uint64 cpu_get_operand_by_descriptor_vector(t_uint64 descriptor, uint32 modifier);
 static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 modifier, t_uint64 value);
@@ -1285,57 +1286,61 @@ static t_uint64 cpu_get_operand_variable_64(uint16 order, uint32 instructionAddr
     return result;
 }
 
+static int32 cpu_scale_descriptor_modifier(t_uint64 descriptor, uint32 modifier)
+{
+	int32 result = modifier;
+	uint8 type = cpu_get_descriptor_type(descriptor);
+	if ((type == DESCRIPTOR_TYPE_GENERAL_VECTOR || type == DESCRIPTOR_TYPE_ADDRESS_VECTOR) && !cpu_get_descriptor_unscaled(descriptor))
+	{
+		switch (cpu_get_descriptor_size(descriptor))
+		{
+			case DESCRIPTOR_SIZE_1_BIT:
+			{
+				result = modifier >> 3;
+				break;
+			}
+			case DESCRIPTOR_SIZE_4_BIT:
+			{
+				result = modifier >> 1;
+				break;
+			}
+			case DESCRIPTOR_SIZE_8_BIT:
+			{
+				result = modifier;
+				break;
+			}
+			case DESCRIPTOR_SIZE_16_BIT:
+			{
+				result = modifier << 1;
+				break;
+			}
+			case DESCRIPTOR_SIZE_32_BIT:
+			{
+				result = modifier << 2;
+				break;
+			}
+			case DESCRIPTOR_SIZE_64_BIT:
+			{
+				result = modifier << 3;
+				break;
+			}
+			default:
+			{
+				cpu_set_interrupt(INT_ILLEGAL_ORDERS); /* TODO: needs to be an interrupt about a bad descriptor */
+				break;
+			}
+		}
+	}
+
+	return result;
+}
+
 /* see p 90 of Morris and Ibbett and p23 of programming manual */
 static t_addr cpu_get_operand_byte_address_by_descriptor_vector_access(t_uint64 descriptor, uint32 modifier)
 {
     t_addr result;
-    uint8 unscaled = cpu_get_descriptor_unscaled(descriptor);
     uint32 origin = cpu_get_descriptor_origin(descriptor);
-    if (unscaled)
-    {
-        result = origin + modifier;
-    }
-    else
-    {
-        switch (cpu_get_descriptor_size(descriptor))
-        {
-            case DESCRIPTOR_SIZE_1_BIT:
-            {
-                result = origin + (modifier >> 3);
-                break;
-            }
-            case DESCRIPTOR_SIZE_4_BIT:
-            {
-                result = origin + (modifier >> 1);
-                break;
-            }
-            case DESCRIPTOR_SIZE_8_BIT:
-            {
-                result = origin + modifier;
-                break;
-            }
-            case DESCRIPTOR_SIZE_16_BIT:
-            {
-                result = origin + (modifier << 1);
-                break;
-            }
-            case DESCRIPTOR_SIZE_32_BIT:
-            {
-                result = origin + (modifier << 2);
-                break;
-            }
-            case DESCRIPTOR_SIZE_64_BIT:
-            {
-                result = origin + (modifier << 3);
-                break;
-            }
-            default:
-            {
-                cpu_set_interrupt(INT_ILLEGAL_ORDERS); /* TODO: needs to be an interrupt about a bad descriptor */
-                break;
-            }
-        }
-    }
+    result = origin + cpu_scale_descriptor_modifier(descriptor, modifier);
 
     return result;
 }
@@ -2168,9 +2173,10 @@ static void cpu_set_descriptor_origin(t_uint64 *descriptor, uint32 origin)
 static void cpu_descriptor_modify(REG *descriptorReg, int32 modifier, int originOnly)
 {
     t_uint64 d = cpu_get_register_64(descriptorReg);
-    uint32 bound = cpu_get_descriptor_bound(d);
+	uint32 bound = cpu_get_descriptor_bound(d);
     uint32 origin = cpu_get_descriptor_origin(d);
-    /* TODO: scaling not implemented, p49 */
+	int32 scaledModifier = modifier;
+	scaledModifier = cpu_scale_descriptor_modifier(d, modifier);
     /* TODO: indirect descriptor processing not implemented, p49 */
     /* TODO: procedure call processing not implemented, p49 */
     if (!originOnly)
@@ -2178,7 +2184,7 @@ static void cpu_descriptor_modify(REG *descriptorReg, int32 modifier, int origin
         cpu_set_descriptor_bound(&d, bound - modifier);
     }
 
-    cpu_set_descriptor_origin(&d, origin + modifier);
+    cpu_set_descriptor_origin(&d, origin + scaledModifier);
     cpu_set_register_64(descriptorReg, d);
 }
 
