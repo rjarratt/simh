@@ -93,6 +93,9 @@ in this Software without prior written authorization from Robert Jarratt.
 #define NP_XNB_REF 7
 
 #define DESCRIPTOR_US_MASK 0x0200000000000000
+#define DESCRIPTOR_BC_MASK 0x0100000000000000
+
+#define DOD_BCH_MASK 0x00000020
 
 typedef struct TESTCONTEXT
 {
@@ -145,7 +148,9 @@ static void cpu_selftest_assert_vector_content_8_bit(t_addr origin, uint32 offse
 static void cpu_selftest_assert_vector_content_4_bit(t_addr origin, uint32 offset, uint8 expectedValue);
 static void cpu_selftest_assert_vector_content_1_bit(t_addr origin, uint32 offset, uint8 expectedValue);
 static void cpu_selftest_assert_interrupt(void);
+static void cpu_selftest_assert_bound_check_interrupt(void);
 static void cpu_selftest_assert_no_interrupt(void);
+static void cpu_selftest_assert_no_bound_check_interrupt(void);
 static void cpu_selftest_assert_fail(void);
 
 static void cpu_selftest_16_bit_instruction_advances_co_by_1(void);
@@ -327,11 +332,24 @@ static void cpu_selftest_sts1_smod_adds_signed_operand_to_D_origin(void);
 static void cpu_selftest_sts1_smod_scales_modifier_for_type_0(void);
 static void cpu_selftest_sts1_smod_scales_modifier_for_type_1(void);
 static void cpu_selftest_sts1_smod_scales_modifier_for_type_2(void);
-static void cpu_selftest_sts1_smod_does_not_scale_modifier_for_type_0_with_US_set(void);
-static void cpu_selftest_sts1_smod_does_not_scale_modifier_for_type_2_with_US_set(void);
+static void cpu_selftest_sts1_smod_does_not_scale_modifier_for_type_0_when_US_set(void);
+static void cpu_selftest_sts1_smod_does_not_scale_modifier_for_type_2_when_US_set(void);
 static void cpu_selftest_sts1_smod_does_not_check_bounds(void);
+static void cpu_selftest_sts1_xmod_adds_signed_operand_to_XD_origin_subtracts_from_bound(void);
+static void cpu_selftest_sts1_xmod_scales_modifier_for_64_bit_value(void);
+static void cpu_selftest_sts1_xmod_scales_modifier_for_32_bit_value(void);
+static void cpu_selftest_sts1_xmod_scales_modifier_for_16_bit_value(void);
+static void cpu_selftest_sts1_xmod_scales_modifier_for_8_bit_value(void);
+static void cpu_selftest_sts1_xmod_scales_modifier_for_4_bit_value(void);
+static void cpu_selftest_sts1_xmod_scales_modifier_for_1_bit_value(void);
+static void cpu_selftest_sts1_xmod_checks_bounds_for_type_0(void);
+static void cpu_selftest_sts1_xmod_checks_bounds_for_type_1(void);
+static void cpu_selftest_sts1_xmod_checks_bounds_for_type_2(void);
+static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_0_when_BC_set(void);
+static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_1_when_BC_set(void);
+static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_2_when_BC_set(void);
 
-/* check each desc size scale on MOD */
+/* bound check inhibit tests */
 
 UNITTEST tests[] =
 {
@@ -517,9 +535,22 @@ UNITTEST tests[] =
 	{ "SMOD scales the modifier for type 1 descriptors", cpu_selftest_sts1_smod_scales_modifier_for_type_1 },
 	{ "SMOD scales the modifier for type 2 descriptors", cpu_selftest_sts1_smod_scales_modifier_for_type_2 },
 		/* TODO: add tests for type 3 descriptors */
-	{ "SMOD does not scale the modifier for type 0 descriptors with US set", cpu_selftest_sts1_smod_does_not_scale_modifier_for_type_0_with_US_set },
-	{ "SMOD does not scale the modifier for type 2 descriptors with US set", cpu_selftest_sts1_smod_does_not_scale_modifier_for_type_2_with_US_set },
-	{ "SMOD does not check bounds", cpu_selftest_sts1_smod_does_not_check_bounds }
+	{ "SMOD does not scale the modifier for type 0 descriptors when US set", cpu_selftest_sts1_smod_does_not_scale_modifier_for_type_0_when_US_set },
+	{ "SMOD does not scale the modifier for type 2 descriptors when US set", cpu_selftest_sts1_smod_does_not_scale_modifier_for_type_2_when_US_set },
+	{ "SMOD does not check bounds", cpu_selftest_sts1_smod_does_not_check_bounds },
+	{ "XMOD adds signed operand to XD origin and subtracts it from the bound", cpu_selftest_sts1_xmod_adds_signed_operand_to_XD_origin_subtracts_from_bound },
+	{ "XMOD scales modifier for 64-bit value", cpu_selftest_sts1_xmod_scales_modifier_for_64_bit_value },
+	{ "XMOD scales modifier for 32-bit value", cpu_selftest_sts1_xmod_scales_modifier_for_32_bit_value },
+	{ "XMOD scales modifier for 16-bit value", cpu_selftest_sts1_xmod_scales_modifier_for_16_bit_value },
+	{ "XMOD scales modifier for 8-bit value", cpu_selftest_sts1_xmod_scales_modifier_for_8_bit_value },
+	{ "XMOD scales modifier for 4-bit value", cpu_selftest_sts1_xmod_scales_modifier_for_4_bit_value },
+	{ "XMOD scales modifier for 1-bit value", cpu_selftest_sts1_xmod_scales_modifier_for_1_bit_value },
+	{ "XMOD checks bounds for type 0 descriptor", cpu_selftest_sts1_xmod_checks_bounds_for_type_0 },
+	{ "XMOD checks bounds for type 1 descriptor", cpu_selftest_sts1_xmod_checks_bounds_for_type_1 },
+	{ "XMOD checks bounds for type 2 descriptor", cpu_selftest_sts1_xmod_checks_bounds_for_type_2 },
+	{ "XMOD does not check bounds for type 0 descriptor when BC is set", cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_0_when_BC_set },
+	{ "XMOD does not check bounds for type 1 descriptor when BC is set", cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_1_when_BC_set },
+	{ "XMOD does not check bounds for type 2 descriptor when BC is set", cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_2_when_BC_set }
 };
 
 // TODO: test for illegal combinations, e.g. store to literal, V32 or V64 (k=2/3) with DR (n'=5).
@@ -2572,23 +2603,23 @@ static void cpu_selftest_sts1_smod_scales_modifier_for_type_2(void)
 	cpu_selftest_assert_no_interrupt();
 }
 
-static void cpu_selftest_sts1_smod_does_not_scale_modifier_for_type_0_with_US_set(void)
+static void cpu_selftest_sts1_smod_does_not_scale_modifier_for_type_0_when_US_set(void)
 {
 	cpu_selftest_load_order_extended(CR_STS1, F_SMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
 	cpu_selftest_load_32_bit_literal(0x00000001);
 	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, 4) | DESCRIPTOR_US_MASK);
 	cpu_selftest_run_code();
-	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, 8) | DESCRIPTOR_US_MASK);
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, 5) | DESCRIPTOR_US_MASK);
 	cpu_selftest_assert_no_interrupt();
 }
 
-static void cpu_selftest_sts1_smod_does_not_scale_modifier_for_type_2_with_US_set(void)
+static void cpu_selftest_sts1_smod_does_not_scale_modifier_for_type_2_when_US_set(void)
 {
 	cpu_selftest_load_order_extended(CR_STS1, F_SMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
 	cpu_selftest_load_32_bit_literal(0x00000001);
 	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_64_BIT, 2, 4) | DESCRIPTOR_US_MASK);
 	cpu_selftest_run_code();
-	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_64_BIT, 2, 12) | DESCRIPTOR_US_MASK);
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_64_BIT, 2, 5) | DESCRIPTOR_US_MASK);
 	cpu_selftest_assert_no_interrupt();
 }
 
@@ -2597,10 +2628,150 @@ static void cpu_selftest_sts1_smod_does_not_check_bounds(void)
 {
 	cpu_selftest_load_order_extended(CR_STS1, F_SMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
 	cpu_selftest_load_32_bit_literal(0x00000002);
+	cpu_selftest_set_register(REG_DOD, 0x00000000);
 	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, 4));
 	cpu_selftest_run_code();
 	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, 12));
+	cpu_selftest_assert_no_bound_check_interrupt();
+}
+
+static void cpu_selftest_sts1_xmod_adds_signed_operand_to_XD_origin_subtracts_from_bound(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 2, 8));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 9));
 	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts1_xmod_scales_modifier_for_64_bit_value(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_64_BIT, 2, 8));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_64_BIT, 1, 16));
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts1_xmod_scales_modifier_for_32_bit_value(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, 8));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 1, 12));
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts1_xmod_scales_modifier_for_16_bit_value(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_16_BIT, 2, 8));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_16_BIT, 1, 10));
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts1_xmod_scales_modifier_for_8_bit_value(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 2, 8));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 9));
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts1_xmod_scales_modifier_for_4_bit_value(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_4_BIT, 2, 8));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_4_BIT, 1, 8));
+	cpu_selftest_assert_no_interrupt();
+
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_4_BIT, 3, 8));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_4_BIT, 2, 9));
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts1_xmod_scales_modifier_for_1_bit_value(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 8, 8));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 7, 8));
+	cpu_selftest_assert_no_interrupt();
+
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 9, 8));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 8, 9));
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts1_xmod_checks_bounds_for_type_0(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 8));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_bound_check_interrupt();
+}
+
+static void cpu_selftest_sts1_xmod_checks_bounds_for_type_1(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 1, 8));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_bound_check_interrupt();
+}
+
+static void cpu_selftest_sts1_xmod_checks_bounds_for_type_2(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_64_BIT, 1, 8));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_bound_check_interrupt();
+}
+
+static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_0_when_BC_set(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+	cpu_selftest_set_register(REG_DOD, 0x00000000);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 8) | DESCRIPTOR_BC_MASK);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_no_bound_check_interrupt();
+}
+
+static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_1_when_BC_set(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+	cpu_selftest_set_register(REG_DOD, 0x00000000);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 1, 8) | DESCRIPTOR_BC_MASK);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_no_bound_check_interrupt();
+}
+
+static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_2_when_BC_set(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+	cpu_selftest_set_register(REG_DOD, 0x00000000);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_64_BIT, 1, 8) | DESCRIPTOR_BC_MASK);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_no_bound_check_interrupt();
 }
 
 static void cpu_selftest_reset(UNITTEST *test)
@@ -2940,6 +3111,23 @@ static void cpu_selftest_assert_interrupt(void)
     }
 }
 
+static void cpu_selftest_assert_bound_check_interrupt(void)
+{
+	if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected bound check interrupt to have occurred\n");
+		testContext.result = SCPE_AFAIL;
+	}
+
+	REG *reg_dod = cpu_selftest_get_register(REG_DOD);
+	uint32 dod = *(uint32 *)reg_dod->loc;
+	if (!(dod & DOD_BCH_MASK))
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected BCH bit to be set in DOD\n");
+		testContext.result = SCPE_AFAIL;
+	}
+}
+
 static void cpu_selftest_assert_no_interrupt(void)
 {
     if (cpu_get_interrupt_number() != 255)
@@ -2947,6 +3135,19 @@ static void cpu_selftest_assert_no_interrupt(void)
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected interrupt\n");
         testContext.result = SCPE_AFAIL;
     }
+}
+
+static void cpu_selftest_assert_no_bound_check_interrupt(void)
+{
+	cpu_selftest_assert_no_interrupt();
+
+	REG *reg_dod = cpu_selftest_get_register(REG_DOD);
+	uint32 dod = *(uint32 *)reg_dod->loc;
+	if (dod & DOD_BCH_MASK)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected BCH bit to be clear in DOD\n");
+		testContext.result = SCPE_AFAIL;
+	}
 }
 
 static void cpu_selftest_assert_fail(void)

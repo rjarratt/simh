@@ -2138,13 +2138,13 @@ static uint8 cpu_get_descriptor_size(t_uint64 descriptor)
 
 static uint8 cpu_get_descriptor_unscaled(t_uint64 descriptor)
 {
-    uint8 result = (descriptor >> 58) & 0x1;
+    uint8 result = (descriptor >> 57) & 0x1;
     return result;
 }
 
 static uint8 cpu_get_descriptor_bound_check_inhibit(t_uint64 descriptor)
 {
-    uint8 result = (descriptor >> 57) & 0x1;
+    uint8 result = (descriptor >> 56) & 0x1;
     return result;
 }
 
@@ -2195,11 +2195,13 @@ static void cpu_execute_descriptor_modify(uint16 order, REG *descriptorReg)
     uint8 subtype = cpu_get_descriptor_subtype(d);
     uint32 bound = cpu_get_descriptor_bound(d);
     int32 modifier = cpu_get_operand(order) & MASK_32;
-    if (!cpu_get_descriptor_bound_check_inhibit(d) && (type == DESCRIPTOR_TYPE_GENERAL_VECTOR || type == DESCRIPTOR_TYPE_GENERAL_STRING || type == DESCRIPTOR_TYPE_ADDRESS_VECTOR || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 0) || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 1) || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 2)))
+	cpu_set_register_bit_32(reg_dod, mask_dod_bch, 0);
+	if (!cpu_get_descriptor_bound_check_inhibit(d) && (type == DESCRIPTOR_TYPE_GENERAL_VECTOR || type == DESCRIPTOR_TYPE_GENERAL_STRING || type == DESCRIPTOR_TYPE_ADDRESS_VECTOR || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 0) || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 1) || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 2)))
     {
         if (modifier < 0 || (uint32)modifier >= bound)
         {
             cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: bound check interrupt */
+			cpu_set_register_bit_32(reg_dod, mask_dod_bch, 1);
         }
     }
 
