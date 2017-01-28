@@ -278,6 +278,7 @@ static t_addr cpu_get_name_segment_address_from_reg(REG *reg, int16 offset, uint
 static void cpu_set_interrupt(uint8 number);
 static void cpu_clear_interrupt(uint8 number);
 static void cpu_clear_all_interrupts(void);
+static void cpu_set_bounds_check_interrupt();
 static uint16 cpu_get_cr(uint16 order);
 static uint16 cpu_get_f(uint16 order);
 static uint16 cpu_get_k(uint16 order);
@@ -1023,6 +1024,15 @@ static void cpu_clear_interrupt(uint8 number)
 static void cpu_clear_all_interrupts(void)
 {
     interrupt = 0;
+}
+
+static void cpu_set_bounds_check_interrupt(void)
+{
+	if (!cpu_get_register_bit_32(reg_dod, mask_dod_bchi))
+	{
+		cpu_set_register_bit_32(reg_dod, mask_dod_bch, 1);
+		cpu_set_interrupt(INT_PROGRAM_FAULTS);
+	}
 }
 
 uint8 cpu_get_interrupt_number(void)
@@ -2200,9 +2210,8 @@ static void cpu_execute_descriptor_modify(uint16 order, REG *descriptorReg)
     {
         if (modifier < 0 || (uint32)modifier >= bound)
         {
-            cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: bound check interrupt */
-			cpu_set_register_bit_32(reg_dod, mask_dod_bch, 1);
-        }
+			cpu_set_bounds_check_interrupt();
+		}
     }
 
     cpu_descriptor_modify(descriptorReg, modifier, FALSE);
@@ -2382,11 +2391,7 @@ static void cpu_execute_sts1_smvb(uint16 order, DISPATCH_ENTRY *innerTable)
     {
         if (db == 0)
         {
-            if (!cpu_get_register_bit_32(reg_dod, mask_dod_bchi))
-            {
-                cpu_set_register_bit_32(reg_dod, mask_dod_bch, 1);
-                cpu_set_interrupt(INT_ILLEGAL_ORDERS);
-            }
+			cpu_set_bounds_check_interrupt();
         }
         else if (xdb == 0)
         {

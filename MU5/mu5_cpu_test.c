@@ -96,6 +96,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define DESCRIPTOR_BC_MASK 0x0100000000000000
 
 #define DOD_BCH_MASK 0x00000020
+#define DOD_BCHI_MASK 0x00000100
 
 typedef struct TESTCONTEXT
 {
@@ -349,7 +350,7 @@ static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_0_when_BC_set(
 static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_1_when_BC_set(void);
 static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_2_when_BC_set(void);
 
-/* bound check inhibit tests */
+static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void);
 
 UNITTEST tests[] =
 {
@@ -550,7 +551,9 @@ UNITTEST tests[] =
 	{ "XMOD checks bounds for type 2 descriptor", cpu_selftest_sts1_xmod_checks_bounds_for_type_2 },
 	{ "XMOD does not check bounds for type 0 descriptor when BC is set", cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_0_when_BC_set },
 	{ "XMOD does not check bounds for type 1 descriptor when BC is set", cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_1_when_BC_set },
-	{ "XMOD does not check bounds for type 2 descriptor when BC is set", cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_2_when_BC_set }
+	{ "XMOD does not check bounds for type 2 descriptor when BC is set", cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_2_when_BC_set },
+
+	{ "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited }
 };
 
 // TODO: test for illegal combinations, e.g. store to literal, V32 or V64 (k=2/3) with DR (n'=5).
@@ -2770,6 +2773,16 @@ static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_2_when_BC_set(
 	cpu_selftest_load_32_bit_literal(0x00000001);
 	cpu_selftest_set_register(REG_DOD, 0x00000000);
 	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_64_BIT, 1, 8) | DESCRIPTOR_BC_MASK);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_no_bound_check_interrupt();
+}
+
+static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+	cpu_selftest_set_register(REG_DOD, DOD_BCHI_MASK);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 8));
 	cpu_selftest_run_code();
 	cpu_selftest_assert_no_bound_check_interrupt();
 }
