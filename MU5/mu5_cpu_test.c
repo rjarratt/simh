@@ -107,6 +107,10 @@ in this Software without prior written authorization from Robert Jarratt.
 #define DOD_SSSI_MASK 0x00000040
 #define DOD_BCHI_MASK 0x00000100
 
+#define MS_TEST_MASK 0x0F00
+#define TEST_EQUALS 0x0000
+#define TEST_GREATER_THAN 0x0400
+
 typedef struct TESTCONTEXT
 {
     char *testName;
@@ -145,10 +149,12 @@ static void cpu_selftest_load_4_bit_value_to_descriptor_location(uint32 origin, 
 static void cpu_selftest_load_1_bit_value_to_descriptor_location(uint32 origin, uint32 offset, uint8 value);
 static uint32 cpu_selftest_byte_address_from_word_address(uint32 address);
 static void cpu_selftest_run_code(void);
-static REG *cpu_selftest_get_register(char *name);
+static REG *cpu_selftest_find_register(char *name);
+static t_uint64 cpu_selftest_get_register(char *name);
 static void cpu_selftest_set_register(char *name, t_uint64 value);
 
 static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
+static void cpu_selftest_assert_reg_equals_mask(char *name, t_uint64 expectedValue, t_uint64 mask);
 static void cpu_selftest_assert_memory_contents_32_bit(t_addr address, uint32 expectedValue);
 static void cpu_selftest_assert_memory_contents_64_bit(t_addr address, t_uint64 expectedValue);
 static void cpu_selftest_assert_vector_content_64_bit(t_addr origin, uint32 offset, t_uint64 expectedValue);
@@ -167,6 +173,8 @@ static void cpu_selftest_assert_sss_interrupt(void);
 static void cpu_selftest_assert_no_bound_check_interrupt(void);
 static void cpu_selftest_assert_no_its_interrupt(void);
 static void cpu_selftest_assert_no_sss_interrupt(void);
+static void cpu_selftest_assert_test_equals(void);
+static void cpu_selftest_assert_test_greater_than(void);
 static void cpu_selftest_assert_fail(void);
 
 static void cpu_selftest_16_bit_instruction_advances_co_by_1(void);
@@ -385,6 +393,9 @@ static void cpu_selftest_sts1_smvf_generates_its_interrupt_if_source_not_8_bit(v
 static void cpu_selftest_sts1_smvf_generates_its_interrupt_if_destination_not_8_bit(void);
 static void cpu_selftest_sts1_smvf_copies_to_zero_length_destination(void);
 static void cpu_selftest_sts1_smvf_copies_bytes_and_fills_with_mask(void);
+static void cpu_selftest_sts1_talu_returns_test_register_greater_than_if_not_found(void);
+static void cpu_selftest_sts1_talu_returns_test_register_equals_if_found_in_type_0(void);
+static void cpu_selftest_sts1_talu_returns_test_register_equals_if_found_in_type_2(void);
 
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void);
 static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(void);
@@ -610,6 +621,9 @@ UNITTEST tests[] =
 	{ "SMVF generates ITS interrupt if destination is not 8-bit", cpu_selftest_sts1_smvf_generates_its_interrupt_if_destination_not_8_bit },
 	{ "SMVFcopies to zero length destination", cpu_selftest_sts1_smvf_copies_to_zero_length_destination },
 	{ "SMVF copies byte from source, uses mask", cpu_selftest_sts1_smvf_copies_bytes_and_fills_with_mask },
+	{ "TALU returns test register > if entry not found", cpu_selftest_sts1_talu_returns_test_register_greater_than_if_not_found },
+	{ "TALU returns test register = if entry found in type 0 vector", cpu_selftest_sts1_talu_returns_test_register_equals_if_found_in_type_0 },
+	{ "TALU returns test register = if entry found in type 2 vector", cpu_selftest_sts1_talu_returns_test_register_equals_if_found_in_type_2 },
 
 	{ "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
 	{ "No SSS interrupt if SSS interrupt is inhibited", cpu_selftest_no_sss_interrupt_if_sss_is_inhibited }
@@ -767,7 +781,7 @@ static void cpu_selftest_run_code(void)
 	cpu_execute_next_order();
 }
 
-static REG *cpu_selftest_get_register(char *name)
+static REG *cpu_selftest_find_register(char *name)
 {
 	REG *rptr;
 	for (rptr = cpu_dev.registers; rptr->name != NULL; rptr++)
@@ -788,9 +802,45 @@ static REG *cpu_selftest_get_register(char *name)
 	return rptr;
 }
 
+static t_uint64 cpu_selftest_get_register(char *name)
+{
+	t_uint64 result = 0;
+	t_uint64 mask;
+	REG *reg = cpu_selftest_find_register(name);
+	switch (reg->width)
+	{
+		case 16:
+		{
+			result = *(uint16 *)(reg->loc);
+			mask = 0xFFFF;
+			break;
+		}
+		case 32:
+		{
+			result = *(uint32 *)(reg->loc);
+			mask = 0xFFFFFFFF;
+			break;
+		}
+		case 64:
+		{
+			result = *(t_uint64 *)(reg->loc);
+			mask = 0xFFFFFFFFFFFFFFFF;
+			break;
+		}
+		default:
+		{
+			sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected register width %d for register %s\n", reg->width, name);
+			testContext.result = SCPE_AFAIL;
+			break;
+		}
+	}
+
+	return result & mask;
+}
+
 static void cpu_selftest_set_register(char *name, t_uint64 value)
 {
-	REG *reg = cpu_selftest_get_register(name);
+	REG *reg = cpu_selftest_find_register(name);
 	switch (reg->width)
 	{
 		case 16:
@@ -815,47 +865,31 @@ static void cpu_selftest_set_register(char *name, t_uint64 value)
 			break;
 		}
 	}
-
 }
 
 static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue)
 {
-	REG *reg = cpu_selftest_get_register(name);
-	t_uint64 actualValue;
-	t_uint64 mask;
-	switch (reg->width)
+	t_uint64 actualValue = cpu_selftest_get_register(name);
+
+	if (testContext.result == SCPE_OK)
 	{
-		case 16:
+		if (actualValue != expectedValue)
 		{
-			actualValue = *(uint16 *)(reg->loc);
-			mask = 0xFFFF;
-			break;
-		}
-		case 32:
-		{
-			actualValue = *(uint32 *)(reg->loc);
-			mask = 0xFFFFFFFF;
-			break;
-		}
-		case 64:
-		{
-			actualValue = *(t_uint64 *)(reg->loc);
-			mask = 0xFFFFFFFFFFFFFFFF;
-			break;
-		}
-		default:
-		{
-			sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected register width %d for register %s\n", reg->width, name);
+			sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value in register %s to be %llX, but was %llX\n", name, expectedValue, actualValue);
 			testContext.result = SCPE_AFAIL;
-			break;
 		}
 	}
+}
+
+static void cpu_selftest_assert_reg_equals_mask(char *name, t_uint64 expectedValue, t_uint64 mask)
+{
+	t_uint64 actualValue = cpu_selftest_get_register(name);
 
 	if (testContext.result == SCPE_OK)
 	{
 		if ((mask & actualValue) != (mask & expectedValue))
 		{
-			sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value in register %s to be %llX, but was %llX\n", name, mask & expectedValue, mask & actualValue);
+			sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value in register %s to be %llX, but was %llX for mask %llX\n", name, mask & expectedValue, mask & actualValue, mask);
 			testContext.result = SCPE_AFAIL;
 		}
 	}
@@ -971,8 +1005,7 @@ static void cpu_selftest_assert_d_interrupt(char *name, uint32 mask)
 		testContext.result = SCPE_AFAIL;
 	}
 
-	REG *reg_dod = cpu_selftest_get_register(REG_DOD);
-	uint32 dod = *(uint32 *)reg_dod->loc;
+	uint32 dod = cpu_selftest_get_register(REG_DOD) & 0xFFFFFFFF;
 	if (!(dod & mask))
 	{
 		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected %s bit to be set in DOD\n", name);
@@ -984,8 +1017,7 @@ static void cpu_selftest_assert_no_d_interrupt(char *name, uint32 mask)
 {
 	cpu_selftest_assert_no_interrupt();
 
-	REG *reg_dod = cpu_selftest_get_register(REG_DOD);
-	uint32 dod = *(uint32 *)reg_dod->loc;
+	uint32 dod = cpu_selftest_get_register(REG_DOD) & 0xFFFFFFFF;
 	if (dod & mask)
 	{
 		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected %s bit to be clear in DOD\n", name);
@@ -1021,6 +1053,16 @@ static void cpu_selftest_assert_no_its_interrupt(void)
 static void cpu_selftest_assert_no_sss_interrupt(void)
 {
 	cpu_selftest_assert_no_d_interrupt("SSS", DOD_SSS_MASK);
+}
+
+static void cpu_selftest_assert_test_equals(void)
+{
+	cpu_selftest_assert_reg_equals_mask(REG_MS, TEST_EQUALS, MS_TEST_MASK);
+}
+
+static void cpu_selftest_assert_test_greater_than(void)
+{
+	cpu_selftest_assert_reg_equals_mask(REG_MS, TEST_GREATER_THAN, MS_TEST_MASK);
 }
 
 static void cpu_selftest_assert_fail(void)
@@ -3584,6 +3626,63 @@ static void cpu_selftest_sts1_smvf_copies_bytes_and_fills_with_mask(void)
 	cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 0, 0x2A);
 	cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 1, 0x3B);
 	cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 2, 0x3B);
+	cpu_selftest_assert_no_its_interrupt();
+	cpu_selftest_assert_no_sss_interrupt();
+	cpu_selftest_assert_no_bound_check_interrupt();
+}
+
+static void cpu_selftest_sts1_talu_returns_test_register_greater_than_if_not_found(void)
+{
+	/* TODO: the programming manual (p68) says the bound is in bytes, not clear what the bound in the result should be though */
+	uint32 origin = 16;
+	cpu_selftest_load_order_extended(CR_STS1, F_TALU, K_LITERAL, NP_32_BIT_UNSIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0xAAAABBBB);
+	cpu_selftest_set_register(REG_XD, 0x8000000000000000);
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 3, origin));
+	cpu_selftest_load_32_bit_value_to_descriptor_location(origin, 0, 0xAAAAAAAA);
+	cpu_selftest_load_32_bit_value_to_descriptor_location(origin, 1, 0xBBBBBBBB);
+	cpu_selftest_load_32_bit_value_to_descriptor_location(origin, 2, 0xCCCCCCCC);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 0, origin + 12));
+	cpu_selftest_assert_test_greater_than();
+	cpu_selftest_assert_no_its_interrupt();
+	cpu_selftest_assert_no_sss_interrupt();
+	cpu_selftest_assert_no_bound_check_interrupt();
+}
+
+static void cpu_selftest_sts1_talu_returns_test_register_equals_if_found_in_type_0(void)
+{
+	/* TODO: the programming manual (p68) says the bound is in bytes, not clear what the bound in the result should be though */
+	uint32 origin = 16;
+	cpu_selftest_load_order_extended(CR_STS1, F_TALU, K_LITERAL, NP_32_BIT_UNSIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x6AAABBBB);
+	cpu_selftest_set_register(REG_XD, 0xC000000000000000);
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 3, origin));
+	cpu_selftest_load_32_bit_value_to_descriptor_location(origin, 0, 0xAAAAAAAA);
+	cpu_selftest_load_32_bit_value_to_descriptor_location(origin, 1, 0xAAAABBBB);
+	cpu_selftest_load_32_bit_value_to_descriptor_location(origin, 2, 0xBBBBBBBB);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, origin + 4));
+	cpu_selftest_assert_test_equals();
+	cpu_selftest_assert_no_its_interrupt();
+	cpu_selftest_assert_no_sss_interrupt();
+	cpu_selftest_assert_no_bound_check_interrupt();
+}
+
+static void cpu_selftest_sts1_talu_returns_test_register_equals_if_found_in_type_2(void)
+{
+	/* TODO: the programming manual (p68) says the bound is in bytes, not clear what the bound in the result should be though */
+	uint32 origin = 16;
+	cpu_selftest_load_order_extended(CR_STS1, F_TALU, K_LITERAL, NP_32_BIT_UNSIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x6AAABBBB);
+	cpu_selftest_set_register(REG_XD, 0xC000000000000000);
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_32_BIT, 3, origin));
+	cpu_selftest_load_32_bit_value_to_descriptor_location(origin, 0, 0xAAAAAAAA);
+	cpu_selftest_load_32_bit_value_to_descriptor_location(origin, 1, 0xAAAABBBB);
+	cpu_selftest_load_32_bit_value_to_descriptor_location(origin, 2, 0xBBBBBBBB);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, origin + 4));
+	cpu_selftest_assert_test_equals();
 	cpu_selftest_assert_no_its_interrupt();
 	cpu_selftest_assert_no_sss_interrupt();
 	cpu_selftest_assert_no_bound_check_interrupt();
