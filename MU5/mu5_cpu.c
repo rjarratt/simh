@@ -145,7 +145,7 @@ BITFIELD ms_bits[] = {
 
 static uint16 mask_ms_bn = 0xFEFF;
 static uint16 mask_ms_t2 = 0xFDFF;
-static uint16 mask_ms_t1 = 0xF9FF;
+static uint16 mask_ms_t1 = 0xFBFF;
 static uint16 mask_ms_t0 = 0xF7FF;
 
 BITFIELD dod_bits[] = {
@@ -2506,19 +2506,22 @@ static void cpu_execute_sts1_scmp(uint16 order, DISPATCH_ENTRY *innerTable)
     uint32 dorig = cpu_get_descriptor_origin(d);
     uint32 xdorig = cpu_get_descriptor_origin(xd);
     unsigned int i;
-    unsigned int n = (xdb < db) ? db : xdb;
     int compareResult = 0;
     cpu_parse_sts_string_to_string_operand_from_order(order, &mask, &filler);
 
-    if (cpu_check_string_descriptor(d))
+    if (cpu_check_string_descriptor(d) && cpu_check_string_descriptor(xd))
     {
-        for (i = 0; i < n && compareResult == 0; i++)
+        for (i = 0; i < db && compareResult == 0; i++)
         {
-            uint8 sourceByte = (i < xdb) ? cpu_get_operand_by_descriptor_vector(xd, i) & 0xFF : filler;
-            uint8 destByte = (uint8)cpu_get_operand_by_descriptor_vector(d, i);
+            uint8 sourceByte = ((i < xdb) ? cpu_get_operand_by_descriptor_vector(xd, i) & 0xFF : filler) & ~mask;
+            uint8 destByte = (uint8)cpu_get_operand_by_descriptor_vector(d, i) & ~mask;
             if (destByte == sourceByte)
             {
                 cpu_descriptor_modify(reg_d, 1, FALSE);
+				if (i < xdb)
+				{
+					cpu_descriptor_modify(reg_xd, 1, FALSE);
+				}
             }
             else if (sourceByte > destByte)
             {

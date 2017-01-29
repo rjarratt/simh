@@ -110,6 +110,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define MS_TEST_MASK 0x0F00
 #define TEST_EQUALS 0x0000
 #define TEST_GREATER_THAN 0x0400
+#define TEST_LESS_THAN 0x0600
 
 typedef struct TESTCONTEXT
 {
@@ -175,6 +176,7 @@ static void cpu_selftest_assert_no_its_interrupt(void);
 static void cpu_selftest_assert_no_sss_interrupt(void);
 static void cpu_selftest_assert_test_equals(void);
 static void cpu_selftest_assert_test_greater_than(void);
+static void cpu_selftest_assert_test_less_than(void);
 static void cpu_selftest_assert_fail(void);
 
 static void cpu_selftest_16_bit_instruction_advances_co_by_1(void);
@@ -396,6 +398,13 @@ static void cpu_selftest_sts1_smvf_copies_bytes_and_fills_with_mask(void);
 static void cpu_selftest_sts1_talu_returns_test_register_greater_than_if_not_found(void);
 static void cpu_selftest_sts1_talu_returns_test_register_equals_if_found_in_type_0(void);
 static void cpu_selftest_sts1_talu_returns_test_register_equals_if_found_in_type_2(void);
+static void cpu_selftest_sts1_scmp_generates_its_interrupt_if_source_not_8_bit(void);
+static void cpu_selftest_sts1_scmp_generates_its_interrupt_if_destination_not_8_bit(void);
+static void cpu_selftest_sts1_scmp_returns_test_register_equals_if_strings_identical(void);
+static void cpu_selftest_sts1_scmp_returns_test_register_equals_if_strings_identical_with_filler(void);
+static void cpu_selftest_sts1_scmp_returns_test_register_equals_if_destination_is_shorter_and_subset_is_equal(void);
+static void cpu_selftest_sts1_scmp_returns_test_register_greater_than_if_source_byte_greater_than_destination_byte(void);
+static void cpu_selftest_sts1_scmp_returns_test_register_less_than_if_source_byte_less_than_destination_byte(void);
 
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void);
 static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(void);
@@ -624,6 +633,13 @@ UNITTEST tests[] =
 	{ "TALU returns test register > if entry not found", cpu_selftest_sts1_talu_returns_test_register_greater_than_if_not_found },
 	{ "TALU returns test register = if entry found in type 0 vector", cpu_selftest_sts1_talu_returns_test_register_equals_if_found_in_type_0 },
 	{ "TALU returns test register = if entry found in type 2 vector", cpu_selftest_sts1_talu_returns_test_register_equals_if_found_in_type_2 },
+	{ "SCMP generates ITS interrupt if source is not 8-bit", cpu_selftest_sts1_scmp_generates_its_interrupt_if_source_not_8_bit },
+	{ "SCMP generates ITS interrupt if destination is not 8-bit", cpu_selftest_sts1_scmp_generates_its_interrupt_if_destination_not_8_bit },
+	{ "SCMP returns test register = if strings identical", cpu_selftest_sts1_scmp_returns_test_register_equals_if_strings_identical },
+	{ "SCMP returns test register = if strings identical with filler for source", cpu_selftest_sts1_scmp_returns_test_register_equals_if_strings_identical_with_filler },
+	{ "SCMP returns test register = if strings identical when destination runs out", cpu_selftest_sts1_scmp_returns_test_register_equals_if_destination_is_shorter_and_subset_is_equal },
+	{ "SCMP returns test register > if source > destination", cpu_selftest_sts1_scmp_returns_test_register_greater_than_if_source_byte_greater_than_destination_byte },
+	{ "SCMP  returns test register < if source < destination", cpu_selftest_sts1_scmp_returns_test_register_less_than_if_source_byte_less_than_destination_byte },
 
 	{ "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
 	{ "No SSS interrupt if SSS interrupt is inhibited", cpu_selftest_no_sss_interrupt_if_sss_is_inhibited }
@@ -871,13 +887,10 @@ static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue)
 {
 	t_uint64 actualValue = cpu_selftest_get_register(name);
 
-	if (testContext.result == SCPE_OK)
+	if (actualValue != expectedValue)
 	{
-		if (actualValue != expectedValue)
-		{
-			sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value in register %s to be %llX, but was %llX\n", name, expectedValue, actualValue);
-			testContext.result = SCPE_AFAIL;
-		}
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value in register %s to be %llX, but was %llX\n", name, expectedValue, actualValue);
+		testContext.result = SCPE_AFAIL;
 	}
 }
 
@@ -885,13 +898,10 @@ static void cpu_selftest_assert_reg_equals_mask(char *name, t_uint64 expectedVal
 {
 	t_uint64 actualValue = cpu_selftest_get_register(name);
 
-	if (testContext.result == SCPE_OK)
+	if ((mask & actualValue) != (mask & expectedValue))
 	{
-		if ((mask & actualValue) != (mask & expectedValue))
-		{
-			sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value in register %s to be %llX, but was %llX for mask %llX\n", name, mask & expectedValue, mask & actualValue, mask);
-			testContext.result = SCPE_AFAIL;
-		}
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value in register %s to be %llX, but was %llX for mask %llX\n", name, mask & expectedValue, mask & actualValue, mask);
+		testContext.result = SCPE_AFAIL;
 	}
 }
 
@@ -1063,6 +1073,11 @@ static void cpu_selftest_assert_test_equals(void)
 static void cpu_selftest_assert_test_greater_than(void)
 {
 	cpu_selftest_assert_reg_equals_mask(REG_MS, TEST_GREATER_THAN, MS_TEST_MASK);
+}
+
+static void cpu_selftest_assert_test_less_than(void)
+{
+	cpu_selftest_assert_reg_equals_mask(REG_MS, TEST_LESS_THAN, MS_TEST_MASK);
 }
 
 static void cpu_selftest_assert_fail(void)
@@ -3687,6 +3702,138 @@ static void cpu_selftest_sts1_talu_returns_test_register_equals_if_found_in_type
 	cpu_selftest_assert_no_sss_interrupt();
 	cpu_selftest_assert_no_bound_check_interrupt();
 }
+
+static void cpu_selftest_sts1_scmp_generates_its_interrupt_if_source_not_8_bit(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_SCMP, K_LITERAL, NP_64_BIT_LITERAL);
+	cpu_selftest_load_64_bit_literal(0x0000000000000000);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_64_BIT, 1, 8));
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 1, 16));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_its_interrupt();
+}
+
+static void cpu_selftest_sts1_scmp_generates_its_interrupt_if_destination_not_8_bit(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_SCMP, K_LITERAL, NP_64_BIT_LITERAL);
+	cpu_selftest_load_64_bit_literal(0x0000000000000000);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 1, 8));
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_64_BIT, 1, 16));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_its_interrupt();
+}
+
+static void cpu_selftest_sts1_scmp_returns_test_register_equals_if_strings_identical(void)
+{
+	uint32 sourceOrigin = 16;
+	uint32 destinationOrigin = 32;
+	cpu_selftest_load_order_extended(CR_STS1, F_SCMP, K_LITERAL, NP_64_BIT_LITERAL);
+	cpu_selftest_load_64_bit_literal(0x0000000000008000);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 3, sourceOrigin));
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 3, destinationOrigin));
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 0, 0xAA);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 1, 0xBB);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 2, 0xCC);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 0, 0x2A);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 1, 0x3B);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 2, 0x4C);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, sourceOrigin + 3));
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, destinationOrigin + 3));
+	cpu_selftest_assert_test_equals();
+	cpu_selftest_assert_no_its_interrupt();
+	cpu_selftest_assert_no_sss_interrupt();
+	cpu_selftest_assert_no_bound_check_interrupt();
+}
+
+static void cpu_selftest_sts1_scmp_returns_test_register_equals_if_strings_identical_with_filler(void)
+{
+	uint32 sourceOrigin = 16;
+	uint32 destinationOrigin = 32;
+	cpu_selftest_load_order_extended(CR_STS1, F_SCMP, K_LITERAL, NP_64_BIT_LITERAL);
+	cpu_selftest_load_64_bit_literal(0x00000000000080FF);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, sourceOrigin));
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 3, destinationOrigin));
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 0, 0xAA);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 0, 0x2A);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 1, 0x7F);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 2, 0x7F);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, sourceOrigin + 1));
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, destinationOrigin + 3));
+	cpu_selftest_assert_test_equals();
+	cpu_selftest_assert_no_its_interrupt();
+	cpu_selftest_assert_no_sss_interrupt();
+	cpu_selftest_assert_no_bound_check_interrupt();
+}
+
+static void cpu_selftest_sts1_scmp_returns_test_register_equals_if_destination_is_shorter_and_subset_is_equal(void)
+{
+	uint32 sourceOrigin = 16;
+	uint32 destinationOrigin = 32;
+	cpu_selftest_load_order_extended(CR_STS1, F_SCMP, K_LITERAL, NP_64_BIT_LITERAL);
+	cpu_selftest_load_64_bit_literal(0x0000000000008000);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 3, sourceOrigin));
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, destinationOrigin));
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 0, 0xAA);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 1, 0xBB);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 2, 0xCC);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 0, 0x2A);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 2, sourceOrigin + 1));
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, destinationOrigin + 1));
+	cpu_selftest_assert_test_equals();
+	cpu_selftest_assert_no_its_interrupt();
+	cpu_selftest_assert_no_sss_interrupt();
+	cpu_selftest_assert_no_bound_check_interrupt();
+}
+
+static void cpu_selftest_sts1_scmp_returns_test_register_greater_than_if_source_byte_greater_than_destination_byte(void)
+{
+	uint32 sourceOrigin = 16;
+	uint32 destinationOrigin = 32;
+	cpu_selftest_load_order_extended(CR_STS1, F_SCMP, K_LITERAL, NP_64_BIT_LITERAL);
+	cpu_selftest_load_64_bit_literal(0x0000000000008000);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 3, sourceOrigin));
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 3, destinationOrigin));
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 0, 0xAA);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 1, 0xBB);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 2, 0xCC);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 0, 0x2A);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 1, 0x3A);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 2, 0x4C);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 2, sourceOrigin + 1));
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 2, destinationOrigin + 1));
+	cpu_selftest_assert_test_greater_than();
+	cpu_selftest_assert_no_its_interrupt();
+	cpu_selftest_assert_no_sss_interrupt();
+	cpu_selftest_assert_no_bound_check_interrupt();
+}
+
+static void cpu_selftest_sts1_scmp_returns_test_register_less_than_if_source_byte_less_than_destination_byte(void)
+{
+	uint32 sourceOrigin = 16;
+	uint32 destinationOrigin = 32;
+	cpu_selftest_load_order_extended(CR_STS1, F_SCMP, K_LITERAL, NP_64_BIT_LITERAL);
+	cpu_selftest_load_64_bit_literal(0x0000000000008000);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 3, sourceOrigin));
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 3, destinationOrigin));
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 0, 0xAA);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 1, 0xBB);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 2, 0xCC);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 0, 0x2A);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 1, 0x3C);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 2, 0x4C);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 2, sourceOrigin + 1));
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 2, destinationOrigin + 1));
+	cpu_selftest_assert_test_less_than();
+	cpu_selftest_assert_no_its_interrupt();
+	cpu_selftest_assert_no_sss_interrupt();
+	cpu_selftest_assert_no_bound_check_interrupt();
+}
+
 
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void)
 {
