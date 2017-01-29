@@ -97,7 +97,9 @@ in this Software without prior written authorization from Robert Jarratt.
 #define DESCRIPTOR_BC_MASK 0x0100000000000000
 
 #define DOD_ITS_MASK 0x00000002
+#define DOD_SSS_MASK 0x00000008
 #define DOD_BCH_MASK 0x00000020
+#define DOD_SSSI_MASK 0x00000040
 #define DOD_BCHI_MASK 0x00000100
 
 typedef struct TESTCONTEXT
@@ -156,8 +158,10 @@ static void cpu_selftest_assert_d_interrupt(char *name, uint32 mask);
 static void cpu_selftest_assert_no_d_interrupt(char *name, uint32 mask);
 static void cpu_selftest_assert_bound_check_interrupt(void);
 static void cpu_selftest_assert_its_interrupt(void);
+static void cpu_selftest_assert_sss_interrupt(void);
 static void cpu_selftest_assert_no_bound_check_interrupt(void);
 static void cpu_selftest_assert_no_its_interrupt(void);
+static void cpu_selftest_assert_no_sss_interrupt(void);
 static void cpu_selftest_assert_fail(void);
 
 static void cpu_selftest_16_bit_instruction_advances_co_by_1(void);
@@ -361,13 +365,15 @@ static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_source_is_type_3(v
 static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_destination_is_type_3(void);
 static void cpu_selftest_sts1_slgc_processes_type_0_descriptors(void);
 static void cpu_selftest_sts1_slgc_processes_type_2_descriptors(void);
+static void cpu_selftest_sts1_slgc_processes_long_vector(void);
 static void cpu_selftest_sts1_slgc_generates_sss_interrupt_if_source_runs_out(void);
-static void cpu_selftest_sts1_slgc_processes_source_0_dest_0(void);
-static void cpu_selftest_sts1_slgc_processes_source_0_dest_1(void);
-static void cpu_selftest_sts1_slgc_processes_source_1_dest_0(void);
-static void cpu_selftest_sts1_slgc_processes_source_1_dest_1(void);
+static void cpu_selftest_sts1_slgc_processes_L0(void);
+static void cpu_selftest_sts1_slgc_processes_L1(void);
+static void cpu_selftest_sts1_slgc_processes_L2(void);
+static void cpu_selftest_sts1_slgc_processes_L3(void);
 
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void);
+static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(void);
 
 UNITTEST tests[] =
 {
@@ -575,26 +581,18 @@ UNITTEST tests[] =
 	{ "SLGC generates ITS interrupt if destination is type 3", cpu_selftest_sts1_slgc_generates_its_interrupt_if_destination_is_type_3 },
 	{ "SLGC processes type 0 descriptors", cpu_selftest_sts1_slgc_processes_type_0_descriptors },
 	{ "SLGC processes type 2 descriptors", cpu_selftest_sts1_slgc_processes_type_2_descriptors },
+	{ "SLGC processes long vector", cpu_selftest_sts1_slgc_processes_long_vector },
 	{ "SLGC generates SSS interrupt if source runs out", cpu_selftest_sts1_slgc_generates_sss_interrupt_if_source_runs_out },
-	{ "SLGC processes source=0 and destination=0", cpu_selftest_sts1_slgc_processes_source_0_dest_0 },
-	{ "SLGC processes source=0 and destination=1", cpu_selftest_sts1_slgc_processes_source_0_dest_1 },
-	{ "SLGC processes source=1 and destination=0", cpu_selftest_sts1_slgc_processes_source_1_dest_0 },
-	{ "SLGC processes source=1 and destination=1", cpu_selftest_sts1_slgc_processes_source_1_dest_1 },
+	{ "SLGC processes L0", cpu_selftest_sts1_slgc_processes_L0 },
+	{ "SLGC processes L1", cpu_selftest_sts1_slgc_processes_L1 },
+	{ "SLGC processes L2", cpu_selftest_sts1_slgc_processes_L2 },
+	{ "SLGC processes L3", cpu_selftest_sts1_slgc_processes_L3 },
 
-	{ "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited }
+	{ "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
+	{ "No SSS interrupt if SSS interrupt is inhibited", cpu_selftest_no_sss_interrupt_if_sss_is_inhibited }
 };
 
 // TODO: test for illegal combinations, e.g. store to literal, V32 or V64 (k=2/3) with DR (n'=5).
-
-static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void)
-{
-	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
-	cpu_selftest_load_32_bit_literal(0x00000001);
-	cpu_selftest_set_register(REG_DOD, DOD_BCHI_MASK);
-	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 8));
-	cpu_selftest_run_code();
-	cpu_selftest_assert_no_bound_check_interrupt();
-}
 
 static void cpu_selftest_reset(UNITTEST *test)
 {
@@ -982,6 +980,11 @@ static void cpu_selftest_assert_its_interrupt(void)
 	cpu_selftest_assert_d_interrupt("ITS", DOD_ITS_MASK);
 }
 
+static void cpu_selftest_assert_sss_interrupt(void)
+{
+	cpu_selftest_assert_d_interrupt("SSS", DOD_SSS_MASK);
+}
+
 static void cpu_selftest_assert_no_bound_check_interrupt(void)
 {
 	cpu_selftest_assert_no_d_interrupt("BCH", DOD_BCH_MASK);
@@ -990,6 +993,11 @@ static void cpu_selftest_assert_no_bound_check_interrupt(void)
 static void cpu_selftest_assert_no_its_interrupt(void)
 {
 	cpu_selftest_assert_no_d_interrupt("ITS", DOD_ITS_MASK);
+}
+
+static void cpu_selftest_assert_no_sss_interrupt(void)
+{
+	cpu_selftest_assert_no_d_interrupt("SSS", DOD_SSS_MASK);
 }
 
 static void cpu_selftest_assert_fail(void)
@@ -3256,20 +3264,206 @@ static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_2_when_BC_set(
 
 static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_source_not_8_bit(void)
 {
-	cpu_selftest_load_order(CR_STS1, F_SLGC, K_LITERAL, 0);
+	cpu_selftest_load_order_extended(CR_STS1, F_SLGC, K_LITERAL, NP_64_BIT_LITERAL);
+	cpu_selftest_load_64_bit_literal(0x0000000000000000);
 	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_64_BIT, 1, 8));
 	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 1, 16));
 	cpu_selftest_run_code();
 	cpu_selftest_assert_its_interrupt();
 }
 
-static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_destination_not_8_bit(void){}
-static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_source_is_type_3(void){}
-static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_destination_is_type_3(void){}
-static void cpu_selftest_sts1_slgc_processes_type_0_descriptors(void){}
-static void cpu_selftest_sts1_slgc_processes_type_2_descriptors(void){}
-static void cpu_selftest_sts1_slgc_generates_sss_interrupt_if_source_runs_out(void){}
-static void cpu_selftest_sts1_slgc_processes_source_0_dest_0(void){}
-static void cpu_selftest_sts1_slgc_processes_source_0_dest_1(void){}
-static void cpu_selftest_sts1_slgc_processes_source_1_dest_0(void){}
-static void cpu_selftest_sts1_slgc_processes_source_1_dest_1(void){}
+static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_destination_not_8_bit(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_SLGC, K_LITERAL, NP_64_BIT_LITERAL);
+	cpu_selftest_load_64_bit_literal(0x0000000000000000);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 1, 8));
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_64_BIT, 1, 16));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_its_interrupt();
+}
+
+static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_source_is_type_3(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_SLGC, K_LITERAL, NP_64_BIT_LITERAL);
+	cpu_selftest_load_64_bit_literal(0x0000000000000000);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_MISCELLANEOUS, DESCRIPTOR_SIZE_8_BIT, 1, 8));
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 1, 16));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_its_interrupt();
+}
+
+static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_destination_is_type_3(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_SLGC, K_LITERAL, NP_64_BIT_LITERAL);
+	cpu_selftest_load_64_bit_literal(0x0000000000000000);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 1, 8));
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_MISCELLANEOUS, DESCRIPTOR_SIZE_8_BIT, 1, 16));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_its_interrupt();
+}
+
+static void cpu_selftest_sts1_slgc_processes_type_0_descriptors(void)
+{
+	uint32 sourceOrigin = 16;
+	uint32 destinationOrigin = 32;
+	cpu_selftest_load_order_extended(CR_STS1, F_SLGC, K_LITERAL, NP_64_BIT_LITERAL);
+	cpu_selftest_load_64_bit_literal(0x0000000000000000);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, sourceOrigin));
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, destinationOrigin));
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 0, 0xAA);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 0, 0x55);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, sourceOrigin + 1));
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, destinationOrigin + 1));
+	cpu_selftest_assert_no_its_interrupt();
+	cpu_selftest_assert_no_sss_interrupt();
+}
+
+static void cpu_selftest_sts1_slgc_processes_type_2_descriptors(void)
+{
+	uint32 sourceOrigin = 16;
+	uint32 destinationOrigin = 32;
+	cpu_selftest_load_order_extended(CR_STS1, F_SLGC, K_LITERAL, NP_64_BIT_LITERAL);
+	cpu_selftest_load_64_bit_literal(0x0000000000000000);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, sourceOrigin));
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, destinationOrigin));
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 0, 0xAA);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 0, 0x55);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, sourceOrigin + 1));
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, destinationOrigin + 1));
+	cpu_selftest_assert_no_its_interrupt();
+	cpu_selftest_assert_no_sss_interrupt();
+}
+
+static void cpu_selftest_sts1_slgc_processes_long_vector(void)
+{
+	uint32 sourceOrigin = 16;
+	uint32 destinationOrigin = 32;
+	cpu_selftest_load_order_extended(CR_STS1, F_SLGC, K_LITERAL, NP_64_BIT_LITERAL);
+	cpu_selftest_load_64_bit_literal(0x0000000000060000);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 3, sourceOrigin));
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 3, destinationOrigin));
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 0, 0xAA);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 1, 0xAA);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 2, 0xAA);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 0, 0x55);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 1, 0x55);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 2, 0x55);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, sourceOrigin + 3));
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, destinationOrigin + 3));
+	cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 0, 0xFF);
+	cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 1, 0xFF);
+	cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 2, 0xFF);
+	cpu_selftest_assert_no_its_interrupt();
+	cpu_selftest_assert_no_sss_interrupt();
+}
+
+static void cpu_selftest_sts1_slgc_generates_sss_interrupt_if_source_runs_out(void)
+{
+	uint32 sourceOrigin = 16;
+	uint32 destinationOrigin = 32;
+	cpu_selftest_load_order_extended(CR_STS1, F_SLGC, K_LITERAL, NP_64_BIT_LITERAL);
+	cpu_selftest_load_64_bit_literal(0x0000000000000000);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, sourceOrigin));
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 2, destinationOrigin));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_sss_interrupt();
+}
+
+static void cpu_selftest_sts1_slgc_processes_L0(void)
+{
+	uint32 sourceOrigin = 16;
+	uint32 destinationOrigin = 32;
+	cpu_selftest_load_order_extended(CR_STS1, F_SLGC, K_LITERAL, NP_64_BIT_LITERAL);
+	cpu_selftest_load_64_bit_literal(0x0000000000080000);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, sourceOrigin));
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, destinationOrigin));
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 0, 0x33);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 0, 0x55);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, sourceOrigin + 1));
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, destinationOrigin + 1));
+	cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 0, 0x88);
+	cpu_selftest_assert_no_its_interrupt();
+	cpu_selftest_assert_no_sss_interrupt();
+}
+
+static void cpu_selftest_sts1_slgc_processes_L1(void)
+{
+	uint32 sourceOrigin = 16;
+	uint32 destinationOrigin = 32;
+	cpu_selftest_load_order_extended(CR_STS1, F_SLGC, K_LITERAL, NP_64_BIT_LITERAL);
+	cpu_selftest_load_64_bit_literal(0x0000000000040000);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, sourceOrigin));
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, destinationOrigin));
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 0, 0x33);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 0, 0x55);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, sourceOrigin + 1));
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, destinationOrigin + 1));
+	cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 0, 0x44);
+	cpu_selftest_assert_no_its_interrupt();
+	cpu_selftest_assert_no_sss_interrupt();
+}
+
+static void cpu_selftest_sts1_slgc_processes_L2(void)
+{
+	uint32 sourceOrigin = 16;
+	uint32 destinationOrigin = 32;
+	cpu_selftest_load_order_extended(CR_STS1, F_SLGC, K_LITERAL, NP_64_BIT_LITERAL);
+	cpu_selftest_load_64_bit_literal(0x0000000000020000);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, sourceOrigin));
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, destinationOrigin));
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 0, 0x33);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 0, 0x55);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, sourceOrigin + 1));
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, destinationOrigin + 1));
+	cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 0, 0x22);
+	cpu_selftest_assert_no_its_interrupt();
+	cpu_selftest_assert_no_sss_interrupt();
+}
+
+static void cpu_selftest_sts1_slgc_processes_L3(void)
+{
+	uint32 sourceOrigin = 16;
+	uint32 destinationOrigin = 32;
+	cpu_selftest_load_order_extended(CR_STS1, F_SLGC, K_LITERAL, NP_64_BIT_LITERAL);
+	cpu_selftest_load_64_bit_literal(0x0000000000010000);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, sourceOrigin));
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, destinationOrigin));
+	cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 0, 0x33);
+	cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 0, 0x55);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, sourceOrigin + 1));
+	cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, destinationOrigin + 1));
+	cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 0, 0x11);
+	cpu_selftest_assert_no_its_interrupt();
+	cpu_selftest_assert_no_sss_interrupt();
+}
+
+
+static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+	cpu_selftest_set_register(REG_DOD, DOD_BCHI_MASK);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 8));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_no_bound_check_interrupt();
+}
+
+static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(void)
+{
+	uint32 sourceOrigin = 8;
+	uint32 destinationOrigin = 16;
+	cpu_selftest_load_order(CR_STS1, F_SLGC, K_LITERAL, 0);
+	cpu_selftest_set_register(REG_DOD, DOD_SSSI_MASK);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, sourceOrigin));
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 2, destinationOrigin));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_no_sss_interrupt();
+}
+

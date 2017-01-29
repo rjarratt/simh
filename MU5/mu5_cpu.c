@@ -1487,7 +1487,7 @@ static void cpu_process_source_to_destination_descriptor_vector(t_uint64 operand
         if (xdb < db && !cpu_get_register_bit_32(reg_dod, mask_dod_sssi))
         {
             cpu_set_register_bit_32(reg_dod, mask_dod_sss, 1);
-            cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+            cpu_set_interrupt(INT_PROGRAM_FAULTS);
         }
     }
 }
