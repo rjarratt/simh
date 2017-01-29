@@ -586,6 +586,458 @@ UNITTEST tests[] =
 
 // TODO: test for illegal combinations, e.g. store to literal, V32 or V64 (k=2/3) with DR (n'=5).
 
+static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void)
+{
+	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+	cpu_selftest_load_32_bit_literal(0x00000001);
+	cpu_selftest_set_register(REG_DOD, DOD_BCHI_MASK);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 8));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_no_bound_check_interrupt();
+}
+
+static void cpu_selftest_reset(UNITTEST *test)
+{
+	cpu_reset_state();
+
+	testContext.testName = test->name;
+	testContext.currentLoadLocation = 0;
+	testContext.result = SCPE_OK;
+}
+
+static void cpu_selftest_load_order(uint8 cr, uint8 f, uint8 k, uint8 n)
+{
+	uint16 order;
+
+	order = (cr & 0x7) << 13;
+	order |= (f & 0xF) << 9;
+	order |= (k & 0x7) << 6;
+	order |= n & 0x3F;
+	sac_write_16_bit_word(testContext.currentLoadLocation, order);
+	testContext.currentLoadLocation += 1;
+}
+
+static void cpu_selftest_load_order_extended(uint8 cr, uint8 f, uint8 k, uint8 np)
+{
+	uint16 order;
+
+	order = (cr & 0x7) << 13;
+	order |= (f & 0xF) << 9;
+	order |= 0x7 << 6;
+	order |= (k & 0x7) << 3;
+	order |= np & 0x7;
+	sac_write_16_bit_word(testContext.currentLoadLocation, order);
+	testContext.currentLoadLocation += 1;
+}
+
+static void cpu_selftest_load_16_bit_literal(uint16 value)
+{
+	sac_write_16_bit_word(testContext.currentLoadLocation, value);
+	testContext.currentLoadLocation += 1;
+}
+
+static void cpu_selftest_load_32_bit_literal(uint32 value)
+{
+	sac_write_16_bit_word(testContext.currentLoadLocation, (value >> 16) & 0xFFFF);
+	sac_write_16_bit_word(testContext.currentLoadLocation + 1, value & 0xFFFF);
+	testContext.currentLoadLocation += 2;
+}
+
+static void cpu_selftest_load_64_bit_literal(t_uint64 value)
+{
+	sac_write_16_bit_word(testContext.currentLoadLocation, (value >> 48) & 0xFFFF);
+	sac_write_16_bit_word(testContext.currentLoadLocation + 1, (value >> 32) & 0xFFFF);
+	sac_write_16_bit_word(testContext.currentLoadLocation + 2, (value >> 16) & 0xFFFF);
+	sac_write_16_bit_word(testContext.currentLoadLocation + 3, value & 0xFFFF);
+	testContext.currentLoadLocation += 4;
+}
+
+static t_uint64 cpu_selftest_create_descriptor(uint8 type, uint8 size, uint32 bound, uint32 origin)
+{
+	t_uint64 result = 0;
+	result |= (t_uint64)(type & 0x3) << 62;
+	result |= (t_uint64)(size & 0x7) << 59;
+	result |= (t_uint64)bound << 32;
+	result |= origin;
+
+	return result;
+}
+
+static t_addr cpu_selftest_get_64_bit_vector_element_address(uint32 origin, uint32 offset)
+{
+	return (origin + (offset << 3)) >> 2;
+}
+
+static t_addr cpu_selftest_get_32_bit_vector_element_address(uint32 origin, uint32 offset)
+{
+	return (origin + (offset << 2)) >> 2;
+}
+
+static t_addr cpu_selftest_get_16_bit_vector_element_address(uint32 origin, uint32 offset)
+{
+	return (origin + (offset << 1)) >> 1;
+}
+
+static t_addr cpu_selftest_get_8_bit_vector_element_address(uint32 origin, uint32 offset)
+{
+	return origin + offset;
+}
+
+static t_addr cpu_selftest_get_4_bit_vector_element_address(uint32 origin, uint32 offset)
+{
+	return origin + (offset >> 1);
+}
+
+static t_addr cpu_selftest_get_1_bit_vector_element_address(uint32 origin, uint32 offset)
+{
+	return origin + (offset >> 3);
+}
+
+static void cpu_selftest_load_64_bit_value_to_descriptor_location(uint32 origin, uint32 offset, t_uint64 value)
+{
+	sac_write_64_bit_word(cpu_selftest_get_64_bit_vector_element_address(origin, offset), value);
+}
+
+static void cpu_selftest_load_32_bit_value_to_descriptor_location(uint32 origin, uint32 offset, uint32 value)
+{
+	sac_write_32_bit_word(cpu_selftest_get_32_bit_vector_element_address(origin, offset), value);
+}
+
+static void cpu_selftest_load_16_bit_value_to_descriptor_location(uint32 origin, uint32 offset, uint16 value)
+{
+	sac_write_16_bit_word(cpu_selftest_get_16_bit_vector_element_address(origin, offset), value);
+}
+
+static void cpu_selftest_load_8_bit_value_to_descriptor_location(uint32 origin, uint32 offset, uint8 value)
+{
+	sac_write_8_bit_word(cpu_selftest_get_8_bit_vector_element_address(origin, offset), value);
+}
+
+static void cpu_selftest_load_4_bit_value_to_descriptor_location(uint32 origin, uint32 offset, uint8 value)
+{
+	t_addr addr = cpu_selftest_get_4_bit_vector_element_address(origin, offset);
+	uint8 shift = 4 * (1 - (offset & 0x1));
+	uint8 nibbleMask = (uint8)0xF << shift;
+	uint8 nibble = (value & 0xF) << shift;
+	uint8 byte = sac_read_8_bit_word(addr);
+	byte = (byte & ~nibbleMask) | nibble;
+	sac_write_8_bit_word(addr, byte);
+}
+
+static void cpu_selftest_load_1_bit_value_to_descriptor_location(uint32 origin, uint32 offset, uint8 value)
+{
+	t_addr addr = cpu_selftest_get_1_bit_vector_element_address(origin, offset);
+	uint8 shift = 7 - (offset & 0x7);
+	uint8 bitMask = (uint8)0x1 << shift;
+	uint8 bit = (value & 0x1) << shift;
+	uint8 byte = sac_read_8_bit_word(addr);
+	byte = (byte & ~bitMask) | bit;
+	sac_write_8_bit_word(addr, byte);
+}
+
+static uint32 cpu_selftest_byte_address_from_word_address(uint32 address)
+{
+	return address << 2;
+}
+
+static void cpu_selftest_run_code(void)
+{
+	cpu_selftest_set_register("CO", 0);
+	cpu_execute_next_order();
+}
+
+static REG *cpu_selftest_get_register(char *name)
+{
+	REG *rptr;
+	for (rptr = cpu_dev.registers; rptr->name != NULL; rptr++)
+	{
+		if (strcmp(rptr->name, name) == 0)
+		{
+			break;
+		}
+	}
+
+	if (rptr->name == NULL)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Could not find register %s\n", name);
+		testContext.result = SCPE_AFAIL;
+		rptr = NULL;
+	}
+
+	return rptr;
+}
+
+static void cpu_selftest_set_register(char *name, t_uint64 value)
+{
+	REG *reg = cpu_selftest_get_register(name);
+	switch (reg->width)
+	{
+		case 16:
+		{
+			*(uint16 *)(reg->loc) = value & 0xFFFF;
+			break;
+		}
+		case 32:
+		{
+			*(uint32 *)(reg->loc) = value & 0xFFFFFFFF;
+			break;
+		}
+		case 64:
+		{
+			*(t_uint64 *)(reg->loc) = value & 0xFFFFFFFFFFFFFFFF;
+			break;
+		}
+		default:
+		{
+			sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected register width %d for register %s\n", reg->width, name);
+			testContext.result = SCPE_AFAIL;
+			break;
+		}
+	}
+
+}
+
+static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue)
+{
+	REG *reg = cpu_selftest_get_register(name);
+	t_uint64 actualValue;
+	t_uint64 mask;
+	switch (reg->width)
+	{
+		case 16:
+		{
+			actualValue = *(uint16 *)(reg->loc);
+			mask = 0xFFFF;
+			break;
+		}
+		case 32:
+		{
+			actualValue = *(uint32 *)(reg->loc);
+			mask = 0xFFFFFFFF;
+			break;
+		}
+		case 64:
+		{
+			actualValue = *(t_uint64 *)(reg->loc);
+			mask = 0xFFFFFFFFFFFFFFFF;
+			break;
+		}
+		default:
+		{
+			sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected register width %d for register %s\n", reg->width, name);
+			testContext.result = SCPE_AFAIL;
+			break;
+		}
+	}
+
+	if (testContext.result == SCPE_OK)
+	{
+		if ((mask & actualValue) != (mask & expectedValue))
+		{
+			sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value in register %s to be %llX, but was %llX\n", name, mask & expectedValue, mask & actualValue);
+			testContext.result = SCPE_AFAIL;
+		}
+	}
+}
+
+static void cpu_selftest_assert_memory_contents_32_bit(t_addr address, uint32 expectedValue)
+{
+	uint32 actualValue = sac_read_32_bit_word(address);
+	if (actualValue != expectedValue)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at address %08X to be %08X, but was %08X\n", address, expectedValue, actualValue);
+		testContext.result = SCPE_AFAIL;
+	}
+}
+
+static void cpu_selftest_assert_memory_contents_64_bit(t_addr address, t_uint64 expectedValue)
+{
+	t_uint64 actualValue = sac_read_64_bit_word(address);
+	if (actualValue != expectedValue)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at address %08X to be %016llX, but was %016llX\n", address, expectedValue, actualValue);
+		testContext.result = SCPE_AFAIL;
+	}
+}
+
+static void cpu_selftest_assert_vector_content_64_bit(t_addr origin, uint32 offset, t_uint64 expectedValue)
+{
+	t_uint64 actualValue = sac_read_64_bit_word(cpu_selftest_get_64_bit_vector_element_address(origin, offset));
+	if (actualValue != expectedValue)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %016llX, but was %016llX\n", offset, origin, expectedValue, actualValue);
+		testContext.result = SCPE_AFAIL;
+	}
+}
+
+static void cpu_selftest_assert_vector_content_32_bit(t_addr origin, uint32 offset, uint32 expectedValue)
+{
+	uint32 actualValue = sac_read_32_bit_word(cpu_selftest_get_32_bit_vector_element_address(origin, offset));
+	if (actualValue != expectedValue)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %08X, but was %08X\n", offset, origin, expectedValue, actualValue);
+		testContext.result = SCPE_AFAIL;
+	}
+}
+
+static void cpu_selftest_assert_vector_content_16_bit(t_addr origin, uint32 offset, uint16 expectedValue)
+{
+	uint16 actualValue = sac_read_16_bit_word(cpu_selftest_get_16_bit_vector_element_address(origin, offset));
+	if (actualValue != expectedValue)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %04X, but was %04X\n", offset, origin, expectedValue, actualValue);
+		testContext.result = SCPE_AFAIL;
+	}
+}
+
+static void cpu_selftest_assert_vector_content_8_bit(t_addr origin, uint32 offset, uint8 expectedValue)
+{
+	uint8 actualValue = sac_read_8_bit_word(cpu_selftest_get_8_bit_vector_element_address(origin, offset));
+	if (actualValue != expectedValue)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %02X, but was %02X\n", offset, origin, expectedValue, actualValue);
+		testContext.result = SCPE_AFAIL;
+	}
+}
+
+static void cpu_selftest_assert_vector_content_4_bit(t_addr origin, uint32 offset, uint8 expectedValue)
+{
+	uint8 byte = sac_read_8_bit_word(cpu_selftest_get_4_bit_vector_element_address(origin, offset));
+	uint8 shift = 4 * (1 - (offset & 0x1));
+	uint8 actualNibble = (byte >> shift) & 0xF;
+	if (actualNibble != expectedValue)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %01X, but was %01X\n", offset, origin, expectedValue, actualNibble);
+		testContext.result = SCPE_AFAIL;
+	}
+}
+
+static void cpu_selftest_assert_vector_content_1_bit(t_addr origin, uint32 offset, uint8 expectedValue)
+{
+	uint8 byte = sac_read_8_bit_word(cpu_selftest_get_1_bit_vector_element_address(origin, offset));
+	uint8 shift = 7 - (offset & 0x7);
+	uint8 actualBit = (byte >> shift) & 0x1;
+	if (actualBit != expectedValue)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %01X, but was %01X\n", offset, origin, expectedValue, actualBit);
+		testContext.result = SCPE_AFAIL;
+	}
+}
+
+static void cpu_selftest_assert_interrupt(void)
+{
+	if (cpu_get_interrupt_number() == 255)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected interrupt to have occurred\n");
+		testContext.result = SCPE_AFAIL;
+	}
+}
+
+static void cpu_selftest_assert_no_interrupt(void)
+{
+	if (cpu_get_interrupt_number() != 255)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected interrupt\n");
+		testContext.result = SCPE_AFAIL;
+	}
+}
+
+static void cpu_selftest_assert_d_interrupt(char *name, uint32 mask)
+{
+	if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected %s interrupt to have occurred\n", name);
+		testContext.result = SCPE_AFAIL;
+	}
+
+	REG *reg_dod = cpu_selftest_get_register(REG_DOD);
+	uint32 dod = *(uint32 *)reg_dod->loc;
+	if (!(dod & mask))
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected %s bit to be set in DOD\n", name);
+		testContext.result = SCPE_AFAIL;
+	}
+}
+
+static void cpu_selftest_assert_no_d_interrupt(char *name, uint32 mask)
+{
+	cpu_selftest_assert_no_interrupt();
+
+	REG *reg_dod = cpu_selftest_get_register(REG_DOD);
+	uint32 dod = *(uint32 *)reg_dod->loc;
+	if (dod & mask)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected %s bit to be clear in DOD\n", name);
+		testContext.result = SCPE_AFAIL;
+	}
+}
+
+static void cpu_selftest_assert_bound_check_interrupt(void)
+{
+	cpu_selftest_assert_d_interrupt("BCH", DOD_BCH_MASK);
+}
+
+static void cpu_selftest_assert_its_interrupt(void)
+{
+	cpu_selftest_assert_d_interrupt("ITS", DOD_ITS_MASK);
+}
+
+static void cpu_selftest_assert_no_bound_check_interrupt(void)
+{
+	cpu_selftest_assert_no_d_interrupt("BCH", DOD_BCH_MASK);
+}
+
+static void cpu_selftest_assert_no_its_interrupt(void)
+{
+	cpu_selftest_assert_no_d_interrupt("ITS", DOD_ITS_MASK);
+}
+
+static void cpu_selftest_assert_fail(void)
+{
+	sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Test failed\n");
+	testContext.result = SCPE_AFAIL;
+}
+
+t_stat cpu_selftest(void)
+{
+	t_stat result = SCPE_OK;
+	int n;
+	int i;
+	int countSuccessful = 0;
+	int countFailed = 0;
+
+	n = sizeof(tests) / sizeof(UNITTEST);
+
+	for (i = 0; i < n; i++)
+	{
+		cpu_selftest_reset(&tests[i]);
+		tests[i].runner();
+		if (testContext.result == SCPE_OK)
+		{
+			sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "%s [OK]\n", tests[i].name);
+			countSuccessful++;
+		}
+		else
+		{
+			result = SCPE_AFAIL;
+			sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "%s [FAIL]\n", tests[i].name);
+			countFailed++;
+		}
+	}
+
+	sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "\n");
+	if (countFailed == 0)
+	{
+		sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "ALL TESTS PASSED\n");
+	}
+	else
+	{
+		sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "%d of %d TESTS PASSED, %d FAILED\n", countSuccessful, n, countFailed);
+	}
+
+	return result;
+}
+
 static void cpu_selftest_16_bit_instruction_advances_co_by_1(void)
 {
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
@@ -2821,455 +3273,3 @@ static void cpu_selftest_sts1_slgc_processes_source_0_dest_0(void){}
 static void cpu_selftest_sts1_slgc_processes_source_0_dest_1(void){}
 static void cpu_selftest_sts1_slgc_processes_source_1_dest_0(void){}
 static void cpu_selftest_sts1_slgc_processes_source_1_dest_1(void){}
-
-static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void)
-{
-	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
-	cpu_selftest_load_32_bit_literal(0x00000001);
-	cpu_selftest_set_register(REG_DOD, DOD_BCHI_MASK);
-	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 8));
-	cpu_selftest_run_code();
-	cpu_selftest_assert_no_bound_check_interrupt();
-}
-
-static void cpu_selftest_reset(UNITTEST *test)
-{
-    cpu_reset_state();
-
-    testContext.testName = test->name;
-    testContext.currentLoadLocation = 0;
-    testContext.result = SCPE_OK;
-}
-
-static void cpu_selftest_load_order(uint8 cr, uint8 f, uint8 k, uint8 n)
-{
-    uint16 order;
-    
-    order = (cr & 0x7) << 13;
-    order |= (f & 0xF) << 9;
-    order |= (k & 0x7) << 6;
-    order |= n & 0x3F;
-    sac_write_16_bit_word(testContext.currentLoadLocation, order);
-    testContext.currentLoadLocation += 1;
-}
-
-static void cpu_selftest_load_order_extended(uint8 cr, uint8 f, uint8 k, uint8 np)
-{
-    uint16 order;
-
-    order = (cr & 0x7) << 13;
-    order |= (f & 0xF) << 9;
-    order |= 0x7 << 6;
-    order |= (k & 0x7) << 3;
-    order |= np & 0x7;
-    sac_write_16_bit_word(testContext.currentLoadLocation, order);
-    testContext.currentLoadLocation += 1;
-}
-
-static void cpu_selftest_load_16_bit_literal(uint16 value)
-{
-    sac_write_16_bit_word(testContext.currentLoadLocation, value);
-    testContext.currentLoadLocation += 1;
-}
-
-static void cpu_selftest_load_32_bit_literal(uint32 value)
-{
-    sac_write_16_bit_word(testContext.currentLoadLocation, (value >> 16) & 0xFFFF);
-    sac_write_16_bit_word(testContext.currentLoadLocation + 1, value & 0xFFFF);
-    testContext.currentLoadLocation += 2;
-}
-
-static void cpu_selftest_load_64_bit_literal(t_uint64 value)
-{
-    sac_write_16_bit_word(testContext.currentLoadLocation, (value >> 48) & 0xFFFF);
-    sac_write_16_bit_word(testContext.currentLoadLocation + 1, (value >> 32) & 0xFFFF);
-    sac_write_16_bit_word(testContext.currentLoadLocation + 2, (value >> 16) & 0xFFFF);
-    sac_write_16_bit_word(testContext.currentLoadLocation + 3, value & 0xFFFF);
-    testContext.currentLoadLocation += 4;
-}
-
-static t_uint64 cpu_selftest_create_descriptor(uint8 type, uint8 size, uint32 bound, uint32 origin)
-{
-    t_uint64 result = 0;
-    result |= (t_uint64)(type & 0x3) << 62;
-    result |= (t_uint64)(size & 0x7) << 59;
-    result |= (t_uint64)bound << 32;
-    result |= origin;
-
-    return result;
-}
-
-static t_addr cpu_selftest_get_64_bit_vector_element_address(uint32 origin, uint32 offset)
-{
-	return (origin + (offset << 3)) >> 2;
-}
-
-static t_addr cpu_selftest_get_32_bit_vector_element_address(uint32 origin, uint32 offset)
-{
-	return (origin + (offset << 2)) >> 2;
-}
-
-static t_addr cpu_selftest_get_16_bit_vector_element_address(uint32 origin, uint32 offset)
-{
-	return (origin + (offset << 1)) >> 1;
-}
-
-static t_addr cpu_selftest_get_8_bit_vector_element_address(uint32 origin, uint32 offset)
-{
-	return origin + offset;
-}
-
-static t_addr cpu_selftest_get_4_bit_vector_element_address(uint32 origin, uint32 offset)
-{
-	return origin + (offset >> 1);
-}
-
-static t_addr cpu_selftest_get_1_bit_vector_element_address(uint32 origin, uint32 offset)
-{
-	return origin + (offset >> 3);
-}
-
-static void cpu_selftest_load_64_bit_value_to_descriptor_location(uint32 origin, uint32 offset, t_uint64 value)
-{
-    sac_write_64_bit_word(cpu_selftest_get_64_bit_vector_element_address(origin, offset), value);
-}
-
-static void cpu_selftest_load_32_bit_value_to_descriptor_location(uint32 origin, uint32 offset, uint32 value)
-{
-    sac_write_32_bit_word(cpu_selftest_get_32_bit_vector_element_address(origin, offset), value);
-}
-
-static void cpu_selftest_load_16_bit_value_to_descriptor_location(uint32 origin, uint32 offset, uint16 value)
-{
-    sac_write_16_bit_word(cpu_selftest_get_16_bit_vector_element_address(origin, offset), value);
-}
-
-static void cpu_selftest_load_8_bit_value_to_descriptor_location(uint32 origin, uint32 offset, uint8 value)
-{
-	sac_write_8_bit_word(cpu_selftest_get_8_bit_vector_element_address(origin, offset), value);
-}
-
-static void cpu_selftest_load_4_bit_value_to_descriptor_location(uint32 origin, uint32 offset, uint8 value)
-{
-	t_addr addr = cpu_selftest_get_4_bit_vector_element_address(origin, offset);
-	uint8 shift = 4 * (1 - (offset & 0x1));
-	uint8 nibbleMask = (uint8)0xF << shift;
-	uint8 nibble = (value & 0xF) << shift;
-	uint8 byte = sac_read_8_bit_word(addr);
-	byte = (byte & ~nibbleMask) | nibble;
-	sac_write_8_bit_word(addr, byte);
-}
-
-static void cpu_selftest_load_1_bit_value_to_descriptor_location(uint32 origin, uint32 offset, uint8 value)
-{
-	t_addr addr = cpu_selftest_get_1_bit_vector_element_address(origin, offset);
-	uint8 shift = 7 - (offset & 0x7);
-	uint8 bitMask = (uint8)0x1 << shift;
-	uint8 bit = (value & 0x1) << shift;
-	uint8 byte = sac_read_8_bit_word(addr);
-	byte = (byte & ~bitMask) | bit;
-	sac_write_8_bit_word(addr, byte);
-}
-
-static uint32 cpu_selftest_byte_address_from_word_address(uint32 address)
-{
-    return address << 2;
-}
-
-static void cpu_selftest_run_code(void)
-{
-    cpu_selftest_set_register("CO", 0);
-    cpu_execute_next_order();
-}
-
-static REG *cpu_selftest_get_register(char *name)
-{
-    REG *rptr;
-    for (rptr = cpu_dev.registers; rptr->name != NULL; rptr++)
-    {
-        if (strcmp(rptr->name, name) == 0)
-        {
-            break;
-        }
-    }
-
-    if (rptr->name == NULL)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Could not find register %s\n", name);
-        testContext.result = SCPE_AFAIL;
-        rptr = NULL;
-    }
-
-    return rptr;
-}
-
-static void cpu_selftest_set_register(char *name, t_uint64 value)
-{
-    REG *reg = cpu_selftest_get_register(name);
-    switch (reg->width)
-    {
-        case 16:
-        {
-            *(uint16 *)(reg->loc) = value & 0xFFFF;
-            break;
-        }
-        case 32:
-        {
-            *(uint32 *)(reg->loc) = value & 0xFFFFFFFF;
-            break;
-        }
-        case 64:
-        {
-            *(t_uint64 *)(reg->loc) = value & 0xFFFFFFFFFFFFFFFF;
-            break;
-        }
-        default:
-        {
-            sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected register width %d for register %s\n", reg->width, name);
-            testContext.result = SCPE_AFAIL;
-            break;
-        }
-    }
-
-}
-
-static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue)
-{
-    REG *reg = cpu_selftest_get_register(name);
-    t_uint64 actualValue;
-    t_uint64 mask;
-    switch (reg->width)
-    {
-        case 16:
-        {
-            actualValue = *(uint16 *)(reg->loc);
-            mask = 0xFFFF;
-            break;
-        }
-        case 32:
-        {
-            actualValue = *(uint32 *)(reg->loc);
-            mask = 0xFFFFFFFF;
-            break;
-        }
-        case 64:
-        {
-            actualValue = *(t_uint64 *)(reg->loc);
-            mask = 0xFFFFFFFFFFFFFFFF;
-            break;
-        }
-        default:
-        {
-            sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected register width %d for register %s\n", reg->width, name);
-            testContext.result = SCPE_AFAIL;
-            break;
-        }
-    }
-
-    if (testContext.result == SCPE_OK)
-    {
-        if ((mask & actualValue) != (mask & expectedValue))
-        {
-            sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value in register %s to be %llX, but was %llX\n", name, mask & expectedValue, mask & actualValue);
-            testContext.result = SCPE_AFAIL;
-        }
-    }
-}
-
-static void cpu_selftest_assert_memory_contents_32_bit(t_addr address, uint32 expectedValue)
-{
-	uint32 actualValue = sac_read_32_bit_word(address);
-	if (actualValue != expectedValue)
-	{
-		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at address %08X to be %08X, but was %08X\n", address, expectedValue, actualValue);
-		testContext.result = SCPE_AFAIL;
-	}
-}
-
-static void cpu_selftest_assert_memory_contents_64_bit(t_addr address, t_uint64 expectedValue)
-{
-	t_uint64 actualValue = sac_read_64_bit_word(address);
-	if (actualValue != expectedValue)
-	{
-		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at address %08X to be %016llX, but was %016llX\n", address, expectedValue, actualValue);
-		testContext.result = SCPE_AFAIL;
-	}
-}
-
-static void cpu_selftest_assert_vector_content_64_bit(t_addr origin, uint32 offset, t_uint64 expectedValue)
-{
-	t_uint64 actualValue = sac_read_64_bit_word(cpu_selftest_get_64_bit_vector_element_address(origin, offset));
-	if (actualValue != expectedValue)
-	{
-		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %016llX, but was %016llX\n", offset, origin, expectedValue, actualValue);
-		testContext.result = SCPE_AFAIL;
-	}
-}
-
-static void cpu_selftest_assert_vector_content_32_bit(t_addr origin, uint32 offset, uint32 expectedValue)
-{
-	uint32 actualValue = sac_read_32_bit_word(cpu_selftest_get_32_bit_vector_element_address(origin, offset));
-	if (actualValue != expectedValue)
-	{
-		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %08X, but was %08X\n", offset, origin, expectedValue, actualValue);
-		testContext.result = SCPE_AFAIL;
-	}
-}
-
-static void cpu_selftest_assert_vector_content_16_bit(t_addr origin, uint32 offset, uint16 expectedValue)
-{
-	uint16 actualValue = sac_read_16_bit_word(cpu_selftest_get_16_bit_vector_element_address(origin, offset));
-	if (actualValue != expectedValue)
-	{
-		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %04X, but was %04X\n", offset, origin, expectedValue, actualValue);
-		testContext.result = SCPE_AFAIL;
-	}
-}
-
-static void cpu_selftest_assert_vector_content_8_bit(t_addr origin, uint32 offset, uint8 expectedValue)
-{
-	uint8 actualValue = sac_read_8_bit_word(cpu_selftest_get_8_bit_vector_element_address(origin, offset));
-	if (actualValue != expectedValue)
-	{
-		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %02X, but was %02X\n", offset, origin, expectedValue, actualValue);
-		testContext.result = SCPE_AFAIL;
-	}
-}
-
-static void cpu_selftest_assert_vector_content_4_bit(t_addr origin, uint32 offset, uint8 expectedValue)
-{
-	uint8 byte = sac_read_8_bit_word(cpu_selftest_get_4_bit_vector_element_address(origin, offset));
-	uint8 shift = 4 * (1 - (offset & 0x1));
-	uint8 actualNibble = (byte >> shift) & 0xF;
-	if (actualNibble != expectedValue)
-	{
-		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %01X, but was %01X\n", offset, origin, expectedValue, actualNibble);
-		testContext.result = SCPE_AFAIL;
-	}
-}
-
-static void cpu_selftest_assert_vector_content_1_bit(t_addr origin, uint32 offset, uint8 expectedValue)
-{
-	uint8 byte = sac_read_8_bit_word(cpu_selftest_get_1_bit_vector_element_address(origin, offset));
-	uint8 shift = 7 - (offset & 0x7);
-	uint8 actualBit = (byte >> shift) & 0x1;
-	if (actualBit != expectedValue)
-	{
-		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %01X, but was %01X\n", offset, origin, expectedValue, actualBit);
-		testContext.result = SCPE_AFAIL;
-	}
-}
-
-static void cpu_selftest_assert_interrupt(void)
-{
-    if (cpu_get_interrupt_number() == 255)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected interrupt to have occurred\n");
-        testContext.result = SCPE_AFAIL;
-    }
-}
-
-static void cpu_selftest_assert_no_interrupt(void)
-{
-	if (cpu_get_interrupt_number() != 255)
-	{
-		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected interrupt\n");
-		testContext.result = SCPE_AFAIL;
-	}
-}
-
-static void cpu_selftest_assert_d_interrupt(char *name, uint32 mask)
-{
-	if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
-	{
-		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected %s interrupt to have occurred\n", name);
-		testContext.result = SCPE_AFAIL;
-	}
-
-	REG *reg_dod = cpu_selftest_get_register(REG_DOD);
-	uint32 dod = *(uint32 *)reg_dod->loc;
-	if (!(dod & mask))
-	{
-		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected %s bit to be set in DOD\n", name);
-		testContext.result = SCPE_AFAIL;
-	}
-}
-
-static void cpu_selftest_assert_no_d_interrupt(char *name, uint32 mask)
-{
-	cpu_selftest_assert_no_interrupt();
-
-	REG *reg_dod = cpu_selftest_get_register(REG_DOD);
-	uint32 dod = *(uint32 *)reg_dod->loc;
-	if (dod & mask)
-	{
-		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected %s bit to be clear in DOD\n", name);
-		testContext.result = SCPE_AFAIL;
-	}
-}
-
-static void cpu_selftest_assert_bound_check_interrupt(void)
-{
-	cpu_selftest_assert_d_interrupt("BCH", DOD_BCH_MASK);
-}
-
-static void cpu_selftest_assert_its_interrupt(void)
-{
-	cpu_selftest_assert_d_interrupt("ITS", DOD_ITS_MASK);
-}
-
-static void cpu_selftest_assert_no_bound_check_interrupt(void)
-{
-	cpu_selftest_assert_no_d_interrupt("BCH", DOD_BCH_MASK);
-}
-
-static void cpu_selftest_assert_no_its_interrupt(void)
-{
-	cpu_selftest_assert_no_d_interrupt("ITS", DOD_ITS_MASK);
-}
-
-static void cpu_selftest_assert_fail(void)
-{
-    sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Test failed\n");
-    testContext.result = SCPE_AFAIL;
-}
-
-t_stat cpu_selftest(void)
-{
-    t_stat result = SCPE_OK;
-    int n;
-    int i;
-	int countSuccessful = 0;
-	int countFailed = 0;
-
-    n = sizeof(tests) / sizeof(UNITTEST);
-
-    for (i = 0; i < n; i++)
-    {
-        cpu_selftest_reset(&tests[i]);
-        tests[i].runner();
-        if (testContext.result == SCPE_OK)
-        {
-            sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "%s [OK]\n", tests[i].name);
-			countSuccessful++;
-        }
-        else
-        {
-            result = SCPE_AFAIL;
-            sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "%s [FAIL]\n", tests[i].name);
-			countFailed++;
-        }
-    }
-
-	sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "\n");
-	if (countFailed == 0)
-	{
-		sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "ALL TESTS PASSED\n");
-	}
-	else
-	{
-		sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "%d of %d TESTS PASSED, %d FAILED\n", countSuccessful, n, countFailed);
-	}
-
-    return result;
-}
