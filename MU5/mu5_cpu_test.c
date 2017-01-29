@@ -151,10 +151,13 @@ static void cpu_selftest_assert_vector_content_8_bit(t_addr origin, uint32 offse
 static void cpu_selftest_assert_vector_content_4_bit(t_addr origin, uint32 offset, uint8 expectedValue);
 static void cpu_selftest_assert_vector_content_1_bit(t_addr origin, uint32 offset, uint8 expectedValue);
 static void cpu_selftest_assert_interrupt(void);
+static void cpu_selftest_assert_no_interrupt(void);
+static void cpu_selftest_assert_d_interrupt(char *name, uint32 mask);
+static void cpu_selftest_assert_no_d_interrupt(char *name, uint32 mask);
 static void cpu_selftest_assert_bound_check_interrupt(void);
 static void cpu_selftest_assert_its_interrupt(void);
-static void cpu_selftest_assert_no_interrupt(void);
 static void cpu_selftest_assert_no_bound_check_interrupt(void);
+static void cpu_selftest_assert_no_its_interrupt(void);
 static void cpu_selftest_assert_fail(void);
 
 static void cpu_selftest_16_bit_instruction_advances_co_by_1(void);
@@ -3166,60 +3169,63 @@ static void cpu_selftest_assert_interrupt(void)
     }
 }
 
-static void cpu_selftest_assert_bound_check_interrupt(void)
-{
-	if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
-	{
-		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected bound check interrupt to have occurred\n");
-		testContext.result = SCPE_AFAIL;
-	}
-
-	REG *reg_dod = cpu_selftest_get_register(REG_DOD);
-	uint32 dod = *(uint32 *)reg_dod->loc;
-	if (!(dod & DOD_BCH_MASK))
-	{
-		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected BCH bit to be set in DOD\n");
-		testContext.result = SCPE_AFAIL;
-	}
-}
-
-static void cpu_selftest_assert_its_interrupt(void)
-{
-	if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
-	{
-		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected ITS interrupt to have occurred\n");
-		testContext.result = SCPE_AFAIL;
-	}
-
-	REG *reg_dod = cpu_selftest_get_register(REG_DOD);
-	uint32 dod = *(uint32 *)reg_dod->loc;
-	if (!(dod & DOD_ITS_MASK))
-	{
-		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected ITS bit to be set in DOD\n");
-		testContext.result = SCPE_AFAIL;
-	}
-}
-
 static void cpu_selftest_assert_no_interrupt(void)
 {
-    if (cpu_get_interrupt_number() != 255)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected interrupt\n");
-        testContext.result = SCPE_AFAIL;
-    }
+	if (cpu_get_interrupt_number() != 255)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected interrupt\n");
+		testContext.result = SCPE_AFAIL;
+	}
 }
 
-static void cpu_selftest_assert_no_bound_check_interrupt(void)
+static void cpu_selftest_assert_d_interrupt(char *name, uint32 mask)
+{
+	if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected %s interrupt to have occurred\n", name);
+		testContext.result = SCPE_AFAIL;
+	}
+
+	REG *reg_dod = cpu_selftest_get_register(REG_DOD);
+	uint32 dod = *(uint32 *)reg_dod->loc;
+	if (!(dod & mask))
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected %s bit to be set in DOD\n", name);
+		testContext.result = SCPE_AFAIL;
+	}
+}
+
+static void cpu_selftest_assert_no_d_interrupt(char *name, uint32 mask)
 {
 	cpu_selftest_assert_no_interrupt();
 
 	REG *reg_dod = cpu_selftest_get_register(REG_DOD);
 	uint32 dod = *(uint32 *)reg_dod->loc;
-	if (dod & DOD_BCH_MASK)
+	if (dod & mask)
 	{
-		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected BCH bit to be clear in DOD\n");
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected %s bit to be clear in DOD\n", name);
 		testContext.result = SCPE_AFAIL;
 	}
+}
+
+static void cpu_selftest_assert_bound_check_interrupt(void)
+{
+	cpu_selftest_assert_d_interrupt("BCH", DOD_BCH_MASK);
+}
+
+static void cpu_selftest_assert_its_interrupt(void)
+{
+	cpu_selftest_assert_d_interrupt("ITS", DOD_ITS_MASK);
+}
+
+static void cpu_selftest_assert_no_bound_check_interrupt(void)
+{
+	cpu_selftest_assert_no_d_interrupt("BCH", DOD_BCH_MASK);
+}
+
+static void cpu_selftest_assert_no_its_interrupt(void)
+{
+	cpu_selftest_assert_no_d_interrupt("ITS", DOD_ITS_MASK);
 }
 
 static void cpu_selftest_assert_fail(void)
