@@ -59,6 +59,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_XCHK 5
 #define F_SMOD 6
 #define F_XMOD 7
+#define F_SLGC 8
 
 #define F_LOAD_64 1
 #define F_STORE_64 3
@@ -95,6 +96,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define DESCRIPTOR_US_MASK 0x0200000000000000
 #define DESCRIPTOR_BC_MASK 0x0100000000000000
 
+#define DOD_ITS_MASK 0x00000002
 #define DOD_BCH_MASK 0x00000020
 #define DOD_BCHI_MASK 0x00000100
 
@@ -150,6 +152,7 @@ static void cpu_selftest_assert_vector_content_4_bit(t_addr origin, uint32 offse
 static void cpu_selftest_assert_vector_content_1_bit(t_addr origin, uint32 offset, uint8 expectedValue);
 static void cpu_selftest_assert_interrupt(void);
 static void cpu_selftest_assert_bound_check_interrupt(void);
+static void cpu_selftest_assert_its_interrupt(void);
 static void cpu_selftest_assert_no_interrupt(void);
 static void cpu_selftest_assert_no_bound_check_interrupt(void);
 static void cpu_selftest_assert_fail(void);
@@ -349,6 +352,17 @@ static void cpu_selftest_sts1_xmod_checks_bounds_for_type_2(void);
 static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_0_when_BC_set(void);
 static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_1_when_BC_set(void);
 static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_2_when_BC_set(void);
+static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_source_not_8_bit(void);
+static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_destination_not_8_bit(void);
+static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_source_is_type_3(void);
+static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_destination_is_type_3(void);
+static void cpu_selftest_sts1_slgc_processes_type_0_descriptors(void);
+static void cpu_selftest_sts1_slgc_processes_type_2_descriptors(void);
+static void cpu_selftest_sts1_slgc_generates_sss_interrupt_if_source_runs_out(void);
+static void cpu_selftest_sts1_slgc_processes_source_0_dest_0(void);
+static void cpu_selftest_sts1_slgc_processes_source_0_dest_1(void);
+static void cpu_selftest_sts1_slgc_processes_source_1_dest_0(void);
+static void cpu_selftest_sts1_slgc_processes_source_1_dest_1(void);
 
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void);
 
@@ -552,6 +566,17 @@ UNITTEST tests[] =
 	{ "XMOD does not check bounds for type 0 descriptor when BC is set", cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_0_when_BC_set },
 	{ "XMOD does not check bounds for type 1 descriptor when BC is set", cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_1_when_BC_set },
 	{ "XMOD does not check bounds for type 2 descriptor when BC is set", cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_2_when_BC_set },
+	{ "SLGC generates ITS interrupt if source is not 8-bit", cpu_selftest_sts1_slgc_generates_its_interrupt_if_source_not_8_bit },
+	{ "SLGC generates ITS interrupt if destination is not 8-bit", cpu_selftest_sts1_slgc_generates_its_interrupt_if_destination_not_8_bit },
+	{ "SLGC generates ITS interrupt if source is type 3", cpu_selftest_sts1_slgc_generates_its_interrupt_if_source_is_type_3 },
+	{ "SLGC generates ITS interrupt if destination is type 3", cpu_selftest_sts1_slgc_generates_its_interrupt_if_destination_is_type_3 },
+	{ "SLGC processes type 0 descriptors", cpu_selftest_sts1_slgc_processes_type_0_descriptors },
+	{ "SLGC processes type 2 descriptors", cpu_selftest_sts1_slgc_processes_type_2_descriptors },
+	{ "SLGC generates SSS interrupt if source runs out", cpu_selftest_sts1_slgc_generates_sss_interrupt_if_source_runs_out },
+	{ "SLGC processes source=0 and destination=0", cpu_selftest_sts1_slgc_processes_source_0_dest_0 },
+	{ "SLGC processes source=0 and destination=1", cpu_selftest_sts1_slgc_processes_source_0_dest_1 },
+	{ "SLGC processes source=1 and destination=0", cpu_selftest_sts1_slgc_processes_source_1_dest_0 },
+	{ "SLGC processes source=1 and destination=1", cpu_selftest_sts1_slgc_processes_source_1_dest_1 },
 
 	{ "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited }
 };
@@ -2751,7 +2776,6 @@ static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_0_when_BC_set(
 {
 	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
 	cpu_selftest_load_32_bit_literal(0x00000001);
-	cpu_selftest_set_register(REG_DOD, 0x00000000);
 	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 8) | DESCRIPTOR_BC_MASK);
 	cpu_selftest_run_code();
 	cpu_selftest_assert_no_bound_check_interrupt();
@@ -2761,7 +2785,6 @@ static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_1_when_BC_set(
 {
 	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
 	cpu_selftest_load_32_bit_literal(0x00000001);
-	cpu_selftest_set_register(REG_DOD, 0x00000000);
 	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 1, 8) | DESCRIPTOR_BC_MASK);
 	cpu_selftest_run_code();
 	cpu_selftest_assert_no_bound_check_interrupt();
@@ -2771,11 +2794,30 @@ static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_2_when_BC_set(
 {
 	cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
 	cpu_selftest_load_32_bit_literal(0x00000001);
-	cpu_selftest_set_register(REG_DOD, 0x00000000);
 	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_64_BIT, 1, 8) | DESCRIPTOR_BC_MASK);
 	cpu_selftest_run_code();
 	cpu_selftest_assert_no_bound_check_interrupt();
 }
+
+static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_source_not_8_bit(void)
+{
+	cpu_selftest_load_order(CR_STS1, F_SLGC, K_LITERAL, 0);
+	cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_64_BIT, 1, 8));
+	cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 1, 16));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_its_interrupt();
+}
+
+static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_destination_not_8_bit(void){}
+static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_source_is_type_3(void){}
+static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_destination_is_type_3(void){}
+static void cpu_selftest_sts1_slgc_processes_type_0_descriptors(void){}
+static void cpu_selftest_sts1_slgc_processes_type_2_descriptors(void){}
+static void cpu_selftest_sts1_slgc_generates_sss_interrupt_if_source_runs_out(void){}
+static void cpu_selftest_sts1_slgc_processes_source_0_dest_0(void){}
+static void cpu_selftest_sts1_slgc_processes_source_0_dest_1(void){}
+static void cpu_selftest_sts1_slgc_processes_source_1_dest_0(void){}
+static void cpu_selftest_sts1_slgc_processes_source_1_dest_1(void){}
 
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void)
 {
@@ -3137,6 +3179,23 @@ static void cpu_selftest_assert_bound_check_interrupt(void)
 	if (!(dod & DOD_BCH_MASK))
 	{
 		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected BCH bit to be set in DOD\n");
+		testContext.result = SCPE_AFAIL;
+	}
+}
+
+static void cpu_selftest_assert_its_interrupt(void)
+{
+	if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected ITS interrupt to have occurred\n");
+		testContext.result = SCPE_AFAIL;
+	}
+
+	REG *reg_dod = cpu_selftest_get_register(REG_DOD);
+	uint32 dod = *(uint32 *)reg_dod->loc;
+	if (!(dod & DOD_ITS_MASK))
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected ITS bit to be set in DOD\n");
 		testContext.result = SCPE_AFAIL;
 	}
 }

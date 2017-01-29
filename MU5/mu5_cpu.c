@@ -162,6 +162,7 @@ BITFIELD dod_bits[] = {
     ENDBITS
 };
 
+static uint32 mask_dod_its = 0xFFFFFFFD;
 static uint32 mask_dod_xch = 0xFFFFFFFE;
 static uint32 mask_dod_sss = 0xFFFFFFF7;
 static uint32 mask_dod_bch = 0xFFFFFFDF;
@@ -2244,7 +2245,8 @@ static int cpu_check_string_descriptor(t_uint64 descriptor)
     uint8 size = cpu_get_descriptor_size(descriptor);
     if (type > DESCRIPTOR_TYPE_ADDRESS_VECTOR || size != DESCRIPTOR_SIZE_8_BIT)
     {
-        cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+        cpu_set_interrupt(INT_PROGRAM_FAULTS);
+		cpu_set_register_bit_32(reg_dod, mask_dod_its, 1);
         result = 0;
     }
 
@@ -2368,10 +2370,15 @@ static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable)
 
 static void cpu_execute_sts1_slgc(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-    t_uint64 operand;
+	t_uint64 d = cpu_get_register_64(reg_d);
+	t_uint64 xd = cpu_get_register_64(reg_xd);
+	t_uint64 operand;
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS SLGC ");
     operand = cpu_get_operand(order);
-    cpu_process_source_to_destination_descriptor_vector(operand, cpu_sts1_slgc_element_operation);
+	if (cpu_check_string_descriptor(d) && cpu_check_string_descriptor(xd))
+	{
+		cpu_process_source_to_destination_descriptor_vector(operand, cpu_sts1_slgc_element_operation);
+	}
 }
 
 static void cpu_execute_sts1_smvb(uint16 order, DISPATCH_ENTRY *innerTable)
