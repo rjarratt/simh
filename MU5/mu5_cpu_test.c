@@ -68,6 +68,7 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #define F_LOAD_DO 0
 #define F_LOAD_D 1
+#define F_STACK_LOAD_D 2
 
 #define F_LOAD_64 1
 #define F_STORE_64 3
@@ -414,6 +415,7 @@ static void cpu_selftest_sts1_sub1_modifies_D(void);
 
 static void cpu_selftest_sts2_do_load_loads_ls_half_of_D(void);
 static void cpu_selftest_sts2_d_load_loads_whole_of_D(void);
+static void cpu_selftest_sts2_d_stack_load_stacks_D_loads_new_D(void);
 
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void);
 static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(void);
@@ -655,6 +657,7 @@ UNITTEST tests[] =
 
     { "STS2 DO Load Loads LS half of D", cpu_selftest_sts2_do_load_loads_ls_half_of_D },
     { "STS2 D Load Loads whole of D", cpu_selftest_sts2_d_load_loads_whole_of_D },
+    { "STS2 D stack load stacks D and then loads a new value for D", cpu_selftest_sts2_d_stack_load_stacks_D_loads_new_D },
 
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
     { "No SSS interrupt if SSS interrupt is inhibited", cpu_selftest_no_sss_interrupt_if_sss_is_inhibited }
@@ -3906,6 +3909,19 @@ static void cpu_selftest_sts2_d_load_loads_whole_of_D(void)
     cpu_selftest_load_64_bit_literal(0xBBBBBBBBFFFFFFFF);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_D, 0xBBBBBBBBFFFFFFFF);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts2_d_stack_load_stacks_D_loads_new_D(void)
+{
+    cpu_selftest_set_register(REG_SF, 0x00F0);
+    cpu_selftest_set_register(REG_D, 0xAAAAAAAABBBBBBBB);
+    cpu_selftest_load_order_extended(CR_STS2, F_STACK_LOAD_D, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0xCCCCCCCCFFFFFFFF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_SF, 0x00F2);
+    cpu_selftest_assert_reg_equals(REG_D, 0xCCCCCCCCFFFFFFFF);
+    cpu_selftest_assert_memory_contents_64_bit(0x000000F2, 0xAAAAAAAABBBBBBBB);
     cpu_selftest_assert_no_interrupt();
 }
 
