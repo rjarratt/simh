@@ -69,6 +69,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_LOAD_DO 0
 #define F_LOAD_D 1
 #define F_STACK_LOAD_D 2
+#define F_STORE_D 3
 
 #define F_LOAD_64 1
 #define F_STORE_64 3
@@ -416,6 +417,8 @@ static void cpu_selftest_sts1_sub1_modifies_D(void);
 static void cpu_selftest_sts2_do_load_loads_ls_half_of_D(void);
 static void cpu_selftest_sts2_d_load_loads_whole_of_D(void);
 static void cpu_selftest_sts2_d_stack_load_stacks_D_loads_new_D(void);
+static void cpu_selftest_sts2_d_store_stores_d_to_operand(void);
+static void cpu_selftest_sts2_d_store_to_secondary_operand_generates_interrupt(void);
 
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void);
 static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(void);
@@ -658,6 +661,8 @@ UNITTEST tests[] =
     { "STS2 DO Load Loads LS half of D", cpu_selftest_sts2_do_load_loads_ls_half_of_D },
     { "STS2 D Load Loads whole of D", cpu_selftest_sts2_d_load_loads_whole_of_D },
     { "STS2 D stack load stacks D and then loads a new value for D", cpu_selftest_sts2_d_stack_load_stacks_D_loads_new_D },
+    { "STS2 D Store stores D to operand", cpu_selftest_sts2_d_store_stores_d_to_operand },
+    { "STS2 D Store to secondary operand generates interrupt", cpu_selftest_sts2_d_store_to_secondary_operand_generates_interrupt },
 
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
     { "No SSS interrupt if SSS interrupt is inhibited", cpu_selftest_no_sss_interrupt_if_sss_is_inhibited }
@@ -3923,6 +3928,29 @@ static void cpu_selftest_sts2_d_stack_load_stacks_D_loads_new_D(void)
     cpu_selftest_assert_reg_equals(REG_D, 0xCCCCCCCCFFFFFFFF);
     cpu_selftest_assert_memory_contents_64_bit(0x000000F2, 0xAAAAAAAABBBBBBBB);
     cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts2_d_store_stores_d_to_operand(void)
+{
+    uint32 base = 0x00F0;
+    int8 n = 0x2;
+    cpu_selftest_load_order(CR_STS2, F_STORE_D, K_V64, n);
+    cpu_selftest_set_register(REG_NB, base);
+    cpu_selftest_set_register(REG_D, 0xAAAAAAAABBBBBBBB);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_64_bit(base + (n * 2), 0xAAAAAAAABBBBBBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts2_d_store_to_secondary_operand_generates_interrupt(void)
+{
+    uint32 base = 0x00F0;
+    int8 n = 0x2;
+    cpu_selftest_load_order(CR_STS2, F_STORE_D, K_SB, n);
+    cpu_selftest_set_register(REG_NB, base);
+    cpu_selftest_set_register(REG_D, 0xAAAAAAAABBBBBBBB);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_interrupt();
 }
 
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void)

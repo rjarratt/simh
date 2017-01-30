@@ -2582,7 +2582,14 @@ static void cpu_execute_sts2_d_stack_and_load(uint16 order, DISPATCH_ENTRY *inne
 static void cpu_execute_sts2_d_store(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS D=> ");
-    cpu_set_operand(order, cpu_get_register_64(reg_d));
+    if (!cpu_operand_is_secondary(order))
+    {
+        cpu_set_operand(order, cpu_get_register_64(reg_d));
+    }
+    else
+    {
+        cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+    }
 }
 
 static void cpu_execute_sts2_db_load(uint16 order, DISPATCH_ENTRY *innerTable)
