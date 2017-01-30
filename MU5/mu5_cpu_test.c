@@ -66,6 +66,9 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_SCMP 14
 #define F_SUB1 15
 
+#define F_LOAD_DO 0
+#define F_LOAD_D 1
+
 #define F_LOAD_64 1
 #define F_STORE_64 3
 
@@ -409,6 +412,9 @@ static void cpu_selftest_sts1_sub1_loads_XD_and_modifies_it(void);
 static void cpu_selftest_sts1_sub1_calculates_B(void);
 static void cpu_selftest_sts1_sub1_modifies_D(void);
 
+static void cpu_selftest_sts2_do_load_loads_ls_half_of_D(void);
+static void cpu_selftest_sts2_d_load_loads_whole_of_D(void);
+
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void);
 static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(void);
 
@@ -647,6 +653,8 @@ UNITTEST tests[] =
     { "SUB1 calculates B", cpu_selftest_sts1_sub1_calculates_B },
     { "SUB1 modifies D", cpu_selftest_sts1_sub1_modifies_D },
 
+    { "STS2 DO Load Loads LS half of D", cpu_selftest_sts2_do_load_loads_ls_half_of_D },
+    { "STS2 D Load Loads whole of D", cpu_selftest_sts2_d_load_loads_whole_of_D },
 
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
     { "No SSS interrupt if SSS interrupt is inhibited", cpu_selftest_no_sss_interrupt_if_sss_is_inhibited }
@@ -3879,6 +3887,26 @@ static void cpu_selftest_sts1_sub1_modifies_D(void)
     cpu_selftest_set_register(REG_B, 8);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(0, 0, 16 - expectedB, 0 + (expectedB >> 3))); /* size 0 is 1-bit vector */
+}
+
+static void cpu_selftest_sts2_do_load_loads_ls_half_of_D(void)
+{
+    cpu_selftest_set_register(REG_D, 0xAAAAAAAA00000000);
+    cpu_selftest_load_order_extended(CR_STS2, F_LOAD_DO, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0xBBBBBBBBFFFFFFFF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_D, 0xAAAAAAAAFFFFFFFF);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_sts2_d_load_loads_whole_of_D(void)
+{
+    cpu_selftest_set_register(REG_D, 0xAAAAAAAA00000000);
+    cpu_selftest_load_order_extended(CR_STS2, F_LOAD_D, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0xBBBBBBBBFFFFFFFF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_D, 0xBBBBBBBBFFFFFFFF);
+    cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void)
