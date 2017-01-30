@@ -73,6 +73,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_LOAD_DB 4
 #define F_MDR 5
 #define F_MOD 6
+#define F_RMOD 7
 
 #define F_LOAD_64 1
 #define F_STORE_64 3
@@ -437,6 +438,7 @@ static void cpu_selftest_sts2_mod_checks_bounds_for_type_2(void);
 static void cpu_selftest_sts2_mod_does_not_check_bounds_for_type_0_when_BC_set(void);
 static void cpu_selftest_sts2_mod_does_not_check_bounds_for_type_1_when_BC_set(void);
 static void cpu_selftest_sts2_mod_does_not_check_bounds_for_type_2_when_BC_set(void);
+static void cpu_selftest_sts2_rmod_loads_least_significant_half_of_D_and_adds_to_origin(void);
 
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void);
 static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(void);
@@ -696,6 +698,7 @@ UNITTEST tests[] =
     { "MOD does not check bounds for type 0 descriptor when BC is set", cpu_selftest_sts2_mod_does_not_check_bounds_for_type_0_when_BC_set },
     { "MOD does not check bounds for type 1 descriptor when BC is set", cpu_selftest_sts2_mod_does_not_check_bounds_for_type_1_when_BC_set },
     { "MOD does not check bounds for type 2 descriptor when BC is set", cpu_selftest_sts2_mod_does_not_check_bounds_for_type_2_when_BC_set },
+    { "RMOD loads least significant half of D and adds to origin", cpu_selftest_sts2_rmod_loads_least_significant_half_of_D_and_adds_to_origin },
 
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
     { "No SSS interrupt if SSS interrupt is inhibited", cpu_selftest_no_sss_interrupt_if_sss_is_inhibited }
@@ -4143,6 +4146,16 @@ static void cpu_selftest_sts2_mod_does_not_check_bounds_for_type_2_when_BC_set(v
     cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_64_BIT, 1, 8) | DESCRIPTOR_BC_MASK);
     cpu_selftest_run_code();
     cpu_selftest_assert_no_bound_check_interrupt();
+}
+
+static void cpu_selftest_sts2_rmod_loads_least_significant_half_of_D_and_adds_to_origin(void)
+{
+    cpu_selftest_load_order_extended(CR_STS2, F_RMOD, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0xAAAAAAAABBBBBBBB);
+    cpu_selftest_set_register(REG_D, 0xBBBBBBBB11111111);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_D, 0xAAAAAAAACCCCCCCC);
+    cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void)
