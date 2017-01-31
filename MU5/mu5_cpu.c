@@ -2675,6 +2675,10 @@ static void cpu_execute_sts2_bmvb(uint16 order, DISPATCH_ENTRY *innerTable)
             cpu_set_operand_by_descriptor_vector(d, 0, byte & ~mask);
             cpu_descriptor_modify(reg_d, 1, FALSE);
         }
+        else
+        {
+            cpu_set_bounds_check_interrupt();
+        }
     }
 }
 

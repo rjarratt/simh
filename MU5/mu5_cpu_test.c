@@ -75,6 +75,8 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_MOD 6
 #define F_RMOD 7
 #define F_BLGC 8
+#define F_BMVB 9
+#define F_BMVE 10
 
 #define F_LOAD_64 1
 #define F_STORE_64 3
@@ -446,6 +448,9 @@ static void cpu_selftest_sts2_blgc_processes_type_0_descriptor_L0(void);
 static void cpu_selftest_sts2_blgc_processes_type_1_descriptor_L1(void);
 static void cpu_selftest_sts2_blgc_processes_type_2_descriptor_L2(void);
 static void cpu_selftest_sts2_blgc_processes_type_0_descriptor_L3(void);
+static void cpu_selftest_sts2_bmvb_generates_its_interrupt_if_destination_not_8_bit(void);
+static void cpu_selftest_sts2_bmvb_generates_checks_bound_on_destination_not_0(void);
+static void cpu_selftest_sts2_bmvb_copies_byte_with_mask(void);
 
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void);
 static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(void);
@@ -712,6 +717,9 @@ UNITTEST tests[] =
     { "BLGC processes L1 for type 1", cpu_selftest_sts2_blgc_processes_type_1_descriptor_L1 },
     { "BLGC processes L2 for type 2", cpu_selftest_sts2_blgc_processes_type_2_descriptor_L2 },
     { "BLGC processes L3 for type 0", cpu_selftest_sts2_blgc_processes_type_0_descriptor_L3 },
+    { "BMVB generates ITS interrupt if destination is not 8-bit", cpu_selftest_sts2_bmvb_generates_its_interrupt_if_destination_not_8_bit },
+    { "BMVB generates bounds check if destination bound is zero", cpu_selftest_sts2_bmvb_generates_checks_bound_on_destination_not_0 },
+    { "BMVB copies byte from source, uses mask", cpu_selftest_sts2_bmvb_copies_byte_with_mask },
 
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
     { "No SSS interrupt if SSS interrupt is inhibited", cpu_selftest_no_sss_interrupt_if_sss_is_inhibited }
@@ -4243,6 +4251,38 @@ static void cpu_selftest_sts2_blgc_processes_type_0_descriptor_L3(void)
     cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 0, 0x11);
     cpu_selftest_assert_no_its_interrupt();
     cpu_selftest_assert_no_sss_interrupt();
+}
+
+static void cpu_selftest_sts2_bmvb_generates_its_interrupt_if_destination_not_8_bit(void)
+{
+    cpu_selftest_load_order_extended(CR_STS2, F_BMVB, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0x0000000000000000);
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_64_BIT, 1, 16));
+    cpu_selftest_run_code();
+    cpu_selftest_assert_its_interrupt();
+}
+
+static void cpu_selftest_sts2_bmvb_generates_checks_bound_on_destination_not_0(void)
+{
+    cpu_selftest_load_order_extended(CR_STS2, F_BMVB, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0x0000000000000000);
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 0, 16));
+    cpu_selftest_run_code();
+    cpu_selftest_assert_bound_check_interrupt();
+}
+
+static void cpu_selftest_sts2_bmvb_copies_byte_with_mask(void)
+{
+    uint32 destinationOrigin = 32;
+    cpu_selftest_load_order_extended(CR_STS2, F_BMVB, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0x00000000000080AA);
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, destinationOrigin));
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, destinationOrigin + 1));
+    cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 0, 0x2A);
+    cpu_selftest_assert_no_its_interrupt();
+    cpu_selftest_assert_no_sss_interrupt();
+    cpu_selftest_assert_no_bound_check_interrupt();
 }
 
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void)
