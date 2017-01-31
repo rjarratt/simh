@@ -2653,6 +2653,8 @@ static void cpu_execute_sts2_blgc(uint16 order, DISPATCH_ENTRY *innerTable)
             t_uint64 destination = cpu_get_operand_by_descriptor_vector(d, i);
             cpu_set_operand_by_descriptor_vector(d, i, cpu_sts1_slgc_element_operation((t_uint64)byte, destination, operand));
         }
+
+        cpu_descriptor_modify(reg_d, n, FALSE);
     }
 }
 
