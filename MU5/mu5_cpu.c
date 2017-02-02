@@ -2721,7 +2721,7 @@ static void cpu_execute_sts2_bscn(uint16 order, DISPATCH_ENTRY *innerTable)
     {
         for (i = 0; i < db && !found; i++)
         {
-            found = byte == (uint8)cpu_get_operand_by_descriptor_vector(d, i);
+            found = (byte & ~mask) == ((uint8)cpu_get_operand_by_descriptor_vector(d, i) & ~mask);
             if (!found)
             {
                 cpu_descriptor_modify(reg_d, 1, FALSE);
