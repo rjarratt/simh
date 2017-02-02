@@ -378,8 +378,10 @@ static void cpu_selftest_sts1_xmod_scales_modifier_for_64_bit_value(void);
 static void cpu_selftest_sts1_xmod_scales_modifier_for_32_bit_value(void);
 static void cpu_selftest_sts1_xmod_scales_modifier_for_16_bit_value(void);
 static void cpu_selftest_sts1_xmod_scales_modifier_for_8_bit_value(void);
-static void cpu_selftest_sts1_xmod_scales_modifier_for_4_bit_value(void);
-static void cpu_selftest_sts1_xmod_scales_modifier_for_1_bit_value(void);
+static void cpu_selftest_sts1_xmod_scales_modifier_for_4_bit_value_within_byte(void);
+static void cpu_selftest_sts1_xmod_scales_modifier_for_4_bit_value_crossing_byte(void);
+static void cpu_selftest_sts1_xmod_scales_modifier_for_1_bit_value_within_byte(void);
+static void cpu_selftest_sts1_xmod_scales_modifier_for_1_bit_value_crossing_byte(void);
 static void cpu_selftest_sts1_xmod_checks_bounds_for_type_0(void);
 static void cpu_selftest_sts1_xmod_checks_bounds_for_type_1(void);
 static void cpu_selftest_sts1_xmod_checks_bounds_for_type_2(void);
@@ -433,8 +435,10 @@ static void cpu_selftest_sts2_mod_scales_modifier_for_64_bit_value(void);
 static void cpu_selftest_sts2_mod_scales_modifier_for_32_bit_value(void);
 static void cpu_selftest_sts2_mod_scales_modifier_for_16_bit_value(void);
 static void cpu_selftest_sts2_mod_scales_modifier_for_8_bit_value(void);
-static void cpu_selftest_sts2_mod_scales_modifier_for_4_bit_value(void);
-static void cpu_selftest_sts2_mod_scales_modifier_for_1_bit_value(void);
+static void cpu_selftest_sts2_mod_scales_modifier_for_4_bit_value_within_byte(void);
+static void cpu_selftest_sts2_mod_scales_modifier_for_4_bit_value_crossing_byte(void);
+static void cpu_selftest_sts2_mod_scales_modifier_for_1_bit_value_within_byte(void);
+static void cpu_selftest_sts2_mod_scales_modifier_for_1_bit_value_crossing_byte(void);
 static void cpu_selftest_sts2_mod_checks_bounds_for_type_0(void);
 static void cpu_selftest_sts2_mod_checks_bounds_for_type_1(void);
 static void cpu_selftest_sts2_mod_checks_bounds_for_type_2(void);
@@ -647,8 +651,10 @@ UNITTEST tests[] =
     { "XMOD scales modifier for 32-bit value", cpu_selftest_sts1_xmod_scales_modifier_for_32_bit_value },
     { "XMOD scales modifier for 16-bit value", cpu_selftest_sts1_xmod_scales_modifier_for_16_bit_value },
     { "XMOD scales modifier for 8-bit value", cpu_selftest_sts1_xmod_scales_modifier_for_8_bit_value },
-    { "XMOD scales modifier for 4-bit value", cpu_selftest_sts1_xmod_scales_modifier_for_4_bit_value },
-    { "XMOD scales modifier for 1-bit value", cpu_selftest_sts1_xmod_scales_modifier_for_1_bit_value },
+    { "XMOD scales modifier for 4-bit value within a byte", cpu_selftest_sts1_xmod_scales_modifier_for_4_bit_value_within_byte },
+    { "XMOD scales modifier for 4-bit value crossing a byte", cpu_selftest_sts1_xmod_scales_modifier_for_4_bit_value_crossing_byte },
+    { "XMOD scales modifier for 1-bit value within a byte", cpu_selftest_sts1_xmod_scales_modifier_for_1_bit_value_within_byte },
+    { "XMOD scales modifier for 1-bit value crossing a byte", cpu_selftest_sts1_xmod_scales_modifier_for_1_bit_value_crossing_byte },
     { "XMOD checks bounds for type 0 descriptor", cpu_selftest_sts1_xmod_checks_bounds_for_type_0 },
     { "XMOD checks bounds for type 1 descriptor", cpu_selftest_sts1_xmod_checks_bounds_for_type_1 },
     { "XMOD checks bounds for type 2 descriptor", cpu_selftest_sts1_xmod_checks_bounds_for_type_2 },
@@ -702,8 +708,10 @@ UNITTEST tests[] =
     { "MOD scales modifier for 32-bit value", cpu_selftest_sts2_mod_scales_modifier_for_32_bit_value },
     { "MOD scales modifier for 16-bit value", cpu_selftest_sts2_mod_scales_modifier_for_16_bit_value },
     { "MOD scales modifier for 8-bit value", cpu_selftest_sts2_mod_scales_modifier_for_8_bit_value },
-    { "MOD scales modifier for 4-bit value", cpu_selftest_sts2_mod_scales_modifier_for_4_bit_value },
-    { "MOD scales modifier for 1-bit value", cpu_selftest_sts2_mod_scales_modifier_for_1_bit_value },
+    { "MOD scales modifier for 4-bit value within a byte", cpu_selftest_sts2_mod_scales_modifier_for_4_bit_value_within_byte },
+    { "MOD scales modifier for 4-bit value crossing a byte", cpu_selftest_sts2_mod_scales_modifier_for_4_bit_value_crossing_byte },
+    { "MOD scales modifier for 1-bit value within a byte", cpu_selftest_sts2_mod_scales_modifier_for_1_bit_value_within_byte },
+    { "MOD scales modifier for 1-bit value crossing a byte", cpu_selftest_sts2_mod_scales_modifier_for_1_bit_value_crossing_byte },
     { "MOD checks bounds for type 0 descriptor", cpu_selftest_sts2_mod_checks_bounds_for_type_0 },
     { "MOD checks bounds for type 1 descriptor", cpu_selftest_sts2_mod_checks_bounds_for_type_1 },
     { "MOD checks bounds for type 2 descriptor", cpu_selftest_sts2_mod_checks_bounds_for_type_2 },
@@ -3336,35 +3344,43 @@ static void cpu_selftest_sts1_xmod_scales_modifier_for_8_bit_value(void)
     cpu_selftest_assert_no_interrupt();
 }
 
-static void cpu_selftest_sts1_xmod_scales_modifier_for_4_bit_value(void)
+static void cpu_selftest_sts1_xmod_scales_modifier_for_4_bit_value_within_byte(void)
 {
     cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0x00000001);
-
     cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_4_BIT, 2, 8));
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_4_BIT, 1, 8));
     cpu_selftest_assert_no_interrupt();
+}
 
-    cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_4_BIT, 3, 8));
+static void cpu_selftest_sts1_xmod_scales_modifier_for_4_bit_value_crossing_byte(void)
+{
+    cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x00000003);
+    cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_4_BIT, 5, 8));
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_4_BIT, 2, 9));
     cpu_selftest_assert_no_interrupt();
 }
 
-static void cpu_selftest_sts1_xmod_scales_modifier_for_1_bit_value(void)
+static void cpu_selftest_sts1_xmod_scales_modifier_for_1_bit_value_within_byte(void)
 {
     cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
-    cpu_selftest_load_32_bit_literal(0x00000001);
-
+    cpu_selftest_load_32_bit_literal(0x00000004);
     cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 8, 8));
     cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 7, 8));
+    cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 4, 8));
     cpu_selftest_assert_no_interrupt();
+}
 
-    cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 9, 8));
+static void cpu_selftest_sts1_xmod_scales_modifier_for_1_bit_value_crossing_byte(void)
+{
+    cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x00000009);
+    cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 16, 8));
     cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 8, 9));
+    cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 7, 9));
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -4083,35 +4099,43 @@ static void cpu_selftest_sts2_mod_scales_modifier_for_8_bit_value(void)
     cpu_selftest_assert_no_interrupt();
 }
 
-static void cpu_selftest_sts2_mod_scales_modifier_for_4_bit_value(void)
+static void cpu_selftest_sts2_mod_scales_modifier_for_4_bit_value_within_byte(void)
 {
     cpu_selftest_load_order_extended(CR_STS2, F_MOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0x00000001);
-
     cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_4_BIT, 2, 8));
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_4_BIT, 1, 8));
     cpu_selftest_assert_no_interrupt();
+}
 
-    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_4_BIT, 3, 8));
+static void cpu_selftest_sts2_mod_scales_modifier_for_4_bit_value_crossing_byte(void)
+{
+    cpu_selftest_load_order_extended(CR_STS2, F_MOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x00000003);
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_4_BIT, 5, 8));
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_4_BIT, 2, 9));
     cpu_selftest_assert_no_interrupt();
 }
 
-static void cpu_selftest_sts2_mod_scales_modifier_for_1_bit_value(void)
+static void cpu_selftest_sts2_mod_scales_modifier_for_1_bit_value_within_byte(void)
 {
     cpu_selftest_load_order_extended(CR_STS2, F_MOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
-    cpu_selftest_load_32_bit_literal(0x00000001);
-
+    cpu_selftest_load_32_bit_literal(0x00000004);
     cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 8, 8));
     cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 7, 8));
+    cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 4, 8));
     cpu_selftest_assert_no_interrupt();
+}
 
-    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 9, 8));
+static void cpu_selftest_sts2_mod_scales_modifier_for_1_bit_value_crossing_byte(void)
+{
+    cpu_selftest_load_order_extended(CR_STS2, F_MOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x00000009);
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 16, 8));
     cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 8, 9));
+    cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 7, 9));
     cpu_selftest_assert_no_interrupt();
 }
 
