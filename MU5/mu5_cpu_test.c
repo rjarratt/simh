@@ -457,6 +457,7 @@ static void cpu_selftest_sts2_bmvb_generates_checks_bound_on_destination_not_0(v
 static void cpu_selftest_sts2_bmvb_copies_byte_with_mask(void);
 static void cpu_selftest_sts2_bmve_generates_its_interrupt_if_destination_not_8_bit(void);
 static void cpu_selftest_sts2_bmve_copies_byte_with_mask_to_whole_destination(void);
+static void cpu_selftest_sts2_smvf_copies_bytes_and_fills_with_mask(void);
 
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void);
 static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(void);
@@ -732,6 +733,7 @@ UNITTEST tests[] =
     { "BMVB copies byte from source, uses mask", cpu_selftest_sts2_bmvb_copies_byte_with_mask },
     { "BMVE generates ITS interrupt if destination is not 8-bit", cpu_selftest_sts2_bmve_generates_its_interrupt_if_destination_not_8_bit },
     { "BMVE copies byte, using mask, to the whole destination", cpu_selftest_sts2_bmve_copies_byte_with_mask_to_whole_destination },
+    { "STS2 SMVF copies byte from source, uses mask", cpu_selftest_sts2_smvf_copies_bytes_and_fills_with_mask },
 
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
     { "No SSS interrupt if SSS interrupt is inhibited", cpu_selftest_no_sss_interrupt_if_sss_is_inhibited }
@@ -4333,6 +4335,26 @@ static void cpu_selftest_sts2_bmve_copies_byte_with_mask_to_whole_destination(vo
     cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 0, 0x2A);
     cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 1, 0x2A);
     cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 2, 0x2A);
+    cpu_selftest_assert_no_its_interrupt();
+    cpu_selftest_assert_no_sss_interrupt();
+    cpu_selftest_assert_no_bound_check_interrupt();
+}
+
+static void cpu_selftest_sts2_smvf_copies_bytes_and_fills_with_mask(void)
+{
+    uint32 sourceOrigin = 16;
+    uint32 destinationOrigin = 32;
+    cpu_selftest_load_order_extended(CR_STS2, F_SMVF, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0x00000000000080BB);
+    cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, sourceOrigin));
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 3, destinationOrigin));
+    cpu_selftest_load_8_bit_value_to_descriptor_location(sourceOrigin, 0, 0xAA);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, sourceOrigin + 1));
+    cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, destinationOrigin + 3));
+    cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 0, 0x2A);
+    cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 1, 0x3B);
+    cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 2, 0x3B);
     cpu_selftest_assert_no_its_interrupt();
     cpu_selftest_assert_no_sss_interrupt();
     cpu_selftest_assert_no_bound_check_interrupt();
