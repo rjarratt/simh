@@ -963,24 +963,24 @@ static SIM_INLINE int cpu_get_register_bit_64(REG *reg, t_uint64 mask)
 
 static uint16 cpu_calculate_base_offset_from_addr(t_addr base, t_int64 offset, uint8 scale)
 {
-	t_int64 result = base + (offset * scale);
-	if (result < 0 || result > 65535)
-	{
-		cpu_set_interrupt(INT_SOFTWARE_INTERRUPT); /* TODO: must be segment overflow interrupt */
-	}
+    t_int64 result = base + (offset * scale);
+    if (result < 0 || result > 65535)
+    {
+        cpu_set_interrupt(INT_SOFTWARE_INTERRUPT); /* TODO: must be segment overflow interrupt */
+    }
 
-	return (uint16)(result & 0xFFFF);
+    return (uint16)(result & 0xFFFF);
 }
 
 static t_addr cpu_get_name_segment_address_from_addr(t_addr base, int16 offset, uint8 scale)
 {
-	t_addr result = (cpu_get_register_16(reg_sn) << 16) | cpu_calculate_base_offset_from_addr(base, offset, scale);
-	return result;
+    t_addr result = (cpu_get_register_16(reg_sn) << 16) | cpu_calculate_base_offset_from_addr(base, offset, scale);
+    return result;
 }
 
 static uint16 cpu_calculate_base_offset_from_reg(REG *reg, t_int64 offset, uint8 scale)
 {
-	uint16 result = cpu_calculate_base_offset_from_addr(cpu_get_register_16(reg), offset, scale);
+    uint16 result = cpu_calculate_base_offset_from_addr(cpu_get_register_16(reg), offset, scale);
 
     return result;
 }
@@ -1030,11 +1030,11 @@ static void cpu_clear_all_interrupts(void)
 
 static void cpu_set_bounds_check_interrupt(void)
 {
-	if (!cpu_get_register_bit_32(reg_dod, mask_dod_bchi))
-	{
-		cpu_set_register_bit_32(reg_dod, mask_dod_bch, 1);
-		cpu_set_interrupt(INT_PROGRAM_FAULTS);
-	}
+    if (!cpu_get_register_bit_32(reg_dod, mask_dod_bchi))
+    {
+        cpu_set_register_bit_32(reg_dod, mask_dod_bch, 1);
+        cpu_set_interrupt(INT_PROGRAM_FAULTS);
+    }
 }
 
 uint8 cpu_get_interrupt_number(void)
@@ -1117,13 +1117,13 @@ static uint16 cpu_get_extended_n(uint16 order)
 
 static int cpu_operand_is_secondary(uint16 order)
 {
-	int result = 0;
-	uint16 k = cpu_get_k(order);
-	uint16 kp = cpu_get_extended_k(order);
+    int result = 0;
+    uint16 k = cpu_get_k(order);
+    uint16 kp = cpu_get_extended_k(order);
 
-	result = (k == 4) || (k == 5) || (k == 6) || ((k == 7) && ((kp == 4) || (kp == 5) || (kp == 6)));
+    result = (k == 4) || (k == 5) || (k == 6) || ((k == 7) && ((kp == 4) || (kp == 5) || (kp == 6)));
 
-	return result;
+    return result;
 }
 
 static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAddress, int *instructionLength)
@@ -1180,14 +1180,14 @@ static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructio
 
 static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 instructionAddress, int *instructionLength, uint8 scale)
 {
-	t_addr result = 0;
+    t_addr result = 0;
     uint16 np = cpu_get_extended_n(order);
 
     switch (np)
     {
         case 0:
         {
-			uint16 offset = sac_read_16_bit_word(instructionAddress + 1);
+            uint16 offset = sac_read_16_bit_word(instructionAddress + 1);
             result = cpu_get_name_segment_address_from_reg(reg_sf, offset, scale);
             *instructionLength += 1;
             sim_debug(LOG_CPU_DECODE, &cpu_dev, "SF %u\n", offset);
@@ -1195,58 +1195,58 @@ static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 ins
         }
         case 1:
         {
-			uint16 offset = sac_read_16_bit_word(instructionAddress + 1);
-			result = cpu_get_name_segment_address_from_addr(0, offset, scale);
-			*instructionLength += 1;
+            uint16 offset = sac_read_16_bit_word(instructionAddress + 1);
+            result = cpu_get_name_segment_address_from_addr(0, offset, scale);
+            *instructionLength += 1;
             sim_debug(LOG_CPU_DECODE, &cpu_dev, "Z %u\n", offset);
             break;
         }
-		case 2:
-		{
-			uint16 offset = sac_read_16_bit_word(instructionAddress + 1);
-			result = cpu_get_name_segment_address_from_reg(reg_nb, offset, scale);
-			*instructionLength += 1;
-			sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB %u\n", offset);
-			break;
-		}
-		case 3:
-		{
-			t_addr addr = cpu_get_register_32(reg_xnb) & 0xFFFF;
-			uint16 offset = sac_read_16_bit_word(instructionAddress + 1);
-			result = cpu_get_name_segment_address_from_addr(addr, offset, scale);
-			*instructionLength += 1;
-			sim_debug(LOG_CPU_DECODE, &cpu_dev, "XNB %u\n", offset);
-			break;
-		}
-		case 4:
-		{
-			result = cpu_pop_address();
-			sim_debug(LOG_CPU_DECODE, &cpu_dev, "STACK Z 0\n");
-			break;
-		}
-		case 5:
-		{
-			result = 0;
-			sim_debug(LOG_CPU_DECODE, &cpu_dev, "DR\n");
-			break;
-		}
-		case 6:
-		{
-			t_addr addr = cpu_get_register_16(reg_nb);
-			result = addr;
-			*instructionLength += 1;
-			sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 NB 0\n");
-			break;
-		}
-		case 7:
-		{
-			t_addr addr = cpu_get_register_32(reg_xnb) & 0xFFFF;
-			result = addr;
-			*instructionLength += 1;
-			sim_debug(LOG_CPU_DECODE, &cpu_dev, "XNB 0\n");
-			break;
-		}
-		default:
+        case 2:
+        {
+            uint16 offset = sac_read_16_bit_word(instructionAddress + 1);
+            result = cpu_get_name_segment_address_from_reg(reg_nb, offset, scale);
+            *instructionLength += 1;
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB %u\n", offset);
+            break;
+        }
+        case 3:
+        {
+            t_addr addr = cpu_get_register_32(reg_xnb) & 0xFFFF;
+            uint16 offset = sac_read_16_bit_word(instructionAddress + 1);
+            result = cpu_get_name_segment_address_from_addr(addr, offset, scale);
+            *instructionLength += 1;
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "XNB %u\n", offset);
+            break;
+        }
+        case 4:
+        {
+            result = cpu_pop_address();
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "STACK Z 0\n");
+            break;
+        }
+        case 5:
+        {
+            result = 0;
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "DR\n");
+            break;
+        }
+        case 6:
+        {
+            t_addr addr = cpu_get_register_16(reg_nb);
+            result = addr;
+            *instructionLength += 1;
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 NB 0\n");
+            break;
+        }
+        case 7:
+        {
+            t_addr addr = cpu_get_register_32(reg_xnb) & 0xFFFF;
+            result = addr;
+            *instructionLength += 1;
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "XNB 0\n");
+            break;
+        }
+        default:
         {
             cpu_set_interrupt(INT_ILLEGAL_ORDERS);
             break;
@@ -1300,51 +1300,51 @@ static t_uint64 cpu_get_operand_variable_64(uint16 order, uint32 instructionAddr
 
 static int32 cpu_scale_descriptor_modifier(t_uint64 descriptor, uint32 modifier)
 {
-	int32 result = modifier;
-	uint8 type = cpu_get_descriptor_type(descriptor);
-	if ((type == DESCRIPTOR_TYPE_GENERAL_VECTOR || type == DESCRIPTOR_TYPE_ADDRESS_VECTOR) && !cpu_get_descriptor_unscaled(descriptor))
-	{
-		switch (cpu_get_descriptor_size(descriptor))
-		{
-			case DESCRIPTOR_SIZE_1_BIT:
-			{
-				result = modifier >> 3;
-				break;
-			}
-			case DESCRIPTOR_SIZE_4_BIT:
-			{
-				result = modifier >> 1;
-				break;
-			}
-			case DESCRIPTOR_SIZE_8_BIT:
-			{
-				result = modifier;
-				break;
-			}
-			case DESCRIPTOR_SIZE_16_BIT:
-			{
-				result = modifier << 1;
-				break;
-			}
-			case DESCRIPTOR_SIZE_32_BIT:
-			{
-				result = modifier << 2;
-				break;
-			}
-			case DESCRIPTOR_SIZE_64_BIT:
-			{
-				result = modifier << 3;
-				break;
-			}
-			default:
-			{
-				cpu_set_interrupt(INT_ILLEGAL_ORDERS); /* TODO: needs to be an interrupt about a bad descriptor */
-				break;
-			}
-		}
-	}
+    int32 result = modifier;
+    uint8 type = cpu_get_descriptor_type(descriptor);
+    if ((type == DESCRIPTOR_TYPE_GENERAL_VECTOR || type == DESCRIPTOR_TYPE_ADDRESS_VECTOR) && !cpu_get_descriptor_unscaled(descriptor))
+    {
+        switch (cpu_get_descriptor_size(descriptor))
+        {
+            case DESCRIPTOR_SIZE_1_BIT:
+            {
+                result = modifier >> 3;
+                break;
+            }
+            case DESCRIPTOR_SIZE_4_BIT:
+            {
+                result = modifier >> 1;
+                break;
+            }
+            case DESCRIPTOR_SIZE_8_BIT:
+            {
+                result = modifier;
+                break;
+            }
+            case DESCRIPTOR_SIZE_16_BIT:
+            {
+                result = modifier << 1;
+                break;
+            }
+            case DESCRIPTOR_SIZE_32_BIT:
+            {
+                result = modifier << 2;
+                break;
+            }
+            case DESCRIPTOR_SIZE_64_BIT:
+            {
+                result = modifier << 3;
+                break;
+            }
+            default:
+            {
+                cpu_set_interrupt(INT_ILLEGAL_ORDERS); /* TODO: needs to be an interrupt about a bad descriptor */
+                break;
+            }
+        }
+    }
 
-	return result;
+    return result;
 }
 
 /* see p 90 of Morris and Ibbett and p23 of programming manual */
@@ -1420,23 +1420,23 @@ static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 mod
     {
         case DESCRIPTOR_SIZE_1_BIT:
         {
-			uint8 byte = sac_read_8_bit_word(addr);
-			uint8 shift = 7 - (modifier & 0x7);
-			uint8 bitMask = (uint8)0x1 << shift;
-			uint8 bit = (value & 0x1) << shift;
-			byte = (byte & ~bitMask) | bit;
-			sac_write_8_bit_word(addr, byte);
-			break;
+            uint8 byte = sac_read_8_bit_word(addr);
+            uint8 shift = 7 - (modifier & 0x7);
+            uint8 bitMask = (uint8)0x1 << shift;
+            uint8 bit = (value & 0x1) << shift;
+            byte = (byte & ~bitMask) | bit;
+            sac_write_8_bit_word(addr, byte);
+            break;
         }
         case DESCRIPTOR_SIZE_4_BIT:
         {
-			uint8 byte = sac_read_8_bit_word(addr);
-			uint8 shift = 4 * (1 - (modifier & 0x1));
-			uint8 nibbleMask = (uint8)0xF << shift;
-			uint8 nibble = (value & 0xF) << shift;
-			byte = (byte & ~nibbleMask) | nibble;
-			sac_write_8_bit_word(addr, byte);
-			break;
+            uint8 byte = sac_read_8_bit_word(addr);
+            uint8 shift = 4 * (1 - (modifier & 0x1));
+            uint8 nibbleMask = (uint8)0xF << shift;
+            uint8 nibble = (value & 0xF) << shift;
+            byte = (byte & ~nibbleMask) | nibble;
+            sac_write_8_bit_word(addr, byte);
+            break;
         }
         case DESCRIPTOR_SIZE_8_BIT:
         {
@@ -1495,24 +1495,24 @@ static void cpu_process_source_to_destination_descriptor_vector(t_uint64 operand
 
 static t_uint64 cpu_get_operand_b_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength)
 {
-	t_uint64 result = 0;
-	uint16 n = cpu_get_n(order);
+    t_uint64 result = 0;
+    uint16 n = cpu_get_n(order);
 
-	result = cpu_get_operand_from_descriptor(order, instructionAddress, instructionLength, cpu_get_register_32(reg_b));
+    result = cpu_get_operand_from_descriptor(order, instructionAddress, instructionLength, cpu_get_register_32(reg_b));
 
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "SB NB %hu\n", n);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "SB NB %hu\n", n);
 
-	return result;
+    return result;
 }
 
 static void cpu_set_operand_b_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength, t_uint64 value)
 {
-	t_uint64 result = 0;
-	uint16 n = cpu_get_n(order);
+    t_uint64 result = 0;
+    uint16 n = cpu_get_n(order);
 
-	cpu_set_operand_from_descriptor(order, instructionAddress, instructionLength, cpu_get_register_32(reg_b), value);
+    cpu_set_operand_from_descriptor(order, instructionAddress, instructionLength, cpu_get_register_32(reg_b), value);
 
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "SB NB %hu\n", n);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "SB NB %hu\n", n);
 }
 
 static t_uint64 cpu_get_operand_zero_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength)
@@ -1529,43 +1529,43 @@ static t_uint64 cpu_get_operand_zero_relative_descriptor(uint16 order, uint32 in
 
 static void cpu_set_operand_zero_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength, t_uint64 value)
 {
-	t_uint64 result = 0;
-	uint16 n = cpu_get_n(order);
+    t_uint64 result = 0;
+    uint16 n = cpu_get_n(order);
 
-	cpu_set_operand_from_descriptor(order, instructionAddress, instructionLength, 0, value);
+    cpu_set_operand_from_descriptor(order, instructionAddress, instructionLength, 0, value);
 
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "S0 NB %hu\n", n);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "S0 NB %hu\n", n);
 }
 
 
 static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength, uint32 modifier)
 {
-	t_uint64 result = 0;
-	t_uint64 d;
-	t_addr daddr;
-	uint16 n = cpu_get_n(order);
+    t_uint64 result = 0;
+    t_uint64 d;
+    t_addr daddr;
+    uint16 n = cpu_get_n(order);
 
-	daddr = cpu_get_name_segment_address_from_reg(reg_nb, n, SCALE_64);
-	d = sac_read_64_bit_word(daddr);
-	cpu_set_register_64(reg_d, d);
+    daddr = cpu_get_name_segment_address_from_reg(reg_nb, n, SCALE_64);
+    d = sac_read_64_bit_word(daddr);
+    cpu_set_register_64(reg_d, d);
 
-	result = cpu_get_operand_by_descriptor_vector(d, modifier);
+    result = cpu_get_operand_by_descriptor_vector(d, modifier);
 
-	return result;
+    return result;
 }
 
 static void cpu_set_operand_from_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength, uint32 modifier, t_uint64 value)
 {
-	t_uint64 result = 0;
-	t_uint64 d;
-	t_addr daddr;
-	uint16 n = cpu_get_n(order);
+    t_uint64 result = 0;
+    t_uint64 d;
+    t_addr daddr;
+    uint16 n = cpu_get_n(order);
 
-	daddr = cpu_get_name_segment_address_from_reg(reg_nb, n, SCALE_64);
-	d = sac_read_64_bit_word(daddr);
-	/*cpu_set_register_64(reg_d, d);*/ /* TODO: Check, should D be written? */
+    daddr = cpu_get_name_segment_address_from_reg(reg_nb, n, SCALE_64);
+    d = sac_read_64_bit_word(daddr);
+    /*cpu_set_register_64(reg_d, d);*/ /* TODO: Check, should D be written? */
 
-	cpu_set_operand_by_descriptor_vector(d, modifier, value);
+    cpu_set_operand_by_descriptor_vector(d, modifier, value);
 }
 
 static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructionAddress, int *instructionLength)
@@ -1665,81 +1665,81 @@ static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructi
 
 static t_uint64 cpu_set_operand_internal_register(uint16 order, t_uint64 value)
 {
-	t_uint64 result = 0;
-	uint8 n = order & 0x3F;
+    t_uint64 result = 0;
+    uint8 n = order & 0x3F;
 
-	switch (n)
-	{
-		case 16:
-		{
-			cpu_set_register_64(reg_d, value);
-			break;
-		}
-		case 17:
-		{
-			cpu_set_register_64(reg_xd, value);
-			break;
-		}
-		case 18:
-		{
-			cpu_set_register_32(reg_dt, value & MASK_32);
-			break;
-		}
-		case 19:
-		{
-			cpu_set_register_32(reg_xdt, value & MASK_32);
-			break;
-		}
-		case 20:
-		{
-			cpu_set_register_32(reg_dod, value & MASK_32);
-			break;
-		}
-		case 32:
-		{
-			cpu_set_register_32(reg_bod, (value >> 32) & MASK_32);
-			cpu_set_register_32(reg_b, value & MASK_32);
-			break;
-		}
-		case 33:
-		{
-			cpu_set_register_32(reg_bod, value & MASK_32);
-			break;
-		}
-		case 34:
-		{
-			/* Z is an "imaginary" register, see p31 of Morris & Ibbett book. Programming Manual section 2.5 describes it used as an overlap suppression mechanism */
-			break;
-		}
-		case 36:
-		{
-			/* This one exists in the Morris and Ibbett book, but is not present in the MU5 Programming Manual */
-			cpu_set_register_32(reg_bod, (value >> 32) & MASK_32);
-			cpu_set_register_32(reg_b, value & MASK_32);
-			break;
-		}
-		case 48:
-		{
-			cpu_set_register_64(reg_aex, value);
-			break;
-		}
-		default:
-		{
-			cpu_set_interrupt(INT_ILLEGAL_ORDERS);
-			break;
-		}
-	}
+    switch (n)
+    {
+        case 16:
+        {
+            cpu_set_register_64(reg_d, value);
+            break;
+        }
+        case 17:
+        {
+            cpu_set_register_64(reg_xd, value);
+            break;
+        }
+        case 18:
+        {
+            cpu_set_register_32(reg_dt, value & MASK_32);
+            break;
+        }
+        case 19:
+        {
+            cpu_set_register_32(reg_xdt, value & MASK_32);
+            break;
+        }
+        case 20:
+        {
+            cpu_set_register_32(reg_dod, value & MASK_32);
+            break;
+        }
+        case 32:
+        {
+            cpu_set_register_32(reg_bod, (value >> 32) & MASK_32);
+            cpu_set_register_32(reg_b, value & MASK_32);
+            break;
+        }
+        case 33:
+        {
+            cpu_set_register_32(reg_bod, value & MASK_32);
+            break;
+        }
+        case 34:
+        {
+            /* Z is an "imaginary" register, see p31 of Morris & Ibbett book. Programming Manual section 2.5 describes it used as an overlap suppression mechanism */
+            break;
+        }
+        case 36:
+        {
+            /* This one exists in the Morris and Ibbett book, but is not present in the MU5 Programming Manual */
+            cpu_set_register_32(reg_bod, (value >> 32) & MASK_32);
+            cpu_set_register_32(reg_b, value & MASK_32);
+            break;
+        }
+        case 48:
+        {
+            cpu_set_register_64(reg_aex, value);
+            break;
+        }
+        default:
+        {
+            cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+            break;
+        }
+    }
 
-	sim_debug(LOG_CPU_DECODE, &cpu_dev, "R%hu\n", n);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "R%hu\n", n);
 
-	return result;
+    return result;
 }
 
 static t_uint64 cpu_get_operand(uint16 order)
 {
     t_uint64 result = 0;
-	uint32 addr;
-	int instructionLength = 1;
+    uint32 addr;
+    int instructionLength = 1;
     uint16 k = cpu_get_k(order);
     uint32 instructionAddress = cpu_get_register_32(reg_co);
 
@@ -1786,35 +1786,35 @@ static t_uint64 cpu_get_operand(uint16 order)
                     result = cpu_get_operand_extended_literal(order, instructionAddress, &instructionLength);
                     break;
                 }
-				case 2:
-				{
-					sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 ");
-					addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_32);
-					result = sac_read_32_bit_word(addr);
-					break;
-				}
-				case 3:
-				{
-					sim_debug(LOG_CPU_DECODE, &cpu_dev, "V64 ");
-					addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
-					result = sac_read_64_bit_word(addr);
-					break;
-				}
-				case 4:
+                case 2:
+                {
+                    sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 ");
+                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_32);
+                    result = sac_read_32_bit_word(addr);
+                    break;
+                }
+                case 3:
+                {
+                    sim_debug(LOG_CPU_DECODE, &cpu_dev, "V64 ");
+                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+                    result = sac_read_64_bit_word(addr);
+                    break;
+                }
+                case 4:
                 case 5:
                 {
-					t_uint64 d;
-					sim_debug(LOG_CPU_DECODE, &cpu_dev, "S[B] ");
-					addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
-					if (addr == 0)
-					{
-						d = cpu_get_register_64(reg_d);
-					}
-					else
-					{
-						d = sac_read_64_bit_word(addr);
-					}
-					result = cpu_get_operand_by_descriptor_vector(d, cpu_get_register_32(reg_b));
+                    t_uint64 d;
+                    sim_debug(LOG_CPU_DECODE, &cpu_dev, "S[B] ");
+                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+                    if (addr == 0)
+                    {
+                        d = cpu_get_register_64(reg_d);
+                    }
+                    else
+                    {
+                        d = sac_read_64_bit_word(addr);
+                    }
+                    result = cpu_get_operand_by_descriptor_vector(d, cpu_get_register_32(reg_b));
                     break;
                 }
                 case 6:
@@ -1862,10 +1862,10 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
 
     switch (k)
     {
-		case 1:
-		{
-			cpu_set_operand_internal_register(order, value);
-		}
+        case 1:
+        {
+            cpu_set_operand_internal_register(order, value);
+        }
         case 2:
         {
             addr = cpu_get_operand_address_variable_32(order, instructionAddress, &instructionLength);
@@ -1875,57 +1875,57 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
         case 3:
         {
             addr = cpu_get_operand_address_variable_64(order, instructionAddress, &instructionLength);
-			sac_write_64_bit_word(addr, value);
-			break;
+            sac_write_64_bit_word(addr, value);
+            break;
         }
-		case 4:
-		case 5: /* RNI - From a programmer's perspective, k=5 was a spare, so in the hardware it was treated as being identical to k=4.*/
-		{
-			cpu_set_operand_b_relative_descriptor(order, instructionAddress, &instructionLength, value);
-			break;
-		}
-		case 6:
-		{
-			cpu_set_operand_zero_relative_descriptor(order, instructionAddress, &instructionLength, value);
-			break;
-		}
-		case 7:
-		{
-			switch (cpu_get_extended_k(order))
-			{
-				case 2:
-				{
-					sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 ");
-					addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_32);
-					sac_write_32_bit_word(addr, value & MASK_32);
-					break;
-				}
-				case 3:
-				{
-					sim_debug(LOG_CPU_DECODE, &cpu_dev, "V64 ");
-					addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
-					sac_write_64_bit_word(addr, value);
-					break;
-				}
-				case 4:
-				case 5:
-				{
-					t_uint64 d;
-					sim_debug(LOG_CPU_DECODE, &cpu_dev, "S[B] ");
-					addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
-					if (addr == 0)
-					{
-						d = cpu_get_register_64(reg_d);
-					}
-					else
-					{
-						d = sac_read_64_bit_word(addr);
-					}
-					cpu_set_operand_by_descriptor_vector(d, cpu_get_register_32(reg_b), value);
-					break;
-				}
-				case 6:
-				{
+        case 4:
+        case 5: /* RNI - From a programmer's perspective, k=5 was a spare, so in the hardware it was treated as being identical to k=4.*/
+        {
+            cpu_set_operand_b_relative_descriptor(order, instructionAddress, &instructionLength, value);
+            break;
+        }
+        case 6:
+        {
+            cpu_set_operand_zero_relative_descriptor(order, instructionAddress, &instructionLength, value);
+            break;
+        }
+        case 7:
+        {
+            switch (cpu_get_extended_k(order))
+            {
+                case 2:
+                {
+                    sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 ");
+                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_32);
+                    sac_write_32_bit_word(addr, value & MASK_32);
+                    break;
+                }
+                case 3:
+                {
+                    sim_debug(LOG_CPU_DECODE, &cpu_dev, "V64 ");
+                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+                    sac_write_64_bit_word(addr, value);
+                    break;
+                }
+                case 4:
+                case 5:
+                {
+                    t_uint64 d;
+                    sim_debug(LOG_CPU_DECODE, &cpu_dev, "S[B] ");
+                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+                    if (addr == 0)
+                    {
+                        d = cpu_get_register_64(reg_d);
+                    }
+                    else
+                    {
+                        d = sac_read_64_bit_word(addr);
+                    }
+                    cpu_set_operand_by_descriptor_vector(d, cpu_get_register_32(reg_b), value);
+                    break;
+                }
+                case 6:
+                {
                     t_uint64 d;
                     sim_debug(LOG_CPU_DECODE, &cpu_dev, "S[0] ");
                     addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
@@ -1939,17 +1939,17 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
                     }
                     cpu_set_operand_by_descriptor_vector(d, 0, value);
                     break;
-				}
-				default:
-				{
-					cpu_set_interrupt(INT_ILLEGAL_ORDERS);
-					break;
-				}
-			}
+                }
+                default:
+                {
+                    cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+                    break;
+                }
+            }
 
-			break;
-		}
-		default:
+            break;
+        }
+        default:
         {
             cpu_set_interrupt(INT_ILLEGAL_ORDERS);
         }
@@ -1981,11 +1981,11 @@ static void cpu_push_value(t_uint64 value)
 
 static t_addr cpu_pop_address(void)
 {
-	t_addr result;
-	uint16 sf = cpu_get_register_16(reg_sf);
-	result = cpu_get_name_segment_address_from_reg(reg_sf, 0, SCALE_64);
-	cpu_set_register_16(reg_sf, sf - 2);
-	return result;
+    t_addr result;
+    uint16 sf = cpu_get_register_16(reg_sf);
+    result = cpu_get_name_segment_address_from_reg(reg_sf, 0, SCALE_64);
+    cpu_set_register_16(reg_sf, sf - 2);
+    return result;
 }
 
 static t_uint64 cpu_pop_value(void)
@@ -2192,10 +2192,10 @@ static void cpu_set_descriptor_origin(t_uint64 *descriptor, uint32 origin)
 static void cpu_descriptor_modify(REG *descriptorReg, int32 modifier, int originOnly)
 {
     t_uint64 d = cpu_get_register_64(descriptorReg);
-	uint32 bound = cpu_get_descriptor_bound(d);
+    uint32 bound = cpu_get_descriptor_bound(d);
     uint32 origin = cpu_get_descriptor_origin(d);
-	int32 scaledModifier = modifier;
-	scaledModifier = cpu_scale_descriptor_modifier(d, modifier);
+    int32 scaledModifier = modifier;
+    scaledModifier = cpu_scale_descriptor_modifier(d, modifier);
     /* TODO: indirect descriptor processing not implemented, p49 */
     /* TODO: procedure call processing not implemented, p49 */
     if (!originOnly)
@@ -2214,13 +2214,13 @@ static void cpu_execute_descriptor_modify(uint16 order, REG *descriptorReg)
     uint8 subtype = cpu_get_descriptor_subtype(d);
     uint32 bound = cpu_get_descriptor_bound(d);
     int32 modifier = cpu_get_operand(order) & MASK_32;
-	cpu_set_register_bit_32(reg_dod, mask_dod_bch, 0);
-	if (!cpu_get_descriptor_bound_check_inhibit(d) && (type == DESCRIPTOR_TYPE_GENERAL_VECTOR || type == DESCRIPTOR_TYPE_GENERAL_STRING || type == DESCRIPTOR_TYPE_ADDRESS_VECTOR || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 0) || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 1) || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 2)))
+    cpu_set_register_bit_32(reg_dod, mask_dod_bch, 0);
+    if (!cpu_get_descriptor_bound_check_inhibit(d) && (type == DESCRIPTOR_TYPE_GENERAL_VECTOR || type == DESCRIPTOR_TYPE_GENERAL_STRING || type == DESCRIPTOR_TYPE_ADDRESS_VECTOR || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 0) || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 1) || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 2)))
     {
         if (modifier < 0 || (uint32)modifier >= bound)
         {
-			cpu_set_bounds_check_interrupt();
-		}
+            cpu_set_bounds_check_interrupt();
+        }
     }
 
     cpu_descriptor_modify(descriptorReg, modifier, FALSE);
@@ -2254,7 +2254,7 @@ static int cpu_check_string_descriptor(t_uint64 descriptor)
     if (type > DESCRIPTOR_TYPE_ADDRESS_VECTOR || size != DESCRIPTOR_SIZE_8_BIT)
     {
         cpu_set_interrupt(INT_PROGRAM_FAULTS);
-		cpu_set_register_bit_32(reg_dod, mask_dod_its, 1);
+        cpu_set_register_bit_32(reg_dod, mask_dod_its, 1);
         result = 0;
     }
 
@@ -2327,14 +2327,14 @@ static void cpu_execute_sts1_stack(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_sts1_xd_store(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS XD=> ");
-	if (!cpu_operand_is_secondary(order))
-	{
-		cpu_set_operand(order, cpu_get_register_64(reg_xd));
-	}
-	else
-	{
-		cpu_set_interrupt(INT_ILLEGAL_ORDERS);
-	}
+    if (!cpu_operand_is_secondary(order))
+    {
+        cpu_set_operand(order, cpu_get_register_64(reg_xd));
+    }
+    else
+    {
+        cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+    }
 }
 
 static void cpu_execute_sts1_xdb_load(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -2378,15 +2378,15 @@ static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable)
 
 static void cpu_execute_sts1_slgc(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	t_uint64 d = cpu_get_register_64(reg_d);
-	t_uint64 xd = cpu_get_register_64(reg_xd);
-	t_uint64 operand;
+    t_uint64 d = cpu_get_register_64(reg_d);
+    t_uint64 xd = cpu_get_register_64(reg_xd);
+    t_uint64 operand;
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS SLGC ");
     operand = cpu_get_operand(order);
-	if (cpu_check_string_descriptor(d) && cpu_check_string_descriptor(xd))
-	{
-		cpu_process_source_to_destination_descriptor_vector(operand, cpu_sts1_slgc_element_operation);
-	}
+    if (cpu_check_string_descriptor(d) && cpu_check_string_descriptor(xd))
+    {
+        cpu_process_source_to_destination_descriptor_vector(operand, cpu_sts1_slgc_element_operation);
+    }
 }
 
 static void cpu_execute_sts1_smvb(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -2406,7 +2406,7 @@ static void cpu_execute_sts1_smvb(uint16 order, DISPATCH_ENTRY *innerTable)
     {
         if (db == 0)
         {
-			cpu_set_bounds_check_interrupt();
+            cpu_set_bounds_check_interrupt();
         }
         else if (xdb == 0)
         {
@@ -2526,10 +2526,10 @@ static void cpu_execute_sts1_scmp(uint16 order, DISPATCH_ENTRY *innerTable)
             if (destByte == sourceByte)
             {
                 cpu_descriptor_modify(reg_d, 1, FALSE);
-				if (i < xdb)
-				{
-					cpu_descriptor_modify(reg_xd, 1, FALSE);
-				}
+                if (i < xdb)
+                {
+                    cpu_descriptor_modify(reg_xd, 1, FALSE);
+                }
             }
             else if (sourceByte > destByte)
             {
@@ -2850,8 +2850,8 @@ static void cpu_execute_b_store(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_b_add(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B+ ");
-    t_int64 augend = cpu_get_register_32(reg_b);
-    t_int64 addend = cpu_get_operand(order) & MASK_32;
+    t_int64 augend = cpu_sign_extend_32_bit(cpu_get_register_32(reg_b));
+    t_int64 addend = cpu_sign_extend_32_bit(cpu_get_operand(order) & MASK_32);
     t_int64 result = augend + addend;
     cpu_set_register_32(reg_b, (uint32)(result & MASK_32));
     cpu_check_b_overflow(result);
@@ -2860,8 +2860,8 @@ static void cpu_execute_b_add(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_b_sub(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B- ");
-    t_int64 minuend = cpu_get_register_32(reg_b);
-    t_int64 subtrahend = cpu_get_operand(order) & MASK_32;
+    t_int64 minuend = cpu_sign_extend_32_bit(cpu_get_register_32(reg_b));
+    t_int64 subtrahend = cpu_sign_extend_32_bit(cpu_get_operand(order) & MASK_32);
     t_int64 result = minuend - subtrahend;
     cpu_set_register_32(reg_b, (uint32)(result & MASK_32));
     cpu_check_b_overflow(result);
@@ -2870,8 +2870,8 @@ static void cpu_execute_b_sub(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_b_mul(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B* ");
-    t_int64 multiplicand = cpu_get_register_32(reg_b);
-    t_int64 multiplier = cpu_get_operand(order) & MASK_32;
+    t_int64 multiplicand = cpu_sign_extend_32_bit(cpu_get_register_32(reg_b));
+    t_int64 multiplier = cpu_sign_extend_32_bit(cpu_get_operand(order) & MASK_32);
     t_int64 result = multiplicand * multiplier;
     cpu_set_register_32(reg_b, (uint32)(result & MASK_32));
     cpu_check_b_overflow(result);
@@ -2881,8 +2881,8 @@ static void cpu_execute_b_mul(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_b_div(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B DIV ");
-    t_int64 dividend = cpu_get_register_32(reg_b);
-    t_int64 divisor = cpu_get_operand(order) & MASK_32;
+    t_int64 dividend = cpu_sign_extend_32_bit(cpu_get_register_32(reg_b));
+    t_int64 divisor = cpu_sign_extend_32_bit(cpu_get_operand(order) & MASK_32);
     if (divisor == 0)
     {
         cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */

@@ -55,6 +55,9 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_LOAD_DEC_B 1
 #define F_STACK_LOAD_B 2
 #define F_STORE_B 3
+#define F_ADD_B 4
+#define F_SUB_B 5
+#define F_MUL_B 6
 
 #define F_LOAD_XDO 0
 #define F_LOAD_XD 1
@@ -496,6 +499,12 @@ static void cpu_selftest_b_load_and_decrement_loads_B_and_subtracts_1(void);
 static void cpu_selftest_b_load_and_decrement_flags_overflow(void);
 static void cpu_selftest_b_stack_and_load_stacks_B_and_loads_B(void);
 static void cpu_selftest_b_store_stores_B(void);
+static void cpu_selftest_b_add_adds_operand_to_B(void);
+static void cpu_selftest_b_add_flags_overflow(void);
+static void cpu_selftest_b_sub_subtracts_operand_to_B(void);
+static void cpu_selftest_b_sub_flags_overflow(void);
+static void cpu_selftest_b_mul_multiplies_operand_to_B(void);
+static void cpu_selftest_b_mul_flags_overflow(void);
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void);
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void);
@@ -796,6 +805,12 @@ UNITTEST tests[] =
     { "B Load  & Decrement flags overflow", cpu_selftest_b_load_and_decrement_flags_overflow },
     { "B stack and load stacks B and then loads it", cpu_selftest_b_stack_and_load_stacks_B_and_loads_B },
     { "B store stores B", cpu_selftest_b_store_stores_B },
+    { "B ADD adds operand to B", cpu_selftest_b_add_adds_operand_to_B },
+    { "B ADD flags overflow", cpu_selftest_b_add_flags_overflow },
+    { "B SUB subtracts operand to B", cpu_selftest_b_sub_subtracts_operand_to_B },
+    { "B SUB flags overflow", cpu_selftest_b_sub_flags_overflow },
+    { "B MUL multiplies operand to B", cpu_selftest_b_mul_multiplies_operand_to_B },
+    { "B MUL flags overflow", cpu_selftest_b_mul_flags_overflow },
 
     { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
@@ -4731,6 +4746,63 @@ static void cpu_selftest_b_store_stores_B(void)
     cpu_selftest_run_code();
     cpu_selftest_assert_memory_contents_32_bit(base + n, 0xAAAAAAAA);
     cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_b_add_adds_operand_to_B(void)
+{
+    cpu_selftest_load_order_extended(CR_B, F_ADD_B, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
+    cpu_selftest_set_register(REG_B, 0x0AAAAAAA);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_B, 0x0AAAAAA9);
+    cpu_selftest_assert_no_b_overflow_interrupt();
+}
+
+static void cpu_selftest_b_add_flags_overflow(void)
+{
+    cpu_selftest_load_order_extended(CR_B, F_ADD_B, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
+    cpu_selftest_set_register(REG_B, 0x80000000);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_b_overflow_interrupt();
+}
+
+static void cpu_selftest_b_sub_subtracts_operand_to_B(void)
+{
+    cpu_selftest_load_order_extended(CR_B, F_SUB_B, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
+    cpu_selftest_set_register(REG_B, 0xAAAAAAAA);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_B, 0xAAAAAAAB);
+    cpu_selftest_assert_no_b_overflow_interrupt();
+}
+
+static void cpu_selftest_b_sub_flags_overflow(void)
+{
+    cpu_selftest_load_order_extended(CR_B, F_SUB_B, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
+    cpu_selftest_set_register(REG_B, 0x7FFFFFFF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_b_overflow_interrupt();
+}
+
+static void cpu_selftest_b_mul_multiplies_operand_to_B(void)
+{
+    cpu_selftest_load_order_extended(CR_B, F_MUL_B, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(-5);
+    cpu_selftest_set_register(REG_B, 6);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_B, -30 & 0xFFFFFFFF);
+    cpu_selftest_assert_no_b_overflow_interrupt();
+}
+
+static void cpu_selftest_b_mul_flags_overflow(void)
+{
+    cpu_selftest_load_order_extended(CR_B, F_MUL_B, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x7FFFFFFF);
+    cpu_selftest_set_register(REG_B, 0x7FFFFFFF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_b_overflow_interrupt();
 }
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void)
