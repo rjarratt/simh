@@ -53,6 +53,8 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #define F_LOAD_B 0
 #define F_LOAD_DEC_B 1
+#define F_STACK_LOAD_B 2
+#define F_STORE_B 3
 
 #define F_LOAD_XDO 0
 #define F_LOAD_XD 1
@@ -492,6 +494,8 @@ static void cpu_selftest_sts2_sub2_modifies_D_existing_D(void);
 static void cpu_selftest_b_load_loads_B(void);
 static void cpu_selftest_b_load_and_decrement_loads_B_and_subtracts_1(void);
 static void cpu_selftest_b_load_and_decrement_flags_overflow(void);
+static void cpu_selftest_b_stack_and_load_stacks_B_and_loads_B(void);
+static void cpu_selftest_b_store_stores_B(void);
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void);
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void);
@@ -785,11 +789,13 @@ UNITTEST tests[] =
     { "BCMP finds byte in type 2 descriptor", cpu_selftest_sts2_bcmp_finds_byte_in_type_2_descriptor },
     { "SUB2 modifies existing descriptor in XD", cpu_selftest_sts2_sub2_modifies_XD },
     { "SUB2 calculates B", cpu_selftest_sts2_sub2_calculates_B },
-    //{ "SUB2 modifies existing descriptor in D", cpu_selftest_sts2_sub2_modifies_D_existing_D },
+    { "SUB2 modifies existing descriptor in D", cpu_selftest_sts2_sub2_modifies_D_existing_D },
 
     { "B Load loads B", cpu_selftest_b_load_loads_B },
     { "B Load & Decrement loads B and subtracts 1", cpu_selftest_b_load_and_decrement_loads_B_and_subtracts_1 },
     { "B Load  & Decrement flags overflow", cpu_selftest_b_load_and_decrement_flags_overflow },
+    { "B stack and load stacks B and then loads it", cpu_selftest_b_stack_and_load_stacks_B_and_loads_B },
+    { "B store stores B", cpu_selftest_b_store_stores_B },
 
     { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
@@ -4700,6 +4706,31 @@ static void cpu_selftest_b_load_and_decrement_flags_overflow(void)
     cpu_selftest_load_32_bit_literal(0x80000000);
     cpu_selftest_run_code();
     cpu_selftest_assert_b_overflow_interrupt();
+}
+
+static void cpu_selftest_b_stack_and_load_stacks_B_and_loads_B(void)
+{
+    uint32 base = 0x00F0;
+    cpu_selftest_load_order_extended(CR_B, F_STACK_LOAD_B, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
+    cpu_selftest_set_register(REG_SF, base);
+    cpu_selftest_set_register(REG_B, 0xAAAAAAAA);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_64_bit(base + 2, 0x00000000AAAAAAAA);
+    cpu_selftest_assert_reg_equals(REG_SF, base + 2);
+    cpu_selftest_assert_reg_equals(REG_B, 0xFFFFFFFF);
+    cpu_selftest_assert_no_interrupt();
+}
+static void cpu_selftest_b_store_stores_B(void)
+{
+    uint32 base = 0x00F0;
+    int8 n = 0x2;
+    cpu_selftest_load_order(CR_B, F_STORE_B, K_V32, n);
+    cpu_selftest_set_register(REG_NB, base);
+    cpu_selftest_set_register(REG_B, 0xAAAAAAAA);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_32_bit(base + n, 0xAAAAAAAA);
+    cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void)
