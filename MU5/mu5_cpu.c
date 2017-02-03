@@ -113,15 +113,15 @@ static t_uint64 mask_aod_ifxpovf = 0xFFFFFFFFFFFFF7FE;
 static t_uint64 mask_aod_opsiz64 = 0xFFFFFFFFFFFFEFFF;
 
 BITFIELD bod_bits[] = {
-    BIT(IBOVF),  /* Inhibit B overflow interrupt */
-    BITNCF(4),
-    BIT(BOVF),   /* B Overflow */
     BITNCF(26),
+    BIT(BOVF),   /* B Overflow */
+    BITNCF(4),
+    BIT(IBOVF),  /* Inhibit B overflow interrupt */
     ENDBITS
 };
 
-static uint32 mask_bod_bovf = 0xFFFFFFDF;
-static uint32 mask_bod_ibovf = 0xFFFFFFFE;
+static uint32 mask_bod_bovf = 0xFBFFFFFF;
+static uint32 mask_bod_ibovf = 0x7FFFFFFF;
 
 BITFIELD ms_bits[] = {
     BIT(L0IF),    /* Level 0 interrupt flip-flop */
@@ -310,6 +310,7 @@ static void cpu_set_operand_from_descriptor(uint16 order, uint32 instructionAddr
 static t_uint64 cpu_get_operand(uint16 order);
 static void cpu_set_operand(uint16 order, t_uint64 value);
 static t_uint64 cpu_sign_extend_6_bit(t_uint64 value);
+static t_uint64 cpu_sign_extend_32_bit(t_uint64 value);
 static void cpu_push_value(t_uint64 value);
 static t_addr cpu_pop_address(void);
 static t_uint64 cpu_pop_value(void);
@@ -1964,6 +1965,13 @@ static t_uint64 cpu_sign_extend_6_bit(t_uint64 value)
     return result;
 }
 
+static t_uint64 cpu_sign_extend_32_bit(t_uint64 value)
+{
+    t_uint64 result = value & MASK_32;
+    result |= (value & 0x80000000) ? 0xFFFFFFFF00000000 : 0;
+    return result;
+}
+
 static void cpu_push_value(t_uint64 value)
 {
     uint16 newSF = cpu_get_register_16(reg_sf) + 2;
@@ -2820,7 +2828,7 @@ static void cpu_execute_b_load(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_b_load_and_decrement(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B=' ");
-    t_int64 b = cpu_get_operand(order) & MASK_32;
+    t_int64 b = cpu_sign_extend_32_bit(cpu_get_operand(order) & MASK_32);
     b--;
     cpu_check_b_overflow(b);
     cpu_set_register_32(reg_b, b & MASK_32);

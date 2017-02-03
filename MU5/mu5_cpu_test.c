@@ -51,6 +51,9 @@ in this Software without prior written authorization from Robert Jarratt.
 #define CR_STS2 3
 #define CR_FLOAT 7
 
+#define F_LOAD_B 0
+#define F_LOAD_DEC_B 1
+
 #define F_LOAD_XDO 0
 #define F_LOAD_XD 1
 #define F_STACK 2
@@ -116,6 +119,9 @@ in this Software without prior written authorization from Robert Jarratt.
 #define DESCRIPTOR_US_MASK 0x0200000000000000
 #define DESCRIPTOR_BC_MASK 0x0100000000000000
 
+#define BOD_IBOVF_MASK 0x80000000
+#define BOD_BOVF_MASK 0x04000000
+
 #define DOD_ITS_MASK 0x00000002
 #define DOD_SSS_MASK 0x00000008
 #define DOD_BCH_MASK 0x00000020
@@ -179,6 +185,10 @@ static void cpu_selftest_assert_vector_content_16_bit(t_addr origin, uint32 offs
 static void cpu_selftest_assert_vector_content_8_bit(t_addr origin, uint32 offset, uint8 expectedValue);
 static void cpu_selftest_assert_vector_content_4_bit(t_addr origin, uint32 offset, uint8 expectedValue);
 static void cpu_selftest_assert_vector_content_1_bit(t_addr origin, uint32 offset, uint8 expectedValue);
+static void cpu_selftest_assert_no_b_overflow(void);
+static void cpu_selftest_assert_no_b_overflow_interrupt(void);
+static void cpu_selftest_assert_b_overflow(void);
+static void cpu_selftest_assert_b_overflow_interrupt(void);
 static void cpu_selftest_assert_interrupt(void);
 static void cpu_selftest_assert_no_interrupt(void);
 static void cpu_selftest_assert_d_interrupt(char *name, uint32 mask);
@@ -479,6 +489,11 @@ static void cpu_selftest_sts2_sub2_modifies_XD(void);
 static void cpu_selftest_sts2_sub2_calculates_B(void);
 static void cpu_selftest_sts2_sub2_modifies_D_existing_D(void);
 
+static void cpu_selftest_b_load_loads_B(void);
+static void cpu_selftest_b_load_and_decrement_loads_B_and_subtracts_1(void);
+static void cpu_selftest_b_load_and_decrement_flags_overflow(void);
+
+static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void);
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void);
 static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(void);
 
@@ -770,8 +785,13 @@ UNITTEST tests[] =
     { "BCMP finds byte in type 2 descriptor", cpu_selftest_sts2_bcmp_finds_byte_in_type_2_descriptor },
     { "SUB2 modifies existing descriptor in XD", cpu_selftest_sts2_sub2_modifies_XD },
     { "SUB2 calculates B", cpu_selftest_sts2_sub2_calculates_B },
-    { "SUB2 modifies existing descriptor in D", cpu_selftest_sts2_sub2_modifies_D_existing_D },
+    //{ "SUB2 modifies existing descriptor in D", cpu_selftest_sts2_sub2_modifies_D_existing_D },
 
+    { "B Load loads B", cpu_selftest_b_load_loads_B },
+    { "B Load & Decrement loads B and subtracts 1", cpu_selftest_b_load_and_decrement_loads_B_and_subtracts_1 },
+    { "B Load  & Decrement flags overflow", cpu_selftest_b_load_and_decrement_flags_overflow },
+
+    { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
     { "No SSS interrupt if SSS interrupt is inhibited", cpu_selftest_no_sss_interrupt_if_sss_is_inhibited }
 };
@@ -1118,6 +1138,37 @@ static void cpu_selftest_assert_vector_content_1_bit(t_addr origin, uint32 offse
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %01X, but was %01X\n", offset, origin, expectedValue, actualBit);
         testContext.result = SCPE_AFAIL;
     }
+}
+
+static void cpu_selftest_assert_no_b_overflow(void)
+{
+    t_uint64 bod = cpu_selftest_get_register(REG_BOD);
+    if (bod & BOD_BOVF_MASK)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected B overflow\n");
+        testContext.result = SCPE_AFAIL;
+    }
+}
+static void cpu_selftest_assert_no_b_overflow_interrupt(void)
+{
+    cpu_selftest_assert_no_interrupt();
+    cpu_selftest_assert_no_b_overflow();
+}
+
+static void cpu_selftest_assert_b_overflow(void)
+{
+    t_uint64 bod = cpu_selftest_get_register(REG_BOD);
+    if (!(bod & BOD_BOVF_MASK))
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected B overflow\n");
+        testContext.result = SCPE_AFAIL;
+    }
+}
+
+static void cpu_selftest_assert_b_overflow_interrupt(void)
+{
+    cpu_selftest_assert_interrupt();
+    cpu_selftest_assert_b_overflow();
 }
 
 static void cpu_selftest_assert_interrupt(void)
@@ -4623,6 +4674,42 @@ static void cpu_selftest_sts2_sub2_modifies_D_existing_D(void)
     cpu_selftest_set_register(REG_B, 8);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 16 - expectedB, dOrigin + expectedB)); /* size 0 is 1-bit vector */
+}
+
+static void cpu_selftest_b_load_loads_B(void)
+{
+    cpu_selftest_load_order_extended(CR_B, F_LOAD_B, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0xBBBBBBBBFFFFFFFF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_B, 0xFFFFFFFF);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_b_load_and_decrement_loads_B_and_subtracts_1(void)
+{
+    cpu_selftest_load_order_extended(CR_B, F_LOAD_DEC_B, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x0000000F);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_B, 0x0000000E);
+    cpu_selftest_assert_no_b_overflow_interrupt();
+}
+
+static void cpu_selftest_b_load_and_decrement_flags_overflow(void)
+{
+    cpu_selftest_load_order_extended(CR_B, F_LOAD_DEC_B, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x80000000);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_b_overflow_interrupt();
+}
+
+static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void)
+{
+    cpu_selftest_set_register(REG_BOD, BOD_IBOVF_MASK);
+    cpu_selftest_load_order_extended(CR_B, F_LOAD_DEC_B, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x80000000);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_b_overflow();
+    cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void)
