@@ -475,6 +475,9 @@ static void cpu_selftest_sts2_bcmp_sets_less_than_if_byte_differs_and_is_larger(
 static void cpu_selftest_sts2_bcmp_finds_byte_in_type_0_descriptor(void);
 static void cpu_selftest_sts2_bcmp_finds_byte_in_type_1_descriptor(void);
 static void cpu_selftest_sts2_bcmp_finds_byte_in_type_2_descriptor(void);
+static void cpu_selftest_sts2_sub2_modifies_XD(void);
+static void cpu_selftest_sts2_sub2_calculates_B(void);
+static void cpu_selftest_sts2_sub2_modifies_D_existing_D(void);
 
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void);
 static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(void);
@@ -765,6 +768,9 @@ UNITTEST tests[] =
     { "BCMP finds byte in type 0 descriptor", cpu_selftest_sts2_bcmp_finds_byte_in_type_0_descriptor },
     { "BCMP finds byte in type 1 descriptor", cpu_selftest_sts2_bcmp_finds_byte_in_type_1_descriptor },
     { "BCMP finds byte in type 2 descriptor", cpu_selftest_sts2_bcmp_finds_byte_in_type_2_descriptor },
+    { "SUB2 modifies existing descriptor in XD", cpu_selftest_sts2_sub2_modifies_XD },
+    { "SUB2 calculates B", cpu_selftest_sts2_sub2_calculates_B },
+    { "SUB2 modifies existing descriptor in D", cpu_selftest_sts2_sub2_modifies_D_existing_D },
 
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
     { "No SSS interrupt if SSS interrupt is inhibited", cpu_selftest_no_sss_interrupt_if_sss_is_inhibited }
@@ -4575,6 +4581,48 @@ static void cpu_selftest_sts2_bcmp_finds_byte_in_type_2_descriptor(void)
     cpu_selftest_assert_test_equals();
     cpu_selftest_assert_no_its_interrupt();
     cpu_selftest_assert_no_sss_interrupt();
+}
+
+static void cpu_selftest_sts2_sub2_modifies_XD(void)
+{
+    uint32 origin = 16;
+    cpu_selftest_load_order(CR_STS2, F_SUB2, K_LITERAL, 0);
+    cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 3, origin));
+    cpu_selftest_load_32_bit_value_to_descriptor_location(origin, 0, 4);
+    cpu_selftest_load_32_bit_value_to_descriptor_location(origin, 1, 2);
+    cpu_selftest_load_32_bit_value_to_descriptor_location(origin, 2, 16);
+    cpu_selftest_set_register(REG_B, 8);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 0, origin + (3 * 4)));
+}
+
+static void cpu_selftest_sts2_sub2_calculates_B(void)
+{
+    uint32 origin = 16;
+    cpu_selftest_load_order(CR_STS2, F_SUB2, K_LITERAL, 0);
+    cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 3, origin));
+    cpu_selftest_load_32_bit_value_to_descriptor_location(origin, 0, 4);
+    cpu_selftest_load_32_bit_value_to_descriptor_location(origin, 1, 2);
+    cpu_selftest_load_32_bit_value_to_descriptor_location(origin, 2, 16);
+    cpu_selftest_set_register(REG_B, 8);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_B, (8 - 4) * 2);
+}
+
+static void cpu_selftest_sts2_sub2_modifies_D_existing_D(void)
+{
+    uint32 xdOrigin = 16;
+    uint32 dOrigin = 32;
+    uint32 expectedB = (8 - 4) * 2;
+    cpu_selftest_load_order(CR_STS2, F_SUB2, K_LITERAL, 0);
+    cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 3, xdOrigin));
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 0, dOrigin));
+    cpu_selftest_load_32_bit_value_to_descriptor_location(xdOrigin, 0, 4);
+    cpu_selftest_load_32_bit_value_to_descriptor_location(xdOrigin, 1, 2);
+    cpu_selftest_load_32_bit_value_to_descriptor_location(xdOrigin, 2, 16);
+    cpu_selftest_set_register(REG_B, 8);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 16 - expectedB, dOrigin + expectedB)); /* size 0 is 1-bit vector */
 }
 
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void)
