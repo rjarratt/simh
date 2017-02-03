@@ -467,6 +467,14 @@ static void cpu_selftest_sts2_bscn_sets_less_than_if_byte_not_found(void);
 static void cpu_selftest_sts2_bscn_finds_byte_in_type_0_descriptor(void);
 static void cpu_selftest_sts2_bscn_finds_byte_in_type_1_descriptor(void);
 static void cpu_selftest_sts2_bscn_finds_byte_in_type_2_descriptor(void);
+static void cpu_selftest_sts2_bcmp_generates_its_interrupt_if_destination_not_8_bit(void);
+static void cpu_selftest_sts2_bcmp_generates_its_interrupt_if_destination_is_type_3(void);
+static void cpu_selftest_sts2_bcmp_sets_equals_if_byte_found_in_all_elements(void);
+static void cpu_selftest_sts2_bcmp_sets_less_than_if_byte_differs_and_is_smaller(void);
+static void cpu_selftest_sts2_bcmp_sets_less_than_if_byte_differs_and_is_larger(void);
+static void cpu_selftest_sts2_bcmp_finds_byte_in_type_0_descriptor(void);
+static void cpu_selftest_sts2_bcmp_finds_byte_in_type_1_descriptor(void);
+static void cpu_selftest_sts2_bcmp_finds_byte_in_type_2_descriptor(void);
 
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void);
 static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(void);
@@ -749,6 +757,14 @@ UNITTEST tests[] =
     { "BSCN finds byte in type 0 descriptor", cpu_selftest_sts2_bscn_finds_byte_in_type_0_descriptor },
     { "BSCN finds byte in type 0 descriptor", cpu_selftest_sts2_bscn_finds_byte_in_type_1_descriptor },
     { "BSCN finds byte in type 0 descriptor", cpu_selftest_sts2_bscn_finds_byte_in_type_2_descriptor },
+    { "BCMP generates interrupt if destination is not 8 bit", cpu_selftest_sts2_bcmp_generates_its_interrupt_if_destination_not_8_bit },
+    { "BCMP generates interrupt if destination is type 3", cpu_selftest_sts2_bcmp_generates_its_interrupt_if_destination_is_type_3 },
+    { "BCMP sets =0 if byte is found in all elements", cpu_selftest_sts2_bcmp_sets_equals_if_byte_found_in_all_elements },
+    { "BCMP sets <0 if byte differs and is smaller", cpu_selftest_sts2_bcmp_sets_less_than_if_byte_differs_and_is_smaller },
+    { "BCMP sets <0 if byte differs and is larger", cpu_selftest_sts2_bcmp_sets_less_than_if_byte_differs_and_is_larger },
+    { "BCMP finds byte in type 0 descriptor", cpu_selftest_sts2_bcmp_finds_byte_in_type_0_descriptor },
+    { "BCMP finds byte in type 1 descriptor", cpu_selftest_sts2_bcmp_finds_byte_in_type_1_descriptor },
+    { "BCMP finds byte in type 2 descriptor", cpu_selftest_sts2_bcmp_finds_byte_in_type_2_descriptor },
 
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
     { "No SSS interrupt if SSS interrupt is inhibited", cpu_selftest_no_sss_interrupt_if_sss_is_inhibited }
@@ -4413,11 +4429,12 @@ static void cpu_selftest_sts2_bscn_finds_byte_in_type_0_descriptor(void)
     uint32 destinationOrigin = 32;
     cpu_selftest_load_order_extended(CR_STS2, F_BSCN, K_LITERAL, NP_64_BIT_LITERAL);
     cpu_selftest_load_64_bit_literal(0x0000000000008033);
-    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 2, destinationOrigin));
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 3, destinationOrigin));
     cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 0, 0xB2);
     cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 1, 0xB3);
+    cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 2, 0xB3);
     cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, destinationOrigin + 1));
+    cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 2, destinationOrigin + 1));
     cpu_selftest_assert_test_equals();
     cpu_selftest_assert_no_its_interrupt();
     cpu_selftest_assert_no_sss_interrupt();
@@ -4448,6 +4465,113 @@ static void cpu_selftest_sts2_bscn_finds_byte_in_type_2_descriptor(void)
     cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 1, 0xB3);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, destinationOrigin + 1));
+    cpu_selftest_assert_test_equals();
+    cpu_selftest_assert_no_its_interrupt();
+    cpu_selftest_assert_no_sss_interrupt();
+}
+
+static void cpu_selftest_sts2_bcmp_generates_its_interrupt_if_destination_not_8_bit(void)
+{
+    cpu_selftest_load_order_extended(CR_STS2, F_BCMP, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0x0000000000000000);
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_64_BIT, 1, 16));
+    cpu_selftest_run_code();
+    cpu_selftest_assert_its_interrupt();
+}
+
+static void cpu_selftest_sts2_bcmp_generates_its_interrupt_if_destination_is_type_3(void)
+{
+    cpu_selftest_load_order_extended(CR_STS2, F_BCMP, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0x0000000000000000);
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_MISCELLANEOUS, DESCRIPTOR_SIZE_8_BIT, 1, 8));
+    cpu_selftest_run_code();
+    cpu_selftest_assert_its_interrupt();
+}
+
+static void cpu_selftest_sts2_bcmp_sets_equals_if_byte_found_in_all_elements(void)
+{
+    uint32 destinationOrigin = 32;
+    cpu_selftest_load_order_extended(CR_STS2, F_BCMP, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0x0000000000008033);
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 2, destinationOrigin));
+    cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 0, 0xB3);
+    cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 1, 0xB3);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, destinationOrigin + 2));
+    cpu_selftest_assert_test_equals();
+    cpu_selftest_assert_no_its_interrupt();
+    cpu_selftest_assert_no_sss_interrupt();
+}
+
+static void cpu_selftest_sts2_bcmp_sets_less_than_if_byte_differs_and_is_smaller(void)
+{
+    uint32 destinationOrigin = 32;
+    cpu_selftest_load_order_extended(CR_STS2, F_BCMP, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0x0000000000008033);
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 3, destinationOrigin));
+    cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 0, 0xB3);
+    cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 1, 0xB2); /* when considering mask, byte is bigger than this element */
+    cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 2, 0xB2);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 2, destinationOrigin + 1));
+    cpu_selftest_assert_test_greater_than();
+    cpu_selftest_assert_no_its_interrupt();
+    cpu_selftest_assert_no_sss_interrupt();
+}
+
+static void cpu_selftest_sts2_bcmp_sets_less_than_if_byte_differs_and_is_larger(void)
+{
+    uint32 destinationOrigin = 32;
+    cpu_selftest_load_order_extended(CR_STS2, F_BCMP, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0x00000000000080B3);
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 3, destinationOrigin));
+    cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 0, 0xB3);
+    cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 1, 0x34); /* when considering mask, byte is smaller than this element */
+    cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 2, 0x34);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 2, destinationOrigin + 1));
+    cpu_selftest_assert_test_less_than();
+    cpu_selftest_assert_no_its_interrupt();
+    cpu_selftest_assert_no_sss_interrupt();
+}
+
+static void cpu_selftest_sts2_bcmp_finds_byte_in_type_0_descriptor(void)
+{
+    uint32 destinationOrigin = 32;
+    cpu_selftest_load_order_extended(CR_STS2, F_BCMP, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0x0000000000000033);
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, destinationOrigin));
+    cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 0, 0x33);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, destinationOrigin + 1));
+    cpu_selftest_assert_test_equals();
+    cpu_selftest_assert_no_its_interrupt();
+    cpu_selftest_assert_no_sss_interrupt();
+}
+
+static void cpu_selftest_sts2_bcmp_finds_byte_in_type_1_descriptor(void)
+{
+    uint32 destinationOrigin = 32;
+    cpu_selftest_load_order_extended(CR_STS2, F_BCMP, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0x0000000000000033);
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 1, destinationOrigin));
+    cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 0, 0x33);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 0, destinationOrigin + 1));
+    cpu_selftest_assert_test_equals();
+    cpu_selftest_assert_no_its_interrupt();
+    cpu_selftest_assert_no_sss_interrupt();
+}
+
+static void cpu_selftest_sts2_bcmp_finds_byte_in_type_2_descriptor(void)
+{
+    uint32 destinationOrigin = 32;
+    cpu_selftest_load_order_extended(CR_STS2, F_BCMP, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0x0000000000000033);
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, destinationOrigin));
+    cpu_selftest_load_8_bit_value_to_descriptor_location(destinationOrigin, 0, 0x33);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, destinationOrigin + 1));
     cpu_selftest_assert_test_equals();
     cpu_selftest_assert_no_its_interrupt();
     cpu_selftest_assert_no_sss_interrupt();

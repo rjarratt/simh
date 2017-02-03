@@ -2743,17 +2743,18 @@ static void cpu_execute_sts2_bcmp(uint16 order, DISPATCH_ENTRY *innerTable)
     unsigned int i;
     int compareResult = 0;
     cpu_parse_sts_string_to_string_operand_from_order(order, &mask, &byte);
+    byte = byte & ~mask;
 
     if (cpu_check_string_descriptor(d))
     {
         for (i = 0; i < db && compareResult == 0; i++)
         {
-            uint8 sourceByte = (uint8)cpu_get_operand_by_descriptor_vector(d, i);
-            if (byte == sourceByte)
+            uint8 destinationByte = (uint8)cpu_get_operand_by_descriptor_vector(d, i) & ~mask;
+            if (byte == destinationByte)
             {
                 cpu_descriptor_modify(reg_d, 1, FALSE);
             }
-            else if (sourceByte > byte)
+            else if (byte > destinationByte)
             {
                 compareResult = 1;
             }
