@@ -3312,7 +3312,7 @@ static void cpu_execute_fp_decimal_stack_and_load(uint16 order, DISPATCH_ENTRY *
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "AEX*= ");
     cpu_push_value(cpu_get_register_64(reg_aex));
-    cpu_set_register_64(reg_a, cpu_get_operand(order));
+    cpu_set_register_64(reg_aex, cpu_get_operand(order));
 }
 
 static void cpu_execute_fp_decimal_store(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -3325,7 +3325,8 @@ static void cpu_execute_fp_decimal_compare(uint16 order, DISPATCH_ENTRY *innerTa
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "AODCOMP ");
     t_uint64 aod = cpu_get_register_64(reg_aod) & mask_aod;
-    int result = aod == cpu_get_operand(order);
+    t_uint64 comparand = cpu_get_operand(order) & mask_aod;
+    int result = (aod & comparand) != 0;
     cpu_set_register_bit_16(reg_ms, mask_ms_t0, result);
 }
 
