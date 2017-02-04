@@ -2527,7 +2527,7 @@ static void cpu_selftest_store_operand_6_bit_literal_generates_interrupt(void)
 
 static void cpu_selftest_store_operand_internal_register_0_generates_interrupt(void)
 {
-    cpu_selftest_load_order(CR_FLOAT, F_STORE_64, K_IR, 0xFFFFFFFFFFFFFFFF);
+    cpu_selftest_load_order(CR_FLOAT, F_STORE_64, K_IR, 0);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_MS, 0);
     cpu_selftest_assert_reg_equals(REG_NB, 0);

@@ -1658,7 +1658,7 @@ static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructi
         }
     }
 
-    sim_debug(LOG_CPU_DECODE, &cpu_dev, "R%hu\n", n);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "R%hu\n", (unsigned short)n);
 
     return result;
 }
@@ -1730,7 +1730,7 @@ static t_uint64 cpu_set_operand_internal_register(uint16 order, t_uint64 value)
         }
     }
 
-    sim_debug(LOG_CPU_DECODE, &cpu_dev, "R%hu\n", n);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "R%hu\n", (unsigned short)n);
 
     return result;
 }
@@ -2026,7 +2026,7 @@ static void cpu_execute_illegal_order(uint16 order, DISPATCH_ENTRY *innerTable)
 
 static void cpu_start_interrupt_processing(void)
 {
-    printf("Interrupt %hu detected - processing TBD\n", cpu_get_interrupt_number());
+    printf("Interrupt %hu detected - processing TBD\n", (unsigned short)cpu_get_interrupt_number());
     cpu_stopped = 1; /* TODO: temporary halt CPU until implement interrupt processing */
 }
 
@@ -2351,7 +2351,7 @@ static void cpu_execute_sts1_xchk(uint16 order, DISPATCH_ENTRY *innerTable)
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "STS XCHK ");
     uint32 check = cpu_get_operand(order) & MASK_32;
     uint32 xdb = cpu_get_descriptor_bound(cpu_get_register_64(reg_xd));
-    int result = check >= 0 && check < xdb;
+    int result = (int32)check >= 0 && check < xdb;
     cpu_set_register_bit_32(reg_dod, mask_dod_xch, result);
 }
 
