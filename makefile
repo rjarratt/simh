@@ -1864,7 +1864,7 @@ ${BIN}ssem${EXE} : ${SSEM} ${SIM}
 
 mu5 : ${BIN}mu5${EXE}
 
-${BIN}mu5{EXE} : ${MU5} ${SIM}
+${BIN}mu5${EXE} : ${MU5} ${SIM}
 	${MKDIRBIN}
 	${CC} ${MU5} ${SIM} ${MU5_OPT} $(CC_OUTSPEC) ${LDFLAGS}
 
