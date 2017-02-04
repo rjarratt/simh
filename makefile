@@ -1422,7 +1422,7 @@ SSEM = ${SSEMD}/ssem_cpu.c ${SSEMD}/ssem_sys.c
 SSEM_OPT = -I ${SSEMD}
 
 MU5D = MU5
-MU5 = ${MU5D}/MU5_cpu.c ${MU5D}/MU5_sac.c ${MU5D}/MU5_sys.c ${MU5D}/MU5_cpu_test.c 
+MU5 = ${MU5D}/mu5_cpu.c ${MU5D}/mu5_sac.c ${MU5D}/mu5_sys.c ${MU5D}/mu5_cpu_test.c 
 MU5_OPT = -I ${MU5D}
 
 B5500D = B5500
