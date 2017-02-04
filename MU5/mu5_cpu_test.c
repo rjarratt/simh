@@ -45,10 +45,12 @@ in this Software without prior written authorization from Robert Jarratt.
 #define REG_SF "SF"
 #define REG_MS "MS"
 #define REG_CO "CO"
+#define REG_X "X"
 
 #define CR_B 1
 #define CR_STS1 2
 #define CR_STS2 3
+#define CR_XS 4
 #define CR_FLOAT 7
 
 #define F_LOAD_B 0
@@ -65,6 +67,22 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_RSUB_B 12
 #define F_COMP_B 13
 #define F_CINC_B 14
+
+#define F_LOAD_X 0
+#define F_STACK_LOAD_X 2
+#define F_STORE_X 3
+#define F_ADD_X 4
+#define F_SUB_X 5
+#define F_MUL_X 6
+#define F_DIV_X 6
+#define F_XOR_X 8
+#define F_OR_X 9
+#define F_SHIFT_L_X 10
+#define F_AND_X 11
+#define F_RSUB_X 12
+#define F_COMP_X 13
+#define F_CONV_X 14
+#define F_RDIV_X 15
 
 #define F_LOAD_XDO 0
 #define F_LOAD_XD 1
@@ -527,6 +545,10 @@ static void cpu_selftest_b_cinc_compares_B_with_operand(void);
 static void cpu_selftest_b_cinc_increments_B(void);
 static void cpu_selftest_b_cinc_flags_overflow(void);
 
+static void cpu_selftest_x_load_loads_X(void);
+static void cpu_selftest_x_stack_and_load_stacks_X_and_loads_X(void);
+static void cpu_selftest_x_store_stores_X(void);
+
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void);
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void);
 static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(void);
@@ -844,6 +866,10 @@ UNITTEST tests[] =
     { "B CINC compares B with operand", cpu_selftest_b_cinc_compares_B_with_operand },
     { "B CINC increments B", cpu_selftest_b_cinc_increments_B },
     { "B CINC flags overflow", cpu_selftest_b_cinc_flags_overflow },
+
+    { "X Load loads X", cpu_selftest_x_load_loads_X },
+    { "X stack and load stacks X and then loads it", cpu_selftest_x_stack_and_load_stacks_X_and_loads_X },
+    { "X store stores X", cpu_selftest_x_store_stores_X },
 
     { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
@@ -4774,15 +4800,16 @@ static void cpu_selftest_b_stack_and_load_stacks_B_and_loads_B(void)
     cpu_selftest_assert_reg_equals(REG_B, 0xFFFFFFFF);
     cpu_selftest_assert_no_interrupt();
 }
+
 static void cpu_selftest_b_store_stores_B(void)
 {
     uint32 base = 0x00F0;
     int8 n = 0x2;
-    cpu_selftest_load_order(CR_B, F_STORE_B, K_V32, n);
+    cpu_selftest_load_order(CR_B, F_STORE_B, K_V64, n);
     cpu_selftest_set_register(REG_NB, base);
     cpu_selftest_set_register(REG_B, 0xAAAAAAAA);
     cpu_selftest_run_code();
-    cpu_selftest_assert_memory_contents_32_bit(base + n, 0xAAAAAAAA);
+    cpu_selftest_assert_memory_contents_64_bit(base + (n * 2), 0x00000000AAAAAAAA);
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -4965,6 +4992,40 @@ static void cpu_selftest_b_cinc_flags_overflow(void)
     cpu_selftest_assert_b_overflow_interrupt();
 }
 
+static void cpu_selftest_x_load_loads_X(void)
+{
+    cpu_selftest_load_order_extended(CR_XS, F_LOAD_X, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0xBBBBBBBBFFFFFFFF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_X, 0xFFFFFFFF);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_x_stack_and_load_stacks_X_and_loads_X(void)
+{
+    uint32 base = 0x00F0;
+    cpu_selftest_load_order_extended(CR_XS, F_STACK_LOAD_X, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
+    cpu_selftest_set_register(REG_SF, base);
+    cpu_selftest_set_register(REG_X, 0xAAAAAAAA);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_64_bit(base + 2, 0x00000000AAAAAAAA);
+    cpu_selftest_assert_reg_equals(REG_SF, base + 2);
+    cpu_selftest_assert_reg_equals(REG_X, 0xFFFFFFFF);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_x_store_stores_X(void)
+{
+    uint32 base = 0x00F0;
+    int8 n = 0x2;
+    cpu_selftest_load_order(CR_XS, F_STORE_X, K_V64, n);
+    cpu_selftest_set_register(REG_NB, base);
+    cpu_selftest_set_register(REG_X, 0xAAAAAAAA);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_64_bit(base + (n * 2), 0x00000000AAAAAAAA);
+    cpu_selftest_assert_no_interrupt();
+}
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void)
 {

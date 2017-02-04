@@ -3008,7 +3008,7 @@ static void cpu_execute_fp_signed_stack_and_load(uint16 order, DISPATCH_ENTRY *i
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "X*= ");
     cpu_push_value(cpu_get_register_32(reg_x));
-    cpu_set_register_32(reg_a, cpu_get_operand(order) & MASK_32);
+    cpu_set_register_32(reg_x, cpu_get_operand(order) & MASK_32);
 }
 
 static void cpu_execute_fp_signed_store(uint16 order, DISPATCH_ENTRY *innerTable)
