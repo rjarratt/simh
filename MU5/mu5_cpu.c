@@ -998,6 +998,7 @@ void cpu_reset_state(void)
     cpu_set_register_32(reg_b, 0x0);
     cpu_set_register_32(reg_bod, 0x0);
     cpu_set_register_64(reg_a, 0x0);
+    cpu_set_register_64(reg_aod, 0x0);
     cpu_set_register_64(reg_aex, 0x0);
     cpu_set_register_32(reg_x, 0x0);
     cpu_set_register_16(reg_ms, 0x0);
@@ -2917,9 +2918,9 @@ static void cpu_execute_b_or(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_b_shift_left(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B <- ");
-    t_int64 value = cpu_get_register_32(reg_b); /* signed, for arithmetic shift */
+    t_int64 value = cpu_sign_extend_32_bit(cpu_get_register_32(reg_b)); /* signed, for arithmetic shift */
     t_int64 shift = cpu_sign_extend_6_bit(cpu_get_operand(order));
-    t_int64 result = value << shift;
+    t_int64 result = (shift >= 0) ? value << shift : value >> -shift;
     cpu_set_register_32(reg_b, (uint32)(result & MASK_32));
     cpu_check_b_overflow(result);
 }
@@ -2996,7 +2997,6 @@ static void cpu_check_x_overflow(t_uint64 result)
         cpu_set_register_bit_64(reg_aod, mask_aod_fxpovf, 0);
     }
 }
-
 
 static void cpu_execute_fp_signed_load_single(uint16 order, DISPATCH_ENTRY *innerTable)
 {
@@ -3090,7 +3090,7 @@ static void cpu_execute_fp_signed_shift_left(uint16 order, DISPATCH_ENTRY *inner
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "X <- ");
     t_int64 value = cpu_sign_extend_32_bit(cpu_get_register_32(reg_x)); /* signed for arithmetic shift */
     t_int64 shift = cpu_sign_extend_6_bit(cpu_get_operand(order));
-    t_int64 result = value << shift;
+    t_int64 result = (shift >= 0) ? value << shift : value >> -shift;
     cpu_set_register_32(reg_x, (uint32)(result & MASK_32));
     cpu_check_x_overflow(result);
 }
@@ -3119,9 +3119,12 @@ static void cpu_execute_fp_signed_compare(uint16 order, DISPATCH_ENTRY *innerTab
     int t0;
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "X COMP ");
     t_uint64 x = cpu_sign_extend_32_bit(cpu_get_register_32(reg_x));
-    t_int64 comparand = cpu_get_operand(order) & MASK_32;
-    cpu_test_value(x - comparand);
-    t0 = cpu_get_register_bit_64(reg_aod, mask_aod_fxpovf) | cpu_get_register_bit_64(reg_aod, mask_aod_zdiv);
+    t_int64 comparand = cpu_sign_extend_32_bit(cpu_get_operand(order) & MASK_32);
+    t_int64 result = x - comparand;
+    cpu_test_value(result);
+    cpu_check_x_overflow(result);
+    cpu_clear_interrupt(INT_PROGRAM_FAULTS); /* supposed to ignore A overflow interrupts, just copy the overflow bit */
+    t0 = cpu_get_register_bit_64(reg_aod, mask_aod_fxpovf) || cpu_get_register_bit_64(reg_aod, mask_aod_zdiv);
     cpu_set_register_bit_16(reg_ms, mask_ms_t0, t0);
 }
 
@@ -3288,7 +3291,7 @@ static void cpu_execute_fp_unsigned_compare(uint16 order, DISPATCH_ENTRY *innerT
 
 static t_uint64 cpu_get_acc_value()
 {
-    t_uint64 result = (cpu_get_register_bit_64(reg_aod, mask_aod_opsiz64)) ? cpu_get_register_64(reg_a) : cpu_get_register_64(reg_a) >> 32;
+    t_uint64 result = (cpu_get_register_bit_64(reg_aod, mask_aod_opsiz64)) ? cpu_get_register_64(reg_a) >> 32 : cpu_get_register_64(reg_a);
     return result;
 }
 
