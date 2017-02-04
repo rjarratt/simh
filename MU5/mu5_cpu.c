@@ -2815,8 +2815,10 @@ static void cpu_check_b_overflow(t_uint64 result)
 
 static void cpu_test_b_value(t_int64 value)
 {
-    cpu_set_register_bit_16(reg_ms, mask_ms_t0, cpu_get_register_bit_32(reg_bod, mask_bod_bovf));
     cpu_test_value(value);
+    cpu_check_b_overflow(value);
+    cpu_clear_interrupt(INT_PROGRAM_FAULTS); /* supposed to ignore B overflow interrupts, just copy the overflow bit */
+    cpu_set_register_bit_16(reg_ms, mask_ms_t0, cpu_get_register_bit_32(reg_bod, mask_bod_bovf));
 }
 
 static void cpu_execute_b_load(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -2934,8 +2936,8 @@ static void cpu_execute_b_and(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_b_reverse_sub(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B RSUB ");
-    t_int64 subtrahend = cpu_get_register_32(reg_b);
-    t_int64 minuend = cpu_get_operand(order) & MASK_32;
+    t_int64 subtrahend = cpu_sign_extend_32_bit(cpu_get_register_32(reg_b));
+    t_int64 minuend = cpu_sign_extend_32_bit(cpu_get_operand(order) & MASK_32);
     t_int64 result = minuend - subtrahend;
     cpu_set_register_32(reg_b, (uint32)(result & MASK_32));
     cpu_check_b_overflow(result);
@@ -2945,8 +2947,8 @@ static void cpu_execute_b_reverse_sub(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_b_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B RDIV ");
-    t_int64 divisor = cpu_get_register_32(reg_b);
-    t_int64 dividend = cpu_get_operand(order) & MASK_32;
+    t_int64 divisor = cpu_sign_extend_32_bit(cpu_get_register_32(reg_b));
+    t_int64 dividend = cpu_sign_extend_32_bit(cpu_get_operand(order) & MASK_32);
     if (divisor == 0)
     {
         cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
@@ -2961,16 +2963,16 @@ static void cpu_execute_b_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)
 static void cpu_execute_b_compare(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B COMP ");
-    t_uint64 b = cpu_get_register_32(reg_b);
-    t_int64 comparand = cpu_get_operand(order);
+    t_uint64 b = cpu_sign_extend_32_bit(cpu_get_register_32(reg_b));
+    t_int64 comparand = cpu_sign_extend_32_bit(cpu_get_operand(order));
     cpu_test_b_value(b - comparand);
 }
 
 static void cpu_execute_b_compare_and_increment(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B CINC ");
-    t_uint64 b = cpu_get_register_32(reg_b);
-    t_int64 comparand = cpu_get_operand(order);
+    t_uint64 b = cpu_sign_extend_32_bit(cpu_get_register_32(reg_b));
+    t_int64 comparand = cpu_sign_extend_32_bit(cpu_get_operand(order));
     cpu_test_b_value(b - comparand);
     b++;
     cpu_check_b_overflow(b);
