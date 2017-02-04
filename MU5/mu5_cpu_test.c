@@ -52,6 +52,8 @@ in this Software without prior written authorization from Robert Jarratt.
 #define CR_STS1 2
 #define CR_STS2 3
 #define CR_XS 4
+#define CR_AU 5
+#define CR_ADC 6
 #define CR_FLOAT 7
 
 #define F_LOAD_B 0
@@ -84,6 +86,20 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_COMP_X 13
 #define F_CONV_X 14
 #define F_RDIV_X 15
+
+#define F_LOAD_AOD 0
+#define F_STACK_LOAD_AOD 2
+#define F_STORE_AOD 3
+#define F_ADD_A 4
+#define F_SUB_A 5
+#define F_MUL_A 6
+#define F_DIV_A 7
+#define F_XOR_A 8
+#define F_OR_A 9
+#define F_SHIFT_L_A 10
+#define F_AND_A 11
+#define F_RSUB_A 12
+#define F_COMP_A 13
 
 #define F_LOAD_XDO 0
 #define F_LOAD_XD 1
@@ -165,6 +181,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define DOD_BCHI_MASK 0x00000100
 
 #define MS_TEST_MASK 0x0F00
+#define MS_OVERFLOW_MASK 0x0800
 #define TEST_EQUALS 0x0000
 #define TEST_GREATER_THAN 0x0400
 #define TEST_LESS_THAN 0x0600
@@ -247,6 +264,7 @@ static void cpu_selftest_assert_no_sss_interrupt(void);
 static void cpu_selftest_assert_test_equals(void);
 static void cpu_selftest_assert_test_greater_than(void);
 static void cpu_selftest_assert_test_less_than(void);
+static void cpu_selftest_assert_test_no_overflow(void);
 static void cpu_selftest_assert_test_overflow(void);
 static void cpu_selftest_assert_fail(void);
 
@@ -588,6 +606,22 @@ static void cpu_selftest_x_comp_sets_overflow(void);
 static void cpu_selftest_x_rdiv_divides_operand_by_X(void);
 static void cpu_selftest_x_rdiv_flags_divide_by_zero(void);
 
+static void cpu_selftest_a_load_loads_AOD(void);
+static void cpu_selftest_a_stack_and_load_stacks_AOD_and_loads_AOD(void);
+static void cpu_selftest_a_store_stores_AOD(void);
+static void cpu_selftest_a_add_adds_operand_to_A(void);
+static void cpu_selftest_a_sub_subtracts_operand_from_A(void);
+static void cpu_selftest_a_mul_multiplies_operand_by_A(void);
+static void cpu_selftest_a_xor(void);
+static void cpu_selftest_a_or(void);
+static void cpu_selftest_a_shift_shifts_left_for_positive_operand(void);
+static void cpu_selftest_a_shift_shifts_right_for_negative_operand(void);
+static void cpu_selftest_a_and(void);
+static void cpu_selftest_a_rsub_subtracts_A_from_operand(void);
+static void cpu_selftest_a_comp_sets_less_than_when_A_less_than_operand(void);
+static void cpu_selftest_a_comp_sets_equals_when_A_equals_operand(void);
+static void cpu_selftest_a_comp_sets_greater_than_when_A_greater_than_operand(void);
+
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void);
 static void cpu_selftest_no_zero_divide_interrupt_if_zero_divide_is_inhibited(void);
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void);
@@ -911,8 +945,8 @@ UNITTEST tests[] =
     { "B CINC flags overflow", cpu_selftest_b_cinc_flags_overflow },
 
     { "X Load loads X", cpu_selftest_x_load_loads_X },
-    { "X stack and load stacks X and then loads it", cpu_selftest_x_stack_and_load_stacks_X_and_loads_X },
-    { "X store stores X", cpu_selftest_x_store_stores_X },
+    { "X Stack and Load stacks X and then loads it", cpu_selftest_x_stack_and_load_stacks_X_and_loads_X },
+    { "X Store stores X", cpu_selftest_x_store_stores_X },
     { "X ADD adds operand to X", cpu_selftest_x_add_adds_operand_to_X },
     { "X ADD flags overflow", cpu_selftest_x_add_flags_overflow },
     { "X SUB subtracts operand from X", cpu_selftest_x_sub_subtracts_operand_from_X },
@@ -935,6 +969,22 @@ UNITTEST tests[] =
     { "X COMP sets overflow", cpu_selftest_x_comp_sets_overflow },
     { "X Reverse DIV divides the operand by X", cpu_selftest_x_rdiv_divides_operand_by_X },
     { "X Reverse DIV flags divide by zero", cpu_selftest_x_rdiv_flags_divide_by_zero },
+
+    { "A Load loads AOD", cpu_selftest_a_load_loads_AOD },
+    { "A Stack and Load stacks AOD and then loads it", cpu_selftest_a_stack_and_load_stacks_AOD_and_loads_AOD },
+    { "A Store stores AOD", cpu_selftest_a_store_stores_AOD },
+    { "A X ADD adds operand to A", cpu_selftest_a_add_adds_operand_to_A },
+    { "A SUB subtracts operand from A", cpu_selftest_a_sub_subtracts_operand_from_A },
+    { "A MUL multiplies operand by A", cpu_selftest_a_mul_multiplies_operand_by_A },
+    { "A XOR", cpu_selftest_a_xor },
+    { "A OR", cpu_selftest_a_or },
+    { "A Shift shifts left for positive operand", cpu_selftest_a_shift_shifts_left_for_positive_operand },
+    { "A Shift shifts right for negative operand", cpu_selftest_a_shift_shifts_right_for_negative_operand },
+    { "A AND", cpu_selftest_a_and },
+    { "A reverse SUB subtracts A from operand", cpu_selftest_a_rsub_subtracts_A_from_operand },
+    { "A COMP sets < when A is less than operand", cpu_selftest_a_comp_sets_less_than_when_A_less_than_operand },
+    { "A COMP sets = when A equals operand", cpu_selftest_a_comp_sets_equals_when_A_equals_operand },
+    { "A COMP sets > when A is greater than operand", cpu_selftest_a_comp_sets_greater_than_when_A_greater_than_operand },
 
     { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
     { "No zero divide interrupt if zero divide is inhibited", cpu_selftest_no_zero_divide_interrupt_if_zero_divide_is_inhibited },
@@ -1470,9 +1520,14 @@ static void cpu_selftest_assert_test_less_than(void)
     cpu_selftest_assert_reg_equals_mask(REG_MS, TEST_LESS_THAN, MS_TEST_MASK);
 }
 
+static void cpu_selftest_assert_test_no_overflow(void)
+{
+    cpu_selftest_assert_reg_equals_mask(REG_MS, 0, MS_OVERFLOW_MASK);
+}
+
 static void cpu_selftest_assert_test_overflow(void)
 {
-    cpu_selftest_assert_reg_equals_mask(REG_MS, TEST_OVERFLOW, 0x0800);
+    cpu_selftest_assert_reg_equals_mask(REG_MS, TEST_OVERFLOW, MS_OVERFLOW_MASK);
 }
 
 static void cpu_selftest_assert_fail(void)
@@ -5393,6 +5448,164 @@ static void cpu_selftest_x_comp_sets_overflow(void)
     cpu_selftest_assert_reg_equals(REG_X, 0x80000000);
     cpu_selftest_assert_test_overflow();
     cpu_selftest_assert_a_overflow();
+}
+
+static void cpu_selftest_a_load_loads_AOD(void)
+{
+    cpu_selftest_load_order_extended(CR_AU, F_LOAD_AOD, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0xBBBBBBBBFFFFFEDC);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_AOD, 0x0000000000001EDC);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_a_stack_and_load_stacks_AOD_and_loads_AOD(void)
+{
+    uint32 base = 0x00F0;
+    cpu_selftest_load_order_extended(CR_AU, F_STACK_LOAD_AOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
+    cpu_selftest_set_register(REG_SF, base);
+    cpu_selftest_set_register(REG_AOD, 0xBBBBBBBBFFFFFEDC);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_64_bit(base + 2, 0x0000000000001EDC);
+    cpu_selftest_assert_reg_equals(REG_SF, base + 2);
+    cpu_selftest_assert_reg_equals(REG_AOD, 0x0000000000001FFF);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_a_store_stores_AOD(void)
+{
+    uint32 base = 0x00F0;
+    int8 n = 0x2;
+    cpu_selftest_load_order(CR_AU, F_STORE_AOD, K_V64, n);
+    cpu_selftest_set_register(REG_NB, base);
+    cpu_selftest_set_register(REG_AOD, 0xAAAAAAAAFFFFFFFF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_64_bit(base + (n * 2), 0x0000000000001FFF);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_a_add_adds_operand_to_A(void)
+{
+    cpu_selftest_load_order_extended(CR_AU, F_ADD_A, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
+    cpu_selftest_set_register(REG_A, 0xFFFFFFFF00000001);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0x0000000100000000);
+    cpu_selftest_assert_no_a_overflow_interrupt();
+}
+
+static void cpu_selftest_a_sub_subtracts_operand_from_A(void)
+{
+    cpu_selftest_load_order_extended(CR_AU, F_SUB_A, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x00000001);
+    cpu_selftest_set_register(REG_A, 0xFFFFFFFF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0xFFFFFFFE);
+    cpu_selftest_assert_no_a_overflow_interrupt();
+}
+
+static void cpu_selftest_a_mul_multiplies_operand_by_A(void)
+{
+    cpu_selftest_load_order_extended(CR_AU, F_MUL_A, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x00000002);
+    cpu_selftest_set_register(REG_A, 0x80000000);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0x0000000100000000);
+    cpu_selftest_assert_no_a_overflow_interrupt();
+}
+
+static void cpu_selftest_a_xor(void)
+{
+    cpu_selftest_load_order_extended(CR_AU, F_XOR_A, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0xAAAAAAAAAAAAAAAA);
+    cpu_selftest_set_register(REG_A, 0xCCCCCCCCCCCCCCCC);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0x0000000066666666);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_a_or(void)
+{
+    cpu_selftest_load_order_extended(CR_AU, F_OR_A, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0xAAAAAAAAAAAAAAAA);
+    cpu_selftest_set_register(REG_A, 0xCCCCCCCCCCCCCCCC);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0x00000000EEEEEEEE);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_a_shift_shifts_left_for_positive_operand(void)
+{
+    cpu_selftest_load_order_extended(CR_AU, F_SHIFT_L_A, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xAAAAAA82);
+    cpu_selftest_set_register(REG_A, 0x0000000180000000);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0x0000000600000000);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_a_shift_shifts_right_for_negative_operand(void)
+{
+    cpu_selftest_load_order_extended(CR_AU, F_SHIFT_L_A, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xAAAAAAFE);
+    cpu_selftest_set_register(REG_A, 0x0000000180000000);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0x0000000060000000);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_a_and(void)
+{
+    cpu_selftest_load_order_extended(CR_AU, F_AND_A, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0xAAAAAAAAAAAAAAAA);
+    cpu_selftest_set_register(REG_A, 0xCCCCCCCCCCCCCCCC);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0x0000000088888888);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_a_rsub_subtracts_A_from_operand(void)
+{
+    cpu_selftest_load_order_extended(CR_AU, F_RSUB_A, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
+    cpu_selftest_set_register(REG_A, 0x00000001);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0xFFFFFFFE);
+    cpu_selftest_assert_no_a_overflow_interrupt();
+}
+
+static void cpu_selftest_a_comp_sets_less_than_when_A_less_than_operand(void)
+{
+    cpu_selftest_load_order_extended(CR_AU, F_COMP_A, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0xFFFFFFFF80000000);
+    cpu_selftest_set_register(REG_A, 0xFFFFFFFF7FFFFFFF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0xFFFFFFFF7FFFFFFF);
+    cpu_selftest_assert_test_less_than();
+    cpu_selftest_assert_test_no_overflow();
+}
+
+static void cpu_selftest_a_comp_sets_equals_when_A_equals_operand(void)
+{
+    cpu_selftest_load_order_extended(CR_AU, F_COMP_A, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0xFFFFFFFF80000000);
+    cpu_selftest_set_register(REG_A, 0xAAAAAAAA80000000);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0xAAAAAAAA80000000);
+    cpu_selftest_assert_test_equals();
+    cpu_selftest_assert_test_no_overflow();
+}
+
+static void cpu_selftest_a_comp_sets_greater_than_when_A_greater_than_operand(void)
+{
+    cpu_selftest_load_order_extended(CR_AU, F_COMP_A, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0xFFFFFFFF7FFFFFFF);
+    cpu_selftest_set_register(REG_A, 0xFFFFFFFF80000000);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0xFFFFFFFF80000000);
+    cpu_selftest_assert_test_greater_than();
+    cpu_selftest_assert_test_no_overflow();
 }
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void)

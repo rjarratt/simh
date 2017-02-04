@@ -105,7 +105,7 @@ BITFIELD aod_bits[] = {
     ENDBITS
 };
 
-static t_uint64 mask_aod = 0x000000000000EFFF;
+static t_uint64 mask_aod = 0x0000000000001FFF;
 static t_uint64 mask_aod_zdiv    = 0xFFFFFFFFFFFFFFFB;
 static t_uint64 mask_aod_fxpovf  = 0xFFFFFFFFFFFFFFEF;
 static t_uint64 mask_aod_izdiv   = 0xFFFFFFFFFFFFFF7F;
@@ -309,6 +309,7 @@ static t_uint64 cpu_get_operand_from_descriptor(uint16 order, uint32 instruction
 static void cpu_set_operand_from_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength, uint32 modifier, t_uint64 value);
 static t_uint64 cpu_get_operand(uint16 order);
 static void cpu_set_operand(uint16 order, t_uint64 value);
+static t_uint64 cpu_sign_extend(t_uint64 value, int8 bits);
 static t_uint64 cpu_sign_extend_6_bit(t_uint64 value);
 static t_uint64 cpu_sign_extend_32_bit(t_uint64 value);
 static void cpu_push_value(t_uint64 value);
@@ -1959,17 +1960,23 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
     cpu_set_register_32(reg_co, instructionAddress + instructionLength);
 }
 
+static t_uint64 cpu_sign_extend(t_uint64 value, int8 bits)
+{
+    t_uint64 mask = (t_uint64)(~0) >> (64 - bits);
+    t_uint64 result = value & mask;
+    result |= (value & ((t_uint64)1 << (bits -1))) ? ~mask : 0;
+    return result;
+}
+
 static t_uint64 cpu_sign_extend_6_bit(t_uint64 value)
 {
-    t_uint64 result = value & 0x3F;
-    result |= (value & 0x20) ? 0xFFFFFFFFFFFFFFC0 : 0;
+    t_uint64 result = cpu_sign_extend(value, 6);
     return result;
 }
 
 static t_uint64 cpu_sign_extend_32_bit(t_uint64 value)
 {
-    t_uint64 result = value & MASK_32;
-    result |= (value & 0x80000000) ? 0xFFFFFFFF00000000 : 0;
+    t_uint64 result = cpu_sign_extend(value, 32);
     return result;
 }
 
@@ -3164,7 +3171,7 @@ static void cpu_execute_fp_unsigned_load_single(uint16 order, DISPATCH_ENTRY *in
 static void cpu_execute_fp_unsigned_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "AOD*= ");
-    cpu_push_value(cpu_get_register_32(reg_aod) & mask_aod);
+    cpu_push_value(cpu_get_register_64(reg_aod) & mask_aod);
     cpu_set_register_64(reg_aod, cpu_get_operand(order) & mask_aod);
 }
 
@@ -3195,8 +3202,8 @@ static void cpu_execute_fp_unsigned_sub(uint16 order, DISPATCH_ENTRY *innerTable
 static void cpu_execute_fp_unsigned_mul(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A* ");
-    uint32 multiplicand = cpu_get_register_64(reg_a) & MASK_32;
-    uint32 multiplier = cpu_get_operand(order) & MASK_32;
+    t_uint64 multiplicand = cpu_get_register_64(reg_a) & MASK_32;
+    t_uint64 multiplier = cpu_get_operand(order) & MASK_32;
     t_uint64 result = multiplicand * multiplier;
     cpu_set_register_64(reg_a, result);
 }
@@ -3240,8 +3247,8 @@ static void cpu_execute_fp_unsigned_shift_left(uint16 order, DISPATCH_ENTRY *inn
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "A <- ");
     t_uint64 value = cpu_get_register_64(reg_a); /* unsigned for logical shift */
-    t_int64 shift = cpu_sign_extend_6_bit(cpu_get_operand(order));
-    t_int64 result = value << shift;
+    t_int64 shift = cpu_sign_extend(cpu_get_operand(order), 7);
+    t_int64 result = (shift >= 0) ? value << shift : value >> -shift;
     cpu_set_register_64(reg_a, result);
 }
 
