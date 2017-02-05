@@ -34,6 +34,11 @@ Known Limitations
 -----------------
 Z register is not implemented.
 B DIV implementation is a guess (not defined in MU5 Basic Programming Manual)
+No floating point orders
+No decimal orders
+Addresses are physical only, virtual memory is not implemented yet, segment crossing boundary checks missing
+Interrupt processing is not implemented yet
+V-Store operands are not implemented yet
 
 */
 
