@@ -78,6 +78,7 @@ to set the MS register to some appropriate setting.
 
 */
 
+#define MASK_16 0xFFFF
 #define MASK_32 0xFFFFFFFF
 
 #define SCALE_32 1
@@ -148,6 +149,7 @@ BITFIELD ms_bits[] = {
     ENDBITS
 };
 
+static uint16 mask_ms_exec = 0xFFFB;
 static uint16 mask_ms_bn = 0xFEFF;
 static uint16 mask_ms_t2 = 0xFDFF;
 static uint16 mask_ms_t1 = 0xFBFF;
@@ -276,10 +278,12 @@ static SIM_INLINE t_uint64 cpu_get_register_64(REG *reg);
 static SIM_INLINE int cpu_get_register_bit_16(REG *reg, uint16 mask);
 static SIM_INLINE int cpu_get_register_bit_32(REG *reg, uint32 mask);
 static SIM_INLINE int cpu_get_register_bit_64(REG *reg, t_uint64 mask);
+static void cpu_set_ms(uint16 value);
 static uint16 cpu_calculate_base_offset_from_addr(t_addr base, t_int64 offset, uint8 scale);
 static t_addr cpu_get_name_segment_address_from_addr(t_addr base, int16 offset, uint8 scale);
 static uint16 cpu_calculate_base_offset_from_reg(REG *reg, t_int64 offset, uint8 scale);
 static t_addr cpu_get_name_segment_address_from_reg(REG *reg, int16 offset, uint8 scale);
+static int cpu_is_executive_mode(void);
 
 static void cpu_set_interrupt(uint8 number);
 static void cpu_clear_interrupt(uint8 number);
@@ -331,6 +335,7 @@ static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable);
 /* organisational order functions */
 static void cpu_jump_relative(uint16 order, int performJump);
 static void cpu_execute_organisational_relative_jump(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_exit(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -494,7 +499,7 @@ DEVICE cpu_dev = {
 static DISPATCH_ENTRY organisationalDispatchTable[] =
 {
     { cpu_execute_organisational_relative_jump,   NULL }, /* 0 */
-    { cpu_execute_illegal_order, /* exit */       NULL }, /* 1 */
+    { cpu_execute_organisational_exit,            NULL }, /* 1 */
     { cpu_execute_illegal_order,                  NULL }, /* 2 */
     { cpu_execute_illegal_order,                  NULL }, /* 3 */
     { cpu_execute_organisational_absolute_jump,   NULL }, /* 4 */
@@ -967,6 +972,12 @@ static SIM_INLINE int cpu_get_register_bit_64(REG *reg, t_uint64 mask)
     return result;
 }
 
+static void cpu_set_ms(uint16 value)
+{
+    uint16 msMask = (cpu_is_executive_mode()) ? 0xFFFF : 0xFF00;
+    cpu_set_register_16(reg_ms, value & msMask);
+}
+
 static uint16 cpu_calculate_base_offset_from_addr(t_addr base, t_int64 offset, uint8 scale)
 {
     t_int64 result = base + (offset * scale);
@@ -994,6 +1005,13 @@ static uint16 cpu_calculate_base_offset_from_reg(REG *reg, t_int64 offset, uint8
 static t_addr cpu_get_name_segment_address_from_reg(REG *reg, int16 offset, uint8 scale)
 {
     t_addr result = cpu_get_name_segment_address_from_addr(cpu_get_register_16(reg), offset, scale);
+    return result;
+}
+
+static int cpu_is_executive_mode(void)
+{
+    uint16 ms = cpu_get_register_16(reg_ms);
+    int result = (ms & ~mask_ms_exec) != 0;
     return result;
 }
 
@@ -2074,6 +2092,15 @@ static void cpu_execute_organisational_relative_jump(uint16 order, DISPATCH_ENTR
     cpu_jump_relative(order, 1);
 }
 
+static void cpu_execute_organisational_exit(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "EXIT ");
+    t_uint64 operand = cpu_get_operand(order);
+    cpu_set_ms((operand >> 48) & MASK_16);
+    cpu_set_register_16(reg_nb, (operand >> 32) & 0xFFFE);
+    cpu_set_register_32(reg_co, operand & 0x7FFFFFFF);
+}
+
 static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "JUMP ");
@@ -2141,7 +2168,7 @@ static void cpu_execute_organisational_branch_gt(uint16 order, DISPATCH_ENTRY *i
 static void cpu_execute_organisational_branch_ovf(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "OVERFLOW ");
-    cpu_jump_relative(order, !cpu_get_register_bit_16(reg_ms, mask_ms_t0));
+    cpu_jump_relative(order, cpu_get_register_bit_16(reg_ms, mask_ms_t0));
 }
 
 static void cpu_execute_organisational_branch_bn(uint16 order, DISPATCH_ENTRY *innerTable)

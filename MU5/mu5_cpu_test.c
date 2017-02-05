@@ -143,6 +143,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_STORE 3
 
 #define F_RELJUMP 0
+#define F_EXIT 1
 #define F_ABSJUMP 4
 #define F_SF_LOAD_NB_PLUS 26
 #define F_NB_LOAD 28
@@ -155,7 +156,6 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_BRANCH_GT 37
 #define F_BRANCH_OVF 38
 #define F_BRANCH_BN 39
-
 
 #define K_LITERAL 0
 #define K_IR 1
@@ -253,6 +253,8 @@ static void cpu_selftest_load_1_bit_value_to_descriptor_location(uint32 origin, 
 static uint32 cpu_selftest_byte_address_from_word_address(uint32 address);
 static void cpu_selftest_set_aod_operand_32_bit();
 static void cpu_selftest_set_aod_operand_64_bit();
+static void cpu_selftest_set_executive_mode(void);
+static void cpu_selftest_set_user_mode(void);
 static void cpu_selftest_run_code(void);
 static void cpu_selftest_run_code_from_location(uint32 location);
 static REG *cpu_selftest_find_register(char *name);
@@ -671,6 +673,8 @@ static void cpu_selftest_flt_store_stores_A_64_bits(void);
 static void cpu_selftest_org_relative_jump_jumps_forward(void);
 static void cpu_selftest_org_relative_jump_jumps_backward(void);
 /* TODO: static void cpu_selftest_org_relative_across_segement_boundary_generates_interrupt(void); */
+static void cpu_selftest_org_exit_resets_link_in_executive_mode(void);
+static void cpu_selftest_org_exit_resets_link_except_privileged_ms_bits_in_user_mode(void);
 static void cpu_selftest_org_absolute_jump(void);
 static void cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF(void);
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow(void);
@@ -1078,6 +1082,8 @@ UNITTEST tests[] =
     { "Relative Jump jumps forward", cpu_selftest_org_relative_jump_jumps_forward },
     { "Relative Jump jumps backward", cpu_selftest_org_relative_jump_jumps_backward },
     /* TODO: { "Relative jump across segment boundary generates interrupt", cpu_selftest_org_relative_across_segement_boundary_generates_interrupt }, */
+    { "EXIT resets the link in executive mode", cpu_selftest_org_exit_resets_link_in_executive_mode },
+    { "EXIT resets the link except the privileged MS bits is user mode", cpu_selftest_org_exit_resets_link_except_privileged_ms_bits_in_user_mode },
     { "Absolute jump jumps to new location", cpu_selftest_org_absolute_jump },
     { "SF=NB+ adds NB to signed operand and stores result to SF", cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF },
     { "SF=NB+ generates interrupt on segment overflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow },
@@ -1292,6 +1298,16 @@ static void cpu_selftest_set_aod_operand_32_bit()
 static void cpu_selftest_set_aod_operand_64_bit()
 {
     cpu_selftest_set_register(REG_AOD, AOD_OPSIZ_MASK);
+}
+
+static void cpu_selftest_set_executive_mode(void)
+{
+    cpu_selftest_set_register(REG_MS, 0x0004);
+}
+
+static void cpu_selftest_set_user_mode(void)
+{
+    cpu_selftest_set_register(REG_MS, 0x0000);
 }
 
 static void cpu_selftest_run_code(void)
@@ -5999,6 +6015,31 @@ static void cpu_selftest_org_relative_jump_jumps_backward(void)
 }
 
 /* TODO: static void cpu_selftest_org_relative_across_segement_boundary_generates_interrupt(void) { cpu_selftest_assert_fail(); } */
+
+static void cpu_selftest_org_exit_resets_link_in_executive_mode(void)
+{
+    cpu_selftest_load_organisational_order_extended(F_EXIT, KP_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0xAAAABBBBFFFFFFFF);
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_MS, 0xAAAA);
+    cpu_selftest_assert_reg_equals(REG_NB, 0xBBBA);
+    cpu_selftest_assert_reg_equals(REG_CO, 0x7FFFFFFF);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_org_exit_resets_link_except_privileged_ms_bits_in_user_mode(void)
+{
+    cpu_selftest_load_organisational_order_extended(F_EXIT, KP_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0xAAFFBBBBFFFFFFFF);
+    cpu_selftest_set_user_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_MS, 0xAA00);
+    cpu_selftest_assert_reg_equals(REG_NB, 0xBBBA);
+    cpu_selftest_assert_reg_equals(REG_CO, 0x7FFFFFFF);
+    cpu_selftest_assert_no_interrupt();
+}
+
 static void cpu_selftest_org_absolute_jump(void)
 {
     cpu_selftest_set_load_location(8);
@@ -6174,14 +6215,14 @@ static void cpu_selftest_org_br_gt_does_branches_on_true(void)
 
 static void cpu_selftest_org_br_ovf_does_not_branch_on_false(void)
 {
-    cpu_selftest_org_branch_test_branch_not_taken(F_BRANCH_OVF, 1, 1, 1, 1);
-    cpu_selftest_org_branch_test_branch_not_taken(F_BRANCH_OVF, 1, 0, 0, 0);
+    cpu_selftest_org_branch_test_branch_not_taken(F_BRANCH_OVF, 0, 1, 1, 1);
+    cpu_selftest_org_branch_test_branch_not_taken(F_BRANCH_OVF, 0, 0, 0, 0);
 }
 
 static void cpu_selftest_org_br_ovf_does_branches_on_true(void)
 {
-    cpu_selftest_org_branch_test_branch_taken(F_BRANCH_OVF, 0, 1, 1, 1);
-    cpu_selftest_org_branch_test_branch_taken(F_BRANCH_OVF, 0, 0, 0, 0);
+    cpu_selftest_org_branch_test_branch_taken(F_BRANCH_OVF, 1, 1, 1, 1);
+    cpu_selftest_org_branch_test_branch_taken(F_BRANCH_OVF, 1, 0, 0, 0);
 }
 
 static void cpu_selftest_org_br_bn_does_not_branch_on_false(void)
@@ -6194,8 +6235,6 @@ static void cpu_selftest_org_br_bn_does_branches_on_true(void)
     cpu_selftest_org_branch_test_branch_taken(F_BRANCH_BN, 1, 1, 1, 1);
     cpu_selftest_org_branch_test_branch_taken(F_BRANCH_BN, 0, 0, 0, 1);
 }
-
-
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void)
 {
