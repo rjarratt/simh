@@ -48,6 +48,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define REG_MS "MS"
 #define REG_CO "CO"
 
+#define CR_ORG 0
 #define CR_B 1
 #define CR_STS1 2
 #define CR_STS2 3
@@ -141,6 +142,12 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_STACK_LOAD 2
 #define F_STORE 3
 
+#define F_RELJUMP 0
+#define F_ABSJUMP 4
+#define F_SF_LOAD_NB_PLUS 26
+#define F_NB_LOAD 28
+#define F_NB_LOAD_SF_PLUS 29
+
 #define K_LITERAL 0
 #define K_IR 1
 #define K_V32 2
@@ -213,8 +220,11 @@ extern DEVICE cpu_dev;
 static TESTCONTEXT testContext;
 
 static void cpu_selftest_reset(UNITTEST *test);
+static void cpu_selftest_set_load_location(uint32 location);
 static void cpu_selftest_load_order(uint8 cr, uint8 f, uint8 k, uint8 n);
-static void cpu_selftest_load_order_extended(uint8 cr, uint8 f, uint8 k, uint8 np);
+static void cpu_selftest_load_order_extended(uint8 cr, uint8 f, uint8 kp, uint8 np);
+static void cpu_selftest_load_organisational_order_literal(uint8 f,uint8 n);
+static void cpu_selftest_load_organisational_order_extended(uint8 f, uint8 kp, uint8 np);
 static void cpu_selftest_load_16_bit_literal(uint16 value);
 static void cpu_selftest_load_32_bit_literal(uint32 value);
 static void cpu_selftest_load_64_bit_literal(t_uint64 value);
@@ -235,6 +245,7 @@ static uint32 cpu_selftest_byte_address_from_word_address(uint32 address);
 static void cpu_selftest_set_aod_operand_32_bit();
 static void cpu_selftest_set_aod_operand_64_bit();
 static void cpu_selftest_run_code(void);
+static void cpu_selftest_run_code_from_location(uint32 location);
 static REG *cpu_selftest_find_register(char *name);
 static t_uint64 cpu_selftest_get_register(char *name);
 static void cpu_selftest_set_register(char *name, t_uint64 value);
@@ -647,6 +658,11 @@ static void cpu_selftest_flt_stack_and_load_stacks_A_and_loads_A_64_bits(void);
 static void cpu_selftest_flt_store_stores_A_32_bits(void);
 static void cpu_selftest_flt_store_stores_A_64_bits(void);
 
+static void cpu_selftest_org_relative_jump_jumps_forward(void);
+static void cpu_selftest_org_relative_jump_jumps_backward(void);
+/* TODO: static void cpu_selftest_org_relative_across_segement_boundary_generates_interrupt(void); */
+static void cpu_selftest_org_absolute_jump(void);
+
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void);
 static void cpu_selftest_no_zero_divide_interrupt_if_zero_divide_is_inhibited(void);
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void);
@@ -1024,6 +1040,11 @@ UNITTEST tests[] =
     { "FLT Store stores A (32 bits)", cpu_selftest_flt_store_stores_A_32_bits },
     { "FLT Store stores A (64 bits)", cpu_selftest_flt_store_stores_A_64_bits },
 
+    { "Relative Jump jumps forward", cpu_selftest_org_relative_jump_jumps_forward },
+    { "Relative Jump jumps backward", cpu_selftest_org_relative_jump_jumps_backward },
+    /* TODO: { "Relative jump across segment boundary generates interrupt", cpu_selftest_org_relative_across_segement_boundary_generates_interrupt }, */
+    { "Absolute jump jumps to new location", cpu_selftest_org_absolute_jump },
+
     { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
     { "No zero divide interrupt if zero divide is inhibited", cpu_selftest_no_zero_divide_interrupt_if_zero_divide_is_inhibited },
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
@@ -1041,6 +1062,11 @@ static void cpu_selftest_reset(UNITTEST *test)
     testContext.result = SCPE_OK;
 }
 
+static void cpu_selftest_set_load_location(uint32 location)
+{
+    testContext.currentLoadLocation = location;
+}
+
 static void cpu_selftest_load_order(uint8 cr, uint8 f, uint8 k, uint8 n)
 {
     uint16 order;
@@ -1053,14 +1079,38 @@ static void cpu_selftest_load_order(uint8 cr, uint8 f, uint8 k, uint8 n)
     testContext.currentLoadLocation += 1;
 }
 
-static void cpu_selftest_load_order_extended(uint8 cr, uint8 f, uint8 k, uint8 np)
+static void cpu_selftest_load_order_extended(uint8 cr, uint8 f, uint8 kp, uint8 np)
 {
     uint16 order;
 
     order = (cr & 0x7) << 13;
     order |= (f & 0xF) << 9;
     order |= 0x7 << 6;
-    order |= (k & 0x7) << 3;
+    order |= (kp & 0x7) << 3;
+    order |= np & 0x7;
+    sac_write_16_bit_word(testContext.currentLoadLocation, order);
+    testContext.currentLoadLocation += 1;
+}
+
+static void cpu_selftest_load_organisational_order_literal(uint8 f, uint8 n)
+{
+    uint16 order;
+
+    order = 0;
+    order |= (f & 0x3F) << 7;
+    order |= n & 0x3F;
+    sac_write_16_bit_word(testContext.currentLoadLocation, order);
+    testContext.currentLoadLocation += 1;
+}
+
+static void cpu_selftest_load_organisational_order_extended(uint8 f, uint8 kp, uint8 np)
+{
+    uint16 order;
+
+    order = 0;
+    order |= (f & 0x3F) << 7;
+    order |= 0x1 << 6;
+    order |= (kp & 0x7) << 3;
     order |= np & 0x7;
     sac_write_16_bit_word(testContext.currentLoadLocation, order);
     testContext.currentLoadLocation += 1;
@@ -1188,7 +1238,12 @@ static void cpu_selftest_set_aod_operand_64_bit()
 
 static void cpu_selftest_run_code(void)
 {
-    cpu_selftest_set_register("CO", 0);
+    cpu_selftest_run_code_from_location(0);
+}
+
+static void cpu_selftest_run_code_from_location(uint32 location)
+{
+    cpu_selftest_set_register("CO", location);
     cpu_execute_next_order();
 }
 
@@ -5857,6 +5912,33 @@ static void cpu_selftest_flt_store_stores_A_64_bits(void)
     cpu_selftest_assert_no_interrupt();
 }
 
+static void cpu_selftest_org_relative_jump_jumps_forward(void)
+{
+    cpu_selftest_load_organisational_order_literal(F_RELJUMP, 8);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_CO, 0x00000008);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_org_relative_jump_jumps_backward(void)
+{
+    cpu_selftest_set_load_location(8);
+    cpu_selftest_load_organisational_order_literal(F_RELJUMP, 0x3F);
+    cpu_selftest_run_code_from_location(8);
+    cpu_selftest_assert_reg_equals(REG_CO, 0x00000007);
+    cpu_selftest_assert_no_interrupt();
+}
+
+/* TODO: static void cpu_selftest_org_relative_across_segement_boundary_generates_interrupt(void) { cpu_selftest_assert_fail(); } */
+static void cpu_selftest_org_absolute_jump(void)
+{
+    cpu_selftest_set_load_location(8);
+    cpu_selftest_load_organisational_order_literal(F_ABSJUMP, 0x10);
+    cpu_selftest_run_code_from_location(8);
+    cpu_selftest_assert_reg_equals(REG_CO, 0x00000010);
+    cpu_selftest_assert_no_interrupt();
+}
+
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void)
 {
     cpu_selftest_set_register(REG_BOD, BOD_IBOVF_MASK);
@@ -5866,6 +5948,7 @@ static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void
     cpu_selftest_assert_b_overflow();
     cpu_selftest_assert_no_interrupt();
 }
+
 
 static void cpu_selftest_no_zero_divide_interrupt_if_zero_divide_is_inhibited(void)
 {
