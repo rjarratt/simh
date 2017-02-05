@@ -341,6 +341,7 @@ static void cpu_jump_relative(uint16 order, int performJump);
 static void cpu_execute_organisational_relative_jump(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_exit(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_return(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -507,7 +508,7 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
     { cpu_execute_illegal_order,                  NULL }, /* 2 */
     { cpu_execute_illegal_order,                  NULL }, /* 3 */
     { cpu_execute_organisational_absolute_jump,   NULL }, /* 4 */
-    { cpu_execute_illegal_order,                  NULL }, /* 5 */
+    { cpu_execute_organisational_return,          NULL }, /* 5 */
     { cpu_execute_illegal_order,                  NULL }, /* 6 */
     { cpu_execute_illegal_order,                  NULL }, /* 7 */
     { cpu_execute_illegal_order, /* XCO */        NULL }, /* 8 */
@@ -2129,6 +2130,16 @@ static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTR
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "JUMP ");
     cpu_set_co(cpu_get_operand(order) & MASK_32);
+}
+
+static void cpu_execute_organisational_return(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "RETURN ");
+    cpu_set_sf(cpu_get_register_16(reg_nb));
+    t_uint64 operand = cpu_get_operand(order);
+    cpu_set_ms((operand >> 48) & MASK_16);
+    cpu_set_nb((operand >> 32) & MASK_16);
+    cpu_set_co(operand & MASK_32);
 }
 
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable)

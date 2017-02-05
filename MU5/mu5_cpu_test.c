@@ -145,6 +145,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_RELJUMP 0
 #define F_EXIT 1
 #define F_ABSJUMP 4
+#define F_RETURN 5
 #define F_SF_LOAD_NB_PLUS 26
 #define F_NB_LOAD 28
 #define F_NB_LOAD_SF_PLUS 29
@@ -676,6 +677,9 @@ static void cpu_selftest_org_relative_jump_jumps_backward(void);
 static void cpu_selftest_org_exit_resets_link_in_executive_mode(void);
 static void cpu_selftest_org_exit_resets_link_except_privileged_ms_bits_in_user_mode(void);
 static void cpu_selftest_org_absolute_jump(void);
+static void cpu_selftest_org_return_sets_SF_and_unstacks_link(void);
+static void cpu_selftest_org_return_resets_link_except_privileged_ms_bits_in_user_mode(void);
+static void cpu_selftest_org_return_does_not_pop_stack_if_operand_is_not_stack_but_sets_NB(void);
 static void cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF(void);
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow(void);
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow(void);
@@ -1085,6 +1089,9 @@ UNITTEST tests[] =
     { "EXIT resets the link in executive mode", cpu_selftest_org_exit_resets_link_in_executive_mode },
     { "EXIT resets the link except the privileged MS bits is user mode", cpu_selftest_org_exit_resets_link_except_privileged_ms_bits_in_user_mode },
     { "Absolute jump jumps to new location", cpu_selftest_org_absolute_jump },
+    { "RETURN sets SF and unstacks link", cpu_selftest_org_return_sets_SF_and_unstacks_link },
+    { "RETURN resets the link except privileged MS bits in user mode", cpu_selftest_org_return_resets_link_except_privileged_ms_bits_in_user_mode },
+    { "RETURN does not pop stack if operand is not stack but does set SF to NB", cpu_selftest_org_return_does_not_pop_stack_if_operand_is_not_stack_but_sets_NB },
     { "SF=NB+ adds NB to signed operand and stores result to SF", cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF },
     { "SF=NB+ generates interrupt on segment overflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow },
     { "SF=NB+ generates interrupt on segment underflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow },
@@ -6048,6 +6055,49 @@ static void cpu_selftest_org_absolute_jump(void)
     cpu_selftest_assert_reg_equals(REG_CO, 0x00000010);
     cpu_selftest_assert_no_interrupt();
 }
+
+static void cpu_selftest_org_return_sets_SF_and_unstacks_link(void)
+{
+    uint32 base = 32;
+    cpu_selftest_load_organisational_order_extended(F_RETURN, K_V64, NP_STACK);
+    sac_write_64_bit_word(base, 0xFFFFBBBBAAAAAAAA);
+    cpu_selftest_set_register(REG_NB, base);
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_SF, base - 2);
+    cpu_selftest_assert_reg_equals(REG_MS, 0xFFFF);
+    cpu_selftest_assert_reg_equals(REG_NB, 0xBBBA);
+    cpu_selftest_assert_reg_equals(REG_CO, 0x2AAAAAAA);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_org_return_resets_link_except_privileged_ms_bits_in_user_mode(void)
+{
+    uint32 base = 32;
+    cpu_selftest_load_organisational_order_extended(F_RETURN, K_V64, NP_STACK);
+    sac_write_64_bit_word(base, 0xFFFFBBBBAAAAAAAA);
+    cpu_selftest_set_register(REG_NB, base);
+    cpu_selftest_set_user_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_MS, 0xFF00);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_org_return_does_not_pop_stack_if_operand_is_not_stack_but_sets_NB(void)
+{
+    uint32 base = 32;
+    cpu_selftest_load_organisational_order_extended(F_RETURN, KP_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0xFFFFBBBBAAAAAAAA);
+    cpu_selftest_set_register(REG_NB, base);
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_SF, base);
+    cpu_selftest_assert_reg_equals(REG_MS, 0xFFFF);
+    cpu_selftest_assert_reg_equals(REG_NB, 0xBBBA);
+    cpu_selftest_assert_reg_equals(REG_CO, 0x2AAAAAAA);
+    cpu_selftest_assert_no_interrupt();
+}
+
 
 static void cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF(void)
 {
