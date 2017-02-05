@@ -279,6 +279,10 @@ static SIM_INLINE int cpu_get_register_bit_16(REG *reg, uint16 mask);
 static SIM_INLINE int cpu_get_register_bit_32(REG *reg, uint32 mask);
 static SIM_INLINE int cpu_get_register_bit_64(REG *reg, t_uint64 mask);
 static void cpu_set_ms(uint16 value);
+static void cpu_set_nb(uint16 value);
+static void cpu_set_xnb(uint16 value);
+static void cpu_set_sf(uint16 value);
+static void cpu_set_co(uint32 value);
 static uint16 cpu_calculate_base_offset_from_addr(t_addr base, t_int64 offset, uint8 scale);
 static t_addr cpu_get_name_segment_address_from_addr(t_addr base, int16 offset, uint8 scale);
 static uint16 cpu_calculate_base_offset_from_reg(REG *reg, t_int64 offset, uint8 scale);
@@ -976,6 +980,26 @@ static void cpu_set_ms(uint16 value)
 {
     uint16 msMask = (cpu_is_executive_mode()) ? 0xFFFF : 0xFF00;
     cpu_set_register_16(reg_ms, value & msMask);
+}
+
+static void cpu_set_nb(uint16 value)
+{
+    cpu_set_register_16(reg_nb, value & 0xFFFE);
+}
+
+static void cpu_set_xnb(uint16 value)
+{
+    cpu_set_register_16(reg_xnb, value & 0xFFFE);
+}
+
+static void cpu_set_sf(uint16 value)
+{
+    cpu_set_register_16(reg_sf, value & 0xFFFE);
+}
+
+static void cpu_set_co(uint32 value)
+{
+    cpu_set_register_32(reg_co, value & 0x7FFFFFFF);
 }
 
 static uint16 cpu_calculate_base_offset_from_addr(t_addr base, t_int64 offset, uint8 scale)
@@ -1873,7 +1897,7 @@ static t_uint64 cpu_get_operand(uint16 order)
         }
     }
 
-    cpu_set_register_32(reg_co, instructionAddress + instructionLength);
+    cpu_set_co(instructionAddress + instructionLength);
 
     return result;
 }
@@ -1980,7 +2004,7 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
         }
     }
 
-    cpu_set_register_32(reg_co, instructionAddress + instructionLength);
+    cpu_set_co(instructionAddress + instructionLength);
 }
 
 static t_uint64 cpu_sign_extend(t_uint64 value, int8 bits)
@@ -2006,7 +2030,7 @@ static t_uint64 cpu_sign_extend_32_bit(t_uint64 value)
 static void cpu_push_value(t_uint64 value)
 {
     uint16 newSF = cpu_get_register_16(reg_sf) + 2;
-    cpu_set_register_16(reg_sf, newSF);
+    cpu_set_sf(newSF);
     sac_write_64_bit_word(cpu_get_name_segment_address_from_reg(reg_sf, 0, SCALE_64), value);
 }
 
@@ -2015,7 +2039,7 @@ static t_addr cpu_pop_address(void)
     t_addr result;
     uint16 sf = cpu_get_register_16(reg_sf);
     result = cpu_get_name_segment_address_from_reg(reg_sf, 0, SCALE_64);
-    cpu_set_register_16(reg_sf, sf - 2);
+    cpu_set_sf(sf - 2);
     return result;
 }
 
@@ -2075,7 +2099,7 @@ static void cpu_jump_relative(uint16 order, int performJump)
 
     if (performJump)
     {
-        cpu_set_register_32(reg_co, newCo);
+        cpu_set_co(newCo);
         // TODO: cross-segment generates interrupt
 
         /* The real MU5 did not have a STOP instruction, see comment above the declaration of cpu_stopped */
@@ -2097,21 +2121,21 @@ static void cpu_execute_organisational_exit(uint16 order, DISPATCH_ENTRY *innerT
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "EXIT ");
     t_uint64 operand = cpu_get_operand(order);
     cpu_set_ms((operand >> 48) & MASK_16);
-    cpu_set_register_16(reg_nb, (operand >> 32) & 0xFFFE);
-    cpu_set_register_32(reg_co, operand & 0x7FFFFFFF);
+    cpu_set_nb((operand >> 32) & MASK_16);
+    cpu_set_co(operand & MASK_32);
 }
 
 static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "JUMP ");
-    cpu_set_register_32(reg_co, cpu_get_operand(order) & 0x7FFFFFFF);
+    cpu_set_co(cpu_get_operand(order) & MASK_32);
 }
 
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "SF=NB+ ");
     uint16 newSF = cpu_calculate_base_offset_from_reg(reg_nb, cpu_get_operand(order), SCALE_32);
-    cpu_set_register_16(reg_sf, newSF & 0xFFFE); /* LS bit of NB is always zero */
+    cpu_set_sf(newSF);
 }
 
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -2119,14 +2143,14 @@ static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *inn
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB= ");
     t_uint64 newBase = cpu_get_operand(order); /* TODO: the operand may not be a secondary operand - see p59 */
     cpu_set_register_16(reg_sn, (newBase >> 48) & 0xFFFF);
-    cpu_set_register_16(reg_nb, newBase & 0xFFFE); /* LS bit of NB is always zero */
+    cpu_set_nb(newBase & MASK_16);
 }
 
 static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB=SF+ ");
     uint16 newNB = cpu_calculate_base_offset_from_reg(reg_sf, cpu_get_operand(order), SCALE_32);
-    cpu_set_register_16(reg_nb, newNB & 0xFFFE); /* LS bit of NB is always zero */
+    cpu_set_nb(newNB);
 }
 
 static void cpu_execute_organisational_branch_eq(uint16 order, DISPATCH_ENTRY *innerTable)
