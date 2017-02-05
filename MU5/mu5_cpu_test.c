@@ -282,13 +282,14 @@ static void cpu_selftest_assert_sss_interrupt(void);
 static void cpu_selftest_assert_no_bound_check_interrupt(void);
 static void cpu_selftest_assert_no_its_interrupt(void);
 static void cpu_selftest_assert_no_sss_interrupt(void);
+static void cpu_selftest_assert_segment_overflow_interrupt(void);
 static void cpu_selftest_assert_test_equals(void);
 static void cpu_selftest_assert_test_greater_than(void);
 static void cpu_selftest_assert_test_less_than(void);
 static void cpu_selftest_assert_test_no_overflow(void);
 static void cpu_selftest_assert_test_overflow(void);
-static cpu_selftest_assert_operand_size_32(void);
-static cpu_selftest_assert_operand_size_64(void);
+static void cpu_selftest_assert_operand_size_32(void);
+static void cpu_selftest_assert_operand_size_64(void);
 static void cpu_selftest_assert_fail(void);
 
 static void cpu_selftest_16_bit_instruction_advances_co_by_1(void);
@@ -662,6 +663,13 @@ static void cpu_selftest_org_relative_jump_jumps_forward(void);
 static void cpu_selftest_org_relative_jump_jumps_backward(void);
 /* TODO: static void cpu_selftest_org_relative_across_segement_boundary_generates_interrupt(void); */
 static void cpu_selftest_org_absolute_jump(void);
+static void cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF(void);
+static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow(void);
+static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow(void);
+static void cpu_selftest_org_nb_load_loads_nb(void);
+static void cpu_selftest_org_nb_load_sf_plus_adds_SF_to_signed_operand_and_stores_to_NB(void);
+static void cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_overflow(void);
+static void cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_underflow(void);
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void);
 static void cpu_selftest_no_zero_divide_interrupt_if_zero_divide_is_inhibited(void);
@@ -1044,6 +1052,13 @@ UNITTEST tests[] =
     { "Relative Jump jumps backward", cpu_selftest_org_relative_jump_jumps_backward },
     /* TODO: { "Relative jump across segment boundary generates interrupt", cpu_selftest_org_relative_across_segement_boundary_generates_interrupt }, */
     { "Absolute jump jumps to new location", cpu_selftest_org_absolute_jump },
+    { "SF=NB+ adds NB to signed operand and stores result to SF", cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF },
+    { "SF=NB+ generates interrupt on segment overflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow },
+    { "SF=NB+ generates interrupt on segment underflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow },
+    { "NB= loads NB", cpu_selftest_org_nb_load_loads_nb },
+    { "NB=SF+ adds SF to signed operand and stores result to NB", cpu_selftest_org_nb_load_sf_plus_adds_SF_to_signed_operand_and_stores_to_NB },
+    { "NB=SF+ generates interrupt on segment overflow", cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_overflow },
+    { "NB=SF+ generates interrupt on segment underflow", cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_underflow },
 
     { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
     { "No zero divide interrupt if zero divide is inhibited", cpu_selftest_no_zero_divide_interrupt_if_zero_divide_is_inhibited },
@@ -1608,6 +1623,17 @@ static void cpu_selftest_assert_no_sss_interrupt(void)
     cpu_selftest_assert_no_d_interrupt("SSS", DOD_SSS_MASK);
 }
 
+static void cpu_selftest_assert_segment_overflow_interrupt(void)
+{
+    if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected segment overflow interrupt to have occurred\n");
+        testContext.result = SCPE_AFAIL;
+    }
+
+    /* TODO: Other checks to ensure this is a segment overflow */
+}
+
 static void cpu_selftest_assert_test_equals(void)
 {
     cpu_selftest_assert_reg_equals_mask(REG_MS, TEST_EQUALS, MS_TEST_MASK);
@@ -1633,12 +1659,12 @@ static void cpu_selftest_assert_test_overflow(void)
     cpu_selftest_assert_reg_equals_mask(REG_MS, TEST_OVERFLOW, MS_OVERFLOW_MASK);
 }
 
-static cpu_selftest_assert_operand_size_32(void)
+static void cpu_selftest_assert_operand_size_32(void)
 {
     cpu_selftest_assert_reg_equals_mask(REG_AOD, 0x000, AOD_OPSIZ_MASK);
 }
 
-static cpu_selftest_assert_operand_size_64(void)
+static void cpu_selftest_assert_operand_size_64(void)
 {
     cpu_selftest_assert_reg_equals_mask(REG_AOD, AOD_OPSIZ_MASK, AOD_OPSIZ_MASK);
 }
@@ -5937,6 +5963,69 @@ static void cpu_selftest_org_absolute_jump(void)
     cpu_selftest_run_code_from_location(8);
     cpu_selftest_assert_reg_equals(REG_CO, 0x00000010);
     cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF(void)
+{
+    cpu_selftest_load_organisational_order_literal(F_SF_LOAD_NB_PLUS, 0x3F);
+    cpu_selftest_set_register(REG_NB, 10);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_SF, 0x00000008);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow(void)
+{
+    cpu_selftest_load_organisational_order_extended(F_SF_LOAD_NB_PLUS, K_LITERAL, NP_32_BIT_UNSIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x0000FFFF);
+    cpu_selftest_set_register(REG_NB, 10);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_segment_overflow_interrupt();
+}
+
+static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow(void)
+{
+    cpu_selftest_load_organisational_order_extended(F_SF_LOAD_NB_PLUS, K_LITERAL, NP_32_BIT_UNSIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFB);
+    cpu_selftest_set_register(REG_NB, 2);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_segment_overflow_interrupt();
+}
+
+static void cpu_selftest_org_nb_load_loads_nb(void)
+{
+    cpu_selftest_load_organisational_order_extended(F_NB_LOAD, K_LITERAL, NP_32_BIT_UNSIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xABABCFCF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_NB, 0xCFCE);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_org_nb_load_sf_plus_adds_SF_to_signed_operand_and_stores_to_NB(void)
+{
+    cpu_selftest_load_organisational_order_literal(F_NB_LOAD_SF_PLUS, 0x3F);
+    cpu_selftest_set_register(REG_SF, 10);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_NB, 0x00000008);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_overflow(void)
+{
+    cpu_selftest_load_organisational_order_extended(F_NB_LOAD_SF_PLUS, K_LITERAL, NP_32_BIT_UNSIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x0000FFFF);
+    cpu_selftest_set_register(REG_SF, 10);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_segment_overflow_interrupt();
+}
+
+static void cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_underflow(void)
+{
+    cpu_selftest_load_organisational_order_extended(F_NB_LOAD_SF_PLUS, K_LITERAL, NP_32_BIT_UNSIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFB);
+    cpu_selftest_set_register(REG_SF, 2);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_segment_overflow_interrupt();
 }
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void)

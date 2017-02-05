@@ -972,7 +972,7 @@ static uint16 cpu_calculate_base_offset_from_addr(t_addr base, t_int64 offset, u
     t_int64 result = base + (offset * scale);
     if (result < 0 || result > 65535)
     {
-        cpu_set_interrupt(INT_SOFTWARE_INTERRUPT); /* TODO: must be segment overflow interrupt */
+        cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: must be segment overflow interrupt */
     }
 
     return (uint16)(result & 0xFFFF);
@@ -2084,7 +2084,7 @@ static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_EN
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "SF=NB+ ");
     uint16 newSF = cpu_calculate_base_offset_from_reg(reg_nb, cpu_get_operand(order), SCALE_32);
-    cpu_set_register_16(reg_sf, newSF);
+    cpu_set_register_16(reg_sf, newSF & 0xFFFE); /* LS bit of NB is always zero */
 }
 
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable)
