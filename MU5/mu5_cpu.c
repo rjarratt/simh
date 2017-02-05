@@ -3298,7 +3298,7 @@ static void cpu_execute_fp_unsigned_compare(uint16 order, DISPATCH_ENTRY *innerT
 
 static t_uint64 cpu_get_acc_value()
 {
-    t_uint64 result = (cpu_get_register_bit_64(reg_aod, mask_aod_opsiz64)) ? cpu_get_register_64(reg_a) >> 32 : cpu_get_register_64(reg_a);
+    t_uint64 result = (cpu_get_register_bit_64(reg_aod, mask_aod_opsiz64)) ? cpu_get_register_64(reg_a) : cpu_get_register_64(reg_a) >> 32;
     return result;
 }
 
