@@ -39,6 +39,7 @@ No decimal orders
 Addresses are physical only, virtual memory is not implemented yet, segment crossing boundary checks missing
 Interrupt processing is not implemented yet
 V-Store operands are not implemented yet
+Type 3 descriptors not implemented yet.
 
 */
 
@@ -342,6 +343,7 @@ static void cpu_execute_organisational_relative_jump(uint16 order, DISPATCH_ENTR
 static void cpu_execute_organisational_exit(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_return(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_stacklink(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -518,7 +520,7 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
     { cpu_execute_illegal_order, /* XC4 */        NULL }, /* 12 */
     { cpu_execute_illegal_order, /* XC5 */        NULL }, /* 13 */
     { cpu_execute_illegal_order, /* XC6 */        NULL }, /* 14 */
-    { cpu_execute_illegal_order, /* STACK LINK */ NULL }, /* 15 */
+    { cpu_execute_organisational_stacklink,       NULL }, /* 15 */
     { cpu_execute_illegal_order, /* MS= */        NULL }, /* 16 */
     { cpu_execute_illegal_order, /* DL= */        NULL }, /* 17 */
     { cpu_execute_illegal_order, /* SPM */        NULL }, /* 18 */
@@ -2140,6 +2142,15 @@ static void cpu_execute_organisational_return(uint16 order, DISPATCH_ENTRY *inne
     cpu_set_ms((operand >> 48) & MASK_16);
     cpu_set_nb((operand >> 32) & MASK_16);
     cpu_set_co(operand & MASK_32);
+}
+
+static void cpu_execute_organisational_stacklink(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STACK LINK ");
+    t_uint64 co = cpu_get_register_32(reg_co); /* Get CO before it is advanced by getting operand as we jump relative to instruction */
+    t_uint64 operand = cpu_get_operand(order);
+    t_uint64 link = ((t_uint64)cpu_get_register_16(reg_ms) << 48) | ((t_uint64)cpu_get_register_16(reg_nb) << 32) | ((co + operand) & MASK_32); /* TODO: seg overflow check */
+    cpu_push_value(link);
 }
 
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable)

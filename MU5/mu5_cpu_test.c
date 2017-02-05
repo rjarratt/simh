@@ -146,6 +146,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_EXIT 1
 #define F_ABSJUMP 4
 #define F_RETURN 5
+#define F_STACKLINK 15
 #define F_SF_LOAD_NB_PLUS 26
 #define F_NB_LOAD 28
 #define F_NB_LOAD_SF_PLUS 29
@@ -680,6 +681,8 @@ static void cpu_selftest_org_absolute_jump(void);
 static void cpu_selftest_org_return_sets_SF_and_unstacks_link(void);
 static void cpu_selftest_org_return_resets_link_except_privileged_ms_bits_in_user_mode(void);
 static void cpu_selftest_org_return_does_not_pop_stack_if_operand_is_not_stack_but_sets_NB(void);
+static void cpu_selftest_org_stacklink_puts_link_on_stack_adding_operand_to_stacked_CO(void);
+/*static void cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_crosses_segment_boundary(void);*/
 static void cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF(void);
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow(void);
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow(void);
@@ -1092,6 +1095,8 @@ UNITTEST tests[] =
     { "RETURN sets SF and unstacks link", cpu_selftest_org_return_sets_SF_and_unstacks_link },
     { "RETURN resets the link except privileged MS bits in user mode", cpu_selftest_org_return_resets_link_except_privileged_ms_bits_in_user_mode },
     { "RETURN does not pop stack if operand is not stack but does set SF to NB", cpu_selftest_org_return_does_not_pop_stack_if_operand_is_not_stack_but_sets_NB },
+    { "STACK LINK puts link on the stack and adds the operand to the stacked value of CO", cpu_selftest_org_stacklink_puts_link_on_stack_adding_operand_to_stacked_CO },
+    /*{ "STACK LINK generates an interrupt when adding the operand to CO crosses a segment boundary", cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_crosses_segment_boundary },*/
     { "SF=NB+ adds NB to signed operand and stores result to SF", cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF },
     { "SF=NB+ generates interrupt on segment overflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow },
     { "SF=NB+ generates interrupt on segment underflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow },
@@ -6107,6 +6112,23 @@ static void cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_store
     cpu_selftest_assert_reg_equals(REG_SF, 0x00000008);
     cpu_selftest_assert_no_interrupt();
 }
+
+static void cpu_selftest_org_stacklink_puts_link_on_stack_adding_operand_to_stacked_CO(void)
+{
+    uint32 base = 32;
+    cpu_selftest_set_load_location(10);
+    cpu_selftest_load_organisational_order_extended(F_STACKLINK, KP_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0x000000000000000A);
+    cpu_selftest_set_register(REG_SF, base);
+    cpu_selftest_set_register(REG_MS, 0xAAAA);
+    cpu_selftest_set_register(REG_NB, 0xBBBA);
+    cpu_selftest_run_code_from_location(10);
+    cpu_selftest_assert_memory_contents_64_bit(base + 2, 0xAAAABBBA00000014);
+    cpu_selftest_assert_reg_equals(REG_SF, base + 2);
+    cpu_selftest_assert_no_interrupt();
+}
+
+/*static void cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_crosses_segment_boundary(void);*/
 
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow(void)
 {
