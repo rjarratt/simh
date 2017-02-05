@@ -2141,7 +2141,7 @@ static void cpu_execute_organisational_branch_gt(uint16 order, DISPATCH_ENTRY *i
 static void cpu_execute_organisational_branch_ovf(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "OVERFLOW ");
-    cpu_jump_relative(order, cpu_get_register_bit_16(reg_ms, mask_ms_t0));
+    cpu_jump_relative(order, !cpu_get_register_bit_16(reg_ms, mask_ms_t0));
 }
 
 static void cpu_execute_organisational_branch_bn(uint16 order, DISPATCH_ENTRY *innerTable)
