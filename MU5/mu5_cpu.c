@@ -350,6 +350,7 @@ static void cpu_execute_organisational_return(uint16 order, DISPATCH_ENTRY *inne
 static void cpu_execute_organisational_stacklink(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_MS_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_DL_load(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_spm(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_setlink(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -530,7 +531,7 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
     { cpu_execute_organisational_stacklink,       NULL }, /* 15 */
     { cpu_execute_organisational_MS_load,         NULL }, /* 16 */
     { cpu_execute_organisational_DL_load,         NULL }, /* 17 */
-    { cpu_execute_illegal_order, /* SPM */        NULL }, /* 18 */
+    { cpu_execute_organisational_spm,             NULL }, /* 18 */
     { cpu_execute_organisational_setlink,         NULL }, /* 19 */
     { cpu_execute_illegal_order, /* XNB = */      NULL }, /* 20 */
     { cpu_execute_illegal_order, /* SN= */        NULL }, /* 21 */
@@ -2181,13 +2182,28 @@ static void cpu_execute_organisational_DL_load(uint16 order, DISPATCH_ENTRY *inn
     cpu_set_register_32(reg_dl, operand & MASK_32);
 }
 
+static void cpu_execute_organisational_spm(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    /* RNI when asked if there was any information regarding this order said:
+    
+    Only in my head I imagine. All it did was cause a signal to be sent to the System Performance Monitor (SPM). The SPM was a separate physical entity.
+    You can see it in the right foreground of the picture in http://www.cs.manchester.ac.uk/about-us/history/mu5/
+
+    The SPM could be set up so as to count these signals. I can't remember whether it sent an operand or just a binary signal. It was a way of monitoring
+    and analysing programs. I think you should just treat the SPM order as a dummy.
+    */
+
+    /* so this is a dummy implementation that just consumes the operand */
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "SPM ");
+    cpu_get_operand(order);
+}
+
 static void cpu_execute_organisational_setlink(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "SETLINK ");
     t_uint64 link = ((t_uint64)cpu_get_register_16(reg_ms) << 48) | ((t_uint64)cpu_get_register_16(reg_nb) << 32) | cpu_get_register_32(reg_co);
     cpu_set_operand(order, link);
 }
-
 
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable)
 {
