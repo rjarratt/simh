@@ -150,6 +150,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_STACKLINK 15
 #define F_MS_LOAD 16
 #define F_DL_LOAD 17
+#define F_SETLINK 19
 #define F_SF_LOAD_NB_PLUS 26
 #define F_NB_LOAD 28
 #define F_NB_LOAD_SF_PLUS 29
@@ -691,6 +692,7 @@ static void cpu_selftest_org_ms_load_sets_unmasked_bits_only_in_executive_mode(v
 static void cpu_selftest_org_ms_load_does_not_set_masked_bits_in_executive_mode(void);
 static void cpu_selftest_org_ms_load_does_not_set_privileged_unmasked_bits_in_user_mode(void);
 static void cpu_selftest_org_dl_load_sets_dl_pseudo_register(void);
+static void cpu_selftest_org_setlink_stores_link(void);
 static void cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF(void);
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow(void);
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow(void);
@@ -1110,6 +1112,7 @@ UNITTEST tests[] =
     { "MS= does not set masked bits in executive mode", cpu_selftest_org_ms_load_does_not_set_masked_bits_in_executive_mode },
     { "MS= does not set privileged bits even if unmasked when in user mode", cpu_selftest_org_ms_load_does_not_set_privileged_unmasked_bits_in_user_mode },
     { "DL= loads pseudo register for the display lamps", cpu_selftest_org_dl_load_sets_dl_pseudo_register },
+    { "SETLINK stores the link", cpu_selftest_org_setlink_stores_link },
     { "SF=NB+ adds NB to signed operand and stores result to SF", cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF },
     { "SF=NB+ generates interrupt on segment overflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow },
     { "SF=NB+ generates interrupt on segment underflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow },
@@ -6154,6 +6157,20 @@ static void cpu_selftest_org_dl_load_sets_dl_pseudo_register(void)
     cpu_selftest_assert_reg_equals(REG_DL, 0xAAAABBBB);
     cpu_selftest_assert_no_interrupt();
 }
+
+static void cpu_selftest_org_setlink_stores_link(void)
+{
+    uint32 base = 32;
+    cpu_selftest_set_load_location(10);
+    cpu_selftest_load_organisational_order_extended(F_SETLINK, K_V64, NP_0);
+    cpu_selftest_load_16_bit_literal(base);
+    cpu_selftest_set_register(REG_MS, 0xAAAAAAAA);
+    cpu_selftest_set_register(REG_NB, 0xBBBBBBBB);
+    cpu_selftest_run_code_from_location(10);
+    cpu_selftest_assert_memory_contents_64_bit(base * 2, 0xAAAABBBB0000000A);
+    cpu_selftest_assert_no_interrupt();
+}
+
 
 static void cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF(void)
 {
