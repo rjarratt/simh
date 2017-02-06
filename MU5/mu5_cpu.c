@@ -197,6 +197,7 @@ static t_uint64 reg_xd_backing_value;  /* XD Register */
 static uint32 reg_dod_backing_value;   /* DOD Register */
 static uint32 reg_dt_backing_value;    /* DT Register */
 static uint32 reg_xdt_backing_value;   /* XDT Register */
+static uint32 reg_dl_backing_value;    /* Pseudo register for display lamps */
 
 static REG cpu_reg[] =
 {
@@ -217,6 +218,7 @@ static REG cpu_reg[] =
     { GRDATADF(DOD, reg_dod_backing_value, 16, 32, 0, "DOD register", dod_bits) },
     { HRDATAD(DT,   reg_dt_backing_value,      32,    "DT register") },
     { HRDATAD(XDT,  reg_xdt_backing_value,     32,    "XDT register") },
+    { HRDATAD(DL,   reg_dl_backing_value,      32,    "Pseudo register for display lamps") },
     { NULL }
 };
 
@@ -237,6 +239,7 @@ REG *reg_xd   = &cpu_reg[13];
 REG *reg_dod  = &cpu_reg[14];
 REG *reg_dt   = &cpu_reg[15];
 REG *reg_xdt  = &cpu_reg[16];
+REG *reg_dl   = &cpu_reg[17];
 
 static uint8 interrupt;
 REG *sim_PC = &cpu_reg[11];
@@ -346,6 +349,7 @@ static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTR
 static void cpu_execute_organisational_return(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_stacklink(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_MS_load(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_DL_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -524,7 +528,7 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
     { cpu_execute_illegal_order, /* XC6 */        NULL }, /* 14 */
     { cpu_execute_organisational_stacklink,       NULL }, /* 15 */
     { cpu_execute_organisational_MS_load,         NULL }, /* 16 */
-    { cpu_execute_illegal_order, /* DL= */        NULL }, /* 17 */
+    { cpu_execute_organisational_DL_load,         NULL }, /* 17 */
     { cpu_execute_illegal_order, /* SPM */        NULL }, /* 18 */
     { cpu_execute_illegal_order, /* SET LINK */   NULL }, /* 19 */
     { cpu_execute_illegal_order, /* XNB = */      NULL }, /* 20 */
@@ -1067,6 +1071,7 @@ void cpu_reset_state(void)
     cpu_set_register_32(reg_dod, 0x0);
     cpu_set_register_32(reg_dt, 0x0);
     cpu_set_register_32(reg_xdt, 0x0);
+    cpu_set_register_32(reg_dl, 0x0);
 }
 
 static void cpu_set_interrupt(uint8 number)
@@ -2166,6 +2171,13 @@ static void cpu_execute_organisational_MS_load(uint16 order, DISPATCH_ENTRY *inn
     uint16 mask = ((operand >> 8) & (MASK_8 << 8)) | (operand & MASK_8);
     uint16 newMs = (ms & ~mask) | (setMs & mask);
     cpu_set_ms(newMs);
+}
+
+static void cpu_execute_organisational_DL_load(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "DL= ");
+    t_uint64 operand = cpu_get_operand(order);
+    cpu_set_register_32(reg_dl, operand & MASK_32);
 }
 
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable)
