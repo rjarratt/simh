@@ -147,6 +147,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_ABSJUMP 4
 #define F_RETURN 5
 #define F_STACKLINK 15
+#define F_MS_LOAD 16
 #define F_SF_LOAD_NB_PLUS 26
 #define F_NB_LOAD 28
 #define F_NB_LOAD_SF_PLUS 29
@@ -684,6 +685,9 @@ static void cpu_selftest_org_return_does_not_pop_stack_if_operand_is_not_stack_b
 static void cpu_selftest_org_stacklink_puts_link_on_stack_adding_operand_to_stacked_CO(void);
 static void cpu_selftest_org_stacklink_treats_operand_as_signed(void);
 /*static void cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_crosses_segment_boundary(void);*/
+static void cpu_selftest_org_ms_load_sets_unmasked_bits_only_in_executive_mode(void);
+static void cpu_selftest_org_ms_load_does_not_set_masked_bits_in_executive_mode(void);
+static void cpu_selftest_org_ms_load_does_not_set_privileged_unmasked_bits_in_user_mode(void);
 static void cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF(void);
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow(void);
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow(void);
@@ -1099,6 +1103,9 @@ UNITTEST tests[] =
     { "STACK LINK puts link on the stack and adds the operand to the stacked value of CO", cpu_selftest_org_stacklink_puts_link_on_stack_adding_operand_to_stacked_CO },
     { "STACK LINK treats operand as signed", cpu_selftest_org_stacklink_treats_operand_as_signed },
     /*{ "STACK LINK generates an interrupt when adding the operand to CO crosses a segment boundary", cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_crosses_segment_boundary },*/
+    { "MS= sets unmasked bits only when in executive mode", cpu_selftest_org_ms_load_sets_unmasked_bits_only_in_executive_mode },
+    { "MS= does not set masked bits in executive mode", cpu_selftest_org_ms_load_does_not_set_masked_bits_in_executive_mode },
+    { "MS= does not set privileged bits even if unmasked when in user mode", cpu_selftest_org_ms_load_does_not_set_privileged_unmasked_bits_in_user_mode },
     { "SF=NB+ adds NB to signed operand and stores result to SF", cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF },
     { "SF=NB+ generates interrupt on segment overflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow },
     { "SF=NB+ generates interrupt on segment underflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow },
@@ -6105,6 +6112,35 @@ static void cpu_selftest_org_return_does_not_pop_stack_if_operand_is_not_stack_b
     cpu_selftest_assert_no_interrupt();
 }
 
+static void cpu_selftest_org_ms_load_sets_unmasked_bits_only_in_executive_mode(void)
+{
+    cpu_selftest_load_organisational_order_extended(F_MS_LOAD, KP_LITERAL, NP_32_BIT_UNSIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xAAFFBBFF);
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_MS, 0xAABB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_org_ms_load_does_not_set_masked_bits_in_executive_mode(void)
+{
+    cpu_selftest_load_organisational_order_extended(F_MS_LOAD, KP_LITERAL, NP_32_BIT_UNSIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xBBCC2233);
+    cpu_selftest_set_register(REG_MS, 0x00FF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_MS, 0x88EE);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_org_ms_load_does_not_set_privileged_unmasked_bits_in_user_mode(void)
+{
+    cpu_selftest_load_organisational_order_extended(F_MS_LOAD, KP_LITERAL, NP_32_BIT_UNSIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xAAFFBBFF);
+    cpu_selftest_set_register(REG_MS, 0x00C8);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_MS, 0xAAC8);
+    cpu_selftest_assert_no_interrupt();
+}
 
 static void cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF(void)
 {

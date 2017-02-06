@@ -79,6 +79,7 @@ to set the MS register to some appropriate setting.
 
 */
 
+#define MASK_8 0xFF
 #define MASK_16 0xFFFF
 #define MASK_32 0xFFFFFFFF
 
@@ -344,6 +345,7 @@ static void cpu_execute_organisational_exit(uint16 order, DISPATCH_ENTRY *innerT
 static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_return(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_stacklink(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_MS_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -521,7 +523,7 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
     { cpu_execute_illegal_order, /* XC5 */        NULL }, /* 13 */
     { cpu_execute_illegal_order, /* XC6 */        NULL }, /* 14 */
     { cpu_execute_organisational_stacklink,       NULL }, /* 15 */
-    { cpu_execute_illegal_order, /* MS= */        NULL }, /* 16 */
+    { cpu_execute_organisational_MS_load,         NULL }, /* 16 */
     { cpu_execute_illegal_order, /* DL= */        NULL }, /* 17 */
     { cpu_execute_illegal_order, /* SPM */        NULL }, /* 18 */
     { cpu_execute_illegal_order, /* SET LINK */   NULL }, /* 19 */
@@ -982,7 +984,9 @@ static SIM_INLINE int cpu_get_register_bit_64(REG *reg, t_uint64 mask)
 static void cpu_set_ms(uint16 value)
 {
     uint16 msMask = (cpu_is_executive_mode()) ? 0xFFFF : 0xFF00;
-    cpu_set_register_16(reg_ms, value & msMask);
+    uint16 ms = cpu_get_register_16(reg_ms);
+    uint16 newMs = (value & msMask) | (ms & ~msMask);
+    cpu_set_register_16(reg_ms, newMs);
 }
 
 static void cpu_set_nb(uint16 value)
@@ -2151,6 +2155,17 @@ static void cpu_execute_organisational_stacklink(uint16 order, DISPATCH_ENTRY *i
     t_uint64 operand = cpu_get_operand(order);
     t_uint64 link = ((t_uint64)cpu_get_register_16(reg_ms) << 48) | ((t_uint64)cpu_get_register_16(reg_nb) << 32) | ((co + operand) & MASK_32); /* TODO: seg overflow check */
     cpu_push_value(link);
+}
+
+static void cpu_execute_organisational_MS_load(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "MS= ");
+    uint16 ms = cpu_get_register_16(reg_ms);
+    t_uint64 operand = cpu_get_operand(order);
+    uint16 setMs = ((operand >> 16) & (MASK_8 << 8)) | ((operand >> 8) & MASK_8);
+    uint16 mask = ((operand >> 8) & (MASK_8 << 8)) | (operand & MASK_8);
+    uint16 newMs = (ms & ~mask) | (setMs & mask);
+    cpu_set_ms(newMs);
 }
 
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable)
