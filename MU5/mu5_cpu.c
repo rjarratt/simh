@@ -285,7 +285,7 @@ static SIM_INLINE int cpu_get_register_bit_32(REG *reg, uint32 mask);
 static SIM_INLINE int cpu_get_register_bit_64(REG *reg, t_uint64 mask);
 static void cpu_set_ms(uint16 value);
 static void cpu_set_nb(uint16 value);
-static void cpu_set_xnb(uint16 value);
+static void cpu_set_xnb(uint32 value);
 static void cpu_set_sf(uint16 value);
 static void cpu_set_co(uint32 value);
 static uint16 cpu_calculate_base_offset_from_addr(t_addr base, t_int64 offset, uint8 scale);
@@ -352,6 +352,7 @@ static void cpu_execute_organisational_MS_load(uint16 order, DISPATCH_ENTRY *inn
 static void cpu_execute_organisational_DL_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_spm(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_setlink(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_load_XNB(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -533,7 +534,7 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
     { cpu_execute_organisational_DL_load,         NULL }, /* 17 */
     { cpu_execute_organisational_spm,             NULL }, /* 18 */
     { cpu_execute_organisational_setlink,         NULL }, /* 19 */
-    { cpu_execute_illegal_order, /* XNB = */      NULL }, /* 20 */
+    {cpu_execute_organisational_load_XNB,         NULL }, /* 20 */
     { cpu_execute_illegal_order, /* SN= */        NULL }, /* 21 */
     { cpu_execute_illegal_order, /* XNB+ */       NULL }, /* 22 */
     { cpu_execute_illegal_order, /* XNB => */     NULL }, /* 23 */
@@ -1000,9 +1001,9 @@ static void cpu_set_nb(uint16 value)
     cpu_set_register_16(reg_nb, value & 0xFFFE);
 }
 
-static void cpu_set_xnb(uint16 value)
+static void cpu_set_xnb(uint32 value)
 {
-    cpu_set_register_16(reg_xnb, value & 0xFFFE);
+    cpu_set_register_32(reg_xnb, value & 0xFFFFFFFE);
 }
 
 static void cpu_set_sf(uint16 value)
@@ -2205,6 +2206,13 @@ static void cpu_execute_organisational_setlink(uint16 order, DISPATCH_ENTRY *inn
     cpu_set_operand(order, link);
 }
 
+static void cpu_execute_organisational_load_XNB(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "XNB= ");
+    t_uint64 newBase = cpu_get_operand(order);
+    cpu_set_xnb(newBase & MASK_32);
+}
+
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "SF=NB+ ");
@@ -2216,7 +2224,6 @@ static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *inn
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB= ");
     t_uint64 newBase = cpu_get_operand(order); /* TODO: the operand may not be a secondary operand - see p59 */
-    cpu_set_register_16(reg_sn, (newBase >> 48) & 0xFFFF);
     cpu_set_nb(newBase & MASK_16);
 }
 

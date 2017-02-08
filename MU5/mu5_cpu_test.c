@@ -152,6 +152,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_DL_LOAD 17
 #define F_SPM 18
 #define F_SETLINK 19
+#define F_XNB_LOAD 20
 #define F_SF_LOAD_NB_PLUS 26
 #define F_NB_LOAD 28
 #define F_NB_LOAD_SF_PLUS 29
@@ -694,11 +695,12 @@ static void cpu_selftest_org_ms_load_does_not_set_masked_bits_in_executive_mode(
 static void cpu_selftest_org_ms_load_does_not_set_privileged_unmasked_bits_in_user_mode(void);
 static void cpu_selftest_org_dl_load_sets_dl_pseudo_register(void);
 static void cpu_selftest_org_spm_dummy(void);
+static void cpu_selftest_org_xnb_load_loads_XNB(void);
 static void cpu_selftest_org_setlink_stores_link(void);
 static void cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF(void);
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow(void);
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow(void);
-static void cpu_selftest_org_nb_load_loads_nb(void);
+static void cpu_selftest_org_nb_load_loads_NB(void);
 static void cpu_selftest_org_nb_load_sf_plus_adds_SF_to_signed_operand_and_stores_to_NB(void);
 static void cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_overflow(void);
 static void cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_underflow(void);
@@ -1115,11 +1117,12 @@ UNITTEST tests[] =
     { "MS= does not set privileged bits even if unmasked when in user mode", cpu_selftest_org_ms_load_does_not_set_privileged_unmasked_bits_in_user_mode },
     { "DL= loads pseudo register for the display lamps", cpu_selftest_org_dl_load_sets_dl_pseudo_register },
     { "SPM dummy order", cpu_selftest_org_spm_dummy },
+    { "XNB= loads XNB", cpu_selftest_org_xnb_load_loads_XNB },
     { "SETLINK stores the link", cpu_selftest_org_setlink_stores_link },
     { "SF=NB+ adds NB to signed operand and stores result to SF", cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF },
     { "SF=NB+ generates interrupt on segment overflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow },
     { "SF=NB+ generates interrupt on segment underflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow },
-    { "NB= loads NB", cpu_selftest_org_nb_load_loads_nb },
+    { "NB= loads NB", cpu_selftest_org_nb_load_loads_NB },
     { "NB=SF+ adds SF to signed operand and stores result to NB", cpu_selftest_org_nb_load_sf_plus_adds_SF_to_signed_operand_and_stores_to_NB },
     { "NB=SF+ generates interrupt on segment overflow", cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_overflow },
     { "NB=SF+ generates interrupt on segment underflow", cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_underflow },
@@ -6183,6 +6186,15 @@ static void cpu_selftest_org_setlink_stores_link(void)
     cpu_selftest_assert_no_interrupt();
 }
 
+static void cpu_selftest_org_xnb_load_loads_XNB(void)
+{
+    cpu_selftest_load_organisational_order_extended(F_XNB_LOAD, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0xABABABABCFCFCFCF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_XNB, 0xCFCFCFCE);
+    cpu_selftest_assert_no_interrupt();
+}
+
 static void cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF(void)
 {
     cpu_selftest_load_organisational_order_literal(F_SF_LOAD_NB_PLUS, 0x3F);
@@ -6245,7 +6257,7 @@ static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_unde
     cpu_selftest_assert_segment_overflow_interrupt();
 }
 
-static void cpu_selftest_org_nb_load_loads_nb(void)
+static void cpu_selftest_org_nb_load_loads_NB(void)
 {
     cpu_selftest_load_organisational_order_extended(F_NB_LOAD, K_LITERAL, NP_32_BIT_UNSIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0xABABCFCF);
