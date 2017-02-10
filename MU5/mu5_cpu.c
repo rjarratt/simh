@@ -354,6 +354,7 @@ static void cpu_execute_organisational_spm(uint16 order, DISPATCH_ENTRY *innerTa
 static void cpu_execute_organisational_setlink(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_load_XNB(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_load_SN(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_load_XNB_plus(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -535,9 +536,9 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
     { cpu_execute_organisational_DL_load,         NULL }, /* 17 */
     { cpu_execute_organisational_spm,             NULL }, /* 18 */
     { cpu_execute_organisational_setlink,         NULL }, /* 19 */
-    {cpu_execute_organisational_load_XNB,         NULL }, /* 20 */
+    { cpu_execute_organisational_load_XNB,        NULL }, /* 20 */
     { cpu_execute_organisational_load_SN,         NULL }, /* 21 */
-    { cpu_execute_illegal_order, /* XNB+ */       NULL }, /* 22 */
+    { cpu_execute_organisational_load_XNB_plus,   NULL }, /* 22 */
     { cpu_execute_illegal_order, /* XNB => */     NULL }, /* 23 */
     { cpu_execute_illegal_order, /* SF= */        NULL }, /* 24 */
     { cpu_execute_illegal_order, /* SF+ */        NULL }, /* 25 */
@@ -2221,6 +2222,23 @@ static void cpu_execute_organisational_load_SN(uint16 order, DISPATCH_ENTRY *inn
     if (cpu_is_executive_mode())
     {
         cpu_set_register_16(reg_sn, (newSn >> 16) & MASK_16);
+    }
+}
+
+static void cpu_execute_organisational_load_XNB_plus(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "XNB+ ");
+    int16 operand = cpu_get_operand(order) & MASK_16;
+    uint32 xnb = cpu_get_register_32(reg_xnb);
+    uint16 seg = xnb >> 16;
+    xnb += operand;
+    if (xnb >> 16 == seg)
+    {
+        cpu_set_register_32(reg_xnb, xnb);
+    }
+    else
+    {
+        cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: must be segment overflow interrupt */
     }
 }
 
