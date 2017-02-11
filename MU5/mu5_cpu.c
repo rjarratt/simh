@@ -288,6 +288,7 @@ static void cpu_set_nb(uint16 value);
 static void cpu_set_xnb(uint32 value);
 static void cpu_set_sf(uint16 value);
 static void cpu_set_co(uint32 value);
+static void cpu_set_ms_bn(int value);
 static uint16 cpu_calculate_base_offset_from_addr(t_addr base, t_int64 offset, uint8 scale);
 static t_addr cpu_get_name_segment_address_from_addr(t_addr base, int16 offset, uint8 scale);
 static uint16 cpu_calculate_base_offset_from_reg_16(REG *reg, t_int64 offset, uint8 scale);
@@ -345,6 +346,7 @@ static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable);
 /* organisational order functions */
 static void cpu_jump_relative(uint16 order, int performJump);
 static int cpu_calculate_condition(uint8 conditionCode);
+static void cpu_process_condition(int condition, int8 function);
 static void cpu_execute_organisational_relative_jump(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_exit(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -374,6 +376,7 @@ static void cpu_execute_organisational_branch_le(uint16 order, DISPATCH_ENTRY *i
 static void cpu_execute_organisational_branch_gt(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_branch_ovf(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_branch_bn(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_bn_by_operand_test_eq(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* store-to-store order functions */
 static uint8 cpu_get_descriptor_type(t_uint64 descriptor);
@@ -524,70 +527,70 @@ DEVICE cpu_dev = {
 
 static DISPATCH_ENTRY organisationalDispatchTable[] =
 {
-    { cpu_execute_organisational_relative_jump,   NULL }, /* 0 */
-    { cpu_execute_organisational_exit,            NULL }, /* 1 */
-    { cpu_execute_illegal_order,                  NULL }, /* 2 */
-    { cpu_execute_illegal_order,                  NULL }, /* 3 */
-    { cpu_execute_organisational_absolute_jump,   NULL }, /* 4 */
-    { cpu_execute_organisational_return,          NULL }, /* 5 */
-    { cpu_execute_illegal_order,                  NULL }, /* 6 */
-    { cpu_execute_illegal_order,                  NULL }, /* 7 */
-    { cpu_execute_illegal_order, /* XCO */        NULL }, /* 8 */
-    { cpu_execute_illegal_order, /* XC1 */        NULL }, /* 9 */
-    { cpu_execute_illegal_order, /* XC2 */        NULL }, /* 10 */
-    { cpu_execute_illegal_order, /* XC3 */        NULL }, /* 11*/
-    { cpu_execute_illegal_order, /* XC4 */        NULL }, /* 12 */
-    { cpu_execute_illegal_order, /* XC5 */        NULL }, /* 13 */
-    { cpu_execute_illegal_order, /* XC6 */        NULL }, /* 14 */
-    { cpu_execute_organisational_stacklink,       NULL }, /* 15 */
-    { cpu_execute_organisational_MS_load,         NULL }, /* 16 */
-    { cpu_execute_organisational_DL_load,         NULL }, /* 17 */
-    { cpu_execute_organisational_spm,             NULL }, /* 18 */
-    { cpu_execute_organisational_setlink,         NULL }, /* 19 */
-    { cpu_execute_organisational_load_XNB,        NULL }, /* 20 */
-    { cpu_execute_organisational_load_SN,         NULL }, /* 21 */
-    { cpu_execute_organisational_XNB_plus,        NULL }, /* 22 */
-    { cpu_execute_organisational_XNB_store,       NULL }, /* 23 */
-    { cpu_execute_organisational_SF_load,         NULL }, /* 24 */
-    { cpu_execute_organisational_SF_plus,         NULL }, /* 25 */
-    { cpu_execute_organisational_SF_load_NB_plus, NULL }, /* 26 */
-    { cpu_execute_organisational_SF_store,        NULL }, /* 27 */
-    { cpu_execute_organisational_NB_load,         NULL }, /* 28 */
-    { cpu_execute_organisational_NB_load_SF_plus, NULL }, /* 29 */
-    { cpu_execute_organisational_NB_plus,         NULL }, /* 30 */
-    { cpu_execute_organisational_NB_store,        NULL }, /* 31 */
-    { cpu_execute_organisational_branch_eq,       NULL }, /* 32 */
-    { cpu_execute_organisational_branch_ne,       NULL }, /* 33 */
-    { cpu_execute_organisational_branch_ge,       NULL }, /* 34 */
-    { cpu_execute_organisational_branch_lt,       NULL }, /* 35 */
-    { cpu_execute_organisational_branch_le,       NULL }, /* 36 */
-    { cpu_execute_organisational_branch_gt,       NULL }, /* 37 */
-    { cpu_execute_organisational_branch_ovf,      NULL }, /* 38 */
-    { cpu_execute_organisational_branch_bn,       NULL }, /* 39 */
-    { cpu_execute_organisational_branch_eq,       NULL }, /* 40 */
-    { cpu_execute_organisational_branch_ne,       NULL }, /* 41 */
-    { cpu_execute_organisational_branch_ge,       NULL }, /* 42 */
-    { cpu_execute_organisational_branch_lt,       NULL }, /* 43 */
-    { cpu_execute_organisational_branch_le,       NULL }, /* 44 */
-    { cpu_execute_organisational_branch_gt,       NULL }, /* 45 */
-    { cpu_execute_organisational_branch_ovf,      NULL }, /* 46 */
-    { cpu_execute_organisational_branch_bn,       NULL }, /* 47 */
-    { cpu_execute_illegal_order, /* 0 */          NULL }, /* 48 */
-    { cpu_execute_illegal_order, /* Bn & X */     NULL }, /* 49 */
-    { cpu_execute_illegal_order, /* ~Bn & X */    NULL }, /* 50 */
-    { cpu_execute_illegal_order, /* X */          NULL }, /* 51 */
-    { cpu_execute_illegal_order, /* Bn & ~X */    NULL }, /* 52 */
-    { cpu_execute_illegal_order, /* Bn */         NULL }, /* 53 */
-    { cpu_execute_illegal_order, /* Bn ~EQV X */  NULL }, /* 54 */
-    { cpu_execute_illegal_order, /* Bn or X */    NULL }, /* 55 */
-    { cpu_execute_illegal_order, /* ~Bn & ~X */   NULL }, /* 56 */
-    { cpu_execute_illegal_order, /* Bn EQV X */   NULL }, /* 57 */
-    { cpu_execute_illegal_order, /* ~Bn */        NULL }, /* 58 */
-    { cpu_execute_illegal_order, /* ~Bn or X */   NULL }, /* 59 */
-    { cpu_execute_illegal_order, /* ~X */         NULL }, /* 60 */
-    { cpu_execute_illegal_order, /* Bn or ~X */   NULL }, /* 61 */
-    { cpu_execute_illegal_order, /* ~Bn or ~X */  NULL }, /* 62 */
-    { cpu_execute_illegal_order, /* 1 */          NULL }  /* 63 */
+    { cpu_execute_organisational_relative_jump,         NULL }, /* 0 */
+    { cpu_execute_organisational_exit,                  NULL }, /* 1 */
+    { cpu_execute_illegal_order,                        NULL }, /* 2 */
+    { cpu_execute_illegal_order,                        NULL }, /* 3 */
+    { cpu_execute_organisational_absolute_jump,         NULL }, /* 4 */
+    { cpu_execute_organisational_return,                NULL }, /* 5 */
+    { cpu_execute_illegal_order,                        NULL }, /* 6 */
+    { cpu_execute_illegal_order,                        NULL }, /* 7 */
+    { cpu_execute_illegal_order, /* XCO */              NULL }, /* 8 */
+    { cpu_execute_illegal_order, /* XC1 */              NULL }, /* 9 */
+    { cpu_execute_illegal_order, /* XC2 */              NULL }, /* 10 */
+    { cpu_execute_illegal_order, /* XC3 */              NULL }, /* 11*/
+    { cpu_execute_illegal_order, /* XC4 */              NULL }, /* 12 */
+    { cpu_execute_illegal_order, /* XC5 */              NULL }, /* 13 */
+    { cpu_execute_illegal_order, /* XC6 */              NULL }, /* 14 */
+    { cpu_execute_organisational_stacklink,             NULL }, /* 15 */
+    { cpu_execute_organisational_MS_load,               NULL }, /* 16 */
+    { cpu_execute_organisational_DL_load,               NULL }, /* 17 */
+    { cpu_execute_organisational_spm,                   NULL }, /* 18 */
+    { cpu_execute_organisational_setlink,               NULL }, /* 19 */
+    { cpu_execute_organisational_load_XNB,              NULL }, /* 20 */
+    { cpu_execute_organisational_load_SN,               NULL }, /* 21 */
+    { cpu_execute_organisational_XNB_plus,              NULL }, /* 22 */
+    { cpu_execute_organisational_XNB_store,             NULL }, /* 23 */
+    { cpu_execute_organisational_SF_load,               NULL }, /* 24 */
+    { cpu_execute_organisational_SF_plus,               NULL }, /* 25 */
+    { cpu_execute_organisational_SF_load_NB_plus,       NULL }, /* 26 */
+    { cpu_execute_organisational_SF_store,              NULL }, /* 27 */
+    { cpu_execute_organisational_NB_load,               NULL }, /* 28 */
+    { cpu_execute_organisational_NB_load_SF_plus,       NULL }, /* 29 */
+    { cpu_execute_organisational_NB_plus,               NULL }, /* 30 */
+    { cpu_execute_organisational_NB_store,              NULL }, /* 31 */
+    { cpu_execute_organisational_branch_eq,             NULL }, /* 32 */
+    { cpu_execute_organisational_branch_ne,             NULL }, /* 33 */
+    { cpu_execute_organisational_branch_ge,             NULL }, /* 34 */
+    { cpu_execute_organisational_branch_lt,             NULL }, /* 35 */
+    { cpu_execute_organisational_branch_le,             NULL }, /* 36 */
+    { cpu_execute_organisational_branch_gt,             NULL }, /* 37 */
+    { cpu_execute_organisational_branch_ovf,            NULL }, /* 38 */
+    { cpu_execute_organisational_branch_bn,             NULL }, /* 39 */
+    { cpu_execute_organisational_bn_by_operand_test_eq, NULL }, /* 40 */
+    { cpu_execute_organisational_branch_ne,             NULL }, /* 41 */
+    { cpu_execute_organisational_branch_ge,             NULL }, /* 42 */
+    { cpu_execute_organisational_branch_lt,             NULL }, /* 43 */
+    { cpu_execute_organisational_branch_le,             NULL }, /* 44 */
+    { cpu_execute_organisational_branch_gt,             NULL }, /* 45 */
+    { cpu_execute_organisational_branch_ovf,            NULL }, /* 46 */
+    { cpu_execute_organisational_branch_bn,             NULL }, /* 47 */
+    { cpu_execute_organisational_bn_by_operand_test_eq, NULL }, /* 48 */
+    { cpu_execute_illegal_order, /* Bn & X */           NULL }, /* 49 */
+    { cpu_execute_illegal_order, /* ~Bn & X */          NULL }, /* 50 */
+    { cpu_execute_illegal_order, /* X */                NULL }, /* 51 */
+    { cpu_execute_illegal_order, /* Bn & ~X */          NULL }, /* 52 */
+    { cpu_execute_illegal_order, /* Bn */               NULL }, /* 53 */
+    { cpu_execute_illegal_order, /* Bn ~EQV X */        NULL }, /* 54 */
+    { cpu_execute_illegal_order, /* Bn or X */          NULL }, /* 55 */
+    { cpu_execute_illegal_order, /* ~Bn & ~X */         NULL }, /* 56 */
+    { cpu_execute_illegal_order, /* Bn EQV X */         NULL }, /* 57 */
+    { cpu_execute_illegal_order, /* ~Bn */              NULL }, /* 58 */
+    { cpu_execute_illegal_order, /* ~Bn or X */         NULL }, /* 59 */
+    { cpu_execute_illegal_order, /* ~X */               NULL }, /* 60 */
+    { cpu_execute_illegal_order, /* Bn or ~X */         NULL }, /* 61 */
+    { cpu_execute_illegal_order, /* ~Bn or ~X */        NULL }, /* 62 */
+    { cpu_execute_illegal_order, /* 1 */                NULL }  /* 63 */
 };
 
 static DISPATCH_ENTRY sts1DispatchTable[] =
@@ -1024,6 +1027,11 @@ static void cpu_set_sf(uint16 value)
 static void cpu_set_co(uint32 value)
 {
     cpu_set_register_32(reg_co, value & 0x7FFFFFFF);
+}
+
+static void cpu_set_ms_bn(int value)
+{
+    cpu_set_register_bit_16(reg_ms, mask_ms_bn, value);
 }
 
 static uint16 cpu_calculate_base_offset_from_addr(t_addr base, t_int64 offset, uint8 scale)
@@ -2204,6 +2212,98 @@ static int cpu_calculate_condition(uint8 conditionCode)
     return r;
 }
 
+static void cpu_process_condition(int condition, int8 function)
+{
+    int bn = cpu_get_register_bit_16(reg_ms, mask_ms_bn);
+    int newBn;
+
+    switch (function & 0xF)
+    {
+        case 0:
+        {
+            newBn = 0;
+            break;
+        }
+        case 1:
+        {
+            newBn = bn && condition;
+            break;
+        }
+        case 2:
+        {
+            newBn = !bn && condition;
+            break;
+        }
+        case 3:
+        {
+            newBn = condition;
+            break;
+        }
+        case 4:
+        {
+            newBn = bn && !condition;
+            break;
+        }
+        case 5:
+        {
+            newBn = bn;
+            break;
+        }
+        case 6:
+        {
+            newBn = bn ^ condition;
+            break;
+        }
+        case 7:
+        {
+            newBn = bn || condition;
+            break;
+        }
+        case 8:
+        {
+            newBn = !bn && !condition;
+            break;
+        }
+        case 9:
+        {
+            newBn = !(bn ^ condition);
+            break;
+        }
+        case 10:
+        {
+            newBn = !bn;
+            break;
+        }
+        case 11:
+        {
+            newBn = !bn || condition;
+            break;
+        }
+        case 12:
+        {
+            newBn = !condition;
+            break;
+        }
+        case 13:
+        {
+            newBn = bn || !condition;
+            break;
+        }
+        case 14:
+        {
+            newBn = !bn || !condition;
+            break;
+        }
+        case 15:
+        {
+            newBn = 1;
+            break;
+        }
+    }
+
+    cpu_set_ms_bn(newBn);
+}
+
 static void cpu_execute_organisational_relative_jump(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "-> ");
@@ -2421,6 +2521,14 @@ static void cpu_execute_organisational_branch_bn(uint16 order, DISPATCH_ENTRY *i
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "->");
     cpu_jump_relative(order, cpu_calculate_condition(cpu_get_f(order)));
+}
+
+static void cpu_execute_organisational_bn_by_operand_test_eq(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "");
+    uint8 f = cpu_get_f(order);
+    uint8 code = cpu_get_operand(order) &0xF;
+    cpu_process_condition(cpu_calculate_condition(f), code);
 }
 
 static uint8 cpu_get_descriptor_type(t_uint64 descriptor)

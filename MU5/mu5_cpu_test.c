@@ -172,6 +172,22 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_BRANCH_GT 37
 #define F_BRANCH_OVF 38
 #define F_BRANCH_BN 39
+#define F_BN1_EQ 40
+#define F_BN1_NE 41
+#define F_BN1_GE 42
+#define F_BN1_LT 43
+#define F_BN1_LE 44
+#define F_BN1_GT 45
+#define F_BN1_OVF 46
+#define F_BN1_BN 47
+#define F_BN2_EQ 48
+#define F_BN2_NE 49
+#define F_BN2_GE 50
+#define F_BN2_LT 51
+#define F_BN2_LE 52
+#define F_BN2_GT 53
+#define F_BN2_OVF 54
+#define F_BN2_BN 55
 
 #define K_LITERAL 0
 #define K_IR 1
@@ -240,6 +256,14 @@ typedef struct UNITTEST
     void (*runner)(void);
 } UNITTEST;
 
+typedef struct
+{
+    uint8 func;
+    int8 bn;
+    int8 r;
+    int8 newBn;
+} CONDITIONTABLE;
+
 extern DEVICE cpu_dev;
 
 static TESTCONTEXT testContext;
@@ -271,6 +295,8 @@ static void cpu_selftest_set_aod_operand_32_bit();
 static void cpu_selftest_set_aod_operand_64_bit();
 static void cpu_selftest_set_executive_mode(void);
 static void cpu_selftest_set_user_mode(void);
+static void cpu_selftest_set_bn(int8 bn);
+static void cpu_selftest_set_test_is_zero(int8 isZero);
 static void cpu_selftest_run_code(void);
 static void cpu_selftest_run_code_from_location(uint32 location);
 static REG *cpu_selftest_find_register(char *name);
@@ -317,6 +343,7 @@ static void cpu_selftest_assert_test_no_overflow(void);
 static void cpu_selftest_assert_test_overflow(void);
 static void cpu_selftest_assert_operand_size_32(void);
 static void cpu_selftest_assert_operand_size_64(void);
+static void cpu_selftest_assert_bn(CONDITIONTABLE *entry);
 static void cpu_selftest_assert_fail(void);
 static void cpu_selftest_set_failure(void);
 
@@ -747,10 +774,95 @@ static void cpu_selftest_org_br_ovf_does_branches_on_true(void);
 static void cpu_selftest_org_br_bn_does_not_branch_on_false(void);
 static void cpu_selftest_org_br_bn_does_branches_on_true(void);
 
+static void cpu_selftest_org_bn1_function_tests(void);
+
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void);
 static void cpu_selftest_no_zero_divide_interrupt_if_zero_divide_is_inhibited(void);
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(void);
 static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(void);
+
+CONDITIONTABLE conditionalFuncsTable[] =
+{
+    { 0x0, 0, 0, 0 },
+    { 0x0, 0, 1, 0 },
+    { 0x0, 1, 0, 0 },
+    { 0x0, 1, 1, 0 },
+
+    { 0x1, 0, 0, 0 },
+    { 0x1, 0, 1, 0 },
+    { 0x1, 1, 0, 0 },
+    { 0x1, 1, 1, 1 },
+
+    { 0x2, 0, 0, 0 },
+    { 0x2, 0, 1, 1 },
+    { 0x2, 1, 0, 0 },
+    { 0x2, 1, 1, 0 },
+
+    { 0x3, 0, 0, 0 },
+    { 0x3, 0, 1, 1 },
+    { 0x3, 1, 0, 0 },
+    { 0x3, 1, 1, 1 },
+
+    { 0x4, 0, 0, 0 },
+    { 0x4, 0, 1, 0 },
+    { 0x4, 1, 0, 1 },
+    { 0x4, 1, 1, 0 },
+
+    { 0x5, 0, 0, 0 },
+    { 0x5, 0, 1, 0 },
+    { 0x5, 1, 0, 1 },
+    { 0x5, 1, 1, 1 },
+
+    { 0x6, 0, 0, 0 },
+    { 0x6, 0, 1, 1 },
+    { 0x6, 1, 0, 1 },
+    { 0x6, 1, 1, 0 },
+
+    { 0x7, 0, 0, 0 },
+    { 0x7, 0, 1, 1 },
+    { 0x7, 1, 0, 1 },
+    { 0x7, 1, 1, 1 },
+
+    { 0x8, 0, 0, 1 },
+    { 0x8, 0, 1, 0 },
+    { 0x8, 1, 0, 0 },
+    { 0x8, 1, 1, 0 },
+
+    { 0x9, 0, 0, 1 },
+    { 0x9, 0, 1, 0 },
+    { 0x9, 1, 0, 0 },
+    { 0x9, 1, 1, 1 },
+
+    { 0xA, 0, 0, 1 },
+    { 0xA, 0, 1, 1 },
+    { 0xA, 1, 0, 0 },
+    { 0xA, 1, 1, 0 },
+
+    { 0xB, 0, 0, 1 },
+    { 0xB, 0, 1, 1 },
+    { 0xB, 1, 0, 0 },
+    { 0xB, 1, 1, 1 },
+
+    { 0xC, 0, 0, 1 },
+    { 0xC, 0, 1, 0 },
+    { 0xC, 1, 0, 1 },
+    { 0xC, 1, 1, 0 },
+
+    { 0xD, 0, 0, 1 },
+    { 0xD, 0, 1, 0 },
+    { 0xD, 1, 0, 1 },
+    { 0xD, 1, 1, 1 },
+
+    { 0xE, 0, 0, 1 },
+    { 0xE, 0, 1, 1 },
+    { 0xE, 1, 0, 1 },
+    { 0xE, 1, 1, 0 },
+
+    { 0xF, 0, 0, 1 },
+    { 0xF, 0, 1, 1 },
+    { 0xF, 1, 0, 1 },
+    { 0xF, 1, 1, 1 }
+};
 
 UNITTEST tests[] =
 {
@@ -1181,7 +1293,7 @@ UNITTEST tests[] =
     { "Branch on ovf branches on true", cpu_selftest_org_br_ovf_does_branches_on_true },
     { "Branch on bn does not branch on false", cpu_selftest_org_br_bn_does_not_branch_on_false },
     { "Branch on bn branches on true", cpu_selftest_org_br_bn_does_branches_on_true },
-
+    { "Conditional order with function from operand, tests all combinations", cpu_selftest_org_bn1_function_tests },
     { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
     { "No zero divide interrupt if zero divide is inhibited", cpu_selftest_no_zero_divide_interrupt_if_zero_divide_is_inhibited },
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
@@ -1381,6 +1493,20 @@ static void cpu_selftest_set_executive_mode(void)
 static void cpu_selftest_set_user_mode(void)
 {
     cpu_selftest_set_register(REG_MS, 0x0000);
+}
+
+static void cpu_selftest_set_bn(int8 bn)
+{
+    uint16 ms = cpu_selftest_get_register(REG_MS) & 0xFFFF;
+    ms = (ms & 0xFEFF) | ((bn & 1) << 8);
+    cpu_selftest_set_register(REG_MS, ms);
+}
+
+static void cpu_selftest_set_test_is_zero(int8 isZero)
+{
+    uint16 ms = cpu_selftest_get_register(REG_MS) & 0xFFFF;
+    ms = (ms & 0xFBFF) | ((~isZero & 1) << 10);
+    cpu_selftest_set_register(REG_MS, ms);
 }
 
 static void cpu_selftest_run_code(void)
@@ -1799,6 +1925,17 @@ static void cpu_selftest_assert_operand_size_32(void)
 static void cpu_selftest_assert_operand_size_64(void)
 {
     cpu_selftest_assert_reg_equals_mask(REG_AOD, AOD_OPSIZ_MASK, AOD_OPSIZ_MASK);
+}
+
+static void cpu_selftest_assert_bn(CONDITIONTABLE *entry)
+{
+    uint16 ms = cpu_selftest_get_register(REG_MS) & 0xFFFF;
+    uint8 bn = (ms >> 8) & 1;
+    if (bn != entry->newBn)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "For BN=%d and R=%d, function %X expected BN to become %d\n", entry->bn, entry->r, entry->func, entry->newBn);
+        cpu_selftest_set_failure();
+    }
 }
 
 static void cpu_selftest_assert_fail(void)
@@ -6603,10 +6740,29 @@ static void cpu_selftest_org_br_bn_does_not_branch_on_false(void)
     cpu_selftest_org_branch_test_branch_not_taken(F_BRANCH_BN, 1, 1, 1, 0);
     cpu_selftest_org_branch_test_branch_not_taken(F_BRANCH_BN, 0, 0, 0, 0);
 }
+
 static void cpu_selftest_org_br_bn_does_branches_on_true(void)
 {
     cpu_selftest_org_branch_test_branch_taken(F_BRANCH_BN, 1, 1, 1, 1);
     cpu_selftest_org_branch_test_branch_taken(F_BRANCH_BN, 0, 0, 0, 1);
+}
+
+static void cpu_selftest_org_bn1_function_tests(void)
+{
+    int n = sizeof(conditionalFuncsTable) / sizeof(CONDITIONTABLE);
+    int i;
+    for (i = 0; i < n; i++)
+    {
+        CONDITIONTABLE *entry = &conditionalFuncsTable[i];
+        cpu_selftest_set_load_location(0);
+        cpu_selftest_load_organisational_order_extended(F_BN1_EQ, K_LITERAL, NP_64_BIT_LITERAL);
+        cpu_selftest_load_64_bit_literal(0xFFFFFFFFFFFFFFF0 | entry->func & 0xF);
+        cpu_selftest_set_bn(entry->bn);
+        cpu_selftest_set_test_is_zero(entry->r);
+        cpu_selftest_run_code();
+        cpu_selftest_assert_bn(entry);
+        cpu_selftest_assert_no_interrupt();
+    }
 }
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void)
