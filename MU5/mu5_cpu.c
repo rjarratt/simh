@@ -363,6 +363,8 @@ static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_EN
 static void cpu_execute_organisational_SF_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_NB_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_branch_eq(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_branch_ne(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_branch_ge(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -551,8 +553,8 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
     { cpu_execute_organisational_SF_store,        NULL }, /* 27 */
     { cpu_execute_organisational_NB_load,         NULL }, /* 28 */
     { cpu_execute_organisational_NB_load_SF_plus, NULL }, /* 29 */
-    { cpu_execute_illegal_order, /* NB+ */        NULL }, /* 30 */
-    { cpu_execute_illegal_order, /* NB => */      NULL }, /* 31 */
+    { cpu_execute_organisational_NB_plus,         NULL }, /* 30 */
+    { cpu_execute_organisational_NB_store,        NULL }, /* 31 */
     { cpu_execute_organisational_branch_eq,       NULL }, /* 32 */
     { cpu_execute_organisational_branch_ne,       NULL }, /* 33 */
     { cpu_execute_organisational_branch_ge,       NULL }, /* 34 */
@@ -2280,8 +2282,8 @@ static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_EN
 static void cpu_execute_organisational_SF_store(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "SF=> ");
-    t_uint64 xnb = cpu_get_register_16(reg_sf);
-    cpu_set_operand(order, xnb);
+    t_uint64 sf = cpu_get_register_16(reg_sf);
+    cpu_set_operand(order, sf);
 }
 
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -2296,6 +2298,21 @@ static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_EN
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB=SF+ ");
     uint16 newNB = cpu_calculate_base_offset_from_reg_16(reg_sf, cpu_get_operand(order), SCALE_32);
     cpu_set_nb(newNB);
+}
+
+static void cpu_execute_organisational_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB+ ");
+    int16 operand = cpu_get_operand(order) & MASK_16;
+    uint16 nb = cpu_calculate_base_offset_from_reg_16(reg_nb, operand, SCALE_32);
+    cpu_set_nb(nb);
+}
+
+static void cpu_execute_organisational_NB_store(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB=> ");
+    t_uint64 nb = ((t_uint64)cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg_nb);
+    cpu_set_operand(order, nb);
 }
 
 static void cpu_execute_organisational_branch_eq(uint16 order, DISPATCH_ENTRY *innerTable)

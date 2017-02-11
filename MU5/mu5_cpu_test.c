@@ -162,6 +162,8 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_SF_STORE 27
 #define F_NB_LOAD 28
 #define F_NB_LOAD_SF_PLUS 29
+#define F_NB_PLUS 30
+#define F_NB_STORE 31
 #define F_BRANCH_EQ 32
 #define F_BRANCH_NE 33
 #define F_BRANCH_GE 34
@@ -722,6 +724,10 @@ static void cpu_selftest_org_nb_load_loads_NB(void);
 static void cpu_selftest_org_nb_load_sf_plus_adds_SF_to_signed_operand_and_stores_to_NB(void);
 static void cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_overflow(void);
 static void cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_underflow(void);
+static void cpu_selftest_org_nb_plus_adds_signed_operand_to_NB(void);
+static void cpu_selftest_org_nb_plus_generates_interrupt_on_segment_overflow(void);
+static void cpu_selftest_org_nb_plus_generates_interrupt_on_segment_underflow(void);
+static void cpu_selftest_org_nb_store_stores_SN_and_NB(void);
 static void cpu_selftest_org_branch_test_branch_taken(uint8 f, uint16 t0, uint16 t1, uint16 t2, uint16 bn);
 static void cpu_selftest_org_branch_test_branch_not_taken(uint8 f, uint16 t0, uint16 t1, uint16 t2, uint16 bn);
 static void cpu_selftest_org_br_eq_does_not_branch_on_false(void);
@@ -1155,6 +1161,10 @@ UNITTEST tests[] =
     { "NB=SF+ adds SF to signed operand and stores result to NB", cpu_selftest_org_nb_load_sf_plus_adds_SF_to_signed_operand_and_stores_to_NB },
     { "NB=SF+ generates interrupt on segment overflow", cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_overflow },
     { "NB=SF+ generates interrupt on segment underflow", cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_underflow },
+    { "NB+ adds signed operand to NB", cpu_selftest_org_nb_plus_adds_signed_operand_to_NB },
+    { "NB+ generates interrupt on segment overflow", cpu_selftest_org_nb_plus_generates_interrupt_on_segment_overflow },
+    { "NB+ generates interrupt on segment underflow", cpu_selftest_org_nb_plus_generates_interrupt_on_segment_underflow },
+    { "NB=> stores SN and NB ", cpu_selftest_org_nb_store_stores_SN_and_NB },
     { "Branch on eq does not branch on false", cpu_selftest_org_br_eq_does_not_branch_on_false },
     { "Branch on eq branches on true", cpu_selftest_org_br_eq_does_branches_on_true },
     { "Branch on ne does not branch on false", cpu_selftest_org_br_ne_does_not_branch_on_false },
@@ -6159,6 +6169,41 @@ static void cpu_selftest_org_return_does_not_pop_stack_if_operand_is_not_stack_b
     cpu_selftest_assert_no_interrupt();
 }
 
+static void cpu_selftest_org_stacklink_puts_link_on_stack_adding_operand_to_stacked_CO(void)
+{
+    uint32 base = 32;
+    cpu_selftest_set_load_location(10);
+    cpu_selftest_load_organisational_order_extended(F_STACKLINK, KP_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_load_64_bit_literal(0x000000000000000A);
+    cpu_selftest_set_register(REG_SF, base);
+    cpu_selftest_set_register(REG_MS, 0xAAAA);
+    cpu_selftest_set_register(REG_NB, 0xBBBA);
+    cpu_selftest_run_code_from_location(10);
+    cpu_selftest_assert_memory_contents_64_bit(base + 2, 0xAAAABBBA00000014);
+    cpu_selftest_assert_reg_equals(REG_SF, base + 2);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_org_stacklink_treats_operand_as_signed(void)
+{
+    /* Comment from RNI:
+    The adder used to add the operand to the value of CO for a STACKLINK operation is the same adder that executes control transfers.
+    Since these can jump backwards or forwards, the adder just treats the operand as a signed value in every case. For STACKLINK it
+    will normally be a small positive number, as you surmise, the value depending on the number of parameters being passed, as shown
+    in the example on page 62.
+    */
+    uint32 base = 32;
+    cpu_selftest_set_load_location(10);
+    cpu_selftest_load_organisational_order_extended(F_STACKLINK, KP_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFE);
+    cpu_selftest_set_register(REG_SF, base);
+    cpu_selftest_run_code_from_location(10);
+    cpu_selftest_assert_memory_contents_64_bit(base + 2, 0x0000000000000008);
+    cpu_selftest_assert_no_interrupt();
+}
+
+/*static void cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_crosses_segment_boundary(void);*/
+
 static void cpu_selftest_org_ms_load_sets_unmasked_bits_only_in_executive_mode(void)
 {
     cpu_selftest_load_organisational_order_extended(F_MS_LOAD, KP_LITERAL, NP_32_BIT_UNSIGNED_LITERAL);
@@ -6335,41 +6380,6 @@ static void cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_store
     cpu_selftest_assert_no_interrupt();
 }
 
-static void cpu_selftest_org_stacklink_puts_link_on_stack_adding_operand_to_stacked_CO(void)
-{
-    uint32 base = 32;
-    cpu_selftest_set_load_location(10);
-    cpu_selftest_load_organisational_order_extended(F_STACKLINK, KP_LITERAL, NP_64_BIT_LITERAL);
-    cpu_selftest_load_64_bit_literal(0x000000000000000A);
-    cpu_selftest_set_register(REG_SF, base);
-    cpu_selftest_set_register(REG_MS, 0xAAAA);
-    cpu_selftest_set_register(REG_NB, 0xBBBA);
-    cpu_selftest_run_code_from_location(10);
-    cpu_selftest_assert_memory_contents_64_bit(base + 2, 0xAAAABBBA00000014);
-    cpu_selftest_assert_reg_equals(REG_SF, base + 2);
-    cpu_selftest_assert_no_interrupt();
-}
-
-static void cpu_selftest_org_stacklink_treats_operand_as_signed(void)
-{
-    /* Comment from RNI:
-    The adder used to add the operand to the value of CO for a STACKLINK operation is the same adder that executes control transfers.
-    Since these can jump backwards or forwards, the adder just treats the operand as a signed value in every case. For STACKLINK it
-    will normally be a small positive number, as you surmise, the value depending on the number of parameters being passed, as shown
-    in the example on page 62.
-    */
-    uint32 base = 32;
-    cpu_selftest_set_load_location(10);
-    cpu_selftest_load_organisational_order_extended(F_STACKLINK, KP_LITERAL, NP_32_BIT_SIGNED_LITERAL);
-    cpu_selftest_load_32_bit_literal(0xFFFFFFFE);
-    cpu_selftest_set_register(REG_SF, base);
-    cpu_selftest_run_code_from_location(10);
-    cpu_selftest_assert_memory_contents_64_bit(base + 2, 0x0000000000000008);
-    cpu_selftest_assert_no_interrupt();
-}
-
-/*static void cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_crosses_segment_boundary(void);*/
-
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow(void)
 {
     cpu_selftest_load_organisational_order_extended(F_SF_LOAD_NB_PLUS, K_LITERAL, NP_32_BIT_UNSIGNED_LITERAL);
@@ -6433,6 +6443,46 @@ static void cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_unde
     cpu_selftest_set_register(REG_SF, 2);
     cpu_selftest_run_code();
     cpu_selftest_assert_segment_overflow_interrupt();
+}
+
+static void cpu_selftest_org_nb_plus_adds_signed_operand_to_NB(void)
+{
+    cpu_selftest_load_organisational_order_extended(F_NB_PLUS, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x3333FFFE);
+    cpu_selftest_set_register(REG_NB, 0x4444);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_NB, 0x4442);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_org_nb_plus_generates_interrupt_on_segment_overflow(void)
+{
+    cpu_selftest_load_organisational_order_extended(F_NB_PLUS, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x00000002);
+    cpu_selftest_set_register(REG_NB, 0xFFFE);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_segment_overflow_interrupt();
+}
+
+static void cpu_selftest_org_nb_plus_generates_interrupt_on_segment_underflow(void)
+{
+    cpu_selftest_load_organisational_order_extended(F_NB_PLUS, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFC);
+    cpu_selftest_set_register(REG_NB, 0x0002);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_segment_overflow_interrupt();
+}
+
+static void cpu_selftest_org_nb_store_stores_SN_and_NB(void)
+{
+    uint32 base = 32;
+    cpu_selftest_load_organisational_order_extended(F_NB_STORE, K_V64, NP_0);
+    cpu_selftest_load_16_bit_literal(base);
+    cpu_selftest_set_register(REG_SN, 0x0001);
+    cpu_selftest_set_register(REG_NB, 0xBBBA);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_64_bit(0x10000 + (base * 2), 0x000000000001BBBA);
+    cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_org_branch_test_branch_taken(uint8 f, uint16 t0, uint16 t1, uint16 t2, uint16 bn)
