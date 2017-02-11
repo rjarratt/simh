@@ -155,6 +155,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_XNB_LOAD 20
 #define F_SN_LOAD 21
 #define F_XNB_PLUS 22
+#define F_XNB_STORE 23
 #define F_SF_LOAD_NB_PLUS 26
 #define F_NB_LOAD 28
 #define F_NB_LOAD_SF_PLUS 29
@@ -703,6 +704,7 @@ static void cpu_selftest_org_sn_load_in_user_mode_does_not_load_SN(void);
 static void cpu_selftest_org_sn_load_in_executive_mode_loads_SN(void);
 static void cpu_selftest_org_xnb_plus_adds_operand_to_XNB(void);
 static void cpu_selftest_org_xnb_plus_generates_interrupt_if_segment_overflow(void);
+static void cpu_selftest_org_xnb_store_stores_XNB(void);
 static void cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF(void);
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow(void);
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow(void);
@@ -1129,6 +1131,7 @@ UNITTEST tests[] =
     { "SN= loads SN in executive mode", cpu_selftest_org_sn_load_in_executive_mode_loads_SN },
     { "XNB+ adds operand to XNB", cpu_selftest_org_xnb_plus_adds_operand_to_XNB },
     { "XNB+ generates an interrupt if there is a segment overflow", cpu_selftest_org_xnb_plus_generates_interrupt_if_segment_overflow },
+    { "XNB=> stores XNB", cpu_selftest_org_xnb_store_stores_XNB },
     { "SF=NB+ adds NB to signed operand and stores result to SF", cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF },
     { "SF=NB+ generates interrupt on segment overflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow },
     { "SF=NB+ generates interrupt on segment underflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow },
@@ -6243,6 +6246,17 @@ static void cpu_selftest_org_xnb_plus_generates_interrupt_if_segment_overflow(vo
     cpu_selftest_set_register(REG_XNB, 0xAAAAFFFE);
     cpu_selftest_run_code();
     cpu_selftest_assert_segment_overflow_interrupt();
+}
+
+static void cpu_selftest_org_xnb_store_stores_XNB(void)
+{
+    uint32 base = 32;
+    cpu_selftest_load_organisational_order_extended(F_XNB_STORE, K_V64, NP_0);
+    cpu_selftest_load_16_bit_literal(base);
+    cpu_selftest_set_register(REG_XNB, 0xBBBBAAAA);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_64_bit(base * 2, 0x00000000BBBBAAAA);
+    cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF(void)
