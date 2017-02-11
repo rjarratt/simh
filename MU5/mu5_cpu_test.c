@@ -717,6 +717,7 @@ static void cpu_selftest_org_sf_plus_generates_interrupt_on_segment_underflow(vo
 static void cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF(void);
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow(void);
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow(void);
+static void cpu_selftest_org_sf_store_stores_SF(void);
 static void cpu_selftest_org_nb_load_loads_NB(void);
 static void cpu_selftest_org_nb_load_sf_plus_adds_SF_to_signed_operand_and_stores_to_NB(void);
 static void cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_overflow(void);
@@ -1149,6 +1150,7 @@ UNITTEST tests[] =
     { "SF=NB+ adds NB to signed operand and stores result to SF", cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF },
     { "SF=NB+ generates interrupt on segment overflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow },
     { "SF=NB+ generates interrupt on segment underflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow },
+    { "SF=> stores SF", cpu_selftest_org_sf_store_stores_SF },
     { "NB= loads NB", cpu_selftest_org_nb_load_loads_NB },
     { "NB=SF+ adds SF to signed operand and stores result to NB", cpu_selftest_org_nb_load_sf_plus_adds_SF_to_signed_operand_and_stores_to_NB },
     { "NB=SF+ generates interrupt on segment overflow", cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_overflow },
@@ -6384,6 +6386,17 @@ static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_unde
     cpu_selftest_set_register(REG_NB, 2);
     cpu_selftest_run_code();
     cpu_selftest_assert_segment_overflow_interrupt();
+}
+
+static void cpu_selftest_org_sf_store_stores_SF(void)
+{
+    uint32 base = 32;
+    cpu_selftest_load_organisational_order_extended(F_SF_STORE, K_V64, NP_0);
+    cpu_selftest_load_16_bit_literal(base);
+    cpu_selftest_set_register(REG_SF, 0xAAAA);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_64_bit(base * 2, 0x000000000000AAAA);
+    cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_org_nb_load_loads_NB(void)
