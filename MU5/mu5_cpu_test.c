@@ -316,6 +316,7 @@ static void cpu_selftest_assert_test_overflow(void);
 static void cpu_selftest_assert_operand_size_32(void);
 static void cpu_selftest_assert_operand_size_64(void);
 static void cpu_selftest_assert_fail(void);
+static void cpu_selftest_set_failure(void);
 
 static void cpu_selftest_16_bit_instruction_advances_co_by_1(void);
 static void cpu_selftest_32_bit_instruction_advances_co_by_2(void);
@@ -1395,7 +1396,7 @@ static REG *cpu_selftest_find_register(char *name)
     if (rptr->name == NULL)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Could not find register %s\n", name);
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
         rptr = NULL;
     }
 
@@ -1430,7 +1431,7 @@ static t_uint64 cpu_selftest_get_register(char *name)
         default:
         {
             sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected register width %d for register %s\n", reg->width, name);
-            testContext.result = SCPE_AFAIL;
+            cpu_selftest_set_failure();
             break;
         }
     }
@@ -1461,7 +1462,7 @@ static void cpu_selftest_set_register(char *name, t_uint64 value)
         default:
         {
             sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected register width %d for register %s\n", reg->width, name);
-            testContext.result = SCPE_AFAIL;
+            cpu_selftest_set_failure();
             break;
         }
     }
@@ -1474,7 +1475,7 @@ static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue)
     if (actualValue != expectedValue)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value in register %s to be %llX, but was %llX\n", name, expectedValue, actualValue);
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 }
 
@@ -1485,7 +1486,7 @@ static void cpu_selftest_assert_reg_equals_mask(char *name, t_uint64 expectedVal
     if ((mask & actualValue) != (mask & expectedValue))
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value in register %s to be %llX, but was %llX for mask %llX\n", name, mask & expectedValue, mask & actualValue, mask);
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 }
 
@@ -1495,7 +1496,7 @@ static void cpu_selftest_assert_memory_contents_32_bit(t_addr address, uint32 ex
     if (actualValue != expectedValue)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at address %08X to be %08X, but was %08X\n", address, expectedValue, actualValue);
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 }
 
@@ -1505,7 +1506,7 @@ static void cpu_selftest_assert_memory_contents_64_bit(t_addr address, t_uint64 
     if (actualValue != expectedValue)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at address %08X to be %016llX, but was %016llX\n", address, expectedValue, actualValue);
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 }
 
@@ -1515,7 +1516,7 @@ static void cpu_selftest_assert_vector_content_64_bit(t_addr origin, uint32 offs
     if (actualValue != expectedValue)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %016llX, but was %016llX\n", offset, origin, expectedValue, actualValue);
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 }
 
@@ -1525,7 +1526,7 @@ static void cpu_selftest_assert_vector_content_32_bit(t_addr origin, uint32 offs
     if (actualValue != expectedValue)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %08X, but was %08X\n", offset, origin, expectedValue, actualValue);
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 }
 
@@ -1535,7 +1536,7 @@ static void cpu_selftest_assert_vector_content_16_bit(t_addr origin, uint32 offs
     if (actualValue != expectedValue)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %04X, but was %04X\n", offset, origin, expectedValue, actualValue);
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 }
 
@@ -1545,7 +1546,7 @@ static void cpu_selftest_assert_vector_content_8_bit(t_addr origin, uint32 offse
     if (actualValue != expectedValue)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %02X, but was %02X\n", offset, origin, expectedValue, actualValue);
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 }
 
@@ -1557,7 +1558,7 @@ static void cpu_selftest_assert_vector_content_4_bit(t_addr origin, uint32 offse
     if (actualNibble != expectedValue)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %01X, but was %01X\n", offset, origin, expectedValue, actualNibble);
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 }
 
@@ -1569,7 +1570,7 @@ static void cpu_selftest_assert_vector_content_1_bit(t_addr origin, uint32 offse
     if (actualBit != expectedValue)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %01X, but was %01X\n", offset, origin, expectedValue, actualBit);
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 }
 
@@ -1579,7 +1580,7 @@ static void cpu_selftest_assert_no_b_overflow(void)
     if (bod & BOD_BOVF_MASK)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected B overflow\n");
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 }
 static void cpu_selftest_assert_no_b_overflow_interrupt(void)
@@ -1594,7 +1595,7 @@ static void cpu_selftest_assert_b_overflow(void)
     if (!(bod & BOD_BOVF_MASK))
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected B overflow\n");
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 }
 
@@ -1610,7 +1611,7 @@ static void cpu_selftest_assert_no_a_overflow(void)
     if (aod &AOD_OVF_MASK)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected A overflow\n");
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 }
 static void cpu_selftest_assert_no_a_overflow_interrupt(void)
@@ -1625,7 +1626,7 @@ static void cpu_selftest_assert_a_overflow(void)
     if (!(aod & AOD_OVF_MASK))
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected A overflow\n");
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 }
 
@@ -1641,7 +1642,7 @@ static void cpu_selftest_assert_no_a_zero_divide(void)
     if (aod &AOD_ZDIV_MASK)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected A zero divide\n");
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 }
 static void cpu_selftest_assert_no_a_zero_divide_interrupt(void)
@@ -1656,7 +1657,7 @@ static void cpu_selftest_assert_a_zero_divide(void)
     if (!(aod & AOD_ZDIV_MASK))
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected A zero divide\n");
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 }
 
@@ -1671,7 +1672,7 @@ static void cpu_selftest_assert_interrupt(void)
     if (cpu_get_interrupt_number() == 255)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected interrupt to have occurred\n");
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 }
 
@@ -1680,7 +1681,7 @@ static void cpu_selftest_assert_no_interrupt(void)
     if (cpu_get_interrupt_number() != 255)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected interrupt\n");
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 }
 
@@ -1689,14 +1690,14 @@ static void cpu_selftest_assert_d_interrupt(char *name, uint32 mask)
     if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected %s interrupt to have occurred\n", name);
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 
     uint32 dod = cpu_selftest_get_register(REG_DOD) & 0xFFFFFFFF;
     if (!(dod & mask))
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected %s bit to be set in DOD\n", name);
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 }
 
@@ -1708,7 +1709,7 @@ static void cpu_selftest_assert_no_d_interrupt(char *name, uint32 mask)
     if (dod & mask)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected %s bit to be clear in DOD\n", name);
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 }
 
@@ -1747,7 +1748,7 @@ static void cpu_selftest_assert_segment_overflow_interrupt(void)
     if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected segment overflow interrupt to have occurred\n");
-        testContext.result = SCPE_AFAIL;
+        cpu_selftest_set_failure();
     }
 
     /* TODO: Other checks to ensure this is a segment overflow */
@@ -1791,6 +1792,11 @@ static void cpu_selftest_assert_operand_size_64(void)
 static void cpu_selftest_assert_fail(void)
 {
     sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Test failed\n");
+    cpu_selftest_set_failure();
+}
+
+static void cpu_selftest_set_failure(void)
+{
     testContext.result = SCPE_AFAIL;
 }
 

@@ -290,7 +290,8 @@ static void cpu_set_sf(uint16 value);
 static void cpu_set_co(uint32 value);
 static uint16 cpu_calculate_base_offset_from_addr(t_addr base, t_int64 offset, uint8 scale);
 static t_addr cpu_get_name_segment_address_from_addr(t_addr base, int16 offset, uint8 scale);
-static uint16 cpu_calculate_base_offset_from_reg(REG *reg, t_int64 offset, uint8 scale);
+static uint16 cpu_calculate_base_offset_from_reg_16(REG *reg, t_int64 offset, uint8 scale);
+static uint32 cpu_calculate_base_offset_from_reg_32(REG *reg, t_int64 offset, uint8 scale);
 static t_addr cpu_get_name_segment_address_from_reg(REG *reg, int16 offset, uint8 scale);
 static int cpu_is_executive_mode(void);
 
@@ -1038,10 +1039,20 @@ static t_addr cpu_get_name_segment_address_from_addr(t_addr base, int16 offset, 
     return result;
 }
 
-static uint16 cpu_calculate_base_offset_from_reg(REG *reg, t_int64 offset, uint8 scale)
+static uint16 cpu_calculate_base_offset_from_reg_16(REG *reg, t_int64 offset, uint8 scale)
 {
     uint16 result = cpu_calculate_base_offset_from_addr(cpu_get_register_16(reg), offset, scale);
 
+    return result;
+}
+
+static uint32 cpu_calculate_base_offset_from_reg_32(REG *reg, t_int64 offset, uint8 scale)
+{
+    uint32 result;
+    uint32 fullAddress = cpu_get_register_32(reg);
+    uint16 segmentOffset = fullAddress & MASK_16;
+    uint16 newOffset = cpu_calculate_base_offset_from_addr(segmentOffset, offset, scale);
+    result = (fullAddress & 0xFFFF0000) | (newOffset & MASK_16);
     return result;
 }
 
@@ -2232,17 +2243,8 @@ static void cpu_execute_organisational_XNB_plus(uint16 order, DISPATCH_ENTRY *in
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "XNB+ ");
     int16 operand = cpu_get_operand(order) & MASK_16;
-    uint32 xnb = cpu_get_register_32(reg_xnb);
-    uint16 seg = xnb >> 16;
-    xnb += operand;
-    if (xnb >> 16 == seg)
-    {
-        cpu_set_register_32(reg_xnb, xnb);
-    }
-    else
-    {
-        cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: must be segment overflow interrupt */
-    }
+    uint32 xnb = cpu_calculate_base_offset_from_reg_32(reg_xnb, operand, SCALE_32);
+    cpu_set_xnb(xnb);
 }
 
 static void cpu_execute_organisational_XNB_store(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -2263,23 +2265,14 @@ static void cpu_execute_organisational_SF_plus(uint16 order, DISPATCH_ENTRY *inn
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "SF+ ");
     int16 operand = cpu_get_operand(order) & MASK_16;
-    uint32 sf = cpu_get_register_16(reg_sf);
-    uint16 seg = sf >> 16;
-    sf += operand;
-    if (sf >> 16 == seg)
-    {
-        cpu_set_register_16(reg_sf, sf);
-    }
-    else
-    {
-        cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: must be segment overflow interrupt */
-    }
+    uint16 sf = cpu_calculate_base_offset_from_reg_16(reg_sf, operand, SCALE_32);
+    cpu_set_sf(sf);
 }
 
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "SF=NB+ ");
-    uint16 newSF = cpu_calculate_base_offset_from_reg(reg_nb, cpu_get_operand(order), SCALE_32);
+    uint16 newSF = cpu_calculate_base_offset_from_reg_16(reg_nb, cpu_get_operand(order), SCALE_32);
     cpu_set_sf(newSF);
 }
 
@@ -2293,7 +2286,7 @@ static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *inn
 static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB=SF+ ");
-    uint16 newNB = cpu_calculate_base_offset_from_reg(reg_sf, cpu_get_operand(order), SCALE_32);
+    uint16 newNB = cpu_calculate_base_offset_from_reg_16(reg_sf, cpu_get_operand(order), SCALE_32);
     cpu_set_nb(newNB);
 }
 
