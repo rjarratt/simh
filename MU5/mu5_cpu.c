@@ -354,8 +354,10 @@ static void cpu_execute_organisational_spm(uint16 order, DISPATCH_ENTRY *innerTa
 static void cpu_execute_organisational_setlink(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_load_XNB(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_load_SN(uint16 order, DISPATCH_ENTRY *innerTable);
-static void cpu_execute_organisational_load_XNB_plus(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_XNB_plus(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_XNB_store(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_SF_load(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_SF_plus(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_NB_load_SF_plus(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -539,10 +541,10 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
     { cpu_execute_organisational_setlink,         NULL }, /* 19 */
     { cpu_execute_organisational_load_XNB,        NULL }, /* 20 */
     { cpu_execute_organisational_load_SN,         NULL }, /* 21 */
-    { cpu_execute_organisational_load_XNB_plus,   NULL }, /* 22 */
+    { cpu_execute_organisational_XNB_plus,        NULL }, /* 22 */
     { cpu_execute_organisational_XNB_store,       NULL }, /* 23 */
-    { cpu_execute_illegal_order, /* SF= */        NULL }, /* 24 */
-    { cpu_execute_illegal_order, /* SF+ */        NULL }, /* 25 */
+    { cpu_execute_organisational_SF_load,         NULL }, /* 24 */
+    { cpu_execute_organisational_SF_plus,         NULL }, /* 25 */
     { cpu_execute_organisational_SF_load_NB_plus, NULL }, /* 26 */
     { cpu_execute_illegal_order, /* SF => */      NULL }, /* 27 */
     { cpu_execute_organisational_NB_load,         NULL }, /* 28 */
@@ -2226,7 +2228,7 @@ static void cpu_execute_organisational_load_SN(uint16 order, DISPATCH_ENTRY *inn
     }
 }
 
-static void cpu_execute_organisational_load_XNB_plus(uint16 order, DISPATCH_ENTRY *innerTable)
+static void cpu_execute_organisational_XNB_plus(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "XNB+ ");
     int16 operand = cpu_get_operand(order) & MASK_16;
@@ -2248,6 +2250,30 @@ static void cpu_execute_organisational_XNB_store(uint16 order, DISPATCH_ENTRY *i
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "XNB=> ");
     t_uint64 xnb = cpu_get_register_32(reg_xnb);
     cpu_set_operand(order, xnb);
+}
+
+static void cpu_execute_organisational_SF_load(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "SF= ");
+    t_uint64 newSf = cpu_get_operand(order);
+    cpu_set_sf(newSf & MASK_16);
+}
+
+static void cpu_execute_organisational_SF_plus(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "SF+ ");
+    int16 operand = cpu_get_operand(order) & MASK_16;
+    uint32 sf = cpu_get_register_16(reg_sf);
+    uint16 seg = sf >> 16;
+    sf += operand;
+    if (sf >> 16 == seg)
+    {
+        cpu_set_register_16(reg_sf, sf);
+    }
+    else
+    {
+        cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: must be segment overflow interrupt */
+    }
 }
 
 static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_ENTRY *innerTable)
