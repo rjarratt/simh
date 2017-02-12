@@ -180,14 +180,22 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_BN_GT 45
 #define F_BN_OVF 46
 #define F_BN_BN 47
-#define F_BN2_EQ 48
-#define F_BN2_NE 49
-#define F_BN2_GE 50
-#define F_BN2_LT 51
-#define F_BN2_LE 52
-#define F_BN2_GT 53
-#define F_BN2_OVF 54
-#define F_BN2_BN 55
+#define F_BN_0 48
+#define F_BN_BN_AND_X 49
+#define F_BN_NOT_BN_AND_X 50
+#define F_BN_X 51
+#define F_BN_BN_AND_NOT_X 52
+#define F_BN_COPY_BN 53
+#define F_BNBN_NEQV_X 54
+#define F_BN_BN_OR_X 55
+#define F_BN_NOT_BN_AND_NOT_X 56
+#define F_BN_BN_EQV_X 57
+#define F_BN_NOT_BN 58
+#define F_BN_NOT_BN_OR_X 59
+#define F_BN_NOT_X 60
+#define F_BN_BN_OR_NOT_X 61
+#define F_BN_NOT_BN_OR_NOT_X 62
+#define F_BN_1 63
 
 #define K_LITERAL 0
 #define K_IR 1
@@ -794,6 +802,7 @@ static void cpu_selftest_org_bn_ovf_on_false(void);
 static void cpu_selftest_org_bn_ovf_on_true(void);
 static void cpu_selftest_org_bn_bn_on_false(void);
 static void cpu_selftest_org_bn_bn_on_true(void);
+static void cpu_selftest_org_bn_order_tests(void);
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void);
 static void cpu_selftest_no_zero_divide_interrupt_if_zero_divide_is_inhibited(void);
@@ -1329,6 +1338,7 @@ UNITTEST tests[] =
     { "Boolean order with function from operand on ovf test is true", cpu_selftest_org_bn_ovf_on_true },
     { "Boolean order with function from operand on bn test is false", cpu_selftest_org_bn_bn_on_false },
     { "Boolean order with function from operand on bn test is ", cpu_selftest_org_bn_bn_on_true },
+    { "Boolean order with function from order, tests all functions", cpu_selftest_org_bn_order_tests },
     { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
     { "No zero divide interrupt if zero divide is inhibited", cpu_selftest_no_zero_divide_interrupt_if_zero_divide_is_inhibited },
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
@@ -6917,6 +6927,22 @@ static void cpu_selftest_org_bn_bn_on_false(void)
 static void cpu_selftest_org_bn_bn_on_true(void)
 {
     cpu_selftest_org_bn_test_true_result(F_BN_BN, 1, 1, 1, 1);
+}
+
+static void cpu_selftest_org_bn_order_tests(void)
+{
+    int n = sizeof(conditionalFuncsTable) / sizeof(CONDITIONTABLE);
+    int i;
+    for (i = 0; i < n; i++)
+    {
+        CONDITIONTABLE *entry = &conditionalFuncsTable[i];
+        cpu_selftest_set_load_location(0);
+        cpu_selftest_load_organisational_order_literal(F_BN_0 + entry->func, entry->r);
+        cpu_selftest_set_bn(entry->bn);
+        cpu_selftest_run_code();
+        cpu_selftest_assert_boolean_order_condition(entry);
+        cpu_selftest_assert_no_interrupt();
+    }
 }
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void)

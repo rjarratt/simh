@@ -377,6 +377,7 @@ static void cpu_execute_organisational_branch_gt(uint16 order, DISPATCH_ENTRY *i
 static void cpu_execute_organisational_branch_ovf(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_branch_bn(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_bn_by_operand(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_bn_by_order(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* store-to-store order functions */
 static uint8 cpu_get_descriptor_type(t_uint64 descriptor);
@@ -575,22 +576,22 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
     { cpu_execute_organisational_bn_by_operand,         NULL }, /* 45 */
     { cpu_execute_organisational_bn_by_operand,         NULL }, /* 46 */
     { cpu_execute_organisational_bn_by_operand,         NULL }, /* 47 */
-    { cpu_execute_organisational_bn_by_operand,         NULL }, /* 48 */
-    { cpu_execute_illegal_order, /* Bn & X */           NULL }, /* 49 */
-    { cpu_execute_illegal_order, /* ~Bn & X */          NULL }, /* 50 */
-    { cpu_execute_illegal_order, /* X */                NULL }, /* 51 */
-    { cpu_execute_illegal_order, /* Bn & ~X */          NULL }, /* 52 */
-    { cpu_execute_illegal_order, /* Bn */               NULL }, /* 53 */
-    { cpu_execute_illegal_order, /* Bn ~EQV X */        NULL }, /* 54 */
-    { cpu_execute_illegal_order, /* Bn or X */          NULL }, /* 55 */
-    { cpu_execute_illegal_order, /* ~Bn & ~X */         NULL }, /* 56 */
-    { cpu_execute_illegal_order, /* Bn EQV X */         NULL }, /* 57 */
-    { cpu_execute_illegal_order, /* ~Bn */              NULL }, /* 58 */
-    { cpu_execute_illegal_order, /* ~Bn or X */         NULL }, /* 59 */
-    { cpu_execute_illegal_order, /* ~X */               NULL }, /* 60 */
-    { cpu_execute_illegal_order, /* Bn or ~X */         NULL }, /* 61 */
-    { cpu_execute_illegal_order, /* ~Bn or ~X */        NULL }, /* 62 */
-    { cpu_execute_illegal_order, /* 1 */                NULL }  /* 63 */
+    { cpu_execute_organisational_bn_by_order,           NULL }, /* 48 */
+    { cpu_execute_organisational_bn_by_order,           NULL }, /* 49 */
+    { cpu_execute_organisational_bn_by_order,           NULL }, /* 50 */
+    { cpu_execute_organisational_bn_by_order,           NULL }, /* 51 */
+    { cpu_execute_organisational_bn_by_order,           NULL }, /* 52 */
+    { cpu_execute_organisational_bn_by_order,           NULL }, /* 53 */
+    { cpu_execute_organisational_bn_by_order,           NULL }, /* 54 */
+    { cpu_execute_organisational_bn_by_order,           NULL }, /* 55 */
+    { cpu_execute_organisational_bn_by_order,           NULL }, /* 56 */
+    { cpu_execute_organisational_bn_by_order,           NULL }, /* 57 */
+    { cpu_execute_organisational_bn_by_order,           NULL }, /* 58 */
+    { cpu_execute_organisational_bn_by_order,           NULL }, /* 59 */
+    { cpu_execute_organisational_bn_by_order,           NULL }, /* 60 */
+    { cpu_execute_organisational_bn_by_order,           NULL }, /* 61 */
+    { cpu_execute_organisational_bn_by_order,           NULL }, /* 62 */
+    { cpu_execute_organisational_bn_by_order,           NULL }  /* 63 */
 };
 
 static DISPATCH_ENTRY sts1DispatchTable[] =
@@ -2221,81 +2222,97 @@ static void cpu_process_condition(int condition, int8 function)
     {
         case 0:
         {
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "BN = 0 ");
             newBn = 0;
             break;
         }
         case 1:
         {
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "BN & T ");
             newBn = bn && condition;
             break;
         }
         case 2:
         {
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "BN/ & T ");
             newBn = !bn && condition;
             break;
         }
         case 3:
         {
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "BN = T ");
             newBn = condition;
             break;
         }
         case 4:
         {
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "BN &/ T ");
             newBn = bn && !condition;
             break;
         }
         case 5:
         {
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "DUMMY ");
             newBn = bn;
             break;
         }
         case 6:
         {
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "BN /== T ");
             newBn = bn ^ condition;
             break;
         }
         case 7:
         {
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "BN V T ");
             newBn = bn || condition;
             break;
         }
         case 8:
         {
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "BN/ &/ T ");
             newBn = !bn && !condition;
             break;
         }
         case 9:
         {
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "BN == T ");
             newBn = !(bn ^ condition);
             break;
         }
         case 10:
         {
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "BN/ ");
             newBn = !bn;
             break;
         }
         case 11:
         {
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "BN /V T ");
             newBn = !bn || condition;
             break;
         }
         case 12:
         {
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "BN =/ T ");
             newBn = !condition;
             break;
         }
         case 13:
         {
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "BN V /T ");
             newBn = bn || !condition;
             break;
         }
         case 14:
         {
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "BN/ V /T ");
             newBn = !bn || !condition;
             break;
         }
         case 15:
         {
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "BN = 1 ");
             newBn = 1;
             break;
         }
@@ -2529,6 +2546,14 @@ static void cpu_execute_organisational_bn_by_operand(uint16 order, DISPATCH_ENTR
     uint8 f = cpu_get_f(order);
     uint8 code = cpu_get_operand(order) & 0xF;
     cpu_process_condition(cpu_calculate_condition(f), code);
+}
+
+static void cpu_execute_organisational_bn_by_order(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "");
+    uint8 f = cpu_get_f(order);
+    uint8 operand = cpu_get_operand(order) & 0x1;
+    cpu_process_condition(operand, f & 0xF);
 }
 
 static uint8 cpu_get_descriptor_type(t_uint64 descriptor)
