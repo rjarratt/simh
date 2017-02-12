@@ -147,6 +147,13 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_EXIT 1
 #define F_ABSJUMP 4
 #define F_RETURN 5
+#define F_XC0 8
+#define F_XC1 9
+#define F_XC2 10
+#define F_XC3 11
+#define F_XC4 12
+#define F_XC5 13
+#define F_XC6 14
 #define F_STACKLINK 15
 #define F_MS_LOAD 16
 #define F_DL_LOAD 17
@@ -732,6 +739,7 @@ static void cpu_selftest_org_absolute_jump(void);
 static void cpu_selftest_org_return_sets_SF_and_unstacks_link(void);
 static void cpu_selftest_org_return_resets_link_except_privileged_ms_bits_in_user_mode(void);
 static void cpu_selftest_org_return_does_not_pop_stack_if_operand_is_not_stack_but_sets_NB(void);
+static void cpu_selftest_org_XCn_stacks_operand_and_jumps_to_offset_n(void);
 static void cpu_selftest_org_stacklink_puts_link_on_stack_adding_operand_to_stacked_CO(void);
 static void cpu_selftest_org_stacklink_treats_operand_as_signed(void);
 /*static void cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_crosses_segment_boundary(void);*/
@@ -1273,6 +1281,7 @@ UNITTEST tests[] =
     { "RETURN sets SF and unstacks link", cpu_selftest_org_return_sets_SF_and_unstacks_link },
     { "RETURN resets the link except privileged MS bits in user mode", cpu_selftest_org_return_resets_link_except_privileged_ms_bits_in_user_mode },
     { "RETURN does not pop stack if operand is not stack but does set SF to NB", cpu_selftest_org_return_does_not_pop_stack_if_operand_is_not_stack_but_sets_NB },
+    { "XC0-6 orders stack operand and jump to offset n in segment 8193", cpu_selftest_org_XCn_stacks_operand_and_jumps_to_offset_n },
     { "STACK LINK puts link on the stack and adds the operand to the stacked value of CO", cpu_selftest_org_stacklink_puts_link_on_stack_adding_operand_to_stacked_CO },
     { "STACK LINK treats operand as signed", cpu_selftest_org_stacklink_treats_operand_as_signed },
     /*{ "STACK LINK generates an interrupt when adding the operand to CO crosses a segment boundary", cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_crosses_segment_boundary },*/
@@ -6360,6 +6369,23 @@ static void cpu_selftest_org_return_does_not_pop_stack_if_operand_is_not_stack_b
     cpu_selftest_assert_reg_equals(REG_NB, 0xBBBA);
     cpu_selftest_assert_reg_equals(REG_CO, 0x2AAAAAAA);
     cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_org_XCn_stacks_operand_and_jumps_to_offset_n(void)
+{
+    uint32 base = 32;
+    for (int i = 0; i < 7; i++)
+    {
+        cpu_selftest_set_load_location(0);
+        cpu_selftest_load_organisational_order_extended(F_XC0 + i, KP_LITERAL, NP_64_BIT_LITERAL);
+        cpu_selftest_load_64_bit_literal(0xAAAABBBBCCCCDDDD);
+        cpu_selftest_set_register(REG_SF, base);
+        sac_write_64_bit_word(base + 2, 0x0000000000000000);
+        cpu_selftest_run_code();
+        cpu_selftest_assert_memory_contents_64_bit(base + 2, 0xAAAABBBBCCCCDDDD);
+        cpu_selftest_assert_reg_equals(REG_CO, 0x20010000 | (uint8)i);
+        cpu_selftest_assert_no_interrupt();
+    }
 }
 
 static void cpu_selftest_org_stacklink_puts_link_on_stack_adding_operand_to_stacked_CO(void)

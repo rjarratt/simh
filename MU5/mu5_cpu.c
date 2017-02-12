@@ -351,6 +351,7 @@ static void cpu_execute_organisational_relative_jump(uint16 order, DISPATCH_ENTR
 static void cpu_execute_organisational_exit(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_return(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_xcn(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_stacklink(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_MS_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_DL_load(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -536,13 +537,13 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
     { cpu_execute_organisational_return,                NULL }, /* 5 */
     { cpu_execute_illegal_order,                        NULL }, /* 6 */
     { cpu_execute_illegal_order,                        NULL }, /* 7 */
-    { cpu_execute_illegal_order, /* XCO */              NULL }, /* 8 */
-    { cpu_execute_illegal_order, /* XC1 */              NULL }, /* 9 */
-    { cpu_execute_illegal_order, /* XC2 */              NULL }, /* 10 */
-    { cpu_execute_illegal_order, /* XC3 */              NULL }, /* 11*/
-    { cpu_execute_illegal_order, /* XC4 */              NULL }, /* 12 */
-    { cpu_execute_illegal_order, /* XC5 */              NULL }, /* 13 */
-    { cpu_execute_illegal_order, /* XC6 */              NULL }, /* 14 */
+    { cpu_execute_organisational_xcn,                   NULL }, /* 8 */
+    { cpu_execute_organisational_xcn,                   NULL }, /* 9 */
+    { cpu_execute_organisational_xcn,                   NULL }, /* 10 */
+    { cpu_execute_organisational_xcn,                   NULL }, /* 11*/
+    { cpu_execute_organisational_xcn,                   NULL }, /* 12 */
+    { cpu_execute_organisational_xcn,                   NULL }, /* 13 */
+    { cpu_execute_organisational_xcn,                   NULL }, /* 14 */
     { cpu_execute_organisational_stacklink,             NULL }, /* 15 */
     { cpu_execute_organisational_MS_load,               NULL }, /* 16 */
     { cpu_execute_organisational_DL_load,               NULL }, /* 17 */
@@ -2350,6 +2351,14 @@ static void cpu_execute_organisational_return(uint16 order, DISPATCH_ENTRY *inne
     cpu_set_ms((operand >> 48) & MASK_16);
     cpu_set_nb((operand >> 32) & MASK_16);
     cpu_set_co(operand & MASK_32);
+}
+
+static void cpu_execute_organisational_xcn(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    uint8 n = cpu_get_f(order) - 8;
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "XC%d ", n);
+    cpu_push_value(cpu_get_operand(order));
+    cpu_set_co(0x20010000 | n);
 }
 
 static void cpu_execute_organisational_stacklink(uint16 order, DISPATCH_ENTRY *innerTable)
