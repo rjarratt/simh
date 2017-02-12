@@ -496,7 +496,10 @@ static void cpu_execute_flp_load_single(uint16 order, DISPATCH_ENTRY *innerTable
 static void cpu_execute_flp_load_double(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_flp_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_flp_store(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_flp_unsigned_xor(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_flp_unsigned_or(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_flp_shift_circ(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_flp_unsigned_and(uint16 order, DISPATCH_ENTRY *innerTable);
 
 DEVICE cpu_dev = {
     "CPU",            /* name */
@@ -726,10 +729,10 @@ static DISPATCH_ENTRY floatingPointDispatchTable[] =
     { cpu_execute_illegal_order,      NULL }, /* 5 */
     { cpu_execute_illegal_order,      NULL }, /* 6 */
     { cpu_execute_illegal_order,      NULL }, /* 7 */
-    { cpu_execute_illegal_order,      NULL }, /* 8 */
-    { cpu_execute_illegal_order,      NULL }, /* 9 */
-    { cpu_execute_flp_shift_circ,      NULL }, /* 10 */
-    { cpu_execute_illegal_order,      NULL }, /* 11*/
+    { cpu_execute_flp_unsigned_xor,   NULL }, /* 8 */
+    { cpu_execute_flp_unsigned_or,    NULL }, /* 9 */
+    { cpu_execute_flp_shift_circ,     NULL }, /* 10 */
+    { cpu_execute_flp_unsigned_and,   NULL }, /* 11*/
     { cpu_execute_illegal_order,      NULL }, /* 12 */
     { cpu_execute_illegal_order,      NULL }, /* 13 */
     { cpu_execute_illegal_order,      NULL }, /* 14 */
@@ -3742,6 +3745,24 @@ static void cpu_execute_fp_decimal_store(uint16 order, DISPATCH_ENTRY *innerTabl
     cpu_set_operand(order, cpu_get_register_64(reg_aex));
 }
 
+static void cpu_execute_flp_unsigned_xor(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "XOR ");
+    t_uint64 xorend = cpu_get_register_64(reg_a);
+    t_uint64 xorand = cpu_get_operand(order);
+    t_uint64 result = xorend ^ xorand;
+    cpu_set_register_64(reg_a, result);
+}
+
+static void cpu_execute_flp_unsigned_or(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "OR ");
+    t_uint64 xorend = cpu_get_register_64(reg_a);
+    t_uint64 xorand = cpu_get_operand(order);
+    t_uint64 result = xorend | xorand;
+    cpu_set_register_64(reg_a, result);
+}
+
 static void cpu_execute_flp_shift_circ(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "SHIFT CIRC ");
@@ -3760,6 +3781,15 @@ static void cpu_execute_flp_shift_circ(uint16 order, DISPATCH_ENTRY *innerTable)
     }
 
     cpu_set_register_64(reg_a, a);
+}
+
+static void cpu_execute_flp_unsigned_and(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "AND ");
+    t_uint64 xorend = cpu_get_register_64(reg_a);
+    t_uint64 xorand = cpu_get_operand(order);
+    t_uint64 result = xorend & xorand;
+    cpu_set_register_64(reg_a, result);
 }
 
 static void cpu_execute_fp_decimal_compare(uint16 order, DISPATCH_ENTRY *innerTable)
