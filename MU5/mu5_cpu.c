@@ -496,6 +496,7 @@ static void cpu_execute_flp_load_single(uint16 order, DISPATCH_ENTRY *innerTable
 static void cpu_execute_flp_load_double(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_flp_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_flp_store(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_flp_shift_circ(uint16 order, DISPATCH_ENTRY *innerTable);
 
 DEVICE cpu_dev = {
     "CPU",            /* name */
@@ -701,18 +702,18 @@ static DISPATCH_ENTRY accFPDecimalDispatchTable[] =
     { cpu_execute_fp_decimal_load_double,    NULL }, /* 1 */
     { cpu_execute_fp_decimal_stack_and_load, NULL }, /* 2 */
     { cpu_execute_fp_decimal_store,          NULL }, /* 3 */
-    {  cpu_execute_illegal_order,            NULL }, /* 4 */
-    {  cpu_execute_illegal_order,            NULL }, /* 5 */
-    {  cpu_execute_illegal_order,            NULL }, /* 6 */
-    {  cpu_execute_illegal_order,            NULL }, /* 7 */
-    {  cpu_execute_illegal_order,            NULL }, /* 8 */
-    {  cpu_execute_illegal_order,            NULL }, /* 9 */
-    {  cpu_execute_illegal_order,            NULL }, /* 10 */
-    {  cpu_execute_illegal_order,            NULL }, /* 11*/
+    { cpu_execute_illegal_order,             NULL }, /* 4 */
+    { cpu_execute_illegal_order,             NULL }, /* 5 */
+    { cpu_execute_illegal_order,             NULL }, /* 6 */
+    { cpu_execute_illegal_order,             NULL }, /* 7 */
+    { cpu_execute_illegal_order,             NULL }, /* 8 */
+    { cpu_execute_illegal_order,             NULL }, /* 9 */
+    { cpu_execute_illegal_order,             NULL }, /* 10 */
+    { cpu_execute_illegal_order,             NULL }, /* 11*/
     { cpu_execute_fp_decimal_compare,        NULL }, /* 12 */
-    {  cpu_execute_illegal_order,            NULL }, /* 13 */
-    {  cpu_execute_illegal_order,            NULL }, /* 14 */
-    {  cpu_execute_illegal_order,            NULL }, /* 15 */
+    { cpu_execute_illegal_order,             NULL }, /* 13 */
+    { cpu_execute_illegal_order,             NULL }, /* 14 */
+    { cpu_execute_illegal_order,             NULL }, /* 15 */
 };
 
 static DISPATCH_ENTRY floatingPointDispatchTable[] =
@@ -727,7 +728,7 @@ static DISPATCH_ENTRY floatingPointDispatchTable[] =
     { cpu_execute_illegal_order,      NULL }, /* 7 */
     { cpu_execute_illegal_order,      NULL }, /* 8 */
     { cpu_execute_illegal_order,      NULL }, /* 9 */
-    { cpu_execute_illegal_order,      NULL }, /* 10 */
+    { cpu_execute_flp_shift_circ,      NULL }, /* 10 */
     { cpu_execute_illegal_order,      NULL }, /* 11*/
     { cpu_execute_illegal_order,      NULL }, /* 12 */
     { cpu_execute_illegal_order,      NULL }, /* 13 */
@@ -3739,6 +3740,26 @@ static void cpu_execute_fp_decimal_store(uint16 order, DISPATCH_ENTRY *innerTabl
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "AEX=> ");
     cpu_set_operand(order, cpu_get_register_64(reg_aex));
+}
+
+static void cpu_execute_flp_shift_circ(uint16 order, DISPATCH_ENTRY *innerTable)
+{
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "SHIFT CIRC ");
+    t_uint64 a = cpu_get_register_64(reg_a);
+    t_int64 shift = cpu_sign_extend(cpu_get_operand(order), 6);
+    t_uint64 savedPart;
+    if (shift > 0)
+    {
+        savedPart = a >> (64 - shift);
+        a = (a << shift) | savedPart;
+    }
+    else if (shift < 0)
+    {
+        savedPart = a << (64 - -shift);
+        a = (a >> -shift) | savedPart;
+    }
+
+    cpu_set_register_64(reg_a, a);
 }
 
 static void cpu_execute_fp_decimal_compare(uint16 order, DISPATCH_ENTRY *innerTable)

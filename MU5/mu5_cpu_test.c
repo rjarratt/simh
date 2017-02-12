@@ -142,6 +142,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_LOAD_64 1
 #define F_STACK_LOAD 2
 #define F_STORE 3
+#define F_SHIFT_CIRC 10
 
 #define F_RELJUMP 0
 #define F_EXIT 1
@@ -729,6 +730,8 @@ static void cpu_selftest_flt_stack_and_load_stacks_A_and_loads_A_32_bits(void);
 static void cpu_selftest_flt_stack_and_load_stacks_A_and_loads_A_64_bits(void);
 static void cpu_selftest_flt_store_stores_A_32_bits(void);
 static void cpu_selftest_flt_store_stores_A_64_bits(void);
+static void cpu_selftest_flt_shift_shifts_left_circular_for_positive_operand(void);
+static void cpu_selftest_flt_shift_shifts_right_circular_for_negative_operand(void);
 
 static void cpu_selftest_org_relative_jump_jumps_forward(void);
 static void cpu_selftest_org_relative_jump_jumps_backward(void);
@@ -1271,6 +1274,8 @@ UNITTEST tests[] =
     { "FLT Stack and Load stacks A and loads it (64 bits)", cpu_selftest_flt_stack_and_load_stacks_A_and_loads_A_64_bits },
     { "FLT Store stores A (32 bits)", cpu_selftest_flt_store_stores_A_32_bits },
     { "FLT Store stores A (64 bits)", cpu_selftest_flt_store_stores_A_64_bits },
+    { "FLT Shift does a circular shift left for a positive operand", cpu_selftest_flt_shift_shifts_left_circular_for_positive_operand },
+    { "FLT Shift does a circular shift rigt for a negative operand", cpu_selftest_flt_shift_shifts_right_circular_for_negative_operand },
 
     { "Relative Jump jumps forward", cpu_selftest_org_relative_jump_jumps_forward },
     { "Relative Jump jumps backward", cpu_selftest_org_relative_jump_jumps_backward },
@@ -6274,6 +6279,24 @@ static void cpu_selftest_flt_store_stores_A_64_bits(void)
     cpu_selftest_set_register(REG_A, 0xAAAAAAAAFFFFFFFF);
     cpu_selftest_run_code();
     cpu_selftest_assert_memory_contents_64_bit(base + (n * 2), 0xAAAAAAAAFFFFFFFF);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_flt_shift_shifts_left_circular_for_positive_operand(void)
+{
+    cpu_selftest_load_order(CR_FLOAT, F_SHIFT_CIRC, K_LITERAL, 4);
+    cpu_selftest_set_register(REG_A, 0xBBBBBBBBFFFFFFFF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0xBBBBBBBFFFFFFFFB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_flt_shift_shifts_right_circular_for_negative_operand(void)
+{
+    cpu_selftest_load_order(CR_FLOAT, F_SHIFT_CIRC, K_LITERAL, 0x3C);
+    cpu_selftest_set_register(REG_A, 0xBBBBBBBBFFFFFFFF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0xFBBBBBBBBFFFFFFF);
     cpu_selftest_assert_no_interrupt();
 }
 
