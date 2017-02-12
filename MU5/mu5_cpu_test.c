@@ -536,6 +536,8 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_16_bit_
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_8_bit_value_from_nb(void);
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_4_bit_value_from_nb(void);
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_value_from_nb(void);
+static void cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mode(void);
+static void cpu_selftest_store_operand_privileged_generates_interrupt_in_user_mode(void);
 
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(void);
 static void cpu_selftest_sts1_xd_load_loads_whole_of_XD(void);
@@ -1006,7 +1008,6 @@ UNITTEST tests[] =
     { "Load operand 8-bit extended from 0-relative descriptor from NB", cpu_selftest_load_operand_extended_zero_relative_descriptor_8_bit_value_from_nb },
     { "Load operand 4-bit extended from 0-relative descriptor from NB", cpu_selftest_load_operand_extended_zero_relative_descriptor_4_bit_value_from_nb },
     { "Load operand 1-bit extended from 0-relative descriptor from NB", cpu_selftest_load_operand_extended_zero_relative_descriptor_1_bit_value_from_nb },
-
     { "Load privileged operand reads the V-Store in executive mode", cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode },
     { "Load privileged operand generates interrupt in user mode", cpu_selftest_load_operand_privileged_generates_interrupt_in_user_mode },
 
@@ -1085,6 +1086,8 @@ UNITTEST tests[] =
     { "Store operand 8-bit extended from 0-relative descriptor from NB", cpu_selftest_store_operand_extended_zero_relative_descriptor_8_bit_value_from_nb },
     { "Store operand 4-bit extended from 0-relative descriptor from NB", cpu_selftest_store_operand_extended_zero_relative_descriptor_4_bit_value_from_nb },
     { "Store operand 1-bit extended from 0-relative descriptor from NB", cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_value_from_nb },
+    { "Store privileged operand storess the V-Store in executive mode", cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mode },
+    { "Store privileged operand generates interrupt in user mode", cpu_selftest_store_operand_privileged_generates_interrupt_in_user_mode },
 
     { "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD },
     { "STS1 XD Load Loads whole of XD", cpu_selftest_sts1_xd_load_loads_whole_of_XD },
@@ -3120,22 +3123,22 @@ static void cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode
 {
     uint8 block = 4;
     uint8 line = 128;
-    uint32 base = block * line;
+    uint32 base = block*256 + line;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_PRIVILEGED, NP_NB);
     cpu_selftest_load_16_bit_literal(0);
     cpu_selftest_set_register(REG_NB, base);
     cpu_write_v_store(block, line, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_set_executive_mode();
     cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_assert_no_interrupt();
-    cpu_selftest_assert_v_store_contents(block, line, 0xAAAABBBBCCCCDDDD);
 }
 
 static void cpu_selftest_load_operand_privileged_generates_interrupt_in_user_mode(void)
 {
     uint8 block = 4;
     uint8 line = 128;
-    uint32 base = block * line;
+    uint32 base = block * 256 + line;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_PRIVILEGED, NP_NB);
     cpu_selftest_load_16_bit_literal(0);
     cpu_selftest_set_register(REG_NB, base);
@@ -4082,6 +4085,38 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_v
     cpu_selftest_run_code();
     cpu_selftest_assert_vector_content_1_bit(vecorigin, 0, 0x1);
     cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mode(void)
+{
+    uint8 block = 4;
+    uint8 line = 128;
+    uint32 base = block * 256 + line;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_PRIVILEGED, NP_NB);
+    cpu_selftest_load_16_bit_literal(0);
+    cpu_selftest_set_aod_operand_64_bit();
+    cpu_selftest_set_register(REG_A, 0xAAAABBBBCCCCDDDD);
+    cpu_selftest_set_register(REG_NB, base);
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_no_interrupt();
+    cpu_selftest_assert_v_store_contents(block, line, 0xAAAABBBBCCCCDDDD);
+}
+
+static void cpu_selftest_store_operand_privileged_generates_interrupt_in_user_mode(void)
+{
+    uint8 block = 4;
+    uint8 line = 128;
+    uint32 base = block * 256 + line;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_PRIVILEGED, NP_NB);
+    cpu_selftest_load_16_bit_literal(0);
+    cpu_selftest_set_register(REG_A, 0xAAAABBBBCCCCDDDD);
+    cpu_selftest_set_register(REG_NB, base);
+    cpu_write_v_store(block, line, 0x000000000000);
+    cpu_selftest_set_user_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_interrupt();
+    cpu_selftest_assert_v_store_contents(block, line, 0x000000000000);
 }
 
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(void)

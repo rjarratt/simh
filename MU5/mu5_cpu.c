@@ -38,7 +38,6 @@ No floating point orders
 No decimal orders
 Addresses are physical only, virtual memory is not implemented yet, segment crossing boundary checks missing
 Interrupt processing is not implemented yet
-V-Store operands are not implemented yet
 Type 3 descriptors not implemented yet.
 
 */
@@ -1946,7 +1945,7 @@ static t_uint64 cpu_get_operand(uint16 order)
                 }
                 case 7:
                 {
-                    sim_debug(LOG_CPU_DECODE, &cpu_dev, "V ");
+                    sim_debug(LOG_CPU_DECODE, &cpu_dev, "V-S ");
                     addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
                     uint8 block = (addr >> 8) & MASK_8;
                     uint8 line = addr & MASK_8;
@@ -2066,6 +2065,24 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
                     }
                     cpu_set_operand_by_descriptor_vector(d, 0, value);
                     break;
+                case 7:
+                {
+                    uint8 block;
+                    uint8 line;
+                    sim_debug(LOG_CPU_DECODE, &cpu_dev, "V-S ");
+                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+                    block = (addr >> 8) & MASK_8;
+                    line = addr & MASK_8;
+                    if (cpu_is_executive_mode())
+                    {
+                        cpu_write_v_store(block, line, value);
+                    }
+                    else
+                    {
+                        cpu_set_interrupt(INT_PROGRAM_FAULTS);
+                    }
+                    break;
+                }
                 }
                 default:
                 {
