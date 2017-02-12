@@ -260,6 +260,8 @@ static DEBTAB cpu_debtab[] =
     { NULL,           0 }
 };
 
+static t_uint64 VStore[8][256];
+
 static const char* cpu_description(DEVICE *dptr) {
     return "Central Processing Unit";
 }
@@ -1152,6 +1154,17 @@ uint8 cpu_get_interrupt_number(void)
     return result;
 }
 
+void cpu_write_v_store(uint8 block, uint8 line, t_uint64 value)
+{
+    VStore[block][line] = value;
+}
+
+t_uint64 cpu_read_v_store(uint8 block, uint8 line)
+{
+    return VStore[block][line];
+}
+
+
 static uint8 cpu_get_cr(uint16 order)
 {
     uint8 cr = (order >> 13) & 0x7;
@@ -1929,6 +1942,22 @@ static t_uint64 cpu_get_operand(uint16 order)
                         d = sac_read_64_bit_word(addr);
                     }
                     result = cpu_get_operand_by_descriptor_vector(d, 0);
+                    break;
+                }
+                case 7:
+                {
+                    sim_debug(LOG_CPU_DECODE, &cpu_dev, "V ");
+                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+                    uint8 block = (addr >> 8) & MASK_8;
+                    uint8 line = addr & MASK_8;
+                    if (cpu_is_executive_mode())
+                    {
+                        result = cpu_read_v_store(block, line);
+                    }
+                    else
+                    {
+                        cpu_set_interrupt(INT_PROGRAM_FAULTS);
+                    }
                     break;
                 }
                 default:

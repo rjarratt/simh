@@ -215,6 +215,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define K_SB 4
 #define K_SB_5 5
 #define K_S0 6
+#define K_PRIVILEGED 7
 
 #define KP_LITERAL 0
 #define KP_LITERAL_1 1
@@ -364,6 +365,7 @@ static void cpu_selftest_assert_operand_size_32(void);
 static void cpu_selftest_assert_operand_size_64(void);
 static void cpu_selftest_assert_bn(int expectedValue);
 static void cpu_selftest_assert_boolean_order_condition(CONDITIONTABLE *entry);
+static void cpu_selftest_assert_v_store_contents(uint8 block, uint8 line, t_uint64 expectedValue);
 static void cpu_selftest_assert_fail(void);
 static void cpu_selftest_set_failure(void);
 
@@ -457,6 +459,8 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_16_bit_v
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_8_bit_value_from_nb(void);
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_4_bit_value_from_nb(void);
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_1_bit_value_from_nb(void);
+static void cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode(void);
+static void cpu_selftest_load_operand_privileged_generates_interrupt_in_user_mode(void);
 
 static void cpu_selftest_store_operand_6_bit_literal_generates_interrupt(void);
 
@@ -1002,6 +1006,9 @@ UNITTEST tests[] =
     { "Load operand 8-bit extended from 0-relative descriptor from NB", cpu_selftest_load_operand_extended_zero_relative_descriptor_8_bit_value_from_nb },
     { "Load operand 4-bit extended from 0-relative descriptor from NB", cpu_selftest_load_operand_extended_zero_relative_descriptor_4_bit_value_from_nb },
     { "Load operand 1-bit extended from 0-relative descriptor from NB", cpu_selftest_load_operand_extended_zero_relative_descriptor_1_bit_value_from_nb },
+
+    { "Load privileged operand reads the V-Store in executive mode", cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode },
+    { "Load privileged operand generates interrupt in user mode", cpu_selftest_load_operand_privileged_generates_interrupt_in_user_mode },
 
     { "Store operand 6-bit literal generates interrupt", cpu_selftest_store_operand_6_bit_literal_generates_interrupt },
 
@@ -2013,6 +2020,16 @@ static void cpu_selftest_assert_boolean_order_condition(CONDITIONTABLE *entry)
     if (bn != entry->newBn)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "For BN=%d and R=%d, function %X expected BN to become %d\n", entry->bn, entry->r, entry->func, entry->newBn);
+        cpu_selftest_set_failure();
+    }
+}
+
+static void cpu_selftest_assert_v_store_contents(uint8 block, uint8 line, t_uint64 expectedValue)
+{
+    t_uint64 actual = cpu_read_v_store(block, line);
+    if (actual != expectedValue)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "V-Store block=%u, line=%u, expected 0x%X, but was )x%X", block, line, expectedValue, actual);
         cpu_selftest_set_failure();
     }
 }
@@ -3097,6 +3114,35 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_1_bit_va
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0x0000000000000001);
     cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode(void)
+{
+    uint8 block = 4;
+    uint8 line = 128;
+    uint32 base = block * line;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_PRIVILEGED, NP_NB);
+    cpu_selftest_load_16_bit_literal(0);
+    cpu_selftest_set_register(REG_NB, base);
+    cpu_write_v_store(block, line, 0xAAAABBBBCCCCDDDD);
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_no_interrupt();
+    cpu_selftest_assert_v_store_contents(block, line, 0xAAAABBBBCCCCDDDD);
+}
+
+static void cpu_selftest_load_operand_privileged_generates_interrupt_in_user_mode(void)
+{
+    uint8 block = 4;
+    uint8 line = 128;
+    uint32 base = block * line;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_PRIVILEGED, NP_NB);
+    cpu_selftest_load_16_bit_literal(0);
+    cpu_selftest_set_register(REG_NB, base);
+    cpu_write_v_store(block, line, 0xAAAABBBBCCCCDDDD);
+    cpu_selftest_set_user_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_interrupt();
 }
 
 static void cpu_selftest_store_operand_6_bit_literal_generates_interrupt(void)
