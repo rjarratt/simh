@@ -172,14 +172,14 @@ in this Software without prior written authorization from Robert Jarratt.
 #define F_BRANCH_GT 37
 #define F_BRANCH_OVF 38
 #define F_BRANCH_BN 39
-#define F_BN1_EQ 40
-#define F_BN1_NE 41
-#define F_BN1_GE 42
-#define F_BN1_LT 43
-#define F_BN1_LE 44
-#define F_BN1_GT 45
-#define F_BN1_OVF 46
-#define F_BN1_BN 47
+#define F_BN_EQ 40
+#define F_BN_NE 41
+#define F_BN_GE 42
+#define F_BN_LT 43
+#define F_BN_LE 44
+#define F_BN_GT 45
+#define F_BN_OVF 46
+#define F_BN_BN 47
 #define F_BN2_EQ 48
 #define F_BN2_NE 49
 #define F_BN2_GE 50
@@ -759,8 +759,8 @@ static void cpu_selftest_org_nb_store_stores_SN_and_NB(void);
 static uint16 cpu_selftest_calculate_ms_from_t_bits(uint16 t0, uint16 t1, uint16 t2, uint16 bn);
 static void cpu_selftest_org_branch_test_branch_taken(uint8 f, uint16 t0, uint16 t1, uint16 t2, uint16 bn);
 static void cpu_selftest_org_branch_test_branch_not_taken(uint8 f, uint16 t0, uint16 t1, uint16 t2, uint16 bn);
-static void cpu_selftest_org_bn1_test_true_result(uint8 f, uint16 t0, uint16 t1, uint16 t2, uint16 bn);
-static void cpu_selftest_org_bn1_test_false_result(uint8 f, uint16 t0, uint16 t1, uint16 t2, uint16 bn);
+static void cpu_selftest_org_bn_test_true_result(uint8 f, uint16 t0, uint16 t1, uint16 t2, uint16 bn);
+static void cpu_selftest_org_bn_test_false_result(uint8 f, uint16 t0, uint16 t1, uint16 t2, uint16 bn);
 static void cpu_selftest_org_br_eq_does_not_branch_on_false(void);
 static void cpu_selftest_org_br_eq_does_branch_on_true(void);
 static void cpu_selftest_org_br_ne_does_not_branch_on_false(void);
@@ -777,23 +777,23 @@ static void cpu_selftest_org_br_ovf_does_not_branch_on_false(void);
 static void cpu_selftest_org_br_ovf_does_branch_on_true(void);
 static void cpu_selftest_org_br_bn_does_not_branch_on_false(void);
 static void cpu_selftest_org_br_bn_does_branch_on_true(void);
-static void cpu_selftest_org_bn1_function_tests(void);
-static void cpu_selftest_org_bn1_eq_on_false(void);
-static void cpu_selftest_org_bn1_eq_on_true(void);
-static void cpu_selftest_org_bn1_ne_on_false(void);
-static void cpu_selftest_org_bn1_ne_on_true(void);
-static void cpu_selftest_org_bn1_ge_on_false(void);
-static void cpu_selftest_org_bn1_ge_on_true(void);
-static void cpu_selftest_org_bn1_lt_on_false(void);
-static void cpu_selftest_org_bn1_lt_on_true(void);
-static void cpu_selftest_org_bn1_le_on_false(void);
-static void cpu_selftest_org_bn1_le_on_true(void);
-static void cpu_selftest_org_bn1_gt_on_false(void);
-static void cpu_selftest_org_bn1_gt_on_true(void);
-static void cpu_selftest_org_bn1_ovf_on_false(void);
-static void cpu_selftest_org_bn1_ovf_on_true(void);
-static void cpu_selftest_org_bn1_bn_on_false(void);
-static void cpu_selftest_org_bn1_bn_on_true(void);
+static void cpu_selftest_org_bn_function_tests(void);
+static void cpu_selftest_org_bn_eq_on_false(void);
+static void cpu_selftest_org_bn_eq_on_true(void);
+static void cpu_selftest_org_bn_ne_on_false(void);
+static void cpu_selftest_org_bn_ne_on_true(void);
+static void cpu_selftest_org_bn_ge_on_false(void);
+static void cpu_selftest_org_bn_ge_on_true(void);
+static void cpu_selftest_org_bn_lt_on_false(void);
+static void cpu_selftest_org_bn_lt_on_true(void);
+static void cpu_selftest_org_bn_le_on_false(void);
+static void cpu_selftest_org_bn_le_on_true(void);
+static void cpu_selftest_org_bn_gt_on_false(void);
+static void cpu_selftest_org_bn_gt_on_true(void);
+static void cpu_selftest_org_bn_ovf_on_false(void);
+static void cpu_selftest_org_bn_ovf_on_true(void);
+static void cpu_selftest_org_bn_bn_on_false(void);
+static void cpu_selftest_org_bn_bn_on_true(void);
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void);
 static void cpu_selftest_no_zero_divide_interrupt_if_zero_divide_is_inhibited(void);
@@ -1312,23 +1312,23 @@ UNITTEST tests[] =
     { "Branch on ovf branches on true", cpu_selftest_org_br_ovf_does_branch_on_true },
     { "Branch on bn does not branch on false", cpu_selftest_org_br_bn_does_not_branch_on_false },
     { "Branch on bn branches on true", cpu_selftest_org_br_bn_does_branch_on_true },
-    { "Boolean order with function from operand, tests all function combinations", cpu_selftest_org_bn1_function_tests },
-    { "Boolean order with function from operand on eq test is false", cpu_selftest_org_bn1_eq_on_false },
-    { "Boolean order with function from operand on eq test is true", cpu_selftest_org_bn1_eq_on_true },
-    { "Boolean order with function from operand on ne test is false", cpu_selftest_org_bn1_ne_on_false },
-    { "Boolean order with function from operand on ne test is true", cpu_selftest_org_bn1_ne_on_true },
-    { "Boolean order with function from operand on ge test is false", cpu_selftest_org_bn1_ge_on_false },
-    { "Boolean order with function from operand on ge test is true", cpu_selftest_org_bn1_ge_on_true },
-    { "Boolean order with function from operand on lt test is false", cpu_selftest_org_bn1_lt_on_false },
-    { "Boolean order with function from operand on lt test is true", cpu_selftest_org_bn1_lt_on_true },
-    { "Boolean order with function from operand on le test is false", cpu_selftest_org_bn1_le_on_false },
-    { "Boolean order with function from operand on le test is true", cpu_selftest_org_bn1_le_on_true },
-    { "Boolean order with function from operand on gt test is false", cpu_selftest_org_bn1_gt_on_false },
-    { "Boolean order with function from operand on gt test is true", cpu_selftest_org_bn1_gt_on_true },
-    { "Boolean order with function from operand on ovf test is false", cpu_selftest_org_bn1_ovf_on_false },
-    { "Boolean order with function from operand on ovf test is true", cpu_selftest_org_bn1_ovf_on_true },
-    { "Boolean order with function from operand on bn test is false", cpu_selftest_org_bn1_bn_on_false },
-    { "Boolean order with function from operand on bn test is ", cpu_selftest_org_bn1_bn_on_true },
+    { "Boolean order with function from operand, tests all function combinations", cpu_selftest_org_bn_function_tests },
+    { "Boolean order with function from operand on eq test is false", cpu_selftest_org_bn_eq_on_false },
+    { "Boolean order with function from operand on eq test is true", cpu_selftest_org_bn_eq_on_true },
+    { "Boolean order with function from operand on ne test is false", cpu_selftest_org_bn_ne_on_false },
+    { "Boolean order with function from operand on ne test is true", cpu_selftest_org_bn_ne_on_true },
+    { "Boolean order with function from operand on ge test is false", cpu_selftest_org_bn_ge_on_false },
+    { "Boolean order with function from operand on ge test is true", cpu_selftest_org_bn_ge_on_true },
+    { "Boolean order with function from operand on lt test is false", cpu_selftest_org_bn_lt_on_false },
+    { "Boolean order with function from operand on lt test is true", cpu_selftest_org_bn_lt_on_true },
+    { "Boolean order with function from operand on le test is false", cpu_selftest_org_bn_le_on_false },
+    { "Boolean order with function from operand on le test is true", cpu_selftest_org_bn_le_on_true },
+    { "Boolean order with function from operand on gt test is false", cpu_selftest_org_bn_gt_on_false },
+    { "Boolean order with function from operand on gt test is true", cpu_selftest_org_bn_gt_on_true },
+    { "Boolean order with function from operand on ovf test is false", cpu_selftest_org_bn_ovf_on_false },
+    { "Boolean order with function from operand on ovf test is true", cpu_selftest_org_bn_ovf_on_true },
+    { "Boolean order with function from operand on bn test is false", cpu_selftest_org_bn_bn_on_false },
+    { "Boolean order with function from operand on bn test is ", cpu_selftest_org_bn_bn_on_true },
     { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
     { "No zero divide interrupt if zero divide is inhibited", cpu_selftest_no_zero_divide_interrupt_if_zero_divide_is_inhibited },
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
@@ -6697,7 +6697,7 @@ static void cpu_selftest_org_branch_test_branch_not_taken(uint8 f, uint16 t0, ui
     cpu_selftest_assert_no_interrupt();
 }
 
-static void cpu_selftest_org_bn1_test_true_result(uint8 f, uint16 t0, uint16 t1, uint16 t2, uint16 bn)
+static void cpu_selftest_org_bn_test_true_result(uint8 f, uint16 t0, uint16 t1, uint16 t2, uint16 bn)
 {
     uint16 ms = cpu_selftest_calculate_ms_from_t_bits(t0, t1, t2, bn);
     cpu_selftest_set_load_location(0); /* reset load location as we may call this helper more than once in a test to test different combinations */
@@ -6708,7 +6708,7 @@ static void cpu_selftest_org_bn1_test_true_result(uint8 f, uint16 t0, uint16 t1,
     cpu_selftest_assert_no_interrupt();
 }
 
-static void cpu_selftest_org_bn1_test_false_result(uint8 f, uint16 t0, uint16 t1, uint16 t2, uint16 bn)
+static void cpu_selftest_org_bn_test_false_result(uint8 f, uint16 t0, uint16 t1, uint16 t2, uint16 bn)
 {
     uint16 ms = cpu_selftest_calculate_ms_from_t_bits(t0, t1, t2, bn);
     cpu_selftest_set_load_location(0); /* reset load location as we may call this helper more than once in a test to test different combinations */
@@ -6821,7 +6821,7 @@ static void cpu_selftest_org_br_bn_does_branch_on_true(void)
     cpu_selftest_org_branch_test_branch_taken(F_BRANCH_BN, 0, 0, 0, 1);
 }
 
-static void cpu_selftest_org_bn1_function_tests(void)
+static void cpu_selftest_org_bn_function_tests(void)
 {
     int n = sizeof(conditionalFuncsTable) / sizeof(CONDITIONTABLE);
     int i;
@@ -6829,7 +6829,7 @@ static void cpu_selftest_org_bn1_function_tests(void)
     {
         CONDITIONTABLE *entry = &conditionalFuncsTable[i];
         cpu_selftest_set_load_location(0);
-        cpu_selftest_load_organisational_order_extended(F_BN1_EQ, K_LITERAL, NP_64_BIT_LITERAL);
+        cpu_selftest_load_organisational_order_extended(F_BN_EQ, K_LITERAL, NP_64_BIT_LITERAL);
         cpu_selftest_load_64_bit_literal(0xFFFFFFFFFFFFFFF0 | entry->func & 0xF);
         cpu_selftest_set_bn(entry->bn);
         cpu_selftest_set_test_is_zero(entry->r);
@@ -6839,84 +6839,84 @@ static void cpu_selftest_org_bn1_function_tests(void)
     }
 }
 
-static void cpu_selftest_org_bn1_eq_on_false(void)
+static void cpu_selftest_org_bn_eq_on_false(void)
 {
-    cpu_selftest_org_bn1_test_false_result(F_BN1_EQ, 1, 1, 1, 1);
+    cpu_selftest_org_bn_test_false_result(F_BN_EQ, 1, 1, 1, 1);
 }
 
-static void cpu_selftest_org_bn1_eq_on_true(void)
+static void cpu_selftest_org_bn_eq_on_true(void)
 {
-    cpu_selftest_org_bn1_test_true_result(F_BN1_EQ, 1, 0, 1, 1);
+    cpu_selftest_org_bn_test_true_result(F_BN_EQ, 1, 0, 1, 1);
 }
 
-static void cpu_selftest_org_bn1_ne_on_false(void)
+static void cpu_selftest_org_bn_ne_on_false(void)
 {
-    cpu_selftest_org_bn1_test_false_result(F_BN1_NE, 1, 0, 1, 1);
+    cpu_selftest_org_bn_test_false_result(F_BN_NE, 1, 0, 1, 1);
 }
 
-static void cpu_selftest_org_bn1_ne_on_true(void)
+static void cpu_selftest_org_bn_ne_on_true(void)
 {
-    cpu_selftest_org_bn1_test_true_result(F_BN1_NE, 1, 1, 1, 1);
+    cpu_selftest_org_bn_test_true_result(F_BN_NE, 1, 1, 1, 1);
 }
 
-static void cpu_selftest_org_bn1_ge_on_false(void)
+static void cpu_selftest_org_bn_ge_on_false(void)
 {
-    cpu_selftest_org_bn1_test_false_result(F_BN1_GE, 1, 1, 1, 1);
+    cpu_selftest_org_bn_test_false_result(F_BN_GE, 1, 1, 1, 1);
 }
 
-static void cpu_selftest_org_bn1_ge_on_true(void)
+static void cpu_selftest_org_bn_ge_on_true(void)
 {
-    cpu_selftest_org_bn1_test_true_result(F_BN1_GE, 1, 0, 1, 1);
+    cpu_selftest_org_bn_test_true_result(F_BN_GE, 1, 0, 1, 1);
 }
 
-static void cpu_selftest_org_bn1_lt_on_false(void)
+static void cpu_selftest_org_bn_lt_on_false(void)
 {
-    cpu_selftest_org_bn1_test_false_result(F_BN1_LT, 1, 1, 0, 1);
+    cpu_selftest_org_bn_test_false_result(F_BN_LT, 1, 1, 0, 1);
 }
 
-static void cpu_selftest_org_bn1_lt_on_true(void)
+static void cpu_selftest_org_bn_lt_on_true(void)
 {
-    cpu_selftest_org_bn1_test_true_result(F_BN1_LT, 1, 1, 1, 1);
+    cpu_selftest_org_bn_test_true_result(F_BN_LT, 1, 1, 1, 1);
 }
 
-static void cpu_selftest_org_bn1_le_on_false(void)
+static void cpu_selftest_org_bn_le_on_false(void)
 {
-    cpu_selftest_org_bn1_test_false_result(F_BN1_LE, 1, 1, 0, 1);
+    cpu_selftest_org_bn_test_false_result(F_BN_LE, 1, 1, 0, 1);
 }
 
-static void cpu_selftest_org_bn1_le_on_true(void)
+static void cpu_selftest_org_bn_le_on_true(void)
 {
-    cpu_selftest_org_bn1_test_true_result(F_BN1_LE, 1, 0, 0, 1);
+    cpu_selftest_org_bn_test_true_result(F_BN_LE, 1, 0, 0, 1);
 }
 
-static void cpu_selftest_org_bn1_gt_on_false(void)
+static void cpu_selftest_org_bn_gt_on_false(void)
 {
-    cpu_selftest_org_bn1_test_false_result(F_BN1_GT, 1, 1, 1, 1);
+    cpu_selftest_org_bn_test_false_result(F_BN_GT, 1, 1, 1, 1);
 }
 
-static void cpu_selftest_org_bn1_gt_on_true(void)
+static void cpu_selftest_org_bn_gt_on_true(void)
 {
-    cpu_selftest_org_bn1_test_true_result(F_BN1_GT, 1, 1, 0, 1);
+    cpu_selftest_org_bn_test_true_result(F_BN_GT, 1, 1, 0, 1);
 }
 
-static void cpu_selftest_org_bn1_ovf_on_false(void)
+static void cpu_selftest_org_bn_ovf_on_false(void)
 {
-    cpu_selftest_org_bn1_test_false_result(F_BN1_OVF, 0, 1, 1, 1);
+    cpu_selftest_org_bn_test_false_result(F_BN_OVF, 0, 1, 1, 1);
 }
 
-static void cpu_selftest_org_bn1_ovf_on_true(void)
+static void cpu_selftest_org_bn_ovf_on_true(void)
 {
-    cpu_selftest_org_bn1_test_true_result(F_BN1_OVF, 1, 1, 1, 1);
+    cpu_selftest_org_bn_test_true_result(F_BN_OVF, 1, 1, 1, 1);
 }
 
-static void cpu_selftest_org_bn1_bn_on_false(void)
+static void cpu_selftest_org_bn_bn_on_false(void)
 {
-    cpu_selftest_org_bn1_test_false_result(F_BN1_BN, 1, 1, 1, 0);
+    cpu_selftest_org_bn_test_false_result(F_BN_BN, 1, 1, 1, 0);
 }
 
-static void cpu_selftest_org_bn1_bn_on_true(void)
+static void cpu_selftest_org_bn_bn_on_true(void)
 {
-    cpu_selftest_org_bn1_test_true_result(F_BN1_BN, 1, 1, 1, 1);
+    cpu_selftest_org_bn_test_true_result(F_BN_BN, 1, 1, 1, 1);
 }
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(void)
