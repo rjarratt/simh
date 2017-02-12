@@ -376,7 +376,7 @@ static void cpu_execute_organisational_branch_le(uint16 order, DISPATCH_ENTRY *i
 static void cpu_execute_organisational_branch_gt(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_branch_ovf(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_organisational_branch_bn(uint16 order, DISPATCH_ENTRY *innerTable);
-static void cpu_execute_organisational_bn_by_operand_test_eq(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_organisational_bn_by_operand(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* store-to-store order functions */
 static uint8 cpu_get_descriptor_type(t_uint64 descriptor);
@@ -567,15 +567,15 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
     { cpu_execute_organisational_branch_gt,             NULL }, /* 37 */
     { cpu_execute_organisational_branch_ovf,            NULL }, /* 38 */
     { cpu_execute_organisational_branch_bn,             NULL }, /* 39 */
-    { cpu_execute_organisational_bn_by_operand_test_eq, NULL }, /* 40 */
-    { cpu_execute_organisational_branch_ne,             NULL }, /* 41 */
-    { cpu_execute_organisational_branch_ge,             NULL }, /* 42 */
-    { cpu_execute_organisational_branch_lt,             NULL }, /* 43 */
-    { cpu_execute_organisational_branch_le,             NULL }, /* 44 */
-    { cpu_execute_organisational_branch_gt,             NULL }, /* 45 */
-    { cpu_execute_organisational_branch_ovf,            NULL }, /* 46 */
-    { cpu_execute_organisational_branch_bn,             NULL }, /* 47 */
-    { cpu_execute_organisational_bn_by_operand_test_eq, NULL }, /* 48 */
+    { cpu_execute_organisational_bn_by_operand,         NULL }, /* 40 */
+    { cpu_execute_organisational_bn_by_operand,         NULL }, /* 41 */
+    { cpu_execute_organisational_bn_by_operand,         NULL }, /* 42 */
+    { cpu_execute_organisational_bn_by_operand,         NULL }, /* 43 */
+    { cpu_execute_organisational_bn_by_operand,         NULL }, /* 44 */
+    { cpu_execute_organisational_bn_by_operand,         NULL }, /* 45 */
+    { cpu_execute_organisational_bn_by_operand,         NULL }, /* 46 */
+    { cpu_execute_organisational_bn_by_operand,         NULL }, /* 47 */
+    { cpu_execute_organisational_bn_by_operand,         NULL }, /* 48 */
     { cpu_execute_illegal_order, /* Bn & X */           NULL }, /* 49 */
     { cpu_execute_illegal_order, /* ~Bn & X */          NULL }, /* 50 */
     { cpu_execute_illegal_order, /* X */                NULL }, /* 51 */
@@ -2523,11 +2523,11 @@ static void cpu_execute_organisational_branch_bn(uint16 order, DISPATCH_ENTRY *i
     cpu_jump_relative(order, cpu_calculate_condition(cpu_get_f(order)));
 }
 
-static void cpu_execute_organisational_bn_by_operand_test_eq(uint16 order, DISPATCH_ENTRY *innerTable)
+static void cpu_execute_organisational_bn_by_operand(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "");
     uint8 f = cpu_get_f(order);
-    uint8 code = cpu_get_operand(order) &0xF;
+    uint8 code = cpu_get_operand(order) & 0xF;
     cpu_process_condition(cpu_calculate_condition(f), code);
 }
 
