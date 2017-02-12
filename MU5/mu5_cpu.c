@@ -58,6 +58,13 @@ typedef struct DISPATCH_ENTRY
     struct DISPATCH_ENTRY *innerTable;
 } DISPATCH_ENTRY;
 
+typedef struct VSTORE_LINE
+{
+    t_uint64 value;
+    void(*ReadCallback)(void);
+    void(*WriteCallback)(void);
+} VSTORE_LINE;
+
 /* The CPU did not have a STOP instruction. For the purposes of emulation I want to be able to stop it anyway so the emulation stops.
 This is what RNI told me:
 
