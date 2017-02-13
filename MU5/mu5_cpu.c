@@ -58,13 +58,6 @@ typedef struct DISPATCH_ENTRY
     struct DISPATCH_ENTRY *innerTable;
 } DISPATCH_ENTRY;
 
-typedef struct VSTORE_LINE
-{
-    t_uint64 value;
-    void(*ReadCallback)(void);
-    void(*WriteCallback)(void);
-} VSTORE_LINE;
-
 /* The CPU did not have a STOP instruction. For the purposes of emulation I want to be able to stop it anyway so the emulation stops.
 This is what RNI told me:
 
@@ -265,8 +258,6 @@ static DEBTAB cpu_debtab[] =
     { "SELFTESTFAIL", LOG_CPU_SELFTEST_FAIL,  "self test failure output" },
     { NULL,           0 }
 };
-
-static t_uint64 VStore[8][256];
 
 static const char* cpu_description(DEVICE *dptr) {
     return "Central Processing Unit";
@@ -1160,17 +1151,6 @@ uint8 cpu_get_interrupt_number(void)
     return result;
 }
 
-void cpu_write_v_store(uint8 block, uint8 line, t_uint64 value)
-{
-    VStore[block][line] = value;
-}
-
-t_uint64 cpu_read_v_store(uint8 block, uint8 line)
-{
-    return VStore[block][line];
-}
-
-
 static uint8 cpu_get_cr(uint16 order)
 {
     uint8 cr = (order >> 13) & 0x7;
@@ -1958,7 +1938,7 @@ static t_uint64 cpu_get_operand(uint16 order)
                     uint8 line = addr & MASK_8;
                     if (cpu_is_executive_mode())
                     {
-                        result = cpu_read_v_store(block, line);
+                        result = sac_read_v_store(block, line);
                     }
                     else
                     {
@@ -2082,7 +2062,7 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
                     line = addr & MASK_8;
                     if (cpu_is_executive_mode())
                     {
-                        cpu_write_v_store(block, line, value);
+                        sac_write_v_store(block, line, value);
                     }
                     else
                     {

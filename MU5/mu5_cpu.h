@@ -34,6 +34,3 @@ void cpu_reset_state(void);
 void cpu_execute_next_order(void);
 uint8 cpu_get_interrupt_number(void);
 
-void cpu_write_v_store(uint8 block, uint8 line, t_uint64 value);
-t_uint64 cpu_read_v_store(uint8 block, uint8 line);
-

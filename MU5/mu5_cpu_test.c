@@ -2029,7 +2029,7 @@ static void cpu_selftest_assert_boolean_order_condition(CONDITIONTABLE *entry)
 
 static void cpu_selftest_assert_v_store_contents(uint8 block, uint8 line, t_uint64 expectedValue)
 {
-    t_uint64 actual = cpu_read_v_store(block, line);
+    t_uint64 actual = sac_read_v_store(block, line);
     if (actual != expectedValue)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "V-Store block=%u, line=%u, expected 0x%llX, but was )x%llX", block, line, expectedValue, actual);
@@ -3127,7 +3127,7 @@ static void cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_PRIVILEGED, NP_NB);
     cpu_selftest_load_16_bit_literal(0);
     cpu_selftest_set_register(REG_NB, base);
-    cpu_write_v_store(block, line, 0xAAAABBBBCCCCDDDD);
+    sac_write_v_store(block, line, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_set_executive_mode();
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBBCCCCDDDD);
@@ -3142,7 +3142,7 @@ static void cpu_selftest_load_operand_privileged_generates_interrupt_in_user_mod
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_PRIVILEGED, NP_NB);
     cpu_selftest_load_16_bit_literal(0);
     cpu_selftest_set_register(REG_NB, base);
-    cpu_write_v_store(block, line, 0xAAAABBBBCCCCDDDD);
+    sac_write_v_store(block, line, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_set_user_mode();
     cpu_selftest_run_code();
     cpu_selftest_assert_interrupt();
@@ -4112,7 +4112,7 @@ static void cpu_selftest_store_operand_privileged_generates_interrupt_in_user_mo
     cpu_selftest_load_16_bit_literal(0);
     cpu_selftest_set_register(REG_A, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_set_register(REG_NB, base);
-    cpu_write_v_store(block, line, 0x000000000000);
+    sac_write_v_store(block, line, 0x000000000000);
     cpu_selftest_set_user_mode();
     cpu_selftest_run_code();
     cpu_selftest_assert_interrupt();

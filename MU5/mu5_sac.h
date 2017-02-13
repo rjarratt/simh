@@ -35,3 +35,6 @@ uint16 sac_read_16_bit_word(t_addr address);
 void sac_write_16_bit_word(t_addr address, uint16 value);
 uint8 sac_read_8_bit_word(t_addr address);
 void sac_write_8_bit_word(t_addr address, uint8 value);
+
+void sac_write_v_store(uint8 block, uint8 line, t_uint64 value);
+t_uint64 sac_read_v_store(uint8 block, uint8 line);

@@ -27,7 +27,16 @@ in this Software without prior written authorization from Robert Jarratt.
 #include "mu5_defs.h"
 #include "mu5_sac.h"
 
+typedef struct VSTORE_LINE
+{
+    t_uint64 value;
+    void(*ReadCallback)(void);
+    void(*WriteCallback)(void);
+} VSTORE_LINE;
+
+
 static uint32 LocalStore[MAXMEMORY];
+static t_uint64 VStore[8][256];
 
 void sac_clear_all_memory(void)
 {
@@ -94,4 +103,14 @@ void sac_write_8_bit_word(t_addr address, uint8 value)
     uint32 shiftedValue = (uint32)value << (byteNumber << 3);
     fullWord = (fullWord & ~mask) | shiftedValue;
     sac_write_32_bit_word(address >> 2, fullWord);
+}
+
+void sac_write_v_store(uint8 block, uint8 line, t_uint64 value)
+{
+    VStore[block][line] = value;
+}
+
+t_uint64 sac_read_v_store(uint8 block, uint8 line)
+{
+    return VStore[block][line];
 }
