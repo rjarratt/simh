@@ -2032,7 +2032,7 @@ static void cpu_selftest_assert_v_store_contents(uint8 block, uint8 line, t_uint
     t_uint64 actual = cpu_read_v_store(block, line);
     if (actual != expectedValue)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "V-Store block=%u, line=%u, expected 0x%X, but was )x%X", block, line, expectedValue, actual);
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "V-Store block=%u, line=%u, expected 0x%llX, but was )x%llX", block, line, expectedValue, actual);
         cpu_selftest_set_failure();
     }
 }
@@ -7008,7 +7008,7 @@ static void cpu_selftest_org_bn_function_tests(void)
         CONDITIONTABLE *entry = &conditionalFuncsTable[i];
         cpu_selftest_set_load_location(0);
         cpu_selftest_load_organisational_order_extended(F_BN_EQ, K_LITERAL, NP_64_BIT_LITERAL);
-        cpu_selftest_load_64_bit_literal(0xFFFFFFFFFFFFFFF0 | entry->func & 0xF);
+        cpu_selftest_load_64_bit_literal(0xFFFFFFFFFFFFFFF0 | (entry->func & 0xF));
         cpu_selftest_set_bn(entry->bn);
         cpu_selftest_set_test_is_zero(entry->r);
         cpu_selftest_run_code();
