@@ -25,6 +25,7 @@ in this Software without prior written authorization from Robert Jarratt.
 */
 
 #include "mu5_defs.h"
+#include "mu5_test.h"
 
 #pragma once
-t_stat cpu_selftest(void);
+void cpu_selftest(TESTCONTEXT *testContext);

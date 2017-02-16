@@ -27,6 +27,7 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #include "mu5_defs.h"
 #include "mu5_cpu.h"
+#include "mu5_test.h"
 #include "mu5_cpu_test.h"
 #include "mu5_sac.h"
 
@@ -263,19 +264,6 @@ in this Software without prior written authorization from Robert Jarratt.
 #define TEST_LESS_THAN 0x0600
 #define TEST_OVERFLOW 0x0800
 
-typedef struct TESTCONTEXT
-{
-    char *testName;
-    uint32 currentLoadLocation;
-    t_stat result;
-} TESTCONTEXT;
-
-typedef struct UNITTEST
-{
-    char * name;
-    void (*runner)(void);
-} UNITTEST;
-
 typedef struct
 {
     uint8 func;
@@ -284,9 +272,9 @@ typedef struct
     int8 newBn;
 } CONDITIONTABLE;
 
+static TESTCONTEXT *localTestContext;
+static uint32 currentLoadLocation;
 extern DEVICE cpu_dev;
-
-static TESTCONTEXT testContext;
 
 static void cpu_selftest_reset(UNITTEST *test);
 static void cpu_selftest_set_load_location(uint32 location);
@@ -1383,15 +1371,12 @@ UNITTEST tests[] =
 static void cpu_selftest_reset(UNITTEST *test)
 {
     cpu_reset_state();
-
-    testContext.testName = test->name;
-    testContext.currentLoadLocation = 0;
-    testContext.result = SCPE_OK;
+    currentLoadLocation = 0;
 }
 
 static void cpu_selftest_set_load_location(uint32 location)
 {
-    testContext.currentLoadLocation = location;
+    currentLoadLocation = location;
 }
 
 static void cpu_selftest_load_order(uint8 cr, uint8 f, uint8 k, uint8 n)
@@ -1402,8 +1387,8 @@ static void cpu_selftest_load_order(uint8 cr, uint8 f, uint8 k, uint8 n)
     order |= (f & 0xF) << 9;
     order |= (k & 0x7) << 6;
     order |= n & 0x3F;
-    sac_write_16_bit_word(testContext.currentLoadLocation, order);
-    testContext.currentLoadLocation += 1;
+    sac_write_16_bit_word(currentLoadLocation, order);
+    currentLoadLocation += 1;
 }
 
 static void cpu_selftest_load_order_extended(uint8 cr, uint8 f, uint8 kp, uint8 np)
@@ -1415,8 +1400,8 @@ static void cpu_selftest_load_order_extended(uint8 cr, uint8 f, uint8 kp, uint8 
     order |= 0x7 << 6;
     order |= (kp & 0x7) << 3;
     order |= np & 0x7;
-    sac_write_16_bit_word(testContext.currentLoadLocation, order);
-    testContext.currentLoadLocation += 1;
+    sac_write_16_bit_word(currentLoadLocation, order);
+    currentLoadLocation += 1;
 }
 
 static void cpu_selftest_load_organisational_order_literal(uint8 f, uint8 n)
@@ -1426,8 +1411,8 @@ static void cpu_selftest_load_organisational_order_literal(uint8 f, uint8 n)
     order = 0;
     order |= (f & 0x3F) << 7;
     order |= n & 0x3F;
-    sac_write_16_bit_word(testContext.currentLoadLocation, order);
-    testContext.currentLoadLocation += 1;
+    sac_write_16_bit_word(currentLoadLocation, order);
+    currentLoadLocation += 1;
 }
 
 static void cpu_selftest_load_organisational_order_extended(uint8 f, uint8 kp, uint8 np)
@@ -1439,30 +1424,30 @@ static void cpu_selftest_load_organisational_order_extended(uint8 f, uint8 kp, u
     order |= 0x1 << 6;
     order |= (kp & 0x7) << 3;
     order |= np & 0x7;
-    sac_write_16_bit_word(testContext.currentLoadLocation, order);
-    testContext.currentLoadLocation += 1;
+    sac_write_16_bit_word(currentLoadLocation, order);
+    currentLoadLocation += 1;
 }
 
 static void cpu_selftest_load_16_bit_literal(uint16 value)
 {
-    sac_write_16_bit_word(testContext.currentLoadLocation, value);
-    testContext.currentLoadLocation += 1;
+    sac_write_16_bit_word(currentLoadLocation, value);
+    currentLoadLocation += 1;
 }
 
 static void cpu_selftest_load_32_bit_literal(uint32 value)
 {
-    sac_write_16_bit_word(testContext.currentLoadLocation, (value >> 16) & 0xFFFF);
-    sac_write_16_bit_word(testContext.currentLoadLocation + 1, value & 0xFFFF);
-    testContext.currentLoadLocation += 2;
+    sac_write_16_bit_word(currentLoadLocation, (value >> 16) & 0xFFFF);
+    sac_write_16_bit_word(currentLoadLocation + 1, value & 0xFFFF);
+    currentLoadLocation += 2;
 }
 
 static void cpu_selftest_load_64_bit_literal(t_uint64 value)
 {
-    sac_write_16_bit_word(testContext.currentLoadLocation, (value >> 48) & 0xFFFF);
-    sac_write_16_bit_word(testContext.currentLoadLocation + 1, (value >> 32) & 0xFFFF);
-    sac_write_16_bit_word(testContext.currentLoadLocation + 2, (value >> 16) & 0xFFFF);
-    sac_write_16_bit_word(testContext.currentLoadLocation + 3, value & 0xFFFF);
-    testContext.currentLoadLocation += 4;
+    sac_write_16_bit_word(currentLoadLocation, (value >> 48) & 0xFFFF);
+    sac_write_16_bit_word(currentLoadLocation + 1, (value >> 32) & 0xFFFF);
+    sac_write_16_bit_word(currentLoadLocation + 2, (value >> 16) & 0xFFFF);
+    sac_write_16_bit_word(currentLoadLocation + 3, value & 0xFFFF);
+    currentLoadLocation += 4;
 }
 
 static t_uint64 cpu_selftest_create_descriptor(uint8 type, uint8 size, uint32 bound, uint32 origin)
@@ -2045,47 +2030,17 @@ static void cpu_selftest_assert_fail(void)
 
 static void cpu_selftest_set_failure(void)
 {
-    testContext.result = SCPE_AFAIL;
+    localTestContext->result = SCPE_AFAIL;
 }
 
-t_stat cpu_selftest(void)
+void cpu_selftest(TESTCONTEXT *testContext)
 {
-    t_stat result = SCPE_OK;
     int n;
-    int i;
-    int countSuccessful = 0;
-    int countFailed = 0;
 
     n = sizeof(tests) / sizeof(UNITTEST);
 
-    for (i = 0; i < n; i++)
-    {
-        cpu_selftest_reset(&tests[i]);
-        tests[i].runner();
-        if (testContext.result == SCPE_OK)
-        {
-            sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "%s [OK]\n", tests[i].name);
-            countSuccessful++;
-        }
-        else
-        {
-            result = SCPE_AFAIL;
-            sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "%s [FAIL]\n", tests[i].name);
-            countFailed++;
-        }
-    }
-
-    sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "\n");
-    if (countFailed == 0)
-    {
-        sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "ALL %d TESTS PASSED\n", n);
-    }
-    else
-    {
-        sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "%d of %d TESTS PASSED, %d FAILED\n", countSuccessful, n, countFailed);
-    }
-
-    return result;
+    localTestContext = testContext;
+    mu5_selftest_run_suite(testContext, tests, n, cpu_selftest_reset);
 }
 
 static void cpu_selftest_16_bit_instruction_advances_co_by_1(void)

@@ -46,6 +46,7 @@ Type 3 descriptors not implemented yet.
 #include "mu5_defs.h"
 #include "mu5_cpu.h"
 #include "mu5_sac.h"
+#include "mu5_test.h"
 #include "mu5_cpu_test.h"
 
 /* This structure is used to allow instruction execution to be table driven. It allows for tables to be nested. At each level the
@@ -845,7 +846,10 @@ static t_stat cpu_reset(DEVICE *dptr)
     cpu_reset_state();
     if (sim_switches & SWMASK('T'))
     {
-        result = cpu_selftest();
+        TESTCONTEXT testContext;
+        mu5_selftest_start(&testContext);
+        cpu_selftest(&testContext);
+        result = mu5_selftest_end(&testContext);
     }
 
     return result;

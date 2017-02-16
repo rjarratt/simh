@@ -26,6 +26,12 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #include "sim_defs.h"
 
+/* Debug flags */
+#define LOG_CPU_PERF          (1 << 0)
+#define LOG_CPU_DECODE        (1 << 1)
+#define LOG_CPU_SELFTEST      (1 << 2)
+#define LOG_CPU_SELFTEST_FAIL (1 << 3)
+
 //#define MAXMEMORY  (32768)    /* RNI told me Local Store consisted of four 4096-word memory units, each word containing 64 data bits + 8 parity bits */
 #define MAXMEMORY  (0x160000)    /* TODO: Until I implement virtual memory make the memory big enough for the addresses in the demo programs to work as physical addresses */
 
