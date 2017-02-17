@@ -1,4 +1,4 @@
-/* mu5_defs.h: MU5 Store Access Control definitions
+/* mu5_sac_test.c: MU5 SAC self tests
 
 Copyright (c) 2016-2017, Robert Jarratt
 
@@ -22,20 +22,43 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 Except as contained in this notice, the name of Robert Jarratt shall not be
 used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Robert Jarratt.
+
 */
 
-#include "sim_defs.h"
+#include "mu5_sac.h"
+#include "mu5_test.h"
+#include "mu5_sac_test.h"
 
-void sac_clear_all_memory(void);
-t_uint64 sac_read_64_bit_word(t_addr address);
-void sac_write_64_bit_word(t_addr address, t_uint64 value);
-uint32 sac_read_32_bit_word(t_addr address);
-void sac_write_32_bit_word(t_addr address, uint32 value);
-uint16 sac_read_16_bit_word(t_addr address);
-void sac_write_16_bit_word(t_addr address, uint16 value);
-uint8 sac_read_8_bit_word(t_addr address);
-void sac_write_8_bit_word(t_addr address, uint8 value);
+static TESTCONTEXT *localTestContext;
+extern DEVICE cpu_dev;
 
-void sac_setup_v_store_location(uint8 block, uint8 line, void(*readCallback)(void), void(*writeCallback)(void));
-void sac_write_v_store(uint8 block, uint8 line, t_uint64 value);
-t_uint64 sac_read_v_store(uint8 block, uint8 line);
+void sac_selftest(TESTCONTEXT *testContext);
+static void sac_selftest_reset(UNITTEST *test);
+
+static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(void);
+
+static UNITTEST tests[] =
+{
+    { "Reading a write-only V-Store line returns zeroes", sac_selftest_reading_write_only_vstore_line_returns_zeroes },
+};
+
+void sac_selftest(TESTCONTEXT *testContext)
+{
+    int n;
+
+    n = sizeof(tests) / sizeof(UNITTEST);
+
+    localTestContext = testContext;
+    mu5_selftest_run_suite(testContext, tests, n, sac_selftest_reset);
+}
+
+static void sac_selftest_reset(UNITTEST *test)
+{
+    sac_clear_all_memory();
+}
+
+static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(void)
+{
+    //mu5_assert_fail();
+}
+

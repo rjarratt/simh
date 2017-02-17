@@ -1,4 +1,4 @@
-/* mu5_defs.h: MU5 Store Access Control definitions
+/* mu5_test.h: MU5 self test support
 
 Copyright (c) 2016-2017, Robert Jarratt
 
@@ -22,20 +22,29 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 Except as contained in this notice, the name of Robert Jarratt shall not be
 used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Robert Jarratt.
+
 */
 
-#include "sim_defs.h"
+#pragma once
 
-void sac_clear_all_memory(void);
-t_uint64 sac_read_64_bit_word(t_addr address);
-void sac_write_64_bit_word(t_addr address, t_uint64 value);
-uint32 sac_read_32_bit_word(t_addr address);
-void sac_write_32_bit_word(t_addr address, uint32 value);
-uint16 sac_read_16_bit_word(t_addr address);
-void sac_write_16_bit_word(t_addr address, uint16 value);
-uint8 sac_read_8_bit_word(t_addr address);
-void sac_write_8_bit_word(t_addr address, uint8 value);
+#include "mu5_defs.h"
 
-void sac_setup_v_store_location(uint8 block, uint8 line, void(*readCallback)(void), void(*writeCallback)(void));
-void sac_write_v_store(uint8 block, uint8 line, t_uint64 value);
-t_uint64 sac_read_v_store(uint8 block, uint8 line);
+typedef struct TESTCONTEXT
+{
+    char *testName;
+    uint32 countSuccessful;
+    uint32 countFailed;
+    t_stat result;
+    t_stat overallResult;
+} TESTCONTEXT;
+
+typedef struct UNITTEST
+{
+    char * name;
+    void(*runner)(void);
+} UNITTEST;
+
+void mu5_selftest_start(TESTCONTEXT *context);
+void mu5_selftest_run_suite(TESTCONTEXT *context, UNITTEST *unitTests, uint32 numberOfUnitTests, void (*reset)(UNITTEST *unitTest));
+t_stat mu5_selftest_end(TESTCONTEXT *context);
+

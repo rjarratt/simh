@@ -29,11 +29,9 @@ in this Software without prior written authorization from Robert Jarratt.
 
 typedef struct VSTORE_LINE
 {
-    t_uint64 value;
     void(*ReadCallback)(void);
     void(*WriteCallback)(void);
 } VSTORE_LINE;
-
 
 static uint32 LocalStore[MAXMEMORY];
 static t_uint64 VStore[8][256];
@@ -103,6 +101,11 @@ void sac_write_8_bit_word(t_addr address, uint8 value)
     uint32 shiftedValue = (uint32)value << (byteNumber << 3);
     fullWord = (fullWord & ~mask) | shiftedValue;
     sac_write_32_bit_word(address >> 2, fullWord);
+}
+
+void sac_setup_v_store_location(uint8 block, uint8 line, void(*readCallback)(void), void(*writeCallback)(void))
+{
+
 }
 
 void sac_write_v_store(uint8 block, uint8 line, t_uint64 value)

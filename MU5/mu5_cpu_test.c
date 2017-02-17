@@ -903,7 +903,7 @@ CONDITIONTABLE conditionalFuncsTable[] =
     { 0xF, 1, 1, 1 }
 };
 
-UNITTEST tests[] =
+static UNITTEST tests[] =
 {
     { "16-bit instruction advances CO by 1", cpu_selftest_16_bit_instruction_advances_co_by_1 },
     { "32-bit instruction advances CO by 2", cpu_selftest_32_bit_instruction_advances_co_by_2 },

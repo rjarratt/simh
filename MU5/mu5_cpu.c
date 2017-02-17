@@ -48,6 +48,7 @@ Type 3 descriptors not implemented yet.
 #include "mu5_sac.h"
 #include "mu5_test.h"
 #include "mu5_cpu_test.h"
+#include "mu5_sac_test.h"
 
 /* This structure is used to allow instruction execution to be table driven. It allows for tables to be nested. At each level the
    execute() function does anything it needs to do before invoking the function on the inner table. The leaf tables have a NULL for
@@ -849,6 +850,7 @@ static t_stat cpu_reset(DEVICE *dptr)
         TESTCONTEXT testContext;
         mu5_selftest_start(&testContext);
         cpu_selftest(&testContext);
+        sac_selftest(&testContext);
         result = mu5_selftest_end(&testContext);
     }
 
