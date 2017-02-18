@@ -52,7 +52,7 @@ void mu5_selftest_run_suite(TESTCONTEXT *context, UNITTEST *unitTests, uint32 nu
     {
         UNITTEST *test = &unitTests[i];
         mu5_reset_test(context, test, reset);
-        test->runner();
+        test->runner(context);
         if (context->result == SCPE_OK)
         {
             sim_debug(LOG_CPU_SELFTEST, context->dev, "%s [OK]\n", test->name);

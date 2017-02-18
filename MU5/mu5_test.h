@@ -42,7 +42,7 @@ typedef struct TESTCONTEXT
 typedef struct UNITTEST
 {
     char * name;
-    void(*runner)(void);
+    void(*runner)(TESTCONTEXT *context);
 } UNITTEST;
 
 void mu5_selftest_start(TESTCONTEXT *context);

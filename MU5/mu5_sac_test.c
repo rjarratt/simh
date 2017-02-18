@@ -35,7 +35,7 @@ extern DEVICE sac_dev;
 void sac_selftest(TESTCONTEXT *testContext);
 static void sac_selftest_reset(UNITTEST *test);
 
-static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(void);
+static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
@@ -58,7 +58,7 @@ static void sac_selftest_reset(UNITTEST *test)
     sac_reset_state();
 }
 
-static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(void)
+static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTEXT *testContext)
 {
     //mu5_assert_fail();
 }
