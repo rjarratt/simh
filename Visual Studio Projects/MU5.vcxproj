@@ -157,7 +157,9 @@
     <ClCompile Include="..\MU5\mu5_cpu.c" />
     <ClCompile Include="..\MU5\mu5_cpu_test.c" />
     <ClCompile Include="..\MU5\mu5_sac.c" />
+    <ClCompile Include="..\MU5\mu5_sac_test.c" />
     <ClCompile Include="..\MU5\mu5_sys.c" />
+    <ClCompile Include="..\MU5\mu5_test.c" />
     <ClCompile Include="..\scp.c" />
     <ClCompile Include="..\sim_console.c" />
     <ClCompile Include="..\sim_disk.c" />
@@ -169,14 +171,14 @@
     <ClCompile Include="..\sim_timer.c" />
     <ClCompile Include="..\sim_tmxr.c" />
     <ClCompile Include="..\sim_video.c" />
-    <ClCompile Include="mu5_sac_test.c" />
-    <ClCompile Include="mu5_test.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\MU5\mu5_cpu.h" />
     <ClInclude Include="..\MU5\mu5_cpu_test.h" />
     <ClInclude Include="..\MU5\mu5_defs.h" />
     <ClInclude Include="..\MU5\mu5_sac.h" />
+    <ClInclude Include="..\MU5\mu5_sac_test.h" />
+    <ClInclude Include="..\MU5\mu5_test.h" />
     <ClInclude Include="..\scp.h" />
     <ClInclude Include="..\sim_console.h" />
     <ClInclude Include="..\sim_defs.h" />
@@ -189,8 +191,6 @@
     <ClInclude Include="..\sim_timer.h" />
     <ClInclude Include="..\sim_tmxr.h" />
     <ClInclude Include="..\sim_video.h" />
-    <ClInclude Include="mu5_sac_test.h" />
-    <ClInclude Include="mu5_test.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
