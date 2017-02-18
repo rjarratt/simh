@@ -1587,59 +1587,12 @@ static void cpu_selftest_run_code_from_location(uint32 location)
 
 static REG *cpu_selftest_find_register(char *name)
 {
-    REG *rptr;
-    for (rptr = cpu_dev.registers; rptr->name != NULL; rptr++)
-    {
-        if (strcmp(rptr->name, name) == 0)
-        {
-            break;
-        }
-    }
-
-    if (rptr->name == NULL)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Could not find register %s\n", name);
-        cpu_selftest_set_failure();
-        rptr = NULL;
-    }
-
-    return rptr;
+    return mu5_selftest_find_register(localTestContext, &cpu_dev, name);
 }
 
 static t_uint64 cpu_selftest_get_register(char *name)
 {
-    t_uint64 result = 0;
-    t_uint64 mask;
-    REG *reg = cpu_selftest_find_register(name);
-    switch (reg->width)
-    {
-        case 16:
-        {
-            result = *(uint16 *)(reg->loc);
-            mask = 0xFFFF;
-            break;
-        }
-        case 32:
-        {
-            result = *(uint32 *)(reg->loc);
-            mask = 0xFFFFFFFF;
-            break;
-        }
-        case 64:
-        {
-            result = *(t_uint64 *)(reg->loc);
-            mask = 0xFFFFFFFFFFFFFFFF;
-            break;
-        }
-        default:
-        {
-            sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected register width %d for register %s\n", reg->width, name);
-            cpu_selftest_set_failure();
-            break;
-        }
-    }
-
-    return result & mask;
+    return mu5_selftest_get_register(localTestContext, &cpu_dev, name);
 }
 
 static void cpu_selftest_set_register(char *name, t_uint64 value)
@@ -1678,13 +1631,7 @@ static void cpu_selftest_setup_vstore_test_location(void)
 
 static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue)
 {
-    t_uint64 actualValue = cpu_selftest_get_register(name);
-
-    if (actualValue != expectedValue)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value in register %s to be %llX, but was %llX\n", name, expectedValue, actualValue);
-        cpu_selftest_set_failure();
-    }
+    mu5_selftest_assert_reg_equals(localTestContext, &cpu_dev, name, expectedValue);
 }
 
 static void cpu_selftest_assert_reg_equals_mask(char *name, t_uint64 expectedValue, t_uint64 mask)

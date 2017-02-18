@@ -25,6 +25,7 @@ in this Software without prior written authorization from Robert Jarratt.
 
 */
 
+#include <assert.h>
 #include "mu5_test.h"
 
 extern DEVICE cpu_dev;
@@ -95,6 +96,28 @@ void mu5_selftest_set_failure(TESTCONTEXT *context)
     context->result = SCPE_AFAIL;
 }
 
+void mu5_selftest_assert_reg_equals(TESTCONTEXT *context, DEVICE *device, char *name, t_uint64 expectedValue)
+{
+    t_uint64 actualValue = mu5_selftest_get_register(context, device, name);
+
+    if (actualValue != expectedValue)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Expected value in register %s to be %llX, but was %llX\n", name, expectedValue, actualValue);
+        mu5_selftest_set_failure(context);
+    }
+}
+
+void mu5_selftest_assert_reg_instance_equals(TESTCONTEXT *context, DEVICE *device, char *name, uint8 index, t_uint64 expectedValue)
+{
+    t_uint64 actualValue = mu5_selftest_get_register_instance(context, device, name, index);
+
+    if (actualValue != expectedValue)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Expected value in register %s[%hu] to be %llX, but was %llX\n", name, index, expectedValue, actualValue);
+        mu5_selftest_set_failure(context);
+    }
+}
+
 t_uint64 mu5_selftest_read_callback_for_static_64_bit_location(void)
 {
     return VStoreTestLocation;
@@ -105,3 +128,76 @@ void mu5_selftest_write_callback_for_static_64_bit_location(t_uint64 value)
     VStoreTestLocation = value;
 }
 
+REG *mu5_selftest_find_register(TESTCONTEXT *context, DEVICE *device, char *name)
+{
+    REG *rptr;
+    for (rptr = device->registers; rptr->name != NULL; rptr++)
+    {
+        if (strcmp(rptr->name, name) == 0)
+        {
+            break;
+        }
+    }
+
+    if (rptr->name == NULL)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, device, "Could not find register %s\n", name);
+        mu5_selftest_set_failure(context);
+        rptr = NULL;
+    }
+
+    return rptr;
+}
+
+t_uint64 mu5_selftest_get_register(TESTCONTEXT *context, DEVICE *device, char *name)
+{
+    return mu5_selftest_get_register_instance(context, device, name, 0);
+}
+
+t_uint64 mu5_selftest_get_register_instance(TESTCONTEXT *context, DEVICE *device, char *name, uint8 index)
+{
+    t_uint64 result = 0;
+    t_uint64 mask;
+    void *loc;
+    REG *reg = mu5_selftest_find_register(context, device, name);
+
+    assert(index >= 0 && index < reg->depth);
+    if (reg->depth == 1)
+    {
+        loc = reg->loc;
+    }
+    else
+    {
+        loc = (uint8 *)reg->loc + index * (reg->width/8);
+    }
+
+    switch (reg->width)
+    {
+        case 16:
+        {
+            result = *(uint16 *)(loc);
+            mask = 0xFFFF;
+            break;
+        }
+        case 32:
+        {
+            result = *(uint32 *)(loc);
+            mask = 0xFFFFFFFF;
+            break;
+        }
+        case 64:
+        {
+            result = *(t_uint64 *)(loc);
+            mask = 0xFFFFFFFFFFFFFFFF;
+            break;
+        }
+        default:
+        {
+            mu5_selftest_set_failure(context);
+            break;
+        }
+    }
+
+    return result & mask;
+
+}

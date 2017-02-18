@@ -29,23 +29,29 @@ in this Software without prior written authorization from Robert Jarratt.
 #include "mu5_test.h"
 #include "mu5_sac_test.h"
 
+#define CPR_REG "CPR"
+
 static TESTCONTEXT *localTestContext;
 extern DEVICE sac_dev;
 
 void sac_selftest(TESTCONTEXT *testContext);
 static void sac_selftest_reset(UNITTEST *test);
 
+static void sac_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
+static void sac_selftest_assert_reg_instance_equals(char *name, uint8 index, t_uint64 expectedValue);
 static void sac_selftest_assert_vstore_contents(TESTCONTEXT *testContext, uint8 block, uint8 line, t_uint64 expectedValue);
 
 static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTEXT *testContext);
 static void sac_selftest_writing_read_only_vstore_line_does_nothing(TESTCONTEXT *testContext);
 static void sac_selftest_read_write_vstore_location_can_be_read_back_after_write(TESTCONTEXT *testContext);
+static void sac_selftest_can_write_real_address_to_cpr(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
     { "Reading a write-only V-Store line returns zeroes", sac_selftest_reading_write_only_vstore_line_returns_zeroes },
     { "Writing a read-only V-Store line does nothing", sac_selftest_writing_read_only_vstore_line_does_nothing },
-    { "A read/write V-Store line can be read back after writing", sac_selftest_read_write_vstore_location_can_be_read_back_after_write }
+    { "A read/write V-Store line can be read back after writing", sac_selftest_read_write_vstore_location_can_be_read_back_after_write },
+    { "Can write a real address to a CPR", sac_selftest_can_write_real_address_to_cpr }
 };
 
 void sac_selftest(TESTCONTEXT *testContext)
@@ -63,6 +69,16 @@ static void sac_selftest_reset(UNITTEST *test)
 {
     sac_reset_state();
     VStoreTestLocation = 0;
+}
+
+static void sac_selftest_assert_reg_equals(char *name, t_uint64 expectedValue)
+{
+    mu5_selftest_assert_reg_equals(localTestContext, &sac_dev, name, expectedValue);
+}
+
+static void sac_selftest_assert_reg_instance_equals(char *name, uint8 index, t_uint64 expectedValue)
+{
+    mu5_selftest_assert_reg_instance_equals(localTestContext, &sac_dev, name, index, expectedValue);
 }
 
 static void sac_selftest_assert_vstore_contents(TESTCONTEXT *testContext, uint8 block, uint8 line, t_uint64 expectedValue)
@@ -101,3 +117,9 @@ static void sac_selftest_read_write_vstore_location_can_be_read_back_after_write
     sac_selftest_assert_vstore_contents(testContext, TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, ~0);
 }
 
+static void sac_selftest_can_write_real_address_to_cpr(TESTCONTEXT *testContext)
+{
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, 0xFFFFFFFFFFFFFFFF);
+    sac_selftest_assert_reg_instance_equals(CPR_REG, 31, 0x000000007FFFFFFF);
+}

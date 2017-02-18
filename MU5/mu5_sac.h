@@ -26,6 +26,11 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #include "sim_defs.h"
 
+#define SAC_V_STORE_BLOCK 4
+#define SAC_V_STORE_CPR_NUMBER 1
+#define SAC_V_STORE_CPR_VA 2
+#define SAC_V_STORE_CPR_RA 3
+
 void sac_reset_state(void);
 t_uint64 sac_read_64_bit_word(t_addr address);
 void sac_write_64_bit_word(t_addr address, t_uint64 value);

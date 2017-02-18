@@ -45,6 +45,8 @@ static UNIT sac_unit =
     UDATA(NULL, UNIT_FIX | UNIT_BINK, MAXMEMORY)
 };
 
+static uint8 CPR_Number;
+
 static t_uint64 cpr[NUM_CPRS];
 
 static REG sac_reg[] =
@@ -71,6 +73,9 @@ static const char* sac_description(DEVICE *dptr) {
 }
 
 static t_stat sac_reset(DEVICE *dptr);
+
+static void sac_write_cpr_number_callback(t_uint64 value);
+static void sac_write_cpr_ra_callback(t_uint64 value);
 
 DEVICE sac_dev = {
     "SAC",            /* name */
@@ -114,6 +119,8 @@ void sac_reset_state(void)
 {
 	memset(LocalStore, 0, sizeof(uint32) * MAXMEMORY);
     memset(VStore, 0, sizeof(VStore));
+    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, NULL, sac_write_cpr_number_callback);
+    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, NULL, sac_write_cpr_ra_callback);
 }
 
 t_uint64 sac_read_64_bit_word(t_addr address)
@@ -204,4 +211,14 @@ t_uint64 sac_read_v_store(uint8 block, uint8 line)
     }
 
     return result;
+}
+
+static void sac_write_cpr_number_callback(t_uint64 value)
+{
+    CPR_Number = value & 0x1F;
+}
+
+static void sac_write_cpr_ra_callback(t_uint64 value)
+{
+    cpr[CPR_Number] = (cpr[CPR_Number] & 0xFFFFFFFF00000000) | (value & 0x000000007FFFFFFF);
 }
