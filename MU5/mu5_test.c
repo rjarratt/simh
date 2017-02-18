@@ -81,3 +81,15 @@ t_stat mu5_selftest_end(TESTCONTEXT *context)
 
     return context->overallResult;
 }
+
+void mu5_selftest_assert_fail(TESTCONTEXT *context)
+{
+    sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Test failed\n");
+    mu5_selftest_set_failure(context);
+}
+
+void mu5_selftest_set_failure(TESTCONTEXT *context)
+{
+    context->result = SCPE_AFAIL;
+}
+

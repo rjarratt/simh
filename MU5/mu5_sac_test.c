@@ -60,6 +60,6 @@ static void sac_selftest_reset(UNITTEST *test)
 
 static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTEXT *testContext)
 {
-    //mu5_assert_fail();
+    mu5_selftest_assert_fail(testContext);
 }
 

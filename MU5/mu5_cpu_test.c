@@ -2025,13 +2025,12 @@ static void cpu_selftest_assert_v_store_contents(uint8 block, uint8 line, t_uint
 
 static void cpu_selftest_assert_fail(void)
 {
-    sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Test failed\n");
-    cpu_selftest_set_failure();
+    mu5_selftest_assert_fail(localTestContext);
 }
 
 static void cpu_selftest_set_failure(void)
 {
-    localTestContext->result = SCPE_AFAIL;
+    mu5_selftest_set_failure(localTestContext);
 }
 
 void cpu_selftest(TESTCONTEXT *testContext)

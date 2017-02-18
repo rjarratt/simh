@@ -49,3 +49,5 @@ void mu5_selftest_start(TESTCONTEXT *context);
 void mu5_selftest_run_suite(TESTCONTEXT *context, UNITTEST *unitTests, uint32 numberOfUnitTests, void (*reset)(UNITTEST *unitTest));
 t_stat mu5_selftest_end(TESTCONTEXT *context);
 
+void mu5_selftest_assert_fail(TESTCONTEXT *context);
+void mu5_selftest_set_failure(TESTCONTEXT *context);
