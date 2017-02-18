@@ -31,6 +31,7 @@ in this Software without prior written authorization from Robert Jarratt.
 
 typedef struct TESTCONTEXT
 {
+    DEVICE *dev;
     char *testName;
     uint32 countSuccessful;
     uint32 countFailed;

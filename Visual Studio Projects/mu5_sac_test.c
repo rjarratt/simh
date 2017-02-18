@@ -30,7 +30,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #include "mu5_sac_test.h"
 
 static TESTCONTEXT *localTestContext;
-extern DEVICE cpu_dev;
+extern DEVICE sac_dev;
 
 void sac_selftest(TESTCONTEXT *testContext);
 static void sac_selftest_reset(UNITTEST *test);
@@ -49,12 +49,13 @@ void sac_selftest(TESTCONTEXT *testContext)
     n = sizeof(tests) / sizeof(UNITTEST);
 
     localTestContext = testContext;
+    localTestContext->dev = &sac_dev;
     mu5_selftest_run_suite(testContext, tests, n, sac_selftest_reset);
 }
 
 static void sac_selftest_reset(UNITTEST *test)
 {
-    sac_clear_all_memory();
+    sac_reset_state();
 }
 
 static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(void)

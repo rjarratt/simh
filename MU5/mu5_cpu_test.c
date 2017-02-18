@@ -1371,6 +1371,7 @@ static UNITTEST tests[] =
 static void cpu_selftest_reset(UNITTEST *test)
 {
     cpu_reset_state();
+    sac_reset_state();
     currentLoadLocation = 0;
 }
 
@@ -2040,6 +2041,7 @@ void cpu_selftest(TESTCONTEXT *testContext)
     n = sizeof(tests) / sizeof(UNITTEST);
 
     localTestContext = testContext;
+    localTestContext->dev = &cpu_dev;
     mu5_selftest_run_suite(testContext, tests, n, cpu_selftest_reset);
 }
 

@@ -91,7 +91,7 @@ static int cpu_stopped = 0;
 
 int32 sim_emax;
 
-UNIT cpu_unit =
+static UNIT cpu_unit =
 {
     UDATA(NULL, UNIT_FIX | UNIT_BINK, MAXMEMORY)
 };
@@ -1095,7 +1095,6 @@ static int cpu_is_executive_mode(void)
 void cpu_reset_state(void)
 {
     cpu_clear_all_interrupts();
-    sac_clear_all_memory();
     cpu_set_register_32(reg_b, 0x0);
     cpu_set_register_32(reg_bod, 0x0);
     cpu_set_register_64(reg_a, 0x0);

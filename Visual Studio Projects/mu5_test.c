@@ -55,13 +55,13 @@ void mu5_selftest_run_suite(TESTCONTEXT *context, UNITTEST *unitTests, uint32 nu
         test->runner();
         if (context->result == SCPE_OK)
         {
-            sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "%s [OK]\n", test->name);
+            sim_debug(LOG_CPU_SELFTEST, context->dev, "%s [OK]\n", test->name);
             context->countSuccessful++;
         }
         else
         {
             context->overallResult = SCPE_AFAIL;
-            sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "%s [FAIL]\n", test->name);
+            sim_debug(LOG_CPU_SELFTEST, context->dev, "%s [FAIL]\n", test->name);
             context->countFailed++;
         }
     }
@@ -81,9 +81,3 @@ t_stat mu5_selftest_end(TESTCONTEXT *context)
 
     return context->overallResult;
 }
-
-//add cumulative results to context
-//Add method to start a test
-//Add method to run a suite from a module
-//add a method to end the full run
-//move general asserts here

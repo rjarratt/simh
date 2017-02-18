@@ -30,8 +30,9 @@ in this Software without prior written authorization from Robert Jarratt.
 char sim_name[] = "MU5";
 
 extern DEVICE cpu_dev;
+extern DEVICE sac_dev;
 
-DEVICE *sim_devices[] = { &cpu_dev, NULL };
+DEVICE *sim_devices[] = { &cpu_dev, &sac_dev, NULL };
 
 const char *sim_stop_messages[] =
 {

@@ -27,6 +27,10 @@ in this Software without prior written authorization from Robert Jarratt.
 #include "mu5_defs.h"
 #include "mu5_sac.h"
 
+#define NUM_CPRS 32
+#define V_STORE_BLOCKS 8
+#define V_STORE_BLOCK_SIZE 256
+
 typedef struct VSTORE_LINE
 {
     void(*ReadCallback)(void);
@@ -34,11 +38,82 @@ typedef struct VSTORE_LINE
 } VSTORE_LINE;
 
 static uint32 LocalStore[MAXMEMORY];
-static t_uint64 VStore[8][256];
+static t_uint64 VStore[V_STORE_BLOCKS][V_STORE_BLOCK_SIZE];
 
-void sac_clear_all_memory(void)
+static UNIT sac_unit =
+{
+    UDATA(NULL, UNIT_FIX | UNIT_BINK, MAXMEMORY)
+};
+
+static t_uint64 cpr[NUM_CPRS];
+
+static REG sac_reg[] =
+{
+    { BRDATAD(CPR, cpr, 16, 64, NUM_CPRS, "CPR register") },
+    { NULL }
+};
+
+static MTAB sac_mod[] =
+{
+    { 0 }
+};
+
+static DEBTAB sac_debtab[] =
+{
+    { "EVENT",        SIM_DBG_EVENT,     "event dispatch activities" },
+    { "SELFTEST",     LOG_CPU_SELFTEST,  "self test output" },
+    { "SELFTESTFAIL", LOG_CPU_SELFTEST_FAIL,  "self test failure output" },
+    { NULL,           0 }
+};
+
+static const char* sac_description(DEVICE *dptr) {
+    return "Store Access Control Unit";
+}
+
+static t_stat sac_reset(DEVICE *dptr);
+
+DEVICE sac_dev = {
+    "SAC",            /* name */
+    &sac_unit,        /* units */
+    sac_reg,          /* registers */
+    sac_mod,          /* modifiers */
+    1,                /* numunits */
+    16,               /* aradix */
+    32,               /* awidth */
+    1,                /* aincr */
+    16,               /* dradix */
+    32,               /* dwidth */
+    NULL,             /* examine */
+    NULL,             /* deposit */
+    &sac_reset,       /* reset */
+    NULL,             /* boot */
+    NULL,             /* attach */
+    NULL,             /* detach */
+    NULL,             /* ctxt */
+    DEV_DEBUG,        /* flags */
+    0,                /* dctrl */
+    sac_debtab,       /* debflags */
+    NULL,             /* msize */
+    NULL,             /* lname */
+    NULL,             /* help */
+    NULL,             /* attach_help */
+    NULL,             /* help_ctx */
+    &sac_description, /* description */
+    NULL              /* brk_types */
+};
+
+/* reset routine */
+static t_stat sac_reset(DEVICE *dptr)
+{
+    t_stat result = SCPE_OK;
+    sac_reset_state();
+    return result;
+}
+
+void sac_reset_state(void)
 {
 	memset(LocalStore, 0, sizeof(uint32) * MAXMEMORY);
+    memset(VStore, 0, sizeof(VStore));
 }
 
 t_uint64 sac_read_64_bit_word(t_addr address)
