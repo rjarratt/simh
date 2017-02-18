@@ -29,7 +29,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #include "mu5_test.h"
 #include "mu5_sac_test.h"
 
-#define CPR_REG "CPR"
+#define REG_CPR "CPR"
 
 static TESTCONTEXT *localTestContext;
 extern DEVICE sac_dev;
@@ -37,21 +37,25 @@ extern DEVICE sac_dev;
 void sac_selftest(TESTCONTEXT *testContext);
 static void sac_selftest_reset(UNITTEST *test);
 
+static void sac_selftest_set_register_instance(char *name, uint8 index, t_uint64 value);
+
 static void sac_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 static void sac_selftest_assert_reg_instance_equals(char *name, uint8 index, t_uint64 expectedValue);
-static void sac_selftest_assert_vstore_contents(TESTCONTEXT *testContext, uint8 block, uint8 line, t_uint64 expectedValue);
+static void sac_selftest_assert_vstore_contents(uint8 block, uint8 line, t_uint64 expectedValue);
 
 static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTEXT *testContext);
 static void sac_selftest_writing_read_only_vstore_line_does_nothing(TESTCONTEXT *testContext);
 static void sac_selftest_read_write_vstore_location_can_be_read_back_after_write(TESTCONTEXT *testContext);
 static void sac_selftest_can_write_real_address_to_cpr(TESTCONTEXT *testContext);
+static void sac_selftest_can_read_real_address_from_cpr(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
     { "Reading a write-only V-Store line returns zeroes", sac_selftest_reading_write_only_vstore_line_returns_zeroes },
     { "Writing a read-only V-Store line does nothing", sac_selftest_writing_read_only_vstore_line_does_nothing },
     { "A read/write V-Store line can be read back after writing", sac_selftest_read_write_vstore_location_can_be_read_back_after_write },
-    { "Can write a real address to a CPR", sac_selftest_can_write_real_address_to_cpr }
+    { "Can write a real address to a CPR", sac_selftest_can_write_real_address_to_cpr },
+    { "Can read a real address from a CPR", sac_selftest_can_read_real_address_from_cpr }
 };
 
 void sac_selftest(TESTCONTEXT *testContext)
@@ -71,6 +75,11 @@ static void sac_selftest_reset(UNITTEST *test)
     VStoreTestLocation = 0;
 }
 
+static void sac_selftest_set_register_instance(char *name, uint8 index, t_uint64 value)
+{
+    mu5_selftest_set_register_instance(localTestContext, &sac_dev, name, index, value);
+}
+
 static void sac_selftest_assert_reg_equals(char *name, t_uint64 expectedValue)
 {
     mu5_selftest_assert_reg_equals(localTestContext, &sac_dev, name, expectedValue);
@@ -81,13 +90,13 @@ static void sac_selftest_assert_reg_instance_equals(char *name, uint8 index, t_u
     mu5_selftest_assert_reg_instance_equals(localTestContext, &sac_dev, name, index, expectedValue);
 }
 
-static void sac_selftest_assert_vstore_contents(TESTCONTEXT *testContext, uint8 block, uint8 line, t_uint64 expectedValue)
+static void sac_selftest_assert_vstore_contents(uint8 block, uint8 line, t_uint64 expectedValue)
 {
     t_uint64 actualValue = sac_read_v_store(block, line);
     if (actualValue != expectedValue)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, testContext->dev, "Expected value in V-Store block %hu line %hu to be %llX, but was %llX\n", block, line, expectedValue, actualValue);
-        mu5_selftest_set_failure(testContext);
+        sim_debug(LOG_CPU_SELFTEST_FAIL, localTestContext->dev, "Expected value in V-Store block %hu line %hu to be %llX, but was %llX\n", block, line, expectedValue, actualValue);
+        mu5_selftest_set_failure(localTestContext);
     }
 }
 
@@ -95,14 +104,14 @@ static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTE
 {
     sac_setup_v_store_location(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, NULL, mu5_selftest_write_callback_for_static_64_bit_location);
     VStoreTestLocation = ~0;
-    sac_selftest_assert_vstore_contents(testContext, TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0);
+    sac_selftest_assert_vstore_contents(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0);
 }
 
 static void sac_selftest_writing_read_only_vstore_line_does_nothing(TESTCONTEXT *testContext)
 {
     sac_setup_v_store_location(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, mu5_selftest_read_callback_for_static_64_bit_location, NULL);
     sac_write_v_store(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, ~0);
-    sac_selftest_assert_vstore_contents(testContext, TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0);
+    sac_selftest_assert_vstore_contents(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0);
     if (VStoreTestLocation != 0)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, testContext->dev, "Expected value in V-Store test backing location to be %llX, but was %llX\n", 0, VStoreTestLocation);
@@ -114,12 +123,19 @@ static void sac_selftest_read_write_vstore_location_can_be_read_back_after_write
 {
     sac_setup_v_store_location(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, mu5_selftest_read_callback_for_static_64_bit_location, mu5_selftest_write_callback_for_static_64_bit_location);
     sac_write_v_store(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, ~0);
-    sac_selftest_assert_vstore_contents(testContext, TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, ~0);
+    sac_selftest_assert_vstore_contents(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, ~0);
 }
 
 static void sac_selftest_can_write_real_address_to_cpr(TESTCONTEXT *testContext)
 {
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, 0xFFFFFFFFFFFFFFFF);
-    sac_selftest_assert_reg_instance_equals(CPR_REG, 31, 0x000000007FFFFFFF);
+    sac_selftest_assert_reg_instance_equals(REG_CPR, 31, 0x000000007FFFFFFF);
+}
+
+static void sac_selftest_can_read_real_address_from_cpr(TESTCONTEXT *testContext)
+{
+    sac_selftest_set_register_instance(REG_CPR, 31, 0xFFFFFFFFFFFFFFFF);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, 0x000000007FFFFFFF);
 }

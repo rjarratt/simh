@@ -1597,31 +1597,7 @@ static t_uint64 cpu_selftest_get_register(char *name)
 
 static void cpu_selftest_set_register(char *name, t_uint64 value)
 {
-    REG *reg = cpu_selftest_find_register(name);
-    switch (reg->width)
-    {
-        case 16:
-        {
-            *(uint16 *)(reg->loc) = value & 0xFFFF;
-            break;
-        }
-        case 32:
-        {
-            *(uint32 *)(reg->loc) = value & 0xFFFFFFFF;
-            break;
-        }
-        case 64:
-        {
-            *(t_uint64 *)(reg->loc) = value & 0xFFFFFFFFFFFFFFFF;
-            break;
-        }
-        default:
-        {
-            sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected register width %d for register %s\n", reg->width, name);
-            cpu_selftest_set_failure();
-            break;
-        }
-    }
+    mu5_selftest_set_register(localTestContext, &cpu_dev, name, value);
 }
 
 static void cpu_selftest_setup_vstore_test_location(void)

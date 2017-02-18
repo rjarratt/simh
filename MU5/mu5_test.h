@@ -57,6 +57,9 @@ t_stat mu5_selftest_end(TESTCONTEXT *context);
 REG *mu5_selftest_find_register(TESTCONTEXT *context, DEVICE *device, char *name);
 t_uint64 mu5_selftest_get_register(TESTCONTEXT *context, DEVICE *device, char *name);
 t_uint64 mu5_selftest_get_register_instance(TESTCONTEXT *context, DEVICE *device, char *name, uint8 index);
+void mu5_selftest_set_register(TESTCONTEXT *context, DEVICE *device, char *name, t_uint64 value);
+void mu5_selftest_set_register_instance(TESTCONTEXT *context, DEVICE *device, char *name, uint8 index, t_uint64 value);
+
 
 void mu5_selftest_assert_fail(TESTCONTEXT *context);
 void mu5_selftest_set_failure(TESTCONTEXT *context);

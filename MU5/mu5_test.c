@@ -201,3 +201,49 @@ t_uint64 mu5_selftest_get_register_instance(TESTCONTEXT *context, DEVICE *device
     return result & mask;
 
 }
+
+void mu5_selftest_set_register(TESTCONTEXT *context, DEVICE *device, char *name, t_uint64 value)
+{
+    mu5_selftest_set_register_instance(context, device, name, 0, value);
+}
+
+void mu5_selftest_set_register_instance(TESTCONTEXT *context, DEVICE *device, char *name, uint8 index, t_uint64 value)
+{
+    REG *reg = mu5_selftest_find_register(context, device, name);
+    void *loc;
+
+    assert(index >= 0 && index < reg->depth);
+    if (reg->depth == 1)
+    {
+        loc = reg->loc;
+    }
+    else
+    {
+        loc = (uint8 *)reg->loc + index * (reg->width / 8);
+    }
+
+    switch (reg->width)
+    {
+        case 16:
+        {
+            *(uint16 *)(loc) = value & 0xFFFF;
+            break;
+        }
+        case 32:
+        {
+            *(uint32 *)(loc) = value & 0xFFFFFFFF;
+            break;
+        }
+        case 64:
+        {
+            *(t_uint64 *)(loc) = value & 0xFFFFFFFFFFFFFFFF;
+            break;
+        }
+        default:
+        {
+            sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Unexpected register width %d for register %s\n", reg->width, name);
+            mu5_selftest_set_failure(context);
+            break;
+        }
+    }
+}
