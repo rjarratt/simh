@@ -310,6 +310,7 @@ static void cpu_selftest_run_code_from_location(uint32 location);
 static REG *cpu_selftest_find_register(char *name);
 static t_uint64 cpu_selftest_get_register(char *name);
 static void cpu_selftest_set_register(char *name, t_uint64 value);
+static void cpu_selftest_setup_vstore_test_location(void);
 
 static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 static void cpu_selftest_assert_reg_equals_mask(char *name, t_uint64 expectedValue, t_uint64 mask);
@@ -1668,6 +1669,11 @@ static void cpu_selftest_set_register(char *name, t_uint64 value)
             break;
         }
     }
+}
+
+static void cpu_selftest_setup_vstore_test_location(void)
+{
+    sac_setup_v_store_location(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, mu5_selftest_read_callback_for_static_64_bit_location, mu5_selftest_write_callback_for_static_64_bit_location);
 }
 
 static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue)
@@ -3077,13 +3083,12 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_1_bit_va
 
 static void cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode(TESTCONTEXT *testContext)
 {
-    uint8 block = 4;
-    uint8 line = 128;
-    uint32 base = block*256 + line;
+    uint32 base = TEST_V_STORE_LOCATION_BLOCK *256 + TEST_V_STORE_LOCATION_LINE;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_PRIVILEGED, NP_NB);
     cpu_selftest_load_16_bit_literal(0);
+    cpu_selftest_setup_vstore_test_location();
     cpu_selftest_set_register(REG_NB, base);
-    sac_write_v_store(block, line, 0xAAAABBBBCCCCDDDD);
+    sac_write_v_store(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_set_executive_mode();
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBBCCCCDDDD);
@@ -3092,13 +3097,12 @@ static void cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode
 
 static void cpu_selftest_load_operand_privileged_generates_interrupt_in_user_mode(TESTCONTEXT *testContext)
 {
-    uint8 block = 4;
-    uint8 line = 128;
-    uint32 base = block * 256 + line;
+    uint32 base = TEST_V_STORE_LOCATION_BLOCK * 256 + TEST_V_STORE_LOCATION_LINE;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_PRIVILEGED, NP_NB);
     cpu_selftest_load_16_bit_literal(0);
+    cpu_selftest_setup_vstore_test_location();
     cpu_selftest_set_register(REG_NB, base);
-    sac_write_v_store(block, line, 0xAAAABBBBCCCCDDDD);
+    sac_write_v_store(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_set_user_mode();
     cpu_selftest_run_code();
     cpu_selftest_assert_interrupt();
@@ -4045,34 +4049,32 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_v
 
 static void cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mode(TESTCONTEXT *testContext)
 {
-    uint8 block = 4;
-    uint8 line = 128;
-    uint32 base = block * 256 + line;
+    uint32 base = TEST_V_STORE_LOCATION_BLOCK * 256 + TEST_V_STORE_LOCATION_LINE;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_PRIVILEGED, NP_NB);
     cpu_selftest_load_16_bit_literal(0);
+    cpu_selftest_setup_vstore_test_location();
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_set_register(REG_NB, base);
     cpu_selftest_set_executive_mode();
     cpu_selftest_run_code();
     cpu_selftest_assert_no_interrupt();
-    cpu_selftest_assert_v_store_contents(block, line, 0xAAAABBBBCCCCDDDD);
+    cpu_selftest_assert_v_store_contents(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0xAAAABBBBCCCCDDDD);
 }
 
 static void cpu_selftest_store_operand_privileged_generates_interrupt_in_user_mode(TESTCONTEXT *testContext)
 {
-    uint8 block = 4;
-    uint8 line = 128;
-    uint32 base = block * 256 + line;
+    uint32 base = TEST_V_STORE_LOCATION_BLOCK * 256 + TEST_V_STORE_LOCATION_LINE;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_PRIVILEGED, NP_NB);
     cpu_selftest_load_16_bit_literal(0);
+    cpu_selftest_setup_vstore_test_location();
     cpu_selftest_set_register(REG_A, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_set_register(REG_NB, base);
-    sac_write_v_store(block, line, 0x000000000000);
+    sac_write_v_store(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0x000000000000);
     cpu_selftest_set_user_mode();
     cpu_selftest_run_code();
     cpu_selftest_assert_interrupt();
-    cpu_selftest_assert_v_store_contents(block, line, 0x000000000000);
+    cpu_selftest_assert_v_store_contents(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0x000000000000);
 }
 
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(TESTCONTEXT *testContext)

@@ -35,11 +35,17 @@ extern DEVICE sac_dev;
 void sac_selftest(TESTCONTEXT *testContext);
 static void sac_selftest_reset(UNITTEST *test);
 
+static void sac_selftest_assert_vstore_contents(TESTCONTEXT *testContext, uint8 block, uint8 line, t_uint64 expectedValue);
+
 static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTEXT *testContext);
+static void sac_selftest_writing_read_only_vstore_line_does_nothing(TESTCONTEXT *testContext);
+static void sac_selftest_read_write_vstore_location_can_be_read_back_after_write(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
     { "Reading a write-only V-Store line returns zeroes", sac_selftest_reading_write_only_vstore_line_returns_zeroes },
+    { "Writing a read-only V-Store line does nothing", sac_selftest_writing_read_only_vstore_line_does_nothing },
+    { "A read/write V-Store line can be read back after writing", sac_selftest_read_write_vstore_location_can_be_read_back_after_write }
 };
 
 void sac_selftest(TESTCONTEXT *testContext)
@@ -56,10 +62,42 @@ void sac_selftest(TESTCONTEXT *testContext)
 static void sac_selftest_reset(UNITTEST *test)
 {
     sac_reset_state();
+    VStoreTestLocation = 0;
+}
+
+static void sac_selftest_assert_vstore_contents(TESTCONTEXT *testContext, uint8 block, uint8 line, t_uint64 expectedValue)
+{
+    t_uint64 actualValue = sac_read_v_store(block, line);
+    if (actualValue != expectedValue)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, testContext->dev, "Expected value in V-Store block %hu line %hu to be %llX, but was %llX\n", block, line, expectedValue, actualValue);
+        mu5_selftest_set_failure(testContext);
+    }
 }
 
 static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTEXT *testContext)
 {
-    mu5_selftest_assert_fail(testContext);
+    sac_setup_v_store_location(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, NULL, mu5_selftest_write_callback_for_static_64_bit_location);
+    VStoreTestLocation = ~0;
+    sac_selftest_assert_vstore_contents(testContext, TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0);
+}
+
+static void sac_selftest_writing_read_only_vstore_line_does_nothing(TESTCONTEXT *testContext)
+{
+    sac_setup_v_store_location(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, mu5_selftest_read_callback_for_static_64_bit_location, NULL);
+    sac_write_v_store(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, ~0);
+    sac_selftest_assert_vstore_contents(testContext, TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0);
+    if (VStoreTestLocation != 0)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, testContext->dev, "Expected value in V-Store test backing location to be %llX, but was %llX\n", 0, VStoreTestLocation);
+        mu5_selftest_set_failure(testContext);
+    }
+}
+
+static void sac_selftest_read_write_vstore_location_can_be_read_back_after_write(TESTCONTEXT *testContext)
+{
+    sac_setup_v_store_location(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, mu5_selftest_read_callback_for_static_64_bit_location, mu5_selftest_write_callback_for_static_64_bit_location);
+    sac_write_v_store(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, ~0);
+    sac_selftest_assert_vstore_contents(testContext, TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, ~0);
 }
 

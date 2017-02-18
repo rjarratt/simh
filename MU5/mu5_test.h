@@ -29,6 +29,9 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #include "mu5_defs.h"
 
+#define TEST_V_STORE_LOCATION_BLOCK 7
+#define TEST_V_STORE_LOCATION_LINE 255
+
 typedef struct TESTCONTEXT
 {
     DEVICE *dev;
@@ -45,9 +48,14 @@ typedef struct UNITTEST
     void(*runner)(TESTCONTEXT *context);
 } UNITTEST;
 
+extern t_uint64 VStoreTestLocation;
+
 void mu5_selftest_start(TESTCONTEXT *context);
 void mu5_selftest_run_suite(TESTCONTEXT *context, UNITTEST *unitTests, uint32 numberOfUnitTests, void (*reset)(UNITTEST *unitTest));
 t_stat mu5_selftest_end(TESTCONTEXT *context);
 
 void mu5_selftest_assert_fail(TESTCONTEXT *context);
 void mu5_selftest_set_failure(TESTCONTEXT *context);
+
+t_uint64 mu5_selftest_read_callback_for_static_64_bit_location(void);
+void mu5_selftest_write_callback_for_static_64_bit_location(t_uint64 value);

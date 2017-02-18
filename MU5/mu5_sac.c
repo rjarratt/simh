@@ -33,12 +33,12 @@ in this Software without prior written authorization from Robert Jarratt.
 
 typedef struct VSTORE_LINE
 {
-    void(*ReadCallback)(void);
-    void(*WriteCallback)(void);
+    t_uint64(*ReadCallback)(void);
+    void(*WriteCallback)(t_uint64);
 } VSTORE_LINE;
 
 static uint32 LocalStore[MAXMEMORY];
-static t_uint64 VStore[V_STORE_BLOCKS][V_STORE_BLOCK_SIZE];
+static VSTORE_LINE VStore[V_STORE_BLOCKS][V_STORE_BLOCK_SIZE];
 
 static UNIT sac_unit =
 {
@@ -178,17 +178,30 @@ void sac_write_8_bit_word(t_addr address, uint8 value)
     sac_write_32_bit_word(address >> 2, fullWord);
 }
 
-void sac_setup_v_store_location(uint8 block, uint8 line, void(*readCallback)(void), void(*writeCallback)(void))
+void sac_setup_v_store_location(uint8 block, uint8 line, t_uint64(*readCallback)(void), void(*writeCallback)(t_uint64))
 {
-
+    VSTORE_LINE *l = &VStore[block][line];
+    l->ReadCallback = readCallback;
+    l->WriteCallback = writeCallback;
 }
 
 void sac_write_v_store(uint8 block, uint8 line, t_uint64 value)
 {
-    VStore[block][line] = value;
+    VSTORE_LINE *l = &VStore[block][line];
+    if (l->WriteCallback != NULL)
+    {
+        l->WriteCallback(value);
+    }
 }
 
 t_uint64 sac_read_v_store(uint8 block, uint8 line)
 {
-    return VStore[block][line];
+    t_uint64 result = 0;
+    VSTORE_LINE *l = &VStore[block][line];
+    if (l->ReadCallback != NULL)
+    {
+        result = l->ReadCallback();
+    }
+
+    return result;
 }

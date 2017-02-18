@@ -29,6 +29,8 @@ in this Software without prior written authorization from Robert Jarratt.
 
 extern DEVICE cpu_dev;
 
+t_uint64 VStoreTestLocation;
+
 static void mu5_reset_test(TESTCONTEXT *context, UNITTEST *unitTest, void(*reset)(UNITTEST *unitTest));
 
 static void mu5_reset_test(TESTCONTEXT *context, UNITTEST *unitTest, void(*reset)(UNITTEST *unitTest))
@@ -91,5 +93,15 @@ void mu5_selftest_assert_fail(TESTCONTEXT *context)
 void mu5_selftest_set_failure(TESTCONTEXT *context)
 {
     context->result = SCPE_AFAIL;
+}
+
+t_uint64 mu5_selftest_read_callback_for_static_64_bit_location(void)
+{
+    return VStoreTestLocation;
+}
+
+void mu5_selftest_write_callback_for_static_64_bit_location(t_uint64 value)
+{
+    VStoreTestLocation = value;
 }
 
