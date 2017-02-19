@@ -55,6 +55,7 @@ static UNIT sac_unit =
 static uint8 CPRNumber;
 static uint32 CPRFind;
 static uint32 CPRFindMask;
+static uint32 CPRIgnore;
 
 static t_uint64 cpr[NUM_CPRS];
 
@@ -102,6 +103,7 @@ static t_uint64 sac_read_cpr_ra_callback(void);
 static void sac_write_cpr_ra_callback(t_uint64 value);
 static t_uint64 sac_read_cpr_va_callback(void);
 static void sac_write_cpr_va_callback(t_uint64 value);
+static void sac_write_cpr_ignore_callback(t_uint64 value);
 static t_uint64 sac_read_cpr_find_callback(void);
 static void sac_write_cpr_find_mask_callback(t_uint64 value);
 
@@ -154,8 +156,13 @@ void sac_reset_state(void)
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, NULL, sac_write_cpr_number_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, sac_read_cpr_ra_callback, sac_write_cpr_ra_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, sac_read_cpr_va_callback, sac_write_cpr_va_callback);
+    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, NULL, sac_write_cpr_ignore_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, sac_read_cpr_find_callback, NULL);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, NULL, sac_write_cpr_find_mask_callback);
+    CPRNumber = 0;
+    CPRFind = 0;
+    CPRFindMask = 0;
+    CPRIgnore = 0;
 }
 
 t_uint64 sac_read_64_bit_word(t_addr address)
@@ -288,6 +295,11 @@ static void sac_write_cpr_va_callback(t_uint64 value)
     cpr[CPRNumber] = ((value &VA_MASK) << 32) | (cpr[CPRNumber] & RA_MASK);
 }
 
+static void sac_write_cpr_ignore_callback(t_uint64 value)
+{
+    CPRIgnore = value & 0xFFFFFFFF;
+}
+
 static t_uint64 sac_read_cpr_find_callback(void)
 {
     return CPRFind;
@@ -306,9 +318,12 @@ static uint32 sac_search_cprs(uint32 mask, uint32 va)
     uint32 iresult = 1;
     for (i = 0; i < NUM_CPRS; i++)
     {
-        if ((va & ~mask) == ((cpr[i] >> 32) & ~mask))
+        if (!(CPRIgnore & iresult))
         {
-            result = result | iresult;
+            if ((va & ~mask) == ((cpr[i] >> 32) & ~mask))
+            {
+                result = result | iresult;
+            }
         }
 
         iresult = iresult << 1;

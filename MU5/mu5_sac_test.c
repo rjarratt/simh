@@ -256,4 +256,23 @@ static void sac_selftest_search_cpr_finds_matches_masking_selected_S_bits(TESTCO
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, 0x5);
 }
 
-static void sac_selftest_search_cpr_ignores_empty_cprs(TESTCONTEXT *testContext) {}
+static void sac_selftest_search_cpr_ignores_empty_cprs(TESTCONTEXT *testContext)
+{
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 0);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(1, 1, 1));
+
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 1);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(1, 1, 1));
+
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 30);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(1, 1, 1));
+
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(1, 1, 1));
+
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, 0);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0x80000001);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(1, 1, 1));
+
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, 0x40000002);
+}
