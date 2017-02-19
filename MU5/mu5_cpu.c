@@ -1107,7 +1107,7 @@ void cpu_reset_state(void)
     cpu_set_register_64(reg_aod, 0x0);
     cpu_set_register_64(reg_aex, 0x0);
     cpu_set_register_32(reg_x, 0x0);
-    cpu_set_register_16(reg_ms, 0); // mask_ms_bcpr | ~mask_ms_exec); /* initialise in executive mode using real addresses */
+    cpu_set_register_16(reg_ms,mask_ms_bcpr | ~mask_ms_exec); /* initialise in executive mode using real addresses */
     cpu_set_register_16(reg_nb, 0x0);
     cpu_set_register_32(reg_xnb, 0x0);
     cpu_set_register_16(reg_sn, 0x0);

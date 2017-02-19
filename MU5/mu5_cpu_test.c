@@ -3041,8 +3041,9 @@ static void cpu_selftest_store_operand_6_bit_literal_generates_interrupt(TESTCON
 static void cpu_selftest_store_operand_internal_register_0_generates_interrupt(TESTCONTEXT *testContext)
 {
     cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 0);
+    uint16 initMs = (uint16)cpu_selftest_get_register(REG_MS);
     cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_MS, 0);
+    cpu_selftest_assert_reg_equals(REG_MS, initMs);
     cpu_selftest_assert_reg_equals(REG_NB, 0);
     cpu_selftest_assert_reg_equals(REG_CO, 1);
     cpu_selftest_assert_interrupt();
@@ -3077,8 +3078,9 @@ static void cpu_selftest_store_operand_internal_register_3_generates_interrupt(T
 static void cpu_selftest_store_operand_internal_register_4_generates_interrupt(TESTCONTEXT *testContext)
 {
     cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 4);
+    uint16 initMs = (uint16)cpu_selftest_get_register(REG_MS);
     cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_MS, 0);
+    cpu_selftest_assert_reg_equals(REG_MS, initMs);
     cpu_selftest_assert_interrupt();
 }
 
@@ -6434,13 +6436,14 @@ static void cpu_selftest_org_stacklink_treats_operand_as_signed(TESTCONTEXT *tes
     will normally be a small positive number, as you surmise, the value depending on the number of parameters being passed, as shown
     in the example on page 62.
     */
+    t_uint64 initMs = cpu_selftest_get_register(REG_MS);
     uint32 base = 32;
     cpu_selftest_set_load_location(10);
     cpu_selftest_load_organisational_order_extended(F_STACKLINK, KP_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0xFFFFFFFE);
     cpu_selftest_set_register(REG_SF, base);
     cpu_selftest_run_code_from_location(10);
-    cpu_selftest_assert_memory_contents_64_bit(base + 2, 0x0000000000000008);
+    cpu_selftest_assert_memory_contents_64_bit(base + 2, (initMs << 48) | 0x0000000000000008);
     cpu_selftest_assert_no_interrupt();
 }
 
