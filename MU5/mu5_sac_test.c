@@ -56,6 +56,7 @@ static void sac_selftest_search_cpr_finds_matches_using_P_and_X(TESTCONTEXT *tes
 static void sac_selftest_search_cpr_finds_matches_ignoring_P(TESTCONTEXT *testContext);
 static void sac_selftest_search_cpr_finds_matches_ignoring_X(TESTCONTEXT *testContext);
 static void sac_selftest_search_cpr_finds_matches_ignoring_P_and_X(TESTCONTEXT *testContext);
+static void sac_selftest_search_cpr_finds_matches_masking_selected_S_bits(TESTCONTEXT *testContext);
 static void sac_selftest_search_cpr_ignores_empty_cprs(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
@@ -71,6 +72,7 @@ static UNITTEST tests[] =
     { "CPR SEARCH finds all matches ignoring P", sac_selftest_search_cpr_finds_matches_ignoring_P },
     { "CPR SEARCH finds all matches ignoring X", sac_selftest_search_cpr_finds_matches_ignoring_X },
     { "CPR SEARCH finds all matches ignoring P and X", sac_selftest_search_cpr_finds_matches_ignoring_P_and_X },
+    { "CPR SEARCH finds all matches ignoring selected S bits from CPR FIND MASK ", sac_selftest_search_cpr_finds_matches_masking_selected_S_bits },
     { "CPR SEARCH finds all matches while ignoring any empty CPRs", sac_selftest_search_cpr_ignores_empty_cprs }
 };
 
@@ -235,6 +237,23 @@ static void sac_selftest_search_cpr_finds_matches_ignoring_P_and_X(TESTCONTEXT *
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(0xFF, 1, 0xFFF));
 
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, 0x7);
+}
+
+static void sac_selftest_search_cpr_finds_matches_masking_selected_S_bits(TESTCONTEXT *testContext)
+{
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 0);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(1, 0x3FF9, 2));
+
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 1);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(1, 0x3FF6, 2));
+
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 2);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(0, 0x3FFD, 2));
+
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, 0x4006001);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(0xFF, 0x3FFF, 0xFFF));
+
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, 0x5);
 }
 
 static void sac_selftest_search_cpr_ignores_empty_cprs(TESTCONTEXT *testContext) {}

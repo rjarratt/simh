@@ -35,6 +35,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define VA_X_MASK (0xFFF)
 #define RA_MASK 0x7FFFFFFF
 #define CPR_FIND_MASK_P_MASK 0x4000000
+#define CPR_FIND_MASK_S_MASK 0x3FFF000
 #define CPR_FIND_MASK_X_MASK 0x0000001
 
 typedef struct VSTORE_LINE
@@ -249,10 +250,10 @@ t_uint64 sac_read_v_store(uint8 block, uint8 line)
 
 static void sac_write_cpr_search_callback(t_uint64 value)
 {
-    uint32 mask = 0;
+    uint32 mask = CPRFindMask & CPR_FIND_MASK_S_MASK;
     if (CPRFindMask & CPR_FIND_MASK_P_MASK)
     {
-        mask = VA_P_MASK;
+        mask = mask | VA_P_MASK;
     }
     if (CPRFindMask & CPR_FIND_MASK_X_MASK)
     {
