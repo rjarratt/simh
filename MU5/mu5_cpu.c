@@ -157,6 +157,7 @@ BITFIELD ms_bits[] = {
 };
 
 static uint16 mask_ms_exec = 0xFFFB;
+static uint16 mask_ms_bcpr = 0x0080;
 static uint16 mask_ms_bn = 0xFEFF;
 static uint16 mask_ms_t2 = 0xFDFF;
 static uint16 mask_ms_t1 = 0xFBFF;
@@ -257,12 +258,13 @@ static MTAB cpu_mod[] =
 /* Debug Flags */
 static DEBTAB cpu_debtab[] =
 {
-    { "PERF",         LOG_CPU_PERF,      "CPU performance" },
-    { "EVENT",        SIM_DBG_EVENT,     "event dispatch activities" },
-    { "DECODE",       LOG_CPU_DECODE,    "decode instructions" },
-    { "SELFTEST",     LOG_CPU_SELFTEST,  "self test output" },
-    { "SELFTESTFAIL", LOG_CPU_SELFTEST_FAIL,  "self test failure output" },
-    { NULL,           0 }
+    { "PERF",           LOG_CPU_PERF,             "CPU performance" },
+    { "EVENT",          SIM_DBG_EVENT,            "event dispatch activities" },
+    { "DECODE",         LOG_CPU_DECODE,           "decode instructions" },
+    { "SELFTEST",       LOG_CPU_SELFTEST,         "self test summary output" },
+    { "SELFTESTDETAIL", LOG_CPU_SELFTEST_DETAIL,  "self test detailed output" },
+    { "SELFTESTFAIL",   LOG_CPU_SELFTEST_FAIL,    "self test failure output" },
+    { NULL,             0 }
 };
 
 static const char* cpu_description(DEVICE *dptr) {
@@ -1105,7 +1107,7 @@ void cpu_reset_state(void)
     cpu_set_register_64(reg_aod, 0x0);
     cpu_set_register_64(reg_aex, 0x0);
     cpu_set_register_32(reg_x, 0x0);
-    cpu_set_register_16(reg_ms, 0x0);
+    cpu_set_register_16(reg_ms, 0); // mask_ms_bcpr | ~mask_ms_exec); /* initialise in executive mode using real addresses */
     cpu_set_register_16(reg_nb, 0x0);
     cpu_set_register_32(reg_xnb, 0x0);
     cpu_set_register_16(reg_sn, 0x0);

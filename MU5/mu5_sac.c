@@ -85,9 +85,9 @@ static MTAB sac_mod[] =
 
 static DEBTAB sac_debtab[] =
 {
-    { "EVENT",        SIM_DBG_EVENT,     "event dispatch activities" },
-    { "SELFTEST",     LOG_CPU_SELFTEST,  "self test output" },
-    { "SELFTESTFAIL", LOG_CPU_SELFTEST_FAIL,  "self test failure output" },
+    { "EVENT",          SIM_DBG_EVENT,     "event dispatch activities" },
+    { "SELFTESTDETAIL", LOG_CPU_SELFTEST_DETAIL,  "self test detailed output" },
+    { "SELFTESTFAIL",   LOG_CPU_SELFTEST_FAIL,  "self test failure output" },
     { NULL,           0 }
 };
 
