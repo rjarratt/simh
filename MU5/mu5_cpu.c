@@ -118,12 +118,12 @@ BITFIELD aod_bits[] = {
     ENDBITS
 };
 
-static t_uint64 mask_aod = 0x0000000000001FFF;
-static t_uint64 mask_aod_zdiv    = 0xFFFFFFFFFFFFFFFB;
-static t_uint64 mask_aod_fxpovf  = 0xFFFFFFFFFFFFFFEF;
-static t_uint64 mask_aod_izdiv   = 0xFFFFFFFFFFFFFF7F;
-static t_uint64 mask_aod_ifxpovf = 0xFFFFFFFFFFFFFDFF;
-static t_uint64 mask_aod_opsiz64 = 0xFFFFFFFFFFFFEFFF;
+static t_uint64 mask_aod         = 0x0000000000001FFF;
+static t_uint64 mask_aod_zdiv    = 0x0000000000000004;
+static t_uint64 mask_aod_fxpovf  = 0x0000000000000010;
+static t_uint64 mask_aod_izdiv   = 0x0000000000000080;
+static t_uint64 mask_aod_ifxpovf = 0x0000000000000200;
+static t_uint64 mask_aod_opsiz64 = 0x0000000000001000;
 
 BITFIELD bod_bits[] = {
     BITNCF(26),
@@ -133,8 +133,8 @@ BITFIELD bod_bits[] = {
     ENDBITS
 };
 
-static uint32 mask_bod_bovf = 0xFBFFFFFF;
-static uint32 mask_bod_ibovf = 0x7FFFFFFF;
+static uint32 mask_bod_bovf  = 0x04000000;
+static uint32 mask_bod_ibovf = 0x80000000;
 
 BITFIELD ms_bits[] = {
     BIT(L0IF),    /* Level 0 interrupt flip-flop */
@@ -156,12 +156,12 @@ BITFIELD ms_bits[] = {
     ENDBITS
 };
 
-static uint16 mask_ms_exec = 0xFFFB;
+static uint16 mask_ms_exec = 0x0004;
 static uint16 mask_ms_bcpr = 0x0080;
-static uint16 mask_ms_bn = 0xFEFF;
-static uint16 mask_ms_t2 = 0xFDFF;
-static uint16 mask_ms_t1 = 0xFBFF;
-static uint16 mask_ms_t0 = 0xF7FF;
+static uint16 mask_ms_bn   = 0x0100;
+static uint16 mask_ms_t2   = 0x0200;
+static uint16 mask_ms_t1   = 0x0400;
+static uint16 mask_ms_t0   = 0x0800;
 
 BITFIELD dod_bits[] = {
     BIT(XCH),  /* XCHK digit */
@@ -177,12 +177,12 @@ BITFIELD dod_bits[] = {
     ENDBITS
 };
 
-static uint32 mask_dod_its = 0xFFFFFFFD;
-static uint32 mask_dod_xch = 0xFFFFFFFE;
-static uint32 mask_dod_sss = 0xFFFFFFF7;
-static uint32 mask_dod_bch = 0xFFFFFFDF;
-static uint32 mask_dod_sssi = 0xFFFFFFBF;
-static uint32 mask_dod_bchi = 0xFFFFFEFF;
+static uint32 mask_dod_xch  = 0x00000001;
+static uint32 mask_dod_its  = 0x00000002;
+static uint32 mask_dod_sss  = 0x00000008;
+static uint32 mask_dod_bch  = 0x00000020;
+static uint32 mask_dod_sssi = 0x00000040;
+static uint32 mask_dod_bchi = 0x00000100;
 
 
 /* Register backing values */
@@ -912,11 +912,11 @@ static SIM_INLINE void cpu_set_register_bit_16(REG *reg, uint16 mask, int value)
     assert(reg->width == 16);
     if (value)
     {
-        *(uint16 *)(reg->loc) = *(uint16 *)(reg->loc) | ~mask;
+        *(uint16 *)(reg->loc) = *(uint16 *)(reg->loc) | mask;
     }
     else
     {
-        *(uint16 *)(reg->loc) = *(uint16 *)(reg->loc) & mask;
+        *(uint16 *)(reg->loc) = *(uint16 *)(reg->loc) & ~mask;
     }
 }
 
@@ -925,11 +925,11 @@ static SIM_INLINE void cpu_set_register_bit_32(REG *reg, uint32 mask, int value)
     assert(reg->width == 32);
     if (value)
     {
-        *(uint32 *)(reg->loc) = *(uint32 *)(reg->loc) | ~mask;
+        *(uint32 *)(reg->loc) = *(uint32 *)(reg->loc) | mask;
     }
     else
     {
-        *(uint32 *)(reg->loc) = *(uint32 *)(reg->loc) & mask;
+        *(uint32 *)(reg->loc) = *(uint32 *)(reg->loc) & ~mask;
     }
 }
 
@@ -938,11 +938,11 @@ static SIM_INLINE void cpu_set_register_bit_64(REG *reg, t_uint64 mask, int valu
     assert(reg->width == 64);
     if (value)
     {
-        *(t_uint64 *)(reg->loc) = *(t_uint64 *)(reg->loc) | ~mask;
+        *(t_uint64 *)(reg->loc) = *(t_uint64 *)(reg->loc) | mask;
     }
     else
     {
-        *(t_uint64 *)(reg->loc) = *(t_uint64 *)(reg->loc) & mask;
+        *(t_uint64 *)(reg->loc) = *(t_uint64 *)(reg->loc) & ~mask;
     }
 }
 
@@ -974,7 +974,7 @@ static SIM_INLINE int cpu_get_register_bit_16(REG *reg, uint16 mask)
 {
     int result;
     assert(reg->width == 16);
-    if (*(uint16 *)(reg->loc) & ~mask)
+    if (*(uint16 *)(reg->loc) & mask)
     {
         result = 1;
     }
@@ -990,7 +990,7 @@ static SIM_INLINE int cpu_get_register_bit_32(REG *reg, uint32 mask)
 {
     int result;
     assert(reg->width == 32);
-    if (*(uint32 *)(reg->loc) & ~mask)
+    if (*(uint32 *)(reg->loc) & mask)
     {
         result = 1;
     }
@@ -1006,7 +1006,7 @@ static SIM_INLINE int cpu_get_register_bit_64(REG *reg, t_uint64 mask)
 {
     int result;
     assert(reg->width == 64);
-    if (*(t_uint64 *)(reg->loc) & ~mask)
+    if (*(t_uint64 *)(reg->loc) & mask)
     {
         result = 1;
     }
@@ -1094,7 +1094,7 @@ static t_addr cpu_get_name_segment_address_from_reg(REG *reg, int16 offset, uint
 static int cpu_is_executive_mode(void)
 {
     uint16 ms = cpu_get_register_16(reg_ms);
-    int result = (ms & ~mask_ms_exec) != 0;
+    int result = (ms & mask_ms_exec) != 0;
     return result;
 }
 
@@ -1107,7 +1107,7 @@ void cpu_reset_state(void)
     cpu_set_register_64(reg_aod, 0x0);
     cpu_set_register_64(reg_aex, 0x0);
     cpu_set_register_32(reg_x, 0x0);
-    cpu_set_register_16(reg_ms,mask_ms_bcpr | ~mask_ms_exec); /* initialise in executive mode using real addresses */
+    cpu_set_register_16(reg_ms, mask_ms_bcpr | mask_ms_exec); /* initialise in executive mode using real addresses */
     cpu_set_register_16(reg_nb, 0x0);
     cpu_set_register_32(reg_xnb, 0x0);
     cpu_set_register_16(reg_sn, 0x0);
