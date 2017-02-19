@@ -30,6 +30,8 @@ in this Software without prior written authorization from Robert Jarratt.
 #define NUM_CPRS 32
 #define V_STORE_BLOCKS 8
 #define V_STORE_BLOCK_SIZE 256
+#define VA_MASK 0x3FFFFFFF
+#define RA_MASK 0x7FFFFFFF
 
 typedef struct VSTORE_LINE
 {
@@ -46,12 +48,26 @@ static UNIT sac_unit =
 };
 
 static uint8 CPR_Number;
+static uint32 CPR_Find;
 
 static t_uint64 cpr[NUM_CPRS];
 
+BITFIELD cpr_bits[] = {
+    BITF(LZ,4),        /* RA page size as a number of mask bits 0-12 */
+    BITF(ADDRESS,19),  /* RA address */
+    BIT(V),            /* RA Address V-Store Bit*/
+    BITF(UNIT,4),      /* RA unit part of address */
+    BITF(ACCESS,4),    /* RA Access permissions */
+    BITF(X,12),        /* VA X */
+    BITF(SEGMENT,14),  /* VA Segment */
+    BITF(PROCESS,4),   /* VA Process */
+    BITNCF(2),
+    ENDBITS
+};
+
 static REG sac_reg[] =
 {
-    { BRDATAD(CPR, cpr, 16, 64, NUM_CPRS, "CPR register") },
+    { BRDATADF(CPR, cpr, 16, 64, NUM_CPRS, "CPR register", cpr_bits) },
     { NULL }
 };
 
@@ -74,11 +90,15 @@ static const char* sac_description(DEVICE *dptr) {
 
 static t_stat sac_reset(DEVICE *dptr);
 
+static void sac_write_cpr_search_callback(t_uint64 value);
 static void sac_write_cpr_number_callback(t_uint64 value);
 static t_uint64 sac_read_cpr_ra_callback(void);
 static void sac_write_cpr_ra_callback(t_uint64 value);
 static t_uint64 sac_read_cpr_va_callback(void);
 static void sac_write_cpr_va_callback(t_uint64 value);
+static t_uint64 sac_read_cpr_find_callback(void);
+
+static uint32 sac_search_cprs(uint32 mask, uint32 va);
 
 DEVICE sac_dev = {
     "SAC",            /* name */
@@ -123,9 +143,11 @@ void sac_reset_state(void)
 	memset(LocalStore, 0, sizeof(uint32) * MAXMEMORY);
     memset(VStore, 0, sizeof(VStore));
     memset(cpr, 0, sizeof(cpr));
+    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, NULL, sac_write_cpr_search_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, NULL, sac_write_cpr_number_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, sac_read_cpr_ra_callback, sac_write_cpr_ra_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, sac_read_cpr_va_callback, sac_write_cpr_va_callback);
+    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, sac_read_cpr_find_callback, NULL);
 }
 
 t_uint64 sac_read_64_bit_word(t_addr address)
@@ -218,6 +240,11 @@ t_uint64 sac_read_v_store(uint8 block, uint8 line)
     return result;
 }
 
+static void sac_write_cpr_search_callback(t_uint64 value)
+{
+    CPR_Find = sac_search_cprs(0, value & VA_MASK);
+}
+
 static void sac_write_cpr_number_callback(t_uint64 value)
 {
     CPR_Number = value & 0x1F;
@@ -225,20 +252,43 @@ static void sac_write_cpr_number_callback(t_uint64 value)
 
 static t_uint64 sac_read_cpr_ra_callback(void)
 {
-    return cpr[CPR_Number] & 0x000000007FFFFFFF;
+    return cpr[CPR_Number] & RA_MASK;
 }
 
 static void sac_write_cpr_ra_callback(t_uint64 value)
 {
-    cpr[CPR_Number] = (cpr[CPR_Number] & 0xFFFFFFFF00000000) | (value & 0x000000007FFFFFFF);
+    cpr[CPR_Number] = (cpr[CPR_Number] & 0xFFFFFFFF00000000) | (value & RA_MASK);
 }
 
 static t_uint64 sac_read_cpr_va_callback(void)
 {
-    return (cpr[CPR_Number] >> 32) & 0x000000003FFFFFFF;
+    return (cpr[CPR_Number] >> 32) & VA_MASK;
 }
 
 static void sac_write_cpr_va_callback(t_uint64 value)
 {
-    cpr[CPR_Number] = ((value & 0x000000003FFFFFFF) << 32) | (cpr[CPR_Number] & 0x00000000FFFFFFFF);
+    cpr[CPR_Number] = ((value &VA_MASK) << 32) | (cpr[CPR_Number] & RA_MASK);
+}
+
+static t_uint64 sac_read_cpr_find_callback(void)
+{
+    return CPR_Find;
+}
+
+static uint32 sac_search_cprs(uint32 mask, uint32 va)
+{
+    int i;
+    uint32 result = 0;
+    uint32 iresult = 1;
+    for (i = 0; i < NUM_CPRS; i++)
+    {
+        if ((va & ~mask) == ((cpr[i] >> 32) & ~mask))
+        {
+            result = result | iresult;
+        }
+
+        iresult = iresult << 1;
+    }
+
+    return result;
 }

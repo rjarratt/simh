@@ -31,6 +31,8 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #define REG_CPR "CPR"
 
+#define VA(P,S,X) ((P <<26 ) | (S << 12) | X)
+
 static TESTCONTEXT *localTestContext;
 extern DEVICE sac_dev;
 
@@ -50,6 +52,11 @@ static void sac_selftest_can_write_real_address_to_cpr(TESTCONTEXT *testContext)
 static void sac_selftest_can_read_real_address_from_cpr(TESTCONTEXT *testContext);
 static void sac_selftest_can_write_virtual_address_to_cpr(TESTCONTEXT *testContext);
 static void sac_selftest_can_read_virtual_address_from_cpr(TESTCONTEXT *testContext);
+static void sac_selftest_search_cpr_finds_matches_using_P_and_X(TESTCONTEXT *testContext);
+static void sac_selftest_search_cpr_finds_matches_ignoring_P(TESTCONTEXT *testContext);
+static void sac_selftest_search_cpr_finds_matches_ignoring_X(TESTCONTEXT *testContext);
+static void sac_selftest_search_cpr_finds_matchesignoring_P_and_X(TESTCONTEXT *testContext);
+static void sac_selftest_search_cpr_ignores_empty_cprs(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
@@ -59,7 +66,12 @@ static UNITTEST tests[] =
     { "Can write a real address to a CPR", sac_selftest_can_write_real_address_to_cpr },
     { "Can read a real address from a CPR", sac_selftest_can_read_real_address_from_cpr },
     { "Can write a virtual address to a CPR", sac_selftest_can_write_virtual_address_to_cpr },
-    { "Can read a virtual address from a CPR", sac_selftest_can_read_virtual_address_from_cpr }
+    { "Can read a virtual address from a CPR", sac_selftest_can_read_virtual_address_from_cpr },
+    { "CPR SEARCH finds all matches using P and X", sac_selftest_search_cpr_finds_matches_using_P_and_X },
+    { "CPR SEARCH finds all matches ignoring P", sac_selftest_search_cpr_finds_matches_ignoring_P },
+    { "CPR SEARCH finds all matches ignoring X", sac_selftest_search_cpr_finds_matches_ignoring_X },
+    { "CPR SEARCH finds all matches ignoring P and X", sac_selftest_search_cpr_finds_matchesignoring_P_and_X },
+    { "CPR SEARCH finds all matches while ignoring any empty CPRs", sac_selftest_search_cpr_ignores_empty_cprs }
 };
 
 void sac_selftest(TESTCONTEXT *testContext)
@@ -157,3 +169,24 @@ static void sac_selftest_can_read_virtual_address_from_cpr(TESTCONTEXT *testCont
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0x000000003FFFFFFF);
 }
+
+static void sac_selftest_search_cpr_finds_matches_using_P_and_X(TESTCONTEXT *testContext)
+{
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 0);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(0, 1, 2));
+
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 1);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(0, 1, 2));
+
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 2);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(1, 1, 2));
+
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(0, 1, 2));
+
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, 0x3);
+}
+
+static void sac_selftest_search_cpr_finds_matches_ignoring_P(TESTCONTEXT *testContext) {}
+static void sac_selftest_search_cpr_finds_matches_ignoring_X(TESTCONTEXT *testContext) {}
+static void sac_selftest_search_cpr_finds_matchesignoring_P_and_X(TESTCONTEXT *testContext) {}
+static void sac_selftest_search_cpr_ignores_empty_cprs(TESTCONTEXT *testContext) {}
