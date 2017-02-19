@@ -186,7 +186,23 @@ static void sac_selftest_search_cpr_finds_matches_using_P_and_X(TESTCONTEXT *tes
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, 0x3);
 }
 
-static void sac_selftest_search_cpr_finds_matches_ignoring_P(TESTCONTEXT *testContext) {}
+static void sac_selftest_search_cpr_finds_matches_ignoring_P(TESTCONTEXT *testContext)
+{
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 0);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(0, 1, 2));
+
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 1);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(0, 1, 2));
+
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 2);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(1, 1, 2));
+
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, 0x4000000);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(0xF, 1, 2));
+
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, 0x7);
+}
+
 static void sac_selftest_search_cpr_finds_matches_ignoring_X(TESTCONTEXT *testContext) {}
 static void sac_selftest_search_cpr_finds_matchesignoring_P_and_X(TESTCONTEXT *testContext) {}
 static void sac_selftest_search_cpr_ignores_empty_cprs(TESTCONTEXT *testContext) {}

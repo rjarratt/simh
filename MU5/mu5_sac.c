@@ -31,7 +31,9 @@ in this Software without prior written authorization from Robert Jarratt.
 #define V_STORE_BLOCKS 8
 #define V_STORE_BLOCK_SIZE 256
 #define VA_MASK 0x3FFFFFFF
+#define VA_P_MASK (0xF << 26)
 #define RA_MASK 0x7FFFFFFF
+#define CPR_FIND_MASK_P_MASK 0x4000000
 
 typedef struct VSTORE_LINE
 {
@@ -47,8 +49,9 @@ static UNIT sac_unit =
     UDATA(NULL, UNIT_FIX | UNIT_BINK, MAXMEMORY)
 };
 
-static uint8 CPR_Number;
-static uint32 CPR_Find;
+static uint8 CPRNumber;
+static uint32 CPRFind;
+static uint32 CPRFindMask;
 
 static t_uint64 cpr[NUM_CPRS];
 
@@ -97,6 +100,7 @@ static void sac_write_cpr_ra_callback(t_uint64 value);
 static t_uint64 sac_read_cpr_va_callback(void);
 static void sac_write_cpr_va_callback(t_uint64 value);
 static t_uint64 sac_read_cpr_find_callback(void);
+static void sac_write_cpr_find_mask_callback(t_uint64 value);
 
 static uint32 sac_search_cprs(uint32 mask, uint32 va);
 
@@ -148,6 +152,7 @@ void sac_reset_state(void)
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, sac_read_cpr_ra_callback, sac_write_cpr_ra_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, sac_read_cpr_va_callback, sac_write_cpr_va_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, sac_read_cpr_find_callback, NULL);
+    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, NULL, sac_write_cpr_find_mask_callback);
 }
 
 t_uint64 sac_read_64_bit_word(t_addr address)
@@ -242,38 +247,50 @@ t_uint64 sac_read_v_store(uint8 block, uint8 line)
 
 static void sac_write_cpr_search_callback(t_uint64 value)
 {
-    CPR_Find = sac_search_cprs(0, value & VA_MASK);
+    uint32 mask = 0;
+    if (CPRFindMask & CPR_FIND_MASK_P_MASK)
+    {
+        mask = VA_P_MASK;
+    }
+
+    CPRFind = sac_search_cprs(mask, value & VA_MASK);
 }
 
 static void sac_write_cpr_number_callback(t_uint64 value)
 {
-    CPR_Number = value & 0x1F;
+    CPRNumber = value & 0x1F;
 }
 
 static t_uint64 sac_read_cpr_ra_callback(void)
 {
-    return cpr[CPR_Number] & RA_MASK;
+    return cpr[CPRNumber] & RA_MASK;
 }
 
 static void sac_write_cpr_ra_callback(t_uint64 value)
 {
-    cpr[CPR_Number] = (cpr[CPR_Number] & 0xFFFFFFFF00000000) | (value & RA_MASK);
+    cpr[CPRNumber] = (cpr[CPRNumber] & 0xFFFFFFFF00000000) | (value & RA_MASK);
 }
 
 static t_uint64 sac_read_cpr_va_callback(void)
 {
-    return (cpr[CPR_Number] >> 32) & VA_MASK;
+    return (cpr[CPRNumber] >> 32) & VA_MASK;
 }
 
 static void sac_write_cpr_va_callback(t_uint64 value)
 {
-    cpr[CPR_Number] = ((value &VA_MASK) << 32) | (cpr[CPR_Number] & RA_MASK);
+    cpr[CPRNumber] = ((value &VA_MASK) << 32) | (cpr[CPRNumber] & RA_MASK);
 }
 
 static t_uint64 sac_read_cpr_find_callback(void)
 {
-    return CPR_Find;
+    return CPRFind;
 }
+
+static void sac_write_cpr_find_mask_callback(t_uint64 value)
+{
+    CPRFindMask = value & 0x7FFFFFF;
+}
+
 
 static uint32 sac_search_cprs(uint32 mask, uint32 va)
 {
