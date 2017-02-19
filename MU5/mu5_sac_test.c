@@ -48,6 +48,8 @@ static void sac_selftest_writing_read_only_vstore_line_does_nothing(TESTCONTEXT 
 static void sac_selftest_read_write_vstore_location_can_be_read_back_after_write(TESTCONTEXT *testContext);
 static void sac_selftest_can_write_real_address_to_cpr(TESTCONTEXT *testContext);
 static void sac_selftest_can_read_real_address_from_cpr(TESTCONTEXT *testContext);
+static void sac_selftest_can_write_virtual_address_to_cpr(TESTCONTEXT *testContext);
+static void sac_selftest_can_read_virtual_address_from_cpr(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
@@ -55,7 +57,9 @@ static UNITTEST tests[] =
     { "Writing a read-only V-Store line does nothing", sac_selftest_writing_read_only_vstore_line_does_nothing },
     { "A read/write V-Store line can be read back after writing", sac_selftest_read_write_vstore_location_can_be_read_back_after_write },
     { "Can write a real address to a CPR", sac_selftest_can_write_real_address_to_cpr },
-    { "Can read a real address from a CPR", sac_selftest_can_read_real_address_from_cpr }
+    { "Can read a real address from a CPR", sac_selftest_can_read_real_address_from_cpr },
+    { "Can write a virtual address to a CPR", sac_selftest_can_write_virtual_address_to_cpr },
+    { "Can read a virtual address from a CPR", sac_selftest_can_read_virtual_address_from_cpr }
 };
 
 void sac_selftest(TESTCONTEXT *testContext)
@@ -129,7 +133,7 @@ static void sac_selftest_read_write_vstore_location_can_be_read_back_after_write
 static void sac_selftest_can_write_real_address_to_cpr(TESTCONTEXT *testContext)
 {
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, 0xFFFFFFFFFFFFFFFF);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, 0xAAAAAAAAFFFFFFFF);
     sac_selftest_assert_reg_instance_equals(REG_CPR, 31, 0x000000007FFFFFFF);
 }
 
@@ -138,4 +142,18 @@ static void sac_selftest_can_read_real_address_from_cpr(TESTCONTEXT *testContext
     sac_selftest_set_register_instance(REG_CPR, 31, 0xFFFFFFFFFFFFFFFF);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, 0x000000007FFFFFFF);
+}
+
+static void sac_selftest_can_write_virtual_address_to_cpr(TESTCONTEXT *testContext)
+{
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0xAAAAAAAAFFFFFFFF);
+    sac_selftest_assert_reg_instance_equals(REG_CPR, 31, 0x3FFFFFFF00000000);
+}
+
+static void sac_selftest_can_read_virtual_address_from_cpr(TESTCONTEXT *testContext)
+{
+    sac_selftest_set_register_instance(REG_CPR, 31, 0xFFFFFFFFFFFFFFFF);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0x000000003FFFFFFF);
 }

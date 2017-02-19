@@ -77,6 +77,8 @@ static t_stat sac_reset(DEVICE *dptr);
 static void sac_write_cpr_number_callback(t_uint64 value);
 static t_uint64 sac_read_cpr_ra_callback(void);
 static void sac_write_cpr_ra_callback(t_uint64 value);
+static t_uint64 sac_read_cpr_va_callback(void);
+static void sac_write_cpr_va_callback(t_uint64 value);
 
 DEVICE sac_dev = {
     "SAC",            /* name */
@@ -120,8 +122,10 @@ void sac_reset_state(void)
 {
 	memset(LocalStore, 0, sizeof(uint32) * MAXMEMORY);
     memset(VStore, 0, sizeof(VStore));
+    memset(cpr, 0, sizeof(cpr));
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, NULL, sac_write_cpr_number_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, sac_read_cpr_ra_callback, sac_write_cpr_ra_callback);
+    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, sac_read_cpr_va_callback, sac_write_cpr_va_callback);
 }
 
 t_uint64 sac_read_64_bit_word(t_addr address)
@@ -227,4 +231,14 @@ static t_uint64 sac_read_cpr_ra_callback(void)
 static void sac_write_cpr_ra_callback(t_uint64 value)
 {
     cpr[CPR_Number] = (cpr[CPR_Number] & 0xFFFFFFFF00000000) | (value & 0x000000007FFFFFFF);
+}
+
+static t_uint64 sac_read_cpr_va_callback(void)
+{
+    return (cpr[CPR_Number] >> 32) & 0x000000003FFFFFFF;
+}
+
+static void sac_write_cpr_va_callback(t_uint64 value)
+{
+    cpr[CPR_Number] = ((value & 0x000000003FFFFFFF) << 32) | (cpr[CPR_Number] & 0x00000000FFFFFFFF);
 }

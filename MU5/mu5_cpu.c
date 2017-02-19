@@ -40,6 +40,10 @@ Addresses are physical only, virtual memory is not implemented yet, segment cros
 Interrupt processing is not implemented yet
 Type 3 descriptors not implemented yet.
 
+To Do
+-----
+Page 2.10.1. Action section says that truncating a non-zero bit on store orders will cause an interrupt.
+
 */
 
 #include <assert.h>
