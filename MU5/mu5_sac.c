@@ -25,6 +25,7 @@ in this Software without prior written authorization from Robert Jarratt.
 */
 
 #include "mu5_defs.h"
+#include "mu5_cpu.h"
 #include "mu5_sac.h"
 
 #define NUM_CPRS 32
@@ -225,6 +226,19 @@ void sac_write_8_bit_word(t_addr address, uint8 value)
     uint32 shiftedValue = (uint32)value << (byteNumber << 3);
     fullWord = (fullWord & ~mask) | shiftedValue;
     sac_write_32_bit_word(address >> 2, fullWord);
+}
+
+/* Intended for self test code only, not to be used by anything else */
+uint32 sac_read_32_bit_word_real_address(t_addr address)
+{
+    uint32 result = LocalStore[address];
+    return result;
+}
+
+/* Intended for self test code only, not to be used by anything else */
+void sac_write_32_bit_word_real_address(t_addr address, uint32 value)
+{
+    LocalStore[address] = value;
 }
 
 void sac_setup_v_store_location(uint8 block, uint8 line, t_uint64(*readCallback)(void), void(*writeCallback)(t_uint64))

@@ -25,6 +25,9 @@ in this Software without prior written authorization from Robert Jarratt.
 */
 #pragma once
 
+#define MS_MASK_EXEC 0x0004
+#define MS_MASK_BCPR 0x0080
+
 void cpu_reset_state(void);
 void cpu_execute_next_order(void);
 uint8 cpu_get_interrupt_number(void);

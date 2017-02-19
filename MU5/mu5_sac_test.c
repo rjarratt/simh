@@ -25,25 +25,40 @@ in this Software without prior written authorization from Robert Jarratt.
 
 */
 
+#include "mu5_defs.h"
+#include "mu5_cpu.h"
 #include "mu5_sac.h"
 #include "mu5_test.h"
 #include "mu5_sac_test.h"
 
 #define REG_CPR "CPR"
 
+#define REG_MS "MS"
+
 #define VA(P,S,X) ((P <<26 ) | (S << 12) | X)
 
 static TESTCONTEXT *localTestContext;
+extern DEVICE cpu_dev;
 extern DEVICE sac_dev;
 
 void sac_selftest(TESTCONTEXT *testContext);
 static void sac_selftest_reset(UNITTEST *test);
 
 static void sac_selftest_set_register_instance(char *name, uint8 index, t_uint64 value);
+static void sac_selftest_set_bcpr();
 
 static void sac_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 static void sac_selftest_assert_reg_instance_equals(char *name, uint8 index, t_uint64 expectedValue);
 static void sac_selftest_assert_vstore_contents(uint8 block, uint8 line, t_uint64 expectedValue);
+static void sac_selftest_assert_real_address_memory_contents(t_addr address, uint32 expectedValue);
+static void  sac_selftest_assert_memory_contents(t_addr address, uint32 expectedValue);
+
+static void sac_selftest_write_word_with_bcpr_set_writes_real_address(TESTCONTEXT *testContext);
+static void sac_selftest_read_word_with_bcpr_set_reads_real_address(TESTCONTEXT *testContext);
+static void sac_selftest_write_word_with_bcpr_clear_writes_virtual_address(TESTCONTEXT *testContext);
+static void sac_selftest_read_word_with_bcpr_clear_reads_virtual_address(TESTCONTEXT *testContext);
+// cpr neqv interrupt
+// cpr multi eqv interrupt
 
 static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTEXT *testContext);
 static void sac_selftest_writing_read_only_vstore_line_does_nothing(TESTCONTEXT *testContext);
@@ -61,6 +76,11 @@ static void sac_selftest_search_cpr_ignores_empty_cprs(TESTCONTEXT *testContext)
 
 static UNITTEST tests[] =
 {
+    { "Writing a word with Bypass CPR set writes to a real address", sac_selftest_write_word_with_bcpr_set_writes_real_address },
+    { "Reading a word with Bypass CPR set reads from a real address", sac_selftest_read_word_with_bcpr_set_reads_real_address },
+    { "Writing a word with Bypass CPR clear writes to a virtual address", sac_selftest_write_word_with_bcpr_clear_writes_virtual_address },
+    { "Reading a word with Bypass CPR clear reads from a virtual address", sac_selftest_read_word_with_bcpr_clear_reads_virtual_address },
+
     { "Reading a write-only V-Store line returns zeroes", sac_selftest_reading_write_only_vstore_line_returns_zeroes },
     { "Writing a read-only V-Store line does nothing", sac_selftest_writing_read_only_vstore_line_does_nothing },
     { "A read/write V-Store line can be read back after writing", sac_selftest_read_write_vstore_location_can_be_read_back_after_write },
@@ -98,6 +118,11 @@ static void sac_selftest_set_register_instance(char *name, uint8 index, t_uint64
     mu5_selftest_set_register_instance(localTestContext, &sac_dev, name, index, value);
 }
 
+static void sac_selftest_set_bcpr()
+{
+   mu5_selftest_set_register(localTestContext, &cpu_dev, REG_MS, MS_MASK_BCPR);
+}
+
 static void sac_selftest_assert_reg_equals(char *name, t_uint64 expectedValue)
 {
     mu5_selftest_assert_reg_equals(localTestContext, &sac_dev, name, expectedValue);
@@ -117,6 +142,44 @@ static void sac_selftest_assert_vstore_contents(uint8 block, uint8 line, t_uint6
         mu5_selftest_set_failure(localTestContext);
     }
 }
+
+static void sac_selftest_assert_real_address_memory_contents(t_addr address, uint32 expectedValue)
+{
+    uint32 actualValue = sac_read_32_bit_word_real_address(address);
+    if (actualValue != expectedValue)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, localTestContext->dev, "Expected value at real address 0x%X to be %X, but was %X\n", address, expectedValue, actualValue);
+        mu5_selftest_set_failure(localTestContext);
+    }
+}
+
+static void  sac_selftest_assert_memory_contents(t_addr address, uint32 expectedValue)
+{
+    uint32 actualValue = sac_read_32_bit_word(address);
+    if (actualValue != expectedValue)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, localTestContext->dev, "Expected value at address 0x%X to be %X, but was %X\n", address, expectedValue, actualValue);
+        mu5_selftest_set_failure(localTestContext);
+    }
+}
+
+static void sac_selftest_write_word_with_bcpr_set_writes_real_address(TESTCONTEXT *testContext)
+{
+    sac_selftest_set_bcpr();
+    sac_write_32_bit_word(1234, 0xFFFFFFFF);
+    sac_selftest_assert_real_address_memory_contents(1234, 0xFFFFFFFF);
+}
+
+static void sac_selftest_read_word_with_bcpr_set_reads_real_address(TESTCONTEXT *testContext)
+{
+    sac_selftest_set_bcpr();
+    sac_write_32_bit_word_real_address(1234, 0xAAAAAAAA);
+    sac_selftest_assert_memory_contents(1234, 0xAAAAAAAA);
+}
+
+static void sac_selftest_write_word_with_bcpr_clear_writes_virtual_address(TESTCONTEXT *testContext) { mu5_selftest_assert_fail(testContext); }
+static void sac_selftest_read_word_with_bcpr_clear_reads_virtual_address(TESTCONTEXT *testContext) { mu5_selftest_assert_fail(testContext); }
+
 
 static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTEXT *testContext)
 {

@@ -156,8 +156,8 @@ BITFIELD ms_bits[] = {
     ENDBITS
 };
 
-static uint16 mask_ms_exec = 0x0004;
-static uint16 mask_ms_bcpr = 0x0080;
+static uint16 mask_ms_exec = MS_MASK_EXEC;
+static uint16 mask_ms_bcpr = MS_MASK_BCPR;
 static uint16 mask_ms_bn   = 0x0100;
 static uint16 mask_ms_t2   = 0x0200;
 static uint16 mask_ms_t1   = 0x0400;
