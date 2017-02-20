@@ -31,4 +31,5 @@ in this Software without prior written authorization from Robert Jarratt.
 void cpu_reset_state(void);
 void cpu_execute_next_order(void);
 uint8 cpu_get_interrupt_number(void);
+uint16 cpu_get_ms(void);
 

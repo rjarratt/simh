@@ -1552,12 +1552,14 @@ static void cpu_selftest_set_aod_operand_64_bit()
 
 static void cpu_selftest_set_executive_mode(void)
 {
-    cpu_selftest_set_register(REG_MS, 0x0004);
+    uint16 ms = cpu_get_ms() | MS_MASK_EXEC;
+    cpu_selftest_set_register(REG_MS, ms);
 }
 
 static void cpu_selftest_set_user_mode(void)
 {
-    cpu_selftest_set_register(REG_MS, 0x0000);
+    uint16 ms = cpu_get_ms() & ~MS_MASK_EXEC;
+    cpu_selftest_set_register(REG_MS, ms);
 }
 
 static void cpu_selftest_set_bn(int8 bn)
@@ -6335,11 +6337,13 @@ static void cpu_selftest_org_exit_resets_link_in_executive_mode(TESTCONTEXT *tes
 
 static void cpu_selftest_org_exit_resets_link_except_privileged_ms_bits_in_user_mode(TESTCONTEXT *testContext)
 {
+    uint16 initMs;
     cpu_selftest_load_organisational_order_extended(F_EXIT, KP_LITERAL, NP_64_BIT_LITERAL);
     cpu_selftest_load_64_bit_literal(0xAAFFBBBBFFFFFFFF);
     cpu_selftest_set_user_mode();
+    initMs = cpu_get_ms();
     cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_MS, 0xAA00);
+    cpu_selftest_assert_reg_equals(REG_MS, 0xAA00 | (initMs & 0xFF));
     cpu_selftest_assert_reg_equals(REG_NB, 0xBBBA);
     cpu_selftest_assert_reg_equals(REG_CO, 0x7FFFFFFF);
     cpu_selftest_assert_no_interrupt();
@@ -6371,13 +6375,15 @@ static void cpu_selftest_org_return_sets_SF_and_unstacks_link(TESTCONTEXT *testC
 
 static void cpu_selftest_org_return_resets_link_except_privileged_ms_bits_in_user_mode(TESTCONTEXT *testContext)
 {
+    uint16 initMs;
     uint32 base = 32;
     cpu_selftest_load_organisational_order_extended(F_RETURN, K_V64, NP_STACK);
     sac_write_64_bit_word(base, 0xFFFFBBBBAAAAAAAA);
     cpu_selftest_set_register(REG_NB, base);
     cpu_selftest_set_user_mode();
+    initMs = cpu_get_ms();
     cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_MS, 0xFF00);
+    cpu_selftest_assert_reg_equals(REG_MS, 0xFF00 | (initMs & 0xFF));
     cpu_selftest_assert_no_interrupt();
 }
 

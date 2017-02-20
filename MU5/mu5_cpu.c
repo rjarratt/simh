@@ -1162,6 +1162,11 @@ uint8 cpu_get_interrupt_number(void)
     return result;
 }
 
+uint16 cpu_get_ms(void)
+{
+    return cpu_get_register_16(reg_ms);
+}
+
 static uint8 cpu_get_cr(uint16 order)
 {
     uint8 cr = (order >> 13) & 0x7;

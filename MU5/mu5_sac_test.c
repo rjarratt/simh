@@ -36,6 +36,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define REG_MS "MS"
 
 #define VA(P,S,X) ((P <<26 ) | (S << 12) | X)
+#define RA(AC,A,LZ) ((AC << 28) | (A << 4) | LZ)
 
 static TESTCONTEXT *localTestContext;
 extern DEVICE cpu_dev;
@@ -46,6 +47,8 @@ static void sac_selftest_reset(UNITTEST *test);
 
 static void sac_selftest_set_register_instance(char *name, uint8 index, t_uint64 value);
 static void sac_selftest_set_bcpr();
+static void sac_selftest_clear_bcpr();
+static void sac_selftest_setup_cpr(uint8 cprNumber, uint32 va, uint32 ra);
 
 static void sac_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 static void sac_selftest_assert_reg_instance_equals(char *name, uint8 index, t_uint64 expectedValue);
@@ -57,6 +60,7 @@ static void sac_selftest_write_word_with_bcpr_set_writes_real_address(TESTCONTEX
 static void sac_selftest_read_word_with_bcpr_set_reads_real_address(TESTCONTEXT *testContext);
 static void sac_selftest_write_word_with_bcpr_clear_writes_virtual_address(TESTCONTEXT *testContext);
 static void sac_selftest_read_word_with_bcpr_clear_reads_virtual_address(TESTCONTEXT *testContext);
+// page sizes
 // cpr neqv interrupt
 // cpr multi eqv interrupt
 
@@ -120,7 +124,19 @@ static void sac_selftest_set_register_instance(char *name, uint8 index, t_uint64
 
 static void sac_selftest_set_bcpr()
 {
-   mu5_selftest_set_register(localTestContext, &cpu_dev, REG_MS, MS_MASK_BCPR);
+    mu5_selftest_set_register(localTestContext, &cpu_dev, REG_MS, MS_MASK_BCPR);
+}
+
+static void sac_selftest_clear_bcpr()
+{
+    mu5_selftest_set_register(localTestContext, &cpu_dev, REG_MS, 0);
+}
+
+static void sac_selftest_setup_cpr(uint8 cprNumber, uint32 va, uint32 ra)
+{
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, cprNumber);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, ra);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, va);
 }
 
 static void sac_selftest_assert_reg_equals(char *name, t_uint64 expectedValue)
@@ -177,9 +193,23 @@ static void sac_selftest_read_word_with_bcpr_set_reads_real_address(TESTCONTEXT 
     sac_selftest_assert_memory_contents(1234, 0xAAAAAAAA);
 }
 
-static void sac_selftest_write_word_with_bcpr_clear_writes_virtual_address(TESTCONTEXT *testContext) { mu5_selftest_assert_fail(testContext); }
-static void sac_selftest_read_word_with_bcpr_clear_reads_virtual_address(TESTCONTEXT *testContext) { mu5_selftest_assert_fail(testContext); }
+static void sac_selftest_write_word_with_bcpr_clear_writes_virtual_address(TESTCONTEXT *testContext)
+{
+    sac_selftest_clear_bcpr();
+    sac_selftest_setup_cpr(0, VA(0, 0, 0), RA(0xF, 0x10, 0));
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0xFFFFFFFE);
+    sac_write_32_bit_word(1, 0xFFFFFFFF);
+    sac_selftest_assert_real_address_memory_contents(0x11, 0xFFFFFFFF);
+}
 
+static void sac_selftest_read_word_with_bcpr_clear_reads_virtual_address(TESTCONTEXT *testContext)
+{
+    sac_selftest_clear_bcpr();
+    sac_selftest_setup_cpr(0, VA(0, 0, 0), RA(0xF, 0x10, 0));
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0xFFFFFFFE);
+    sac_write_32_bit_word_real_address(0x11, 0xAAAAAAAA);
+    sac_selftest_assert_memory_contents(1, 0xAAAAAAAA);
+}
 
 static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTEXT *testContext)
 {
@@ -237,14 +267,9 @@ static void sac_selftest_can_read_virtual_address_from_cpr(TESTCONTEXT *testCont
 
 static void sac_selftest_search_cpr_finds_matches_using_P_and_X(TESTCONTEXT *testContext)
 {
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 0);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(0, 1, 2));
-
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 1);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(0, 1, 2));
-
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 2);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(1, 1, 2));
+    sac_selftest_setup_cpr(0, VA(0, 1, 2), 0);
+    sac_selftest_setup_cpr(1, VA(0, 1, 2), 0);
+    sac_selftest_setup_cpr(2, VA(1, 1, 2), 0);
 
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(0, 1, 2));
 
@@ -253,14 +278,9 @@ static void sac_selftest_search_cpr_finds_matches_using_P_and_X(TESTCONTEXT *tes
 
 static void sac_selftest_search_cpr_finds_matches_ignoring_P(TESTCONTEXT *testContext)
 {
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 0);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(0, 1, 2));
-
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 1);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(0, 1, 2));
-
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 2);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(1, 1, 2));
+    sac_selftest_setup_cpr(0, VA(0, 1, 2), 0);
+    sac_selftest_setup_cpr(1, VA(0, 1, 2), 0);
+    sac_selftest_setup_cpr(2, VA(1, 1, 2), 0);
 
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, 0x4000000);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(0xF, 1, 2));
@@ -270,14 +290,9 @@ static void sac_selftest_search_cpr_finds_matches_ignoring_P(TESTCONTEXT *testCo
 
 static void sac_selftest_search_cpr_finds_matches_ignoring_X(TESTCONTEXT *testContext)
 {
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 0);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(1, 1, 2));
-
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 1);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(0, 1, 1));
-
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 2);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(0, 1, 2));
+    sac_selftest_setup_cpr(0, VA(1, 1, 2), 0);
+    sac_selftest_setup_cpr(1, VA(0, 1, 1), 0);
+    sac_selftest_setup_cpr(2, VA(0, 1, 2), 0);
 
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, 0x1);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(0, 1, 0xFFF));
@@ -287,14 +302,9 @@ static void sac_selftest_search_cpr_finds_matches_ignoring_X(TESTCONTEXT *testCo
 
 static void sac_selftest_search_cpr_finds_matches_ignoring_P_and_X(TESTCONTEXT *testContext)
 {
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 0);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(1, 1, 2));
-
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 1);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(0, 1, 1));
-
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 2);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(0, 1, 2));
+    sac_selftest_setup_cpr(0, VA(1, 1, 2), 0);
+    sac_selftest_setup_cpr(1, VA(0, 1, 1), 0);
+    sac_selftest_setup_cpr(2, VA(0, 1, 2), 0);
 
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, 0x4000001);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(0xFF, 1, 0xFFF));
@@ -304,14 +314,9 @@ static void sac_selftest_search_cpr_finds_matches_ignoring_P_and_X(TESTCONTEXT *
 
 static void sac_selftest_search_cpr_finds_matches_masking_selected_S_bits(TESTCONTEXT *testContext)
 {
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 0);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(1, 0x3FF9, 2));
-
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 1);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(1, 0x3FF6, 2));
-
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 2);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(0, 0x3FFD, 1));
+    sac_selftest_setup_cpr(0, VA(1, 0x3FF9, 2), 0);
+    sac_selftest_setup_cpr(1, VA(1, 0x3FF6, 2), 0);
+    sac_selftest_setup_cpr(2, VA(0, 0x3FFD, 1), 0);
 
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, 0x4006001);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(0xFF, 0x3FFF, 0xFFF));
@@ -321,17 +326,10 @@ static void sac_selftest_search_cpr_finds_matches_masking_selected_S_bits(TESTCO
 
 static void sac_selftest_search_cpr_ignores_empty_cprs(TESTCONTEXT *testContext)
 {
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 0);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(1, 1, 1));
-
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 1);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(1, 1, 1));
-
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 30);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(1, 1, 1));
-
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, VA(1, 1, 1));
+    sac_selftest_setup_cpr(0, VA(1, 1, 1), 0);
+    sac_selftest_setup_cpr(1, VA(1, 1, 1), 0);
+    sac_selftest_setup_cpr(30, VA(1, 1, 1), 0);
+    sac_selftest_setup_cpr(31, VA(1, 1, 1), 0);
 
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, 0);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0x80000001);

@@ -108,7 +108,8 @@ static void sac_write_cpr_ignore_callback(t_uint64 value);
 static t_uint64 sac_read_cpr_find_callback(void);
 static void sac_write_cpr_find_mask_callback(t_uint64 value);
 
-static uint32 sac_search_cprs(uint32 mask, uint32 va);
+static uint32 sac_search_cprs(uint32 mask, uint32 va, int *numMatches, int *firstMatchIndex);
+static t_addr sac_map_address(uint32 va);
 
 DEVICE sac_dev = {
     "SAC",            /* name */
@@ -180,13 +181,15 @@ void sac_write_64_bit_word(t_addr address, t_uint64 value)
 
 uint32 sac_read_32_bit_word(t_addr address)
 {
-    uint32 result = LocalStore[address];
+    t_addr mappedAddress = sac_map_address(address);
+    uint32 result = LocalStore[mappedAddress];
     return result;
 }
 
 void sac_write_32_bit_word(t_addr address, uint32 value)
 {
-    LocalStore[address] = value;
+    t_addr mappedAddress = sac_map_address(address);
+    LocalStore[mappedAddress] = value;
 }
 
 uint16 sac_read_16_bit_word(t_addr address)
@@ -281,7 +284,7 @@ static void sac_write_cpr_search_callback(t_uint64 value)
         mask = mask | VA_X_MASK;
     }
 
-    CPRFind = sac_search_cprs(mask, value & VA_MASK);
+    CPRFind = sac_search_cprs(mask, value & VA_MASK, NULL, NULL);
 }
 
 static void sac_write_cpr_number_callback(t_uint64 value)
@@ -324,23 +327,62 @@ static void sac_write_cpr_find_mask_callback(t_uint64 value)
     CPRFindMask = value & 0x7FFFFFF;
 }
 
-
-static uint32 sac_search_cprs(uint32 mask, uint32 va)
+static uint32 sac_search_cprs(uint32 mask, uint32 va, int *numMatches, int *firstMatchIndex)
 {
     int i;
     uint32 result = 0;
     uint32 iresult = 1;
+    int numMatchesResult = 0;
+    int firstMatchIndexResult = -1;
     for (i = 0; i < NUM_CPRS; i++)
     {
         if (!(CPRIgnore & iresult))
         {
             if ((va & ~mask) == ((cpr[i] >> 32) & ~mask))
             {
+                numMatchesResult++;
+                if (numMatchesResult == 1)
+                {
+                    firstMatchIndexResult = i;
+                }
+
                 result = result | iresult;
             }
         }
 
         iresult = iresult << 1;
+    }
+
+    if (numMatches != NULL)
+    {
+        *numMatches = numMatchesResult;
+    }
+
+    if (firstMatchIndex != NULL)
+    {
+        *firstMatchIndex = firstMatchIndexResult;
+    }
+
+    return result;
+}
+
+static t_addr sac_map_address(uint32 va)
+{
+    t_addr result = 0;
+    if (cpu_get_ms() & MS_MASK_BCPR)
+    {
+        result = va;
+    }
+    else
+    {
+        int numMatches;
+        int firstMatchIndex;
+        sac_search_cprs(0, va >> 4, &numMatches, &firstMatchIndex);
+        if (numMatches == 1)
+        {
+            result = (cpr[firstMatchIndex] >> 4) & 0xFFFFFF;
+            result += va & 0xF;
+        }
     }
 
     return result;
