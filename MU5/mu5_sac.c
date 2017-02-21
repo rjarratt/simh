@@ -53,6 +53,7 @@ static UNIT sac_unit =
     UDATA(NULL, UNIT_FIX | UNIT_BINK, MAXMEMORY)
 };
 
+static uint8 PROPProcessNumber;
 static uint8 CPRNumber;
 static uint32 CPRFind;
 static uint32 CPRFindMask;
@@ -98,6 +99,9 @@ static const char* sac_description(DEVICE *dptr) {
 
 static t_stat sac_reset(DEVICE *dptr);
 
+static t_uint64 prop_read_process_number_callback(void);
+static void prop_write_process_number_callback(t_uint64 value);
+
 static void sac_write_cpr_search_callback(t_uint64 value);
 static void sac_write_cpr_number_callback(t_uint64 value);
 static t_uint64 sac_read_cpr_ra_callback(void);
@@ -109,7 +113,7 @@ static t_uint64 sac_read_cpr_find_callback(void);
 static void sac_write_cpr_find_mask_callback(t_uint64 value);
 
 static uint32 sac_search_cprs(uint32 mask, uint32 va, int *numMatches, int *firstMatchIndex);
-static t_addr sac_map_address(uint32 va);
+static t_addr sac_map_address(t_addr address);
 
 DEVICE sac_dev = {
     "SAC",            /* name */
@@ -154,6 +158,9 @@ void sac_reset_state(void)
 	memset(LocalStore, 0, sizeof(uint32) * MAXMEMORY);
     memset(VStore, 0, sizeof(VStore));
     memset(cpr, 0, sizeof(cpr));
+
+    sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, prop_read_process_number_callback, prop_write_process_number_callback);
+
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, NULL, sac_write_cpr_search_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, NULL, sac_write_cpr_number_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, sac_read_cpr_ra_callback, sac_write_cpr_ra_callback);
@@ -272,6 +279,16 @@ t_uint64 sac_read_v_store(uint8 block, uint8 line)
     return result;
 }
 
+static t_uint64 prop_read_process_number_callback(void)
+{
+    return PROPProcessNumber & 0xF;
+}
+
+static void prop_write_process_number_callback(t_uint64 value)
+{
+    PROPProcessNumber = value & 0xF;
+}
+
 static void sac_write_cpr_search_callback(t_uint64 value)
 {
     uint32 mask = CPRFindMask & CPR_FIND_MASK_S_MASK;
@@ -366,22 +383,29 @@ static uint32 sac_search_cprs(uint32 mask, uint32 va, int *numMatches, int *firs
     return result;
 }
 
-static t_addr sac_map_address(uint32 va)
+static t_addr sac_map_address(t_addr address)
 {
     t_addr result = 0;
     if (cpu_get_ms() & MS_MASK_BCPR)
     {
-        result = va;
+        result = address;
     }
     else
     {
         int numMatches;
         int firstMatchIndex;
-        sac_search_cprs(0, va >> 4, &numMatches, &firstMatchIndex);
+        uint32 va = (address >> 4) & 0x3FFFFFF;
+        uint32 seg = (address >> 16) & 0x3FFF;
+        if (seg < 8192)
+        {
+            va = ((uint32)PROPProcessNumber << 26) | va;
+        }
+
+        sac_search_cprs(0, va, &numMatches, &firstMatchIndex);
         if (numMatches == 1)
         {
             result = (cpr[firstMatchIndex] >> 4) & 0xFFFFFF;
-            result += va & 0xF;
+            result += address & 0xF;
         }
     }
 

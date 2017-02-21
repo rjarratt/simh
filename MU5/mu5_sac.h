@@ -26,7 +26,11 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #include "sim_defs.h"
 
+#define PROP_V_STORE_BLOCK 1
 #define SAC_V_STORE_BLOCK 4
+
+#define PROP_V_STORE_PROCESS_NUMBER 2
+
 #define SAC_V_STORE_CPR_SEARCH 0
 #define SAC_V_STORE_CPR_NUMBER 1
 #define SAC_V_STORE_CPR_VA 2

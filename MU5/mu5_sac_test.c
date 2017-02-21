@@ -60,7 +60,10 @@ static void sac_selftest_write_word_with_bcpr_set_writes_real_address(TESTCONTEX
 static void sac_selftest_read_word_with_bcpr_set_reads_real_address(TESTCONTEXT *testContext);
 static void sac_selftest_write_word_with_bcpr_clear_writes_virtual_address(TESTCONTEXT *testContext);
 static void sac_selftest_read_word_with_bcpr_clear_reads_virtual_address(TESTCONTEXT *testContext);
+static void sac_selftest_virtual_access_uses_PN_if_segment_less_than_8192(TESTCONTEXT *testContext);
+static void sac_selftest_virtual_access_ignores_PN_if_segment_is_8192_or_greater(TESTCONTEXT *testContext);
 // page sizes
+// altered and referenced bits
 // cpr neqv interrupt
 // cpr multi eqv interrupt
 
@@ -84,6 +87,8 @@ static UNITTEST tests[] =
     { "Reading a word with Bypass CPR set reads from a real address", sac_selftest_read_word_with_bcpr_set_reads_real_address },
     { "Writing a word with Bypass CPR clear writes to a virtual address", sac_selftest_write_word_with_bcpr_clear_writes_virtual_address },
     { "Reading a word with Bypass CPR clear reads from a virtual address", sac_selftest_read_word_with_bcpr_clear_reads_virtual_address },
+    { "Virtual access uses PN if segment less than 8192", sac_selftest_virtual_access_uses_PN_if_segment_less_than_8192 },
+    { "Virtual access ignores PN if segment greater than or equal to 8192", sac_selftest_virtual_access_ignores_PN_if_segment_is_8192_or_greater },
 
     { "Reading a write-only V-Store line returns zeroes", sac_selftest_reading_write_only_vstore_line_returns_zeroes },
     { "Writing a read-only V-Store line does nothing", sac_selftest_writing_read_only_vstore_line_does_nothing },
@@ -210,6 +215,27 @@ static void sac_selftest_read_word_with_bcpr_clear_reads_virtual_address(TESTCON
     sac_write_32_bit_word_real_address(0x11, 0xAAAAAAAA);
     sac_selftest_assert_memory_contents(1, 0xAAAAAAAA);
 }
+
+static void sac_selftest_virtual_access_uses_PN_if_segment_less_than_8192(TESTCONTEXT *testContext)
+{
+    sac_selftest_clear_bcpr();
+    sac_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(0xF, 0x10, 0));
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0xFFFFFFFE);
+    sac_write_32_bit_word_real_address(0x11, 0xAAAAAAAA);
+    sac_selftest_assert_memory_contents(1, 0xAAAAAAAA);
+}
+
+static void sac_selftest_virtual_access_ignores_PN_if_segment_is_8192_or_greater(TESTCONTEXT *testContext)
+{
+    sac_selftest_clear_bcpr();
+    sac_selftest_setup_cpr(0, VA(0, 0x2000, 0), RA(0xF, 0x10, 0));
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0xFFFFFFFE);
+    sac_write_32_bit_word_real_address(0x11, 0xAAAAAAAA);
+    sac_selftest_assert_memory_contents(0x20000001, 0xAAAAAAAA);
+}
+
 
 static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTEXT *testContext)
 {
