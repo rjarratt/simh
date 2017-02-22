@@ -108,10 +108,12 @@ static t_uint64 sac_read_cpr_ra_callback(void);
 static void sac_write_cpr_ra_callback(t_uint64 value);
 static t_uint64 sac_read_cpr_va_callback(void);
 static void sac_write_cpr_va_callback(t_uint64 value);
+static t_uint64 sac_read_cpr_ignore_callback(void);
 static void sac_write_cpr_ignore_callback(t_uint64 value);
 static t_uint64 sac_read_cpr_find_callback(void);
 static void sac_write_cpr_find_mask_callback(t_uint64 value);
 
+static void sac_unignore_cpr(uint8 n);
 static uint32 sac_search_cprs(uint32 mask, uint32 va, int *numMatches, int *firstMatchIndex);
 static t_addr sac_map_address(t_addr address);
 
@@ -165,7 +167,7 @@ void sac_reset_state(void)
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, NULL, sac_write_cpr_number_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, sac_read_cpr_ra_callback, sac_write_cpr_ra_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, sac_read_cpr_va_callback, sac_write_cpr_va_callback);
-    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, NULL, sac_write_cpr_ignore_callback);
+    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, sac_read_cpr_ignore_callback, sac_write_cpr_ignore_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, sac_read_cpr_find_callback, NULL);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, NULL, sac_write_cpr_find_mask_callback);
     CPRNumber = 0;
@@ -326,7 +328,13 @@ static t_uint64 sac_read_cpr_va_callback(void)
 
 static void sac_write_cpr_va_callback(t_uint64 value)
 {
-    cpr[CPRNumber] = ((value &VA_MASK) << 32) | (cpr[CPRNumber] & RA_MASK);
+    cpr[CPRNumber] = ((value & VA_MASK) << 32) | (cpr[CPRNumber] & RA_MASK);
+    sac_unignore_cpr(CPRNumber);
+}
+
+static t_uint64 sac_read_cpr_ignore_callback(void)
+{
+    return CPRIgnore & 0xFFFFFFFF;
 }
 
 static void sac_write_cpr_ignore_callback(t_uint64 value)
@@ -342,6 +350,11 @@ static t_uint64 sac_read_cpr_find_callback(void)
 static void sac_write_cpr_find_mask_callback(t_uint64 value)
 {
     CPRFindMask = value & 0x7FFFFFF;
+}
+
+static void sac_unignore_cpr(uint8 n)
+{
+    CPRIgnore &= ~(1 << CPRNumber);
 }
 
 static uint32 sac_search_cprs(uint32 mask, uint32 va, int *numMatches, int *firstMatchIndex)

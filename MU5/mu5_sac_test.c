@@ -73,6 +73,7 @@ static void sac_selftest_read_write_vstore_location_can_be_read_back_after_write
 static void sac_selftest_can_write_real_address_to_cpr(TESTCONTEXT *testContext);
 static void sac_selftest_can_read_real_address_from_cpr(TESTCONTEXT *testContext);
 static void sac_selftest_can_write_virtual_address_to_cpr(TESTCONTEXT *testContext);
+static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_ignore_bit(TESTCONTEXT *testContext);
 static void sac_selftest_can_read_virtual_address_from_cpr(TESTCONTEXT *testContext);
 static void sac_selftest_search_cpr_finds_matches_using_P_and_X(TESTCONTEXT *testContext);
 static void sac_selftest_search_cpr_finds_matches_ignoring_P(TESTCONTEXT *testContext);
@@ -96,6 +97,7 @@ static UNITTEST tests[] =
     { "Can write a real address to a CPR", sac_selftest_can_write_real_address_to_cpr },
     { "Can read a real address from a CPR", sac_selftest_can_read_real_address_from_cpr },
     { "Can write a virtual address to a CPR", sac_selftest_can_write_virtual_address_to_cpr },
+    { "Writing a virtual address to a CPR clears the associated ignore bit", sac_selftest_writing_virtual_address_to_cpr_clears_associated_ignore_bit },
     { "Can read a virtual address from a CPR", sac_selftest_can_read_virtual_address_from_cpr },
     { "CPR SEARCH finds all matches using P and X", sac_selftest_search_cpr_finds_matches_using_P_and_X },
     { "CPR SEARCH finds all matches ignoring P", sac_selftest_search_cpr_finds_matches_ignoring_P },
@@ -282,6 +284,14 @@ static void sac_selftest_can_write_virtual_address_to_cpr(TESTCONTEXT *testConte
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0xAAAAAAAAFFFFFFFF);
     sac_selftest_assert_reg_instance_equals(REG_CPR, 31, 0x3FFFFFFF00000000);
+}
+
+static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_ignore_bit(TESTCONTEXT *testContext)
+{
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0xFFFFFFFF);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0xAAAAAAAAFFFFFFFF);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0x7FFFFFFF);
 }
 
 static void sac_selftest_can_read_virtual_address_from_cpr(TESTCONTEXT *testContext)
