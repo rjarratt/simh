@@ -37,6 +37,8 @@ in this Software without prior written authorization from Robert Jarratt.
 #define SAC_V_STORE_CPR_RA 3
 #define SAC_V_STORE_CPR_IGNORE 4
 #define SAC_V_STORE_CPR_FIND 5
+#define SAC_V_STORE_CPR_ALTERED 6
+#define SAC_V_STORE_CPR_REFERENCED 7
 #define SAC_V_STORE_CPR_FIND_MASK 9
 
 void sac_reset_state(void);

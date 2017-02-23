@@ -62,8 +62,11 @@ static void sac_selftest_write_word_with_bcpr_clear_writes_virtual_address(TESTC
 static void sac_selftest_read_word_with_bcpr_clear_reads_virtual_address(TESTCONTEXT *testContext);
 static void sac_selftest_virtual_access_uses_PN_if_segment_less_than_8192(TESTCONTEXT *testContext);
 static void sac_selftest_virtual_access_ignores_PN_if_segment_is_8192_or_greater(TESTCONTEXT *testContext);
+static void sac_selftest_virtual_read_updates_cpr_referenced_bit(TESTCONTEXT *testContext);
+static void sac_selftest_virtual_write_updates_cpr_altered_bit(TESTCONTEXT *testContext);
 // page sizes
-// altered and referenced bits
+// referenced bit on obey access
+// access checks
 // cpr neqv interrupt
 // cpr multi eqv interrupt
 
@@ -74,6 +77,8 @@ static void sac_selftest_can_write_real_address_to_cpr(TESTCONTEXT *testContext)
 static void sac_selftest_can_read_real_address_from_cpr(TESTCONTEXT *testContext);
 static void sac_selftest_can_write_virtual_address_to_cpr(TESTCONTEXT *testContext);
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_ignore_bit(TESTCONTEXT *testContext);
+static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_referenced_bit(TESTCONTEXT *testContext);
+static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_altered_bit(TESTCONTEXT *testContext);
 static void sac_selftest_can_read_virtual_address_from_cpr(TESTCONTEXT *testContext);
 static void sac_selftest_search_cpr_finds_matches_using_P_and_X(TESTCONTEXT *testContext);
 static void sac_selftest_search_cpr_finds_matches_ignoring_P(TESTCONTEXT *testContext);
@@ -81,6 +86,8 @@ static void sac_selftest_search_cpr_finds_matches_ignoring_X(TESTCONTEXT *testCo
 static void sac_selftest_search_cpr_finds_matches_ignoring_P_and_X(TESTCONTEXT *testContext);
 static void sac_selftest_search_cpr_finds_matches_masking_selected_S_bits(TESTCONTEXT *testContext);
 static void sac_selftest_search_cpr_ignores_empty_cprs(TESTCONTEXT *testContext);
+static void sac_selftest_search_cpr_does_not_update_cpr_referenced_bits(TESTCONTEXT *testContext);
+static void sac_selftest_search_cpr_does_not_update_cpr_altered_bits(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
@@ -90,6 +97,8 @@ static UNITTEST tests[] =
     { "Reading a word with Bypass CPR clear reads from a virtual address", sac_selftest_read_word_with_bcpr_clear_reads_virtual_address },
     { "Virtual access uses PN if segment less than 8192", sac_selftest_virtual_access_uses_PN_if_segment_less_than_8192 },
     { "Virtual access ignores PN if segment greater than or equal to 8192", sac_selftest_virtual_access_ignores_PN_if_segment_is_8192_or_greater },
+    { "Virtual read updates the CPR Referenced bit", sac_selftest_virtual_read_updates_cpr_referenced_bit },
+    { "Virtual write updates the CPR Altered bit", sac_selftest_virtual_read_updates_cpr_referenced_bit },
 
     { "Reading a write-only V-Store line returns zeroes", sac_selftest_reading_write_only_vstore_line_returns_zeroes },
     { "Writing a read-only V-Store line does nothing", sac_selftest_writing_read_only_vstore_line_does_nothing },
@@ -98,13 +107,17 @@ static UNITTEST tests[] =
     { "Can read a real address from a CPR", sac_selftest_can_read_real_address_from_cpr },
     { "Can write a virtual address to a CPR", sac_selftest_can_write_virtual_address_to_cpr },
     { "Writing a virtual address to a CPR clears the associated ignore bit", sac_selftest_writing_virtual_address_to_cpr_clears_associated_ignore_bit },
+    { "Writing a virtual address to a CPR clears the associated referenced bit", sac_selftest_writing_virtual_address_to_cpr_clears_associated_referenced_bit },
+    { "Writing a virtual address to a CPR clears the associated altered bit", sac_selftest_writing_virtual_address_to_cpr_clears_associated_altered_bit },
     { "Can read a virtual address from a CPR", sac_selftest_can_read_virtual_address_from_cpr },
     { "CPR SEARCH finds all matches using P and X", sac_selftest_search_cpr_finds_matches_using_P_and_X },
     { "CPR SEARCH finds all matches ignoring P", sac_selftest_search_cpr_finds_matches_ignoring_P },
     { "CPR SEARCH finds all matches ignoring X", sac_selftest_search_cpr_finds_matches_ignoring_X },
     { "CPR SEARCH finds all matches ignoring P and X", sac_selftest_search_cpr_finds_matches_ignoring_P_and_X },
     { "CPR SEARCH finds all matches ignoring selected S bits from CPR FIND MASK ", sac_selftest_search_cpr_finds_matches_masking_selected_S_bits },
-    { "CPR SEARCH finds all matches while ignoring any empty CPRs", sac_selftest_search_cpr_ignores_empty_cprs }
+    { "CPR SEARCH finds all matches while ignoring any empty CPRs", sac_selftest_search_cpr_ignores_empty_cprs },
+    { "CPR SEARCH does not update CPR REFERENCED bits", sac_selftest_search_cpr_does_not_update_cpr_referenced_bits },
+    { "CPR SEARCH does not update CPR ALTERED bits", sac_selftest_search_cpr_does_not_update_cpr_altered_bits }
 };
 
 void sac_selftest(TESTCONTEXT *testContext)
@@ -204,7 +217,6 @@ static void sac_selftest_write_word_with_bcpr_clear_writes_virtual_address(TESTC
 {
     sac_selftest_clear_bcpr();
     sac_selftest_setup_cpr(0, VA(0, 0, 0), RA(0xF, 0x10, 0));
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0xFFFFFFFE);
     sac_write_32_bit_word(1, 0xFFFFFFFF);
     sac_selftest_assert_real_address_memory_contents(0x11, 0xFFFFFFFF);
 }
@@ -213,7 +225,6 @@ static void sac_selftest_read_word_with_bcpr_clear_reads_virtual_address(TESTCON
 {
     sac_selftest_clear_bcpr();
     sac_selftest_setup_cpr(0, VA(0, 0, 0), RA(0xF, 0x10, 0));
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0xFFFFFFFE);
     sac_write_32_bit_word_real_address(0x11, 0xAAAAAAAA);
     sac_selftest_assert_memory_contents(1, 0xAAAAAAAA);
 }
@@ -223,7 +234,6 @@ static void sac_selftest_virtual_access_uses_PN_if_segment_less_than_8192(TESTCO
     sac_selftest_clear_bcpr();
     sac_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(0xF, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0xFFFFFFFE);
     sac_write_32_bit_word_real_address(0x11, 0xAAAAAAAA);
     sac_selftest_assert_memory_contents(1, 0xAAAAAAAA);
 }
@@ -233,11 +243,31 @@ static void sac_selftest_virtual_access_ignores_PN_if_segment_is_8192_or_greater
     sac_selftest_clear_bcpr();
     sac_selftest_setup_cpr(0, VA(0, 0x2000, 0), RA(0xF, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0xFFFFFFFE);
     sac_write_32_bit_word_real_address(0x11, 0xAAAAAAAA);
     sac_selftest_assert_memory_contents(0x20000001, 0xAAAAAAAA);
 }
 
+static void sac_selftest_virtual_read_updates_cpr_referenced_bit(TESTCONTEXT *testContext)
+{
+    sac_selftest_clear_bcpr();
+    sac_selftest_setup_cpr(0, VA(0xF, 0x0, 0), RA(0xF, 0x10, 0));
+    sac_selftest_setup_cpr(1, VA(0xF, 0x2000, 0), RA(0xF, 0x10, 0));
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
+    sac_read_32_bit_word(1);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_REFERENCED, 0x00000001);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_ALTERED, 0x00000000);
+}
+
+static void sac_selftest_virtual_write_updates_cpr_altered_bit(TESTCONTEXT *testContext)
+{
+    sac_selftest_clear_bcpr();
+    sac_selftest_setup_cpr(0, VA(0, 0x0, 0), RA(0xF, 0x10, 0));
+    sac_selftest_setup_cpr(1, VA(1, 0x2000, 0), RA(0xF, 0x10, 0));
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
+    sac_write_32_bit_word(1, 0);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_ALTERED, 0x00000001);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_REFERENCED, 0x00000000);
+}
 
 static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTEXT *testContext)
 {
@@ -288,10 +318,25 @@ static void sac_selftest_can_write_virtual_address_to_cpr(TESTCONTEXT *testConte
 
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_ignore_bit(TESTCONTEXT *testContext)
 {
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0xFFFFFFFF);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0xAAAAAAAAFFFFFFFF);
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0x7FFFFFFF);
+}
+
+static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_referenced_bit(TESTCONTEXT *testContext)
+{
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_REFERENCED, 0xFFFFFFFF);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0xAAAAAAAAFFFFFFFF);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_REFERENCED, 0x7FFFFFFF);
+}
+
+static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_altered_bit(TESTCONTEXT *testContext)
+{
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_ALTERED, 0xFFFFFFFF);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0xAAAAAAAAFFFFFFFF);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_ALTERED, 0x7FFFFFFF);
 }
 
 static void sac_selftest_can_read_virtual_address_from_cpr(TESTCONTEXT *testContext)
@@ -373,3 +418,28 @@ static void sac_selftest_search_cpr_ignores_empty_cprs(TESTCONTEXT *testContext)
 
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, 0x40000002);
 }
+
+static void sac_selftest_search_cpr_does_not_update_cpr_referenced_bits(TESTCONTEXT *testContext)
+{
+    sac_selftest_setup_cpr(0, VA(1, 1, 1), 0);
+
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_REFERENCED, 0xFFFFFFFF);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, 0);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0xFFFFFFFE);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(1, 1, 1));
+
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_REFERENCED, 0xFFFFFFFF);
+}
+
+static void sac_selftest_search_cpr_does_not_update_cpr_altered_bits(TESTCONTEXT *testContext)
+{
+    sac_selftest_setup_cpr(0, VA(1, 1, 1), 0);
+
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_ALTERED, 0xFFFFFFFF);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, 0);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0xFFFFFFFE);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(1, 1, 1));
+
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_ALTERED, 0xFFFFFFFF);
+}
+
