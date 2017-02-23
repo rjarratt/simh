@@ -296,7 +296,17 @@ static void sac_selftest_virtual_access_of_largest_page_size(TESTCONTEXT *testCo
     sac_selftest_assert_memory_contents(0x10001, 0xAAAAAAAA);
 }
 
-static void sac_selftest_virtual_access_of_mixed_page_size(TESTCONTEXT *testContext) {}
+static void sac_selftest_virtual_access_of_mixed_page_size(TESTCONTEXT *testContext)
+{
+    sac_selftest_clear_bcpr();
+    sac_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(0xF, 0x0000, 0xC));
+    sac_selftest_setup_cpr(1, VA(0xF, 1, 0), RA(0xF, 0x1000, 0x6));
+    sac_selftest_setup_cpr(2, VA(0xF, 1, 0x40), RA(0xF, 0x2000, 0x6));
+    sac_selftest_setup_cpr(3, VA(0xF, 2, 0), RA(0xF, 0x4000, 0xC));
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
+    sac_write_32_bit_word_real_address(0x2001, 0xAAAAAAAA);
+    sac_selftest_assert_memory_contents(0x10401, 0xAAAAAAAA);
+}
 
 static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTEXT *testContext)
 {
