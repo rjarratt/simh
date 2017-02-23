@@ -392,6 +392,7 @@ static void sac_reset_cpr(uint8 n)
     CPRIgnore &= ~(1 << CPRNumber);
     CPRAltered &= ~(1 << CPRNumber);
     CPRReferenced &= ~(1 << CPRNumber);
+    CPRFind &= ~(1 << CPRNumber);
 }
 
 static uint32 sac_search_cprs(uint32 mask, uint32 va)

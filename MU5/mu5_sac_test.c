@@ -79,6 +79,7 @@ static void sac_selftest_can_write_real_address_to_cpr(TESTCONTEXT *testContext)
 static void sac_selftest_can_read_real_address_from_cpr(TESTCONTEXT *testContext);
 static void sac_selftest_can_write_virtual_address_to_cpr(TESTCONTEXT *testContext);
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_ignore_bit(TESTCONTEXT *testContext);
+static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_find_bit(TESTCONTEXT *testContext);
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_referenced_bit(TESTCONTEXT *testContext);
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_altered_bit(TESTCONTEXT *testContext);
 static void sac_selftest_can_read_virtual_address_from_cpr(TESTCONTEXT *testContext);
@@ -112,6 +113,7 @@ static UNITTEST tests[] =
     { "Can read a real address from a CPR", sac_selftest_can_read_real_address_from_cpr },
     { "Can write a virtual address to a CPR", sac_selftest_can_write_virtual_address_to_cpr },
     { "Writing a virtual address to a CPR clears the associated ignore bit", sac_selftest_writing_virtual_address_to_cpr_clears_associated_ignore_bit },
+    { "Writing a virtual address to a CPR clears the associated find bit", sac_selftest_writing_virtual_address_to_cpr_clears_associated_find_bit },
     { "Writing a virtual address to a CPR clears the associated referenced bit", sac_selftest_writing_virtual_address_to_cpr_clears_associated_referenced_bit },
     { "Writing a virtual address to a CPR clears the associated altered bit", sac_selftest_writing_virtual_address_to_cpr_clears_associated_altered_bit },
     { "Can read a virtual address from a CPR", sac_selftest_can_read_virtual_address_from_cpr },
@@ -360,6 +362,14 @@ static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_ignore
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0xAAAAAAAAFFFFFFFF);
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0x7FFFFFFF);
+}
+
+static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_find_bit(TESTCONTEXT *testContext)
+{
+    sac_selftest_setup_cpr(0, VA(0, 1, 2), 0);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(0, 1, 2));
+    sac_selftest_setup_cpr(0, VA(0, 1, 2), 0);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, 0x0);
 }
 
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_referenced_bit(TESTCONTEXT *testContext)
