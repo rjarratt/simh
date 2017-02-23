@@ -125,7 +125,8 @@ static void sac_write_cpr_referenced_callback(t_uint64 value);
 static void sac_write_cpr_find_mask_callback(t_uint64 value);
 
 static void sac_reset_cpr(uint8 n);
-static uint32 sac_search_cprs(uint32 mask, uint32 va, int *numMatches, int *firstMatchIndex);
+static uint32 sac_search_cprs(uint32 mask, uint32 va);
+static uint32 sac_match_cprs(uint8 access, uint32 va, int *numMatches, int *firstMatchIndex);
 static t_addr sac_map_address(t_addr address, uint8 access);
 
 DEVICE sac_dev = {
@@ -318,7 +319,7 @@ static void sac_write_cpr_search_callback(t_uint64 value)
         mask = mask | VA_X_MASK;
     }
 
-    CPRFind = sac_search_cprs(mask, value & VA_MASK, NULL, NULL);
+    CPRFind = sac_search_cprs(mask, value & VA_MASK);
 }
 
 static void sac_write_cpr_number_callback(t_uint64 value)
@@ -393,10 +394,33 @@ static void sac_reset_cpr(uint8 n)
     CPRReferenced &= ~(1 << CPRNumber);
 }
 
-static uint32 sac_search_cprs(uint32 mask, uint32 va, int *numMatches, int *firstMatchIndex)
+static uint32 sac_search_cprs(uint32 mask, uint32 va)
 {
     int i;
     uint32 result = 0;
+    uint32 iresult = 1;
+    for (i = 0; i < NUM_CPRS; i++)
+    {
+        if (!(CPRIgnore & iresult))
+        {
+            if ((va & ~mask) == ((cpr[i] >> 32) & ~mask))
+            {
+                result = result | iresult;
+            }
+        }
+
+        iresult = iresult << 1;
+    }
+
+    return result;
+}
+
+static uint32 sac_match_cprs(uint8 access, uint32 va, int *numMatches, int *firstMatchIndex)
+{
+    int i;
+    uint32 result = 0;
+    uint32 mask = 0;
+    uint32 maskLen;
     uint32 iresult = 1;
     int numMatchesResult = 0;
     int firstMatchIndexResult = -1;
@@ -404,6 +428,8 @@ static uint32 sac_search_cprs(uint32 mask, uint32 va, int *numMatches, int *firs
     {
         if (!(CPRIgnore & iresult))
         {
+            maskLen = cpr[i] & 0xF;
+            mask = ~((0xFFF << maskLen)) & 0xFFF;
             if ((va & ~mask) == ((cpr[i] >> 32) & ~mask))
             {
                 numMatchesResult++;
@@ -451,11 +477,19 @@ static t_addr sac_map_address(t_addr address, uint8 access)
             va = ((uint32)PROPProcessNumber << 26) | va;
         }
 
-        matchMask = sac_search_cprs(0, va, &numMatches, &firstMatchIndex);
+        matchMask = sac_match_cprs(0, va, &numMatches, &firstMatchIndex);
         if (numMatches == 1)
         {
             result = (cpr[firstMatchIndex] >> 4) & 0xFFFFFF;
             result += address & 0xF;
+        }
+        else if (numMatches == 0)
+        {
+            cpu_set_interrupt(INT_CPR_NOT_EQUIVALENCE);
+        }
+        else
+        {
+            printf("Multi-equivalence\n");
         }
 
         if (access & SAC_READ_ACCESS)

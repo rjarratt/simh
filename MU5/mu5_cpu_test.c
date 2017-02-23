@@ -2071,7 +2071,8 @@ static void cpu_selftest_load_operand_internal_register_3(TESTCONTEXT *testConte
 static void cpu_selftest_load_operand_internal_register_4(TESTCONTEXT *testContext)
 {
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 4);
-    cpu_selftest_set_register(REG_MS, 0x0100);
+    uint16 initMs = (uint16)cpu_selftest_get_register(REG_MS);
+    cpu_selftest_set_register(REG_MS, 0x0100 | (initMs & 0x00FF));
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0x0000000000000001);
     cpu_selftest_assert_no_interrupt();
@@ -6738,7 +6739,8 @@ static void cpu_selftest_org_nb_store_stores_SN_and_NB(TESTCONTEXT *testContext)
 
 static uint16 cpu_selftest_calculate_ms_from_t_bits(uint16 t0, uint16 t1, uint16 t2, uint16 bn)
 {
-    uint16 ms = ((t0 & 1) << 11) | ((t1 & 1) << 10) | ((t2 & 1) << 9) | ((bn & 1) << 8);
+    uint16 initMs = (uint16)cpu_selftest_get_register(REG_MS);
+    uint16 ms = ((t0 & 1) << 11) | ((t1 & 1) << 10) | ((t2 & 1) << 9) | ((bn & 1) << 8) | (initMs & 0x00FF);
     return ms;
 }
 

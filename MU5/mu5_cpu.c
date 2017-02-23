@@ -303,7 +303,6 @@ static uint32 cpu_calculate_base_offset_from_reg_32(REG *reg, t_int64 offset, ui
 static t_addr cpu_get_name_segment_address_from_reg(REG *reg, int16 offset, uint8 scale);
 static int cpu_is_executive_mode(void);
 
-static void cpu_set_interrupt(uint8 number);
 static void cpu_clear_interrupt(uint8 number);
 static void cpu_clear_all_interrupts(void);
 static void cpu_set_bounds_check_interrupt();
@@ -1121,7 +1120,7 @@ void cpu_reset_state(void)
     cpu_set_register_32(reg_dl, 0x0);
 }
 
-static void cpu_set_interrupt(uint8 number)
+void cpu_set_interrupt(uint8 number)
 {
     interrupt |= 1u << number;
 }

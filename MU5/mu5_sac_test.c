@@ -64,8 +64,10 @@ static void sac_selftest_virtual_access_uses_PN_if_segment_less_than_8192(TESTCO
 static void sac_selftest_virtual_access_ignores_PN_if_segment_is_8192_or_greater(TESTCONTEXT *testContext);
 static void sac_selftest_virtual_read_updates_cpr_referenced_bit(TESTCONTEXT *testContext);
 static void sac_selftest_virtual_write_updates_cpr_altered_bit(TESTCONTEXT *testContext);
-// page sizes
-// referenced bit on obey access
+static void sac_selftest_virtual_access_of_smallest_page_size(TESTCONTEXT *testContext);
+static void sac_selftest_virtual_access_of_largest_page_size(TESTCONTEXT *testContext);
+static void sac_selftest_virtual_access_of_mixed_page_size(TESTCONTEXT *testContext);
+// referenced bit on obey access, exec access
 // access checks
 // cpr neqv interrupt
 // cpr multi eqv interrupt
@@ -99,6 +101,9 @@ static UNITTEST tests[] =
     { "Virtual access ignores PN if segment greater than or equal to 8192", sac_selftest_virtual_access_ignores_PN_if_segment_is_8192_or_greater },
     { "Virtual read updates the CPR Referenced bit", sac_selftest_virtual_read_updates_cpr_referenced_bit },
     { "Virtual write updates the CPR Altered bit", sac_selftest_virtual_read_updates_cpr_referenced_bit },
+    { "Virtual access to smallest page size", sac_selftest_virtual_access_of_smallest_page_size },
+    { "Virtual access to largest page size", sac_selftest_virtual_access_of_largest_page_size },
+    { "Virtual access to mixed page size", sac_selftest_virtual_access_of_mixed_page_size },
 
     { "Reading a write-only V-Store line returns zeroes", sac_selftest_reading_write_only_vstore_line_returns_zeroes },
     { "Writing a read-only V-Store line does nothing", sac_selftest_writing_read_only_vstore_line_does_nothing },
@@ -268,6 +273,30 @@ static void sac_selftest_virtual_write_updates_cpr_altered_bit(TESTCONTEXT *test
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_ALTERED, 0x00000001);
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_REFERENCED, 0x00000000);
 }
+
+static void sac_selftest_virtual_access_of_smallest_page_size(TESTCONTEXT *testContext)
+{
+    sac_selftest_clear_bcpr();
+    sac_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(0xF, 0x00, 0));
+    sac_selftest_setup_cpr(1, VA(0xF, 0, 1), RA(0xF, 0x20, 0));
+    sac_selftest_setup_cpr(2, VA(0xF, 0, 2), RA(0xF, 0x40, 0));
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
+    sac_write_32_bit_word_real_address(0x21, 0xAAAAAAAA);
+    sac_selftest_assert_memory_contents(0x11, 0xAAAAAAAA);
+}
+
+static void sac_selftest_virtual_access_of_largest_page_size(TESTCONTEXT *testContext)
+{
+    sac_selftest_clear_bcpr();
+    sac_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(0xF, 0x0000, 0xC));
+    sac_selftest_setup_cpr(1, VA(0xF, 1, 0), RA(0xF, 0x2000, 0xC));
+    sac_selftest_setup_cpr(2, VA(0xF, 2, 0), RA(0xF, 0x4000, 0xC));
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
+    sac_write_32_bit_word_real_address(0x2001, 0xAAAAAAAA);
+    sac_selftest_assert_memory_contents(0x10001, 0xAAAAAAAA);
+}
+
+static void sac_selftest_virtual_access_of_mixed_page_size(TESTCONTEXT *testContext) {}
 
 static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTEXT *testContext)
 {
