@@ -65,6 +65,7 @@ static void sac_selftest_read_word_with_bcpr_clear_reads_virtual_address(TESTCON
 static void sac_selftest_virtual_access_uses_PN_if_segment_less_than_8192(TESTCONTEXT *testContext);
 static void sac_selftest_virtual_access_ignores_PN_if_segment_is_8192_or_greater(TESTCONTEXT *testContext);
 static void sac_selftest_virtual_read_updates_cpr_referenced_bit(TESTCONTEXT *testContext);
+static void sac_selftest_virtual_read_for_obey_updates_cpr_referenced_bit(TESTCONTEXT *testContext);
 static void sac_selftest_virtual_write_updates_cpr_altered_bit(TESTCONTEXT *testContext);
 static void sac_selftest_virtual_access_of_smallest_page_size(TESTCONTEXT *testContext);
 static void sac_selftest_virtual_access_of_largest_page_size(TESTCONTEXT *testContext);
@@ -80,7 +81,9 @@ static void sac_selftest_read_from_write_only_page_is_permitted(TESTCONTEXT *tes
 static void sac_selftest_obey_from_obey_only_page_is_permitted(TESTCONTEXT *testContext);
 static void sac_selftest_read_from_read_only_page_is_permitted(TESTCONTEXT *testContext);
 static void sac_selftest_write_to_write_only_page_is_permitted(TESTCONTEXT *testContext);
-// exec access checks
+static void sac_selftest_executive_mode_access_to_executive_mode_page_is_permitted(TESTCONTEXT *testContext);
+static void sac_selftest_executive_mode_access_to_user_mode_page_is_permitted(TESTCONTEXT *testContext);
+static void sac_selftest_user_mode_access_to_executive_mode_page_generates_access_violation(TESTCONTEXT *testContext);
 // access checks on cpu side (add obey method, check it is called)
 // cpr neqv interrupt
 // cpr multi eqv interrupt
@@ -118,6 +121,7 @@ static UNITTEST tests[] =
     { "Virtual access uses PN if segment less than 8192", sac_selftest_virtual_access_uses_PN_if_segment_less_than_8192 },
     { "Virtual access ignores PN if segment greater than or equal to 8192", sac_selftest_virtual_access_ignores_PN_if_segment_is_8192_or_greater },
     { "Virtual read updates the CPR Referenced bit", sac_selftest_virtual_read_updates_cpr_referenced_bit },
+    { "Virtual read for obey updates the CPR Referenced bit", sac_selftest_virtual_read_for_obey_updates_cpr_referenced_bit },
     { "Virtual write updates the CPR Altered bit", sac_selftest_virtual_read_updates_cpr_referenced_bit },
     { "Virtual access to smallest page size", sac_selftest_virtual_access_of_smallest_page_size },
     { "Virtual access to largest page size", sac_selftest_virtual_access_of_largest_page_size },
@@ -133,7 +137,9 @@ static UNITTEST tests[] =
     { "Obey from Obey only page is permitted", sac_selftest_obey_from_obey_only_page_is_permitted },
     { "Read from Read only page is permitted", sac_selftest_read_from_read_only_page_is_permitted },
     { "Write to Write only page is permitted", sac_selftest_write_to_write_only_page_is_permitted },
-
+    { "Executive mode access to a executive mode page is permitted", sac_selftest_executive_mode_access_to_executive_mode_page_is_permitted },
+    { "Executive mode access to a user mode page is permitted",  sac_selftest_executive_mode_access_to_user_mode_page_is_permitted },
+    { "User mode access to an executive mode page generates access violation",  sac_selftest_user_mode_access_to_executive_mode_page_generates_access_violation },
 
     { "Reading a write-only V-Store line returns zeroes", sac_selftest_reading_write_only_vstore_line_returns_zeroes },
     { "Writing a read-only V-Store line does nothing", sac_selftest_writing_read_only_vstore_line_does_nothing },
@@ -190,7 +196,8 @@ static void sac_selftest_set_bcpr()
 
 static void sac_selftest_clear_bcpr()
 {
-    mu5_selftest_set_register(localTestContext, &cpu_dev, REG_MS, 0);
+    uint16 ms = cpu_get_ms() & ~MS_MASK_BCPR;
+    mu5_selftest_set_register(localTestContext, &cpu_dev, REG_MS, ms);
 }
 
 static void sac_selftest_setup_cpr(uint8 cprNumber, uint32 va, uint32 ra)
@@ -307,6 +314,17 @@ static void sac_selftest_virtual_read_updates_cpr_referenced_bit(TESTCONTEXT *te
     sac_selftest_setup_cpr(1, VA(0xF, 0x2000, 0), RA(SAC_ALL_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_read_32_bit_word(1);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_REFERENCED, 0x00000001);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_ALTERED, 0x00000000);
+}
+
+static void sac_selftest_virtual_read_for_obey_updates_cpr_referenced_bit(TESTCONTEXT *testContext)
+{
+    sac_selftest_clear_bcpr();
+    sac_selftest_setup_cpr(0, VA(0xF, 0x0, 0), RA(SAC_ALL_ACCESS, 0x10, 0));
+    sac_selftest_setup_cpr(1, VA(0xF, 0x2000, 0), RA(SAC_ALL_ACCESS, 0x10, 0));
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
+    sac_read_32_bit_word_for_obey(1);
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_REFERENCED, 0x00000001);
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_ALTERED, 0x00000000);
 }
@@ -453,6 +471,36 @@ static void sac_selftest_write_to_write_only_page_is_permitted(TESTCONTEXT *test
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_write_32_bit_word(1, 0);
     mu5_selftest_assert_no_interrupt(localTestContext);
+}
+
+static void sac_selftest_executive_mode_access_to_executive_mode_page_is_permitted(TESTCONTEXT *testContext)
+{
+    mu5_selftest_set_executive_mode(testContext, &cpu_dev);
+    sac_selftest_clear_bcpr();
+    sac_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_WRITE_ACCESS, 0x10, 0));
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
+    sac_write_32_bit_word(1, 0);
+    mu5_selftest_assert_no_interrupt(localTestContext);
+}
+
+static void sac_selftest_executive_mode_access_to_user_mode_page_is_permitted(TESTCONTEXT *testContext)
+{
+    mu5_selftest_set_executive_mode(testContext, &cpu_dev);
+    sac_selftest_clear_bcpr();
+    sac_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_USER_ACCESS | SAC_WRITE_ACCESS, 0x10, 0));
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
+    sac_write_32_bit_word(1, 0);
+    mu5_selftest_assert_no_interrupt(localTestContext);
+}
+
+static void sac_selftest_user_mode_access_to_executive_mode_page_generates_access_violation(TESTCONTEXT *testContext)
+{
+    mu5_selftest_set_user_mode(testContext, &cpu_dev);
+    sac_selftest_clear_bcpr();
+    sac_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_READ_ACCESS, 0x10, 0));
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
+    sac_read_32_bit_word(1);
+    sac_selftest_assert_operand_access_violation();
 }
 
 static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTEXT *testContext)

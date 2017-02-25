@@ -31,25 +31,6 @@ in this Software without prior written authorization from Robert Jarratt.
 #include "mu5_cpu_test.h"
 #include "mu5_sac.h"
 
-#define REG_A "A"
-#define REG_AEX "AEX"
-#define REG_AOD "AOD"
-#define REG_X "X"
-#define REG_B "B"
-#define REG_BOD "BOD"
-#define REG_D "D"
-#define REG_XD "XD"
-#define REG_DT "DT"
-#define REG_XDT "XDT"
-#define REG_DOD "DOD"
-#define REG_NB "NB"
-#define REG_XNB "XNB"
-#define REG_SN "SN"
-#define REG_SF "SF"
-#define REG_MS "MS"
-#define REG_CO "CO"
-#define REG_DL "DL"
-
 #define CR_ORG 0
 #define CR_B 1
 #define CR_STS1 2
@@ -1552,14 +1533,12 @@ static void cpu_selftest_set_aod_operand_64_bit()
 
 static void cpu_selftest_set_executive_mode(void)
 {
-    uint16 ms = cpu_get_ms() | MS_MASK_EXEC;
-    cpu_selftest_set_register(REG_MS, ms);
+    mu5_selftest_set_executive_mode(localTestContext, &cpu_dev);
 }
 
 static void cpu_selftest_set_user_mode(void)
 {
-    uint16 ms = cpu_get_ms() & ~MS_MASK_EXEC;
-    cpu_selftest_set_register(REG_MS, ms);
+    mu5_selftest_set_user_mode(localTestContext, &cpu_dev);
 }
 
 static void cpu_selftest_set_bn(int8 bn)

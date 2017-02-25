@@ -502,13 +502,20 @@ static uint32 sac_match_cprs(uint32 va, int *numMatches, int *firstMatchIndex)
 
 static int sac_check_access(uint8 requestedAccess, uint8 permittedAccess)
 {
+    uint8 augmentedRequestedAccess = requestedAccess;
     uint8 augmentedPermittedAccess = permittedAccess;
+
+    if (!(cpu_get_ms() & MS_MASK_EXEC))
+    {
+        augmentedRequestedAccess |= SAC_USER_ACCESS;
+    }
+
     if (permittedAccess & SAC_WRITE_ACCESS)
     {
         augmentedPermittedAccess |= SAC_READ_ACCESS;
     }
 
-    return requestedAccess & augmentedPermittedAccess & 0xF;
+    return augmentedRequestedAccess == (augmentedRequestedAccess & augmentedPermittedAccess & 0xF);
 }
 
 static t_addr sac_map_address(t_addr address, uint8 access)
@@ -559,7 +566,7 @@ static t_addr sac_map_address(t_addr address, uint8 access)
             SystemErrorInterrupt |= 0x40;
         }
 
-        if (access & SAC_READ_ACCESS)
+        if (access & (SAC_OBEY_ACCESS | SAC_READ_ACCESS))
         {
             CPRReferenced |= matchMask;
         }

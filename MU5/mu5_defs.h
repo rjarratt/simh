@@ -26,6 +26,25 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #include "sim_defs.h"
 
+#define REG_A "A"
+#define REG_AEX "AEX"
+#define REG_AOD "AOD"
+#define REG_X "X"
+#define REG_B "B"
+#define REG_BOD "BOD"
+#define REG_D "D"
+#define REG_XD "XD"
+#define REG_DT "DT"
+#define REG_XDT "XDT"
+#define REG_DOD "DOD"
+#define REG_NB "NB"
+#define REG_XNB "XNB"
+#define REG_SN "SN"
+#define REG_SF "SF"
+#define REG_MS "MS"
+#define REG_CO "CO"
+#define REG_DL "DL"
+
 /* Debug flags */
 #define LOG_CPU_PERF            (1 << 0)
 #define LOG_CPU_DECODE          (1 << 1)

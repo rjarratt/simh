@@ -86,6 +86,18 @@ t_stat mu5_selftest_end(TESTCONTEXT *context)
     return context->overallResult;
 }
 
+void mu5_selftest_set_executive_mode(TESTCONTEXT *context, DEVICE *device)
+{
+    uint16 ms = cpu_get_ms() | MS_MASK_EXEC;
+    mu5_selftest_set_register(context, device, REG_MS, ms);
+}
+
+void mu5_selftest_set_user_mode(TESTCONTEXT *context, DEVICE *device)
+{
+    uint16 ms = cpu_get_ms() & ~MS_MASK_EXEC;
+    mu5_selftest_set_register(context, device, REG_MS, ms);
+}
+
 void mu5_selftest_assert_fail(TESTCONTEXT *context)
 {
     sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Test failed\n");

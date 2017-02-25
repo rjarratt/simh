@@ -36,7 +36,7 @@ Z register is not implemented.
 B DIV implementation is a guess (not defined in MU5 Basic Programming Manual)
 No floating point orders
 No decimal orders
-Addresses are physical only, virtual memory is not implemented yet, segment crossing boundary checks missing
+Segment crossing boundary checks missing
 Interrupt processing is not implemented yet
 Type 3 descriptors not implemented yet.
 
