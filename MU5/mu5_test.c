@@ -27,6 +27,7 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #include <assert.h>
 #include "mu5_test.h"
+#include "mu5_sac.h"
 #include "mu5_cpu.h"
 
 extern DEVICE cpu_dev;
@@ -149,6 +150,28 @@ void mu5_selftest_assert_interrupt_number(TESTCONTEXT *context, int expectedInte
     }
 }
 
+void mu5_selftest_assert_operand_access_violation(TESTCONTEXT *context)
+{
+    mu5_selftest_assert_interrupt_number(context, INT_PROGRAM_FAULTS);
+    mu5_selftest_assert_vstore_contents(context, SAC_V_STORE_BLOCK, SAC_V_STORE_ACCESS_VIOLATION, 0x2);
+}
+
+void mu5_selftest_assert_instruction_access_violation(TESTCONTEXT *context)
+{
+    mu5_selftest_assert_interrupt_number(context, INT_PROGRAM_FAULTS);
+    mu5_selftest_assert_vstore_contents(context, SAC_V_STORE_BLOCK, SAC_V_STORE_ACCESS_VIOLATION, 0x6);
+}
+
+void mu5_selftest_assert_vstore_contents(TESTCONTEXT *context, uint8 block, uint8 line, t_uint64 expectedValue)
+{
+    t_uint64 actualValue = sac_read_v_store(block, line);
+    if (actualValue != expectedValue)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Expected value in V-Store block %hu line %hu to be %llX, but was %llX\n", block, line, expectedValue, actualValue);
+        mu5_selftest_set_failure(context);
+    }
+}
+
 t_uint64 mu5_selftest_read_callback_for_static_64_bit_location(void)
 {
     return VStoreTestLocation;
@@ -157,6 +180,25 @@ t_uint64 mu5_selftest_read_callback_for_static_64_bit_location(void)
 void mu5_selftest_write_callback_for_static_64_bit_location(t_uint64 value)
 {
     VStoreTestLocation = value;
+}
+
+void mu5_selftest_set_bcpr(TESTCONTEXT *context, DEVICE *device)
+{
+    uint16 ms = cpu_get_ms() | MS_MASK_BCPR;
+    mu5_selftest_set_register(context, device, REG_MS, ms);
+}
+
+void mu5_selftest_clear_bcpr(TESTCONTEXT *context, DEVICE *device)
+{
+    uint16 ms = cpu_get_ms() & ~MS_MASK_BCPR;
+    mu5_selftest_set_register(context, device, REG_MS, ms);
+}
+
+void mu5_selftest_setup_cpr(uint8 cprNumber, uint32 va, uint32 ra)
+{
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, cprNumber);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, ra);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, va);
 }
 
 REG *mu5_selftest_find_register(TESTCONTEXT *context, DEVICE *device, char *name)

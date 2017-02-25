@@ -339,6 +339,11 @@ static void cpu_selftest_assert_v_store_contents(uint8 block, uint8 line, t_uint
 static void cpu_selftest_assert_fail(void);
 static void cpu_selftest_set_failure(void);
 
+static void cpu_selftest_16_bit_instruction_fetches_using_obey_access(TESTCONTEXT *testContext);
+static void cpu_selftest_16_bit_instruction_generates_instruction_access_violation_when_fetching_from_non_executable_segment(TESTCONTEXT *testContext);
+static void cpu_selftest_instruction_fetches_extended_literal_using_obey_access(TESTCONTEXT *testContext);
+static void cpu_selftest_instruction_access_violation_when_fetching_extended_literal_from_non_executable_segment(TESTCONTEXT *testContext);
+
 static void cpu_selftest_16_bit_instruction_advances_co_by_1(TESTCONTEXT *testContext);
 static void cpu_selftest_32_bit_instruction_advances_co_by_2(TESTCONTEXT *testContext);
 static void cpu_selftest_48_bit_instruction_advances_co_by_3(TESTCONTEXT *testContext);
@@ -887,6 +892,11 @@ CONDITIONTABLE conditionalFuncsTable[] =
 
 static UNITTEST tests[] =
 {
+    { "16-bit instruction fetches using obey access", cpu_selftest_16_bit_instruction_fetches_using_obey_access },
+    { "16-bit instruction generates instruction access violation when fetching from a non-executable segment", cpu_selftest_16_bit_instruction_generates_instruction_access_violation_when_fetching_from_non_executable_segment },
+    { "Instruction fetches extended literal using obey access", cpu_selftest_instruction_fetches_extended_literal_using_obey_access },
+    { "Instruction generates instruction access violation when fetching extended literal from a non-executable segment", cpu_selftest_instruction_access_violation_when_fetching_extended_literal_from_non_executable_segment },
+
     { "16-bit instruction advances CO by 1", cpu_selftest_16_bit_instruction_advances_co_by_1 },
     { "32-bit instruction advances CO by 2", cpu_selftest_32_bit_instruction_advances_co_by_2 },
     { "48-bit instruction advances CO by 3", cpu_selftest_48_bit_instruction_advances_co_by_3 },
@@ -1948,6 +1958,47 @@ void cpu_selftest(TESTCONTEXT *testContext)
     localTestContext = testContext;
     localTestContext->dev = &cpu_dev;
     mu5_selftest_run_suite(testContext, tests, n, cpu_selftest_reset);
+}
+
+static void cpu_selftest_16_bit_instruction_fetches_using_obey_access(TESTCONTEXT *testContext)
+{
+    mu5_selftest_setup_cpr(0, VA(0, 0x2000, 0), RA(SAC_OBEY_ACCESS, 0, 0xC));
+    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
+    mu5_selftest_clear_bcpr(testContext, &cpu_dev);
+    cpu_selftest_run_code_from_location(0x40000000); /* expressed as 16-bit word address */
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_16_bit_instruction_generates_instruction_access_violation_when_fetching_from_non_executable_segment(TESTCONTEXT *testContext)
+{
+    mu5_selftest_setup_cpr(0, VA(0, 0x2000, 0), RA(SAC_READ_ACCESS, 0, 0xC));
+    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
+    mu5_selftest_clear_bcpr(testContext, &cpu_dev);
+    cpu_selftest_run_code_from_location(0x40000000); /* expressed as 16-bit word address */
+    mu5_selftest_assert_instruction_access_violation(localTestContext);
+}
+
+static void cpu_selftest_instruction_fetches_extended_literal_using_obey_access(TESTCONTEXT *testContext)
+{
+    mu5_selftest_setup_cpr(0, VA(0, 0x2000, 0), RA(SAC_OBEY_ACCESS, 0, 0xC));
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, KP_LITERAL, NP_16_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_16_bit_literal(0xFFFF);
+    mu5_selftest_clear_bcpr(testContext, &cpu_dev);
+    cpu_selftest_run_code_from_location(0x40000000); /* expressed as 16-bit word address */
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_instruction_access_violation_when_fetching_extended_literal_from_non_executable_segment(TESTCONTEXT *testContext)
+{
+    /* not sure how valid this test is, with the order crossing a segment boundary*/
+    mu5_selftest_setup_cpr(0, VA(0, 0x2000, 0), RA(SAC_OBEY_ACCESS, 0, 0xC));
+    mu5_selftest_setup_cpr(1, VA(0, 0x2001, 0), RA(SAC_READ_ACCESS, 0x10000, 0xC));
+    cpu_selftest_set_load_location(0x1FFFF);
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, KP_LITERAL, NP_16_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_16_bit_literal(0xFFFF);
+    mu5_selftest_clear_bcpr(testContext, &cpu_dev);
+    cpu_selftest_run_code_from_location(0x4001FFFF); /* expressed as 16-bit word address */
+    mu5_selftest_assert_instruction_access_violation(localTestContext);
 }
 
 static void cpu_selftest_16_bit_instruction_advances_co_by_1(TESTCONTEXT *testContext)

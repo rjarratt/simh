@@ -1259,7 +1259,7 @@ static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructio
     int words = (nprime == 2) ? 4 : nprime + 1;
     for (i = 0; i < words; i++)
     {
-        word = sac_read_16_bit_word(instructionAddress + 1 + i);
+        word = sac_read_16_bit_word_for_obey(instructionAddress + 1 + i);
         if (i == 0)
         {
             negative = (word & 0x8000);
@@ -2160,7 +2160,7 @@ void cpu_execute_next_order(void)
 
     if (interrupt == 0)
     {
-        order = sac_read_16_bit_word(cpu_get_register_32(reg_co));
+        order = sac_read_16_bit_word_for_obey(cpu_get_register_32(reg_co));
         cr = cpu_get_cr(order);
 
         crDispatchTable[cr].execute(order, crDispatchTable[cr].innerTable);

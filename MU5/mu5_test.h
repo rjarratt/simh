@@ -32,6 +32,9 @@ in this Software without prior written authorization from Robert Jarratt.
 #define TEST_V_STORE_LOCATION_BLOCK 7
 #define TEST_V_STORE_LOCATION_LINE 255
 
+#define VA(P,S,X) ((P <<26 ) | (S << 12) | X)
+#define RA(AC,A,LZ) ((AC << 28) | (A << 4) | LZ)
+
 typedef struct TESTCONTEXT
 {
     DEVICE *dev;
@@ -56,6 +59,9 @@ t_stat mu5_selftest_end(TESTCONTEXT *context);
 
 void mu5_selftest_set_executive_mode(TESTCONTEXT *context, DEVICE *device);
 void mu5_selftest_set_user_mode(TESTCONTEXT *context, DEVICE *device);
+void mu5_selftest_set_bcpr(TESTCONTEXT *context, DEVICE *device);
+void mu5_selftest_clear_bcpr(TESTCONTEXT *context, DEVICE *device);
+void mu5_selftest_setup_cpr(uint8 cprNumber, uint32 va, uint32 ra);
 
 REG *mu5_selftest_find_register(TESTCONTEXT *context, DEVICE *device, char *name);
 t_uint64 mu5_selftest_get_register(TESTCONTEXT *context, DEVICE *device, char *name);
@@ -69,7 +75,9 @@ void mu5_selftest_assert_reg_equals(TESTCONTEXT *context, DEVICE *device, char *
 void mu5_selftest_assert_reg_instance_equals(TESTCONTEXT *context, DEVICE *device, char *name, uint8 index, t_uint64 expectedValue);
 void mu5_selftest_assert_no_interrupt(TESTCONTEXT *context);
 void mu5_selftest_assert_interrupt_number(TESTCONTEXT *context, int expectedInterruptNumber);
-
+void mu5_selftest_assert_operand_access_violation(TESTCONTEXT *context);
+void mu5_selftest_assert_instruction_access_violation(TESTCONTEXT *context);
+void mu5_selftest_assert_vstore_contents(TESTCONTEXT *context, uint8 block, uint8 line, t_uint64 expectedValue);
 
 t_uint64 mu5_selftest_read_callback_for_static_64_bit_location(void);
 void mu5_selftest_write_callback_for_static_64_bit_location(t_uint64 value);

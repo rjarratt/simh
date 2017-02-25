@@ -128,7 +128,7 @@ static void sac_write_system_error_interrupts_callback(t_uint64 value);
 
 static void sac_reset_cpr(uint8 n);
 static uint32 sac_search_cprs(uint32 mask, uint32 va);
-static uint32 sac_match_cprs(uint32 va, int *numMatches, int *firstMatchIndex);
+static uint32 sac_match_cprs(uint32 va, int *numMatches, int *firstMatchIndex, uint32 *segmentMask);
 static int sac_check_access(uint8 requestedAccess, uint8 permittedAccess);
 static t_addr sac_map_address(t_addr address, uint8 access);
 
@@ -234,6 +234,13 @@ void sac_write_32_bit_word(t_addr address, uint32 value)
 uint16 sac_read_16_bit_word(t_addr address)
 {
     uint32 fullWord = sac_read_32_bit_word(address >> 1);
+    uint16 result = (address & 1) ? fullWord & 0xFFFF : fullWord >> 16;
+    return result;
+}
+
+uint16 sac_read_16_bit_word_for_obey(t_addr address)
+{
+    uint32 fullWord = sac_read_32_bit_word_for_obey(address >> 1);
     uint16 result = (address & 1) ? fullWord & 0xFFFF : fullWord >> 16;
     return result;
 }
@@ -457,7 +464,7 @@ static uint32 sac_search_cprs(uint32 mask, uint32 va)
     return result;
 }
 
-static uint32 sac_match_cprs(uint32 va, int *numMatches, int *firstMatchIndex)
+static uint32 sac_match_cprs(uint32 va, int *numMatches, int *firstMatchIndex, uint32 *segmentMask)
 {
     int i;
     uint32 result = 0;
@@ -481,21 +488,15 @@ static uint32 sac_match_cprs(uint32 va, int *numMatches, int *firstMatchIndex)
                 }
 
                 result = result | iresult;
+                *segmentMask = mask;
             }
         }
 
         iresult = iresult << 1;
     }
 
-    if (numMatches != NULL)
-    {
-        *numMatches = numMatchesResult;
-    }
-
-    if (firstMatchIndex != NULL)
-    {
-        *firstMatchIndex = firstMatchIndexResult;
-    }
+    *numMatches = numMatchesResult;
+    *firstMatchIndex = firstMatchIndexResult;
 
     return result;
 }
@@ -530,6 +531,7 @@ static t_addr sac_map_address(t_addr address, uint8 access)
         int numMatches;
         int firstMatchIndex;
         uint32 matchMask;
+        uint32 segmentMask;
         uint32 va = (address >> 4) & 0x3FFFFFF;
         uint32 seg = (address >> 16) & 0x3FFF;
         if (seg < 8192)
@@ -537,11 +539,11 @@ static t_addr sac_map_address(t_addr address, uint8 access)
             va = ((uint32)PROPProcessNumber << 26) | va;
         }
 
-        matchMask = sac_match_cprs(va, &numMatches, &firstMatchIndex);
+        matchMask = sac_match_cprs(va, &numMatches, &firstMatchIndex, &segmentMask);
         if (numMatches == 1)
         {
             result = (cpr[firstMatchIndex] >> 4) & 0xFFFFFF;
-            result += address & 0xF;
+            result += address & ((segmentMask << 4) | 0xF);
 
             if (!sac_check_access(access, (cpr[firstMatchIndex] >> 28) & 0xF))
             {
