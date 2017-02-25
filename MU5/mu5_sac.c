@@ -498,7 +498,7 @@ static t_addr sac_map_address(t_addr address, uint8 access)
         }
         else
         {
-            printf("Multi-equivalence\n");
+            cpu_set_interrupt(INT_SYSTEM_ERROR);
         }
 
         if (access & SAC_READ_ACCESS)

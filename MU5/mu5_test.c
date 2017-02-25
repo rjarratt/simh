@@ -27,6 +27,7 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #include <assert.h>
 #include "mu5_test.h"
+#include "mu5_cpu.h"
 
 extern DEVICE cpu_dev;
 
@@ -114,6 +115,15 @@ void mu5_selftest_assert_reg_instance_equals(TESTCONTEXT *context, DEVICE *devic
     if (actualValue != expectedValue)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Expected value in register %s[%hu] to be %llX, but was %llX\n", name, index, expectedValue, actualValue);
+        mu5_selftest_set_failure(context);
+    }
+}
+
+void mu5_selftest_assert_interrupt_number(TESTCONTEXT *context, int expectedInterruptNumber)
+{
+    if (cpu_get_interrupt_number() != expectedInterruptNumber)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Expected interrupt %d to have occurred\n", expectedInterruptNumber);
         mu5_selftest_set_failure(context);
     }
 }

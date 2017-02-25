@@ -60,11 +60,12 @@ t_uint64 mu5_selftest_get_register_instance(TESTCONTEXT *context, DEVICE *device
 void mu5_selftest_set_register(TESTCONTEXT *context, DEVICE *device, char *name, t_uint64 value);
 void mu5_selftest_set_register_instance(TESTCONTEXT *context, DEVICE *device, char *name, uint8 index, t_uint64 value);
 
-
 void mu5_selftest_assert_fail(TESTCONTEXT *context);
 void mu5_selftest_set_failure(TESTCONTEXT *context);
 void mu5_selftest_assert_reg_equals(TESTCONTEXT *context, DEVICE *device, char *name, t_uint64 expectedValue);
 void mu5_selftest_assert_reg_instance_equals(TESTCONTEXT *context, DEVICE *device, char *name, uint8 index, t_uint64 expectedValue);
+void mu5_selftest_assert_interrupt_number(TESTCONTEXT *context, int expectedInterruptNumber);
+
 
 t_uint64 mu5_selftest_read_callback_for_static_64_bit_location(void);
 void mu5_selftest_write_callback_for_static_64_bit_location(t_uint64 value);

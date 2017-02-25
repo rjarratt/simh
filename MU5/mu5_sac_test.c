@@ -67,6 +67,8 @@ static void sac_selftest_virtual_write_updates_cpr_altered_bit(TESTCONTEXT *test
 static void sac_selftest_virtual_access_of_smallest_page_size(TESTCONTEXT *testContext);
 static void sac_selftest_virtual_access_of_largest_page_size(TESTCONTEXT *testContext);
 static void sac_selftest_virtual_access_of_mixed_page_size(TESTCONTEXT *testContext);
+static void sac_selftest_cpr_non_equivalence_generates_non_equivalence_interrupt(TESTCONTEXT *testContext);
+static void sac_selftest_cpr_multiple_equivalence_generates_system_error_interrupt(TESTCONTEXT *testContext);
 // referenced bit on obey access, exec access
 // access checks
 // cpr neqv interrupt
@@ -107,6 +109,8 @@ static UNITTEST tests[] =
     { "Virtual access to smallest page size", sac_selftest_virtual_access_of_smallest_page_size },
     { "Virtual access to largest page size", sac_selftest_virtual_access_of_largest_page_size },
     { "Virtual access to mixed page size", sac_selftest_virtual_access_of_mixed_page_size },
+    { "CPR non-equivalence generates a non-equivalence interrupt", sac_selftest_cpr_non_equivalence_generates_non_equivalence_interrupt },
+    { "CPR multiple-equivalence error generates a system error interrupt", sac_selftest_cpr_multiple_equivalence_generates_system_error_interrupt },
 
     { "Reading a write-only V-Store line returns zeroes", sac_selftest_reading_write_only_vstore_line_returns_zeroes },
     { "Writing a read-only V-Store line does nothing", sac_selftest_writing_read_only_vstore_line_does_nothing },
@@ -312,6 +316,23 @@ static void sac_selftest_virtual_access_of_mixed_page_size(TESTCONTEXT *testCont
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_write_32_bit_word_real_address(0x2001, 0xAAAAAAAA);
     sac_selftest_assert_memory_contents(0x10401, 0xAAAAAAAA);
+}
+
+static void sac_selftest_cpr_non_equivalence_generates_non_equivalence_interrupt(TESTCONTEXT *testContext)
+{
+    sac_selftest_clear_bcpr();
+    sac_read_32_bit_word(0x10001);
+    mu5_selftest_assert_interrupt_number(testContext, INT_CPR_NOT_EQUIVALENCE);
+}
+
+static void sac_selftest_cpr_multiple_equivalence_generates_system_error_interrupt(TESTCONTEXT *testContext)
+{
+    sac_selftest_clear_bcpr();
+    sac_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(0xF, 0x10, 0));
+    sac_selftest_setup_cpr(1, VA(0xF, 0, 0), RA(0xF, 0x10, 0));
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
+    sac_read_32_bit_word(1);
+    mu5_selftest_assert_interrupt_number(testContext, INT_SYSTEM_ERROR);
 }
 
 static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTEXT *testContext)
