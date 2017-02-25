@@ -46,6 +46,8 @@ in this Software without prior written authorization from Robert Jarratt.
 #define SAC_V_STORE_CPR_ALTERED 6
 #define SAC_V_STORE_CPR_REFERENCED 7
 #define SAC_V_STORE_CPR_FIND_MASK 9
+#define SAC_V_STORE_CPR_NOT_EQUIVALENCE_PSX 16
+#define SAC_V_STORE_CPR_NOT_EQUIVALENCE_S 17 
 #define SAC_V_STORE_ACCESS_VIOLATION 22
 #define SAC_V_STORE_SYSTEM_ERROR_INTERRUPTS 23
 

@@ -22,6 +22,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 Except as contained in this notice, the name of Robert Jarratt shall not be
 used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Robert Jarratt.
+
+This is the MU5 Store Access Control unit.
+
+Known Limitations
+-----------------
+The following V Store lines are not implemented: CPR X FIELD, SAC PARITY, SAC MODE, UNIT STATUS, 1905E INTERRUPT.
+
 */
 
 #include "mu5_defs.h"
@@ -60,6 +67,8 @@ static uint32 CPRFindMask;
 static uint32 CPRIgnore;
 static uint32 CPRAltered;
 static uint32 CPRReferenced;
+static uint32 CPRNotEquivalencePSX;
+static uint16 CPRNotEquivalenceS;
 static uint8 AccessViolation;
 static uint8 SystemErrorInterrupt;
 
@@ -125,6 +134,9 @@ static t_uint64 sac_read_access_violation_callback(void);
 static void sac_write_access_violation_callback(t_uint64 value);
 static t_uint64 sac_read_system_error_interrupts_callback(void);
 static void sac_write_system_error_interrupts_callback(t_uint64 value);
+static t_uint64 sac_read_cpr_not_equivalence_psx_callback(void);
+static void sac_write_cpr_not_equivalence_psx_callback(t_uint64 value);
+static t_uint64 sac_read_cpr_not_equivalence_s_callback(void);
 
 static void sac_reset_cpr(uint8 n);
 static uint32 sac_search_cprs(uint32 mask, uint32 va);
@@ -187,6 +199,8 @@ void sac_reset_state(void)
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_ALTERED, sac_read_cpr_altered_callback, sac_write_cpr_altered_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_REFERENCED, sac_read_cpr_referenced_callback, sac_write_cpr_referenced_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, NULL, sac_write_cpr_find_mask_callback);
+    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NOT_EQUIVALENCE_PSX, sac_read_cpr_not_equivalence_psx_callback, sac_write_cpr_not_equivalence_psx_callback);
+    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NOT_EQUIVALENCE_S, sac_read_cpr_not_equivalence_s_callback, NULL);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_ACCESS_VIOLATION, sac_read_access_violation_callback, sac_write_access_violation_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_SYSTEM_ERROR_INTERRUPTS, sac_read_system_error_interrupts_callback, sac_write_system_error_interrupts_callback);
     CPRNumber = 0;
@@ -195,6 +209,8 @@ void sac_reset_state(void)
     CPRIgnore = 0xFFFFFFFF;
     CPRAltered = 0;
     CPRReferenced = 0;
+    CPRNotEquivalencePSX = 0;
+    CPRNotEquivalenceS = 0;
     AccessViolation = 0;
     SystemErrorInterrupt = 0;
 }
@@ -435,6 +451,23 @@ static void sac_write_system_error_interrupts_callback(t_uint64 value)
     SystemErrorInterrupt = SystemErrorInterrupt & 0x20; /* bit 58 cannot be reset */
 }
 
+static t_uint64 sac_read_cpr_not_equivalence_psx_callback(void)
+{
+    return CPRNotEquivalencePSX & 0x3FFFFFFF;
+}
+
+static void sac_write_cpr_not_equivalence_psx_callback(t_uint64 value)
+{
+    CPRNotEquivalencePSX = 0;
+    CPRNotEquivalenceS = 0;
+}
+
+static t_uint64 sac_read_cpr_not_equivalence_s_callback(void)
+{
+    return CPRNotEquivalenceS & 0x3FFF;
+}
+
+
 static void sac_reset_cpr(uint8 n)
 {
     CPRIgnore &= ~(1 << CPRNumber);
@@ -560,6 +593,8 @@ static t_addr sac_map_address(t_addr address, uint8 access)
         }
         else if (numMatches == 0)
         {
+            CPRNotEquivalencePSX = va;
+            CPRNotEquivalenceS = seg;
             cpu_set_interrupt(INT_CPR_NOT_EQUIVALENCE);
         }
         else

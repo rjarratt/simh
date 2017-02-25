@@ -66,7 +66,8 @@ static void sac_selftest_virtual_write_updates_cpr_altered_bit(TESTCONTEXT *test
 static void sac_selftest_virtual_access_of_smallest_page_size(TESTCONTEXT *testContext);
 static void sac_selftest_virtual_access_of_largest_page_size(TESTCONTEXT *testContext);
 static void sac_selftest_virtual_access_of_mixed_page_size(TESTCONTEXT *testContext);
-static void sac_selftest_cpr_non_equivalence_generates_non_equivalence_interrupt(TESTCONTEXT *testContext);
+static void sac_selftest_cpr_not_equivalence_generates_not_equivalence_interrupt(TESTCONTEXT *testContext);
+static void sac_selftest_cpr_not_equivalence_sets_cpr_not_equivalence_v_lines(TESTCONTEXT *testContext);
 static void sac_selftest_cpr_multiple_equivalence_generates_system_error_interrupt(TESTCONTEXT *testContext);
 static void sac_selftest_write_to_obey_only_page_generates_access_violation(TESTCONTEXT *testContext);
 static void sac_selftest_write_to_read_only_page_generates_access_violation(TESTCONTEXT *testContext);
@@ -80,7 +81,6 @@ static void sac_selftest_write_to_write_only_page_is_permitted(TESTCONTEXT *test
 static void sac_selftest_executive_mode_access_to_executive_mode_page_is_permitted(TESTCONTEXT *testContext);
 static void sac_selftest_executive_mode_access_to_user_mode_page_is_permitted(TESTCONTEXT *testContext);
 static void sac_selftest_user_mode_access_to_executive_mode_page_generates_access_violation(TESTCONTEXT *testContext);
-// cpr neqv interrupt, set up the V-Lines
 
 static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTEXT *testContext);
 static void sac_selftest_writing_read_only_vstore_line_does_nothing(TESTCONTEXT *testContext);
@@ -105,6 +105,7 @@ static void sac_selftest_writing_any_value_to_cpr_find_resets_it_to_zero(TESTCON
 static void sac_selftest_search_cpr_updates_find_result(TESTCONTEXT *testContext);
 static void sac_selftest_write_to_access_violation_resets_it_to_zero(TESTCONTEXT *testContext);
 static void sac_selftest_write_to_system_error_interrupts_resets_it_to_zero(TESTCONTEXT *testContext); /* TODO: other items are also reset, see p93 */
+static void sac_selftest_write_to_cpr_not_equivalence_psx_not_equivalance_lines_to_zero(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
@@ -120,7 +121,8 @@ static UNITTEST tests[] =
     { "Virtual access to smallest page size", sac_selftest_virtual_access_of_smallest_page_size },
     { "Virtual access to largest page size", sac_selftest_virtual_access_of_largest_page_size },
     { "Virtual access to mixed page size", sac_selftest_virtual_access_of_mixed_page_size },
-    { "CPR non-equivalence generates a non-equivalence interrupt", sac_selftest_cpr_non_equivalence_generates_non_equivalence_interrupt },
+    { "CPR not-equivalence generates a not-equivalence interrupt", sac_selftest_cpr_not_equivalence_generates_not_equivalence_interrupt },
+    { "CPR not-equivalence sets not-equivalence V lines", sac_selftest_cpr_not_equivalence_sets_cpr_not_equivalence_v_lines },
     { "CPR multiple-equivalence error generates a system error interrupt", sac_selftest_cpr_multiple_equivalence_generates_system_error_interrupt },
     { "Write to Obey only page generates access violation", sac_selftest_write_to_obey_only_page_generates_access_violation },
     { "Write to Read only page generates access violation", sac_selftest_write_to_read_only_page_generates_access_violation },
@@ -157,7 +159,8 @@ static UNITTEST tests[] =
     { "Writing any value to CPR FIND resets it to zero", sac_selftest_writing_any_value_to_cpr_find_resets_it_to_zero },
     { "CPR SEARCH updates the result in CPR FIND", sac_selftest_search_cpr_updates_find_result },
     { "Write to ACCESS VIOLATION resets it to zero", sac_selftest_write_to_access_violation_resets_it_to_zero },
-    { "Write to SYSTEM ERROR INTERRUPT resets it to zero", sac_selftest_write_to_system_error_interrupts_resets_it_to_zero }
+    { "Write to SYSTEM ERROR INTERRUPT resets it to zero", sac_selftest_write_to_system_error_interrupts_resets_it_to_zero },
+    { "Write to CPR NOT EQUIVALENCE PSX resets not-equivalence lines to zero", sac_selftest_write_to_cpr_not_equivalence_psx_not_equivalance_lines_to_zero }
 };
 
 void sac_selftest(TESTCONTEXT *testContext)
@@ -353,11 +356,20 @@ static void sac_selftest_virtual_access_of_mixed_page_size(TESTCONTEXT *testCont
     sac_selftest_assert_memory_contents(0x107FF, 0xAAAAAAAA);
 }
 
-static void sac_selftest_cpr_non_equivalence_generates_non_equivalence_interrupt(TESTCONTEXT *testContext)
+static void sac_selftest_cpr_not_equivalence_generates_not_equivalence_interrupt(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
     sac_read_32_bit_word(0x10001);
     mu5_selftest_assert_interrupt_number(testContext, INT_CPR_NOT_EQUIVALENCE);
+}
+
+static void sac_selftest_cpr_not_equivalence_sets_cpr_not_equivalence_v_lines(TESTCONTEXT *testContext)
+{
+    sac_selftest_clear_bcpr();
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
+    sac_read_32_bit_word(0x1001A0A1);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NOT_EQUIVALENCE_PSX, 0x3D001A0A);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NOT_EQUIVALENCE_S, 0x1001);
 }
 
 static void sac_selftest_cpr_multiple_equivalence_generates_system_error_interrupt(TESTCONTEXT *testContext)
@@ -706,4 +718,13 @@ static void sac_selftest_write_to_system_error_interrupts_resets_it_to_zero(TEST
     sac_read_32_bit_word(1);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_SYSTEM_ERROR_INTERRUPTS, 0xFFFFFFFFFFFFFFFF);
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_SYSTEM_ERROR_INTERRUPTS, 0x0);
+}
+
+static void sac_selftest_write_to_cpr_not_equivalence_psx_not_equivalance_lines_to_zero(TESTCONTEXT *testContext)
+{
+    sac_selftest_clear_bcpr();
+    sac_read_32_bit_word(1);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NOT_EQUIVALENCE_PSX, 0xFFFFFFFFFFFFFFFF);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NOT_EQUIVALENCE_PSX, 0x0);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NOT_EQUIVALENCE_S, 0x0);
 }
