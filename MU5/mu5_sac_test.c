@@ -91,6 +91,8 @@ static void sac_selftest_search_cpr_finds_matches_masking_selected_S_bits(TESTCO
 static void sac_selftest_search_cpr_ignores_empty_cprs(TESTCONTEXT *testContext);
 static void sac_selftest_search_cpr_does_not_update_cpr_referenced_bits(TESTCONTEXT *testContext);
 static void sac_selftest_search_cpr_does_not_update_cpr_altered_bits(TESTCONTEXT *testContext);
+static void sac_selftest_writing_any_value_to_cpr_find_resets_it_to_zero(TESTCONTEXT *testContext);
+static void sac_selftest_search_cpr_updates_find_result(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
@@ -124,7 +126,9 @@ static UNITTEST tests[] =
     { "CPR SEARCH finds all matches ignoring selected S bits from CPR FIND MASK ", sac_selftest_search_cpr_finds_matches_masking_selected_S_bits },
     { "CPR SEARCH finds all matches while ignoring any empty CPRs", sac_selftest_search_cpr_ignores_empty_cprs },
     { "CPR SEARCH does not update CPR REFERENCED bits", sac_selftest_search_cpr_does_not_update_cpr_referenced_bits },
-    { "CPR SEARCH does not update CPR ALTERED bits", sac_selftest_search_cpr_does_not_update_cpr_altered_bits }
+    { "CPR SEARCH does not update CPR ALTERED bits", sac_selftest_search_cpr_does_not_update_cpr_altered_bits },
+    { "Writing any value to CPR FIND resets it to zero", sac_selftest_writing_any_value_to_cpr_find_resets_it_to_zero },
+    { "CPR SEARCH updates the result in CPR FIND", sac_selftest_search_cpr_updates_find_result }
 };
 
 void sac_selftest(TESTCONTEXT *testContext)
@@ -490,5 +494,28 @@ static void sac_selftest_search_cpr_does_not_update_cpr_altered_bits(TESTCONTEXT
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(1, 1, 1));
 
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_ALTERED, 0xFFFFFFFF);
+}
+
+static void sac_selftest_writing_any_value_to_cpr_find_resets_it_to_zero(TESTCONTEXT *testContext)
+{
+    sac_selftest_setup_cpr(0, VA(0, 1, 2), 0);
+    sac_selftest_setup_cpr(1, VA(0, 1, 2), 0);
+    sac_selftest_setup_cpr(2, VA(1, 1, 2), 0);
+
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(0, 1, 2));
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, 0xFFFFFFFFFFFFFFFF);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, 0x0);
+}
+
+static void sac_selftest_search_cpr_updates_find_result(TESTCONTEXT *testContext)
+{
+    sac_selftest_setup_cpr(0, VA(0, 1, 1), 0);
+    sac_selftest_setup_cpr(1, VA(0, 1, 2), 0);
+    sac_selftest_setup_cpr(2, VA(0, 1, 3), 0);
+
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(0, 1, 2));
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(0, 1, 3));
+
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, 0x6);
 }
 

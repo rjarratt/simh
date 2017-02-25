@@ -118,6 +118,7 @@ static void sac_write_cpr_va_callback(t_uint64 value);
 static t_uint64 sac_read_cpr_ignore_callback(void);
 static void sac_write_cpr_ignore_callback(t_uint64 value);
 static t_uint64 sac_read_cpr_find_callback(void);
+static void sac_write_cpr_find_callback(t_uint64 value);
 static t_uint64 sac_read_cpr_altered_callback(void);
 static void sac_write_cpr_altered_callback(t_uint64 value);
 static t_uint64 sac_read_cpr_referenced_callback(void);
@@ -180,7 +181,7 @@ void sac_reset_state(void)
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, sac_read_cpr_ra_callback, sac_write_cpr_ra_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, sac_read_cpr_va_callback, sac_write_cpr_va_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, sac_read_cpr_ignore_callback, sac_write_cpr_ignore_callback);
-    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, sac_read_cpr_find_callback, NULL);
+    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, sac_read_cpr_find_callback, sac_write_cpr_find_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_ALTERED, sac_read_cpr_altered_callback, sac_write_cpr_altered_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_REFERENCED, sac_read_cpr_referenced_callback, sac_write_cpr_referenced_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, NULL, sac_write_cpr_find_mask_callback);
@@ -319,7 +320,7 @@ static void sac_write_cpr_search_callback(t_uint64 value)
         mask = mask | VA_X_MASK;
     }
 
-    CPRFind = sac_search_cprs(mask, value & VA_MASK);
+    CPRFind |= sac_search_cprs(mask, value & VA_MASK);
 }
 
 static void sac_write_cpr_number_callback(t_uint64 value)
@@ -361,6 +362,13 @@ static void sac_write_cpr_ignore_callback(t_uint64 value)
 static t_uint64 sac_read_cpr_find_callback(void)
 {
     return CPRFind;
+}
+
+static void sac_write_cpr_find_callback(t_uint64 value)
+{
+    /* this action is not documented in the MU5 Programming Manual, but the line is marked R/W. In emails with RNI he believes that anything written
+       to this line would cause a reset because the CPR FIND line is *updated* by CPR SEARCH not re-written */
+    CPRFind = 0;
 }
 
 static t_uint64 sac_read_cpr_altered_callback(void)
