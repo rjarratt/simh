@@ -218,6 +218,13 @@ uint32 sac_read_32_bit_word(t_addr address)
     return result;
 }
 
+uint32 sac_read_32_bit_word_for_obey(t_addr address)
+{
+    t_addr mappedAddress = sac_map_address(address, SAC_OBEY_ACCESS);
+    uint32 result = LocalStore[mappedAddress];
+    return result;
+}
+
 void sac_write_32_bit_word(t_addr address, uint32 value)
 {
     t_addr mappedAddress = sac_map_address(address, SAC_WRITE_ACCESS);
@@ -532,7 +539,14 @@ static t_addr sac_map_address(t_addr address, uint8 access)
             if (!sac_check_access(access, (cpr[firstMatchIndex] >> 28) & 0xF))
             {
                 cpu_set_interrupt(INT_PROGRAM_FAULTS);
-                AccessViolation |= 0x2;
+                if (access & SAC_OBEY_ACCESS)
+                {
+                    AccessViolation |= 0x6;
+                }
+                else
+                {
+                    AccessViolation |= 0x2;
+                }
             }
         }
         else if (numMatches == 0)

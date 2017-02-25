@@ -55,7 +55,8 @@ static void sac_selftest_assert_reg_instance_equals(char *name, uint8 index, t_u
 static void sac_selftest_assert_vstore_contents(uint8 block, uint8 line, t_uint64 expectedValue);
 static void sac_selftest_assert_real_address_memory_contents(t_addr address, uint32 expectedValue);
 static void sac_selftest_assert_memory_contents(t_addr address, uint32 expectedValue);
-static void sac_selftest_assert_access_violation(void);
+static void sac_selftest_assert_operand_access_violation(void);
+static void sac_selftest_assert_instruction_access_violation(void);
 
 static void sac_selftest_write_word_with_bcpr_set_writes_real_address(TESTCONTEXT *testContext);
 static void sac_selftest_read_word_with_bcpr_set_reads_real_address(TESTCONTEXT *testContext);
@@ -73,12 +74,13 @@ static void sac_selftest_cpr_multiple_equivalence_generates_system_error_interru
 static void sac_selftest_write_to_obey_only_page_generates_access_violation(TESTCONTEXT *testContext);
 static void sac_selftest_write_to_read_only_page_generates_access_violation(TESTCONTEXT *testContext);
 static void sac_selftest_read_from_obey_only_page_generates_access_violation(TESTCONTEXT *testContext);
-static void sac_selftest_obey_from_read_only_page_generates_access_violation(TESTCONTEXT *testContext);
+static void sac_selftest_obey_from_read_only_page_generates_instruction_access_violation(TESTCONTEXT *testContext);
+static void sac_selftest_obey_from_write_only_page_generates_instruction_access_violation(TESTCONTEXT *testContext);
 static void sac_selftest_read_from_write_only_page_is_permitted(TESTCONTEXT *testContext);
 static void sac_selftest_obey_from_obey_only_page_is_permitted(TESTCONTEXT *testContext);
 static void sac_selftest_read_from_read_only_page_is_permitted(TESTCONTEXT *testContext);
 static void sac_selftest_write_to_write_only_page_is_permitted(TESTCONTEXT *testContext);
-// referenced bit on obey access, exec access
+// exec access checks
 // access checks on cpu side (add obey method, check it is called)
 // cpr neqv interrupt
 // cpr multi eqv interrupt
@@ -125,7 +127,8 @@ static UNITTEST tests[] =
     { "Write to Obey only page generates access violation", sac_selftest_write_to_obey_only_page_generates_access_violation },
     { "Write to Read only page generates access violation", sac_selftest_write_to_read_only_page_generates_access_violation },
     { "Read from Obey only page generates access violation", sac_selftest_read_from_obey_only_page_generates_access_violation },
-    { "Obey from Read only page generates access violation", sac_selftest_obey_from_read_only_page_generates_access_violation },
+    { "Obey from Read only page generates access violation", sac_selftest_obey_from_read_only_page_generates_instruction_access_violation },
+    { "Obey from Write only page generates access violation", sac_selftest_obey_from_write_only_page_generates_instruction_access_violation },
     { "Read from Write only page is permitted", sac_selftest_read_from_write_only_page_is_permitted },
     { "Obey from Obey only page is permitted", sac_selftest_obey_from_obey_only_page_is_permitted },
     { "Read from Read only page is permitted", sac_selftest_read_from_read_only_page_is_permitted },
@@ -237,10 +240,16 @@ static void  sac_selftest_assert_memory_contents(t_addr address, uint32 expected
     }
 }
 
-static void sac_selftest_assert_access_violation(void)
+static void sac_selftest_assert_operand_access_violation(void)
 {
     mu5_selftest_assert_interrupt_number(localTestContext, INT_PROGRAM_FAULTS);
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_ACCESS_VIOLATION, 0x2);
+}
+
+static void sac_selftest_assert_instruction_access_violation(void)
+{
+    mu5_selftest_assert_interrupt_number(localTestContext, INT_PROGRAM_FAULTS);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_ACCESS_VIOLATION, 0x6);
 }
 
 static void sac_selftest_write_word_with_bcpr_set_writes_real_address(TESTCONTEXT *testContext)
@@ -371,7 +380,7 @@ static void sac_selftest_write_to_obey_only_page_generates_access_violation(TEST
     sac_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_OBEY_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_write_32_bit_word(1, 0);
-    sac_selftest_assert_access_violation();
+    sac_selftest_assert_operand_access_violation();
 }
 
 static void sac_selftest_write_to_read_only_page_generates_access_violation(TESTCONTEXT *testContext)
@@ -380,7 +389,7 @@ static void sac_selftest_write_to_read_only_page_generates_access_violation(TEST
     sac_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_READ_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_write_32_bit_word(1, 0);
-    sac_selftest_assert_access_violation();
+    sac_selftest_assert_operand_access_violation();
 }
 
 static void sac_selftest_read_from_obey_only_page_generates_access_violation(TESTCONTEXT *testContext)
@@ -389,12 +398,25 @@ static void sac_selftest_read_from_obey_only_page_generates_access_violation(TES
     sac_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_OBEY_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_read_32_bit_word(1);
-    sac_selftest_assert_access_violation();
+    sac_selftest_assert_operand_access_violation();
 }
 
-static void sac_selftest_obey_from_read_only_page_generates_access_violation(TESTCONTEXT *testContext)
+static void sac_selftest_obey_from_read_only_page_generates_instruction_access_violation(TESTCONTEXT *testContext)
 {
-    mu5_selftest_assert_fail(localTestContext); /* no obey access yet */
+    sac_selftest_clear_bcpr();
+    sac_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_READ_ACCESS, 0x10, 0));
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
+    sac_read_32_bit_word_for_obey(1);
+    sac_selftest_assert_instruction_access_violation();
+}
+
+static void sac_selftest_obey_from_write_only_page_generates_instruction_access_violation(TESTCONTEXT *testContext)
+{
+    sac_selftest_clear_bcpr();
+    sac_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_WRITE_ACCESS, 0x10, 0));
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
+    sac_read_32_bit_word_for_obey(1);
+    sac_selftest_assert_instruction_access_violation();
 }
 
 static void sac_selftest_read_from_write_only_page_is_permitted(TESTCONTEXT *testContext)
@@ -408,7 +430,11 @@ static void sac_selftest_read_from_write_only_page_is_permitted(TESTCONTEXT *tes
 
 static void sac_selftest_obey_from_obey_only_page_is_permitted(TESTCONTEXT *testContext)
 {
-    mu5_selftest_assert_fail(localTestContext); /* no obey access yet */
+    sac_selftest_clear_bcpr();
+    sac_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_OBEY_ACCESS, 0x10, 0));
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
+    sac_read_32_bit_word_for_obey(1);
+    mu5_selftest_assert_no_interrupt(localTestContext);
 }
 
 static void sac_selftest_read_from_read_only_page_is_permitted(TESTCONTEXT *testContext)
