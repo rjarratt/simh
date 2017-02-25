@@ -39,11 +39,6 @@ in this Software without prior written authorization from Robert Jarratt.
 #define CPR_FIND_MASK_S_MASK 0x3FFF000
 #define CPR_FIND_MASK_X_MASK 0x0000001
 
-#define SAC_EXEC_ACCESS 0x8
-#define SAC_READ_ACCESS 0x4
-#define SAC_WRITE_ACCESS 0x2
-#define SAC_OBEY_ACCESS 0x1
-
 typedef struct VSTORE_LINE
 {
     t_uint64(*ReadCallback)(void);
@@ -65,6 +60,8 @@ static uint32 CPRFindMask;
 static uint32 CPRIgnore;
 static uint32 CPRAltered;
 static uint32 CPRReferenced;
+static uint8 AccessViolation;
+static uint8 SystemErrorInterrupt;
 
 static t_uint64 cpr[NUM_CPRS];
 
@@ -124,10 +121,15 @@ static void sac_write_cpr_altered_callback(t_uint64 value);
 static t_uint64 sac_read_cpr_referenced_callback(void);
 static void sac_write_cpr_referenced_callback(t_uint64 value);
 static void sac_write_cpr_find_mask_callback(t_uint64 value);
+static t_uint64 sac_read_access_violation_callback(void);
+static void sac_write_access_violation_callback(t_uint64 value);
+static t_uint64 sac_read_system_error_interrupts_callback(void);
+static void sac_write_system_error_interrupts_callback(t_uint64 value);
 
 static void sac_reset_cpr(uint8 n);
 static uint32 sac_search_cprs(uint32 mask, uint32 va);
-static uint32 sac_match_cprs(uint8 access, uint32 va, int *numMatches, int *firstMatchIndex);
+static uint32 sac_match_cprs(uint32 va, int *numMatches, int *firstMatchIndex);
+static int sac_check_access(uint8 requestedAccess, uint8 permittedAccess);
 static t_addr sac_map_address(t_addr address, uint8 access);
 
 DEVICE sac_dev = {
@@ -185,12 +187,16 @@ void sac_reset_state(void)
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_ALTERED, sac_read_cpr_altered_callback, sac_write_cpr_altered_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_REFERENCED, sac_read_cpr_referenced_callback, sac_write_cpr_referenced_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, NULL, sac_write_cpr_find_mask_callback);
+    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_ACCESS_VIOLATION, sac_read_access_violation_callback, sac_write_access_violation_callback);
+    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_SYSTEM_ERROR_INTERRUPTS, sac_read_system_error_interrupts_callback, sac_write_system_error_interrupts_callback);
     CPRNumber = 0;
     CPRFind = 0;
     CPRFindMask = 0;
     CPRIgnore = 0xFFFFFFFF;
     CPRAltered = 0;
     CPRReferenced = 0;
+    AccessViolation = 0;
+    SystemErrorInterrupt = 0;
 }
 
 t_uint64 sac_read_64_bit_word(t_addr address)
@@ -395,6 +401,26 @@ static void sac_write_cpr_find_mask_callback(t_uint64 value)
     CPRFindMask = value & 0x7FFFFFF;
 }
 
+static t_uint64 sac_read_access_violation_callback(void)
+{
+    return AccessViolation;
+}
+
+static void sac_write_access_violation_callback(t_uint64 value)
+{
+    AccessViolation = 0;
+}
+
+static t_uint64 sac_read_system_error_interrupts_callback(void)
+{
+    return SystemErrorInterrupt;
+}
+
+static void sac_write_system_error_interrupts_callback(t_uint64 value)
+{
+    SystemErrorInterrupt = SystemErrorInterrupt & 0x20; /* bit 58 cannot be reset */
+}
+
 static void sac_reset_cpr(uint8 n)
 {
     CPRIgnore &= ~(1 << CPRNumber);
@@ -424,7 +450,7 @@ static uint32 sac_search_cprs(uint32 mask, uint32 va)
     return result;
 }
 
-static uint32 sac_match_cprs(uint8 access, uint32 va, int *numMatches, int *firstMatchIndex)
+static uint32 sac_match_cprs(uint32 va, int *numMatches, int *firstMatchIndex)
 {
     int i;
     uint32 result = 0;
@@ -467,6 +493,17 @@ static uint32 sac_match_cprs(uint8 access, uint32 va, int *numMatches, int *firs
     return result;
 }
 
+static int sac_check_access(uint8 requestedAccess, uint8 permittedAccess)
+{
+    uint8 augmentedPermittedAccess = permittedAccess;
+    if (permittedAccess & SAC_WRITE_ACCESS)
+    {
+        augmentedPermittedAccess |= SAC_READ_ACCESS;
+    }
+
+    return requestedAccess & augmentedPermittedAccess & 0xF;
+}
+
 static t_addr sac_map_address(t_addr address, uint8 access)
 {
     t_addr result = 0;
@@ -486,11 +523,17 @@ static t_addr sac_map_address(t_addr address, uint8 access)
             va = ((uint32)PROPProcessNumber << 26) | va;
         }
 
-        matchMask = sac_match_cprs(0, va, &numMatches, &firstMatchIndex);
+        matchMask = sac_match_cprs(va, &numMatches, &firstMatchIndex);
         if (numMatches == 1)
         {
             result = (cpr[firstMatchIndex] >> 4) & 0xFFFFFF;
             result += address & 0xF;
+
+            if (!sac_check_access(access, (cpr[firstMatchIndex] >> 28) & 0xF))
+            {
+                cpu_set_interrupt(INT_PROGRAM_FAULTS);
+                AccessViolation |= 0x2;
+            }
         }
         else if (numMatches == 0)
         {
@@ -499,6 +542,7 @@ static t_addr sac_map_address(t_addr address, uint8 access)
         else
         {
             cpu_set_interrupt(INT_SYSTEM_ERROR);
+            SystemErrorInterrupt |= 0x40;
         }
 
         if (access & SAC_READ_ACCESS)

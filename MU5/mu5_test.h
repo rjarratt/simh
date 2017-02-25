@@ -64,6 +64,7 @@ void mu5_selftest_assert_fail(TESTCONTEXT *context);
 void mu5_selftest_set_failure(TESTCONTEXT *context);
 void mu5_selftest_assert_reg_equals(TESTCONTEXT *context, DEVICE *device, char *name, t_uint64 expectedValue);
 void mu5_selftest_assert_reg_instance_equals(TESTCONTEXT *context, DEVICE *device, char *name, uint8 index, t_uint64 expectedValue);
+void mu5_selftest_assert_no_interrupt(TESTCONTEXT *context);
 void mu5_selftest_assert_interrupt_number(TESTCONTEXT *context, int expectedInterruptNumber);
 
 

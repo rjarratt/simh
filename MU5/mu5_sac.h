@@ -26,6 +26,12 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #include "sim_defs.h"
 
+#define SAC_USER_ACCESS 0x8
+#define SAC_READ_ACCESS 0x4
+#define SAC_WRITE_ACCESS 0x2
+#define SAC_OBEY_ACCESS 0x1
+#define SAC_ALL_ACCESS 0xF
+
 #define PROP_V_STORE_BLOCK 1
 #define SAC_V_STORE_BLOCK 4
 
@@ -40,6 +46,8 @@ in this Software without prior written authorization from Robert Jarratt.
 #define SAC_V_STORE_CPR_ALTERED 6
 #define SAC_V_STORE_CPR_REFERENCED 7
 #define SAC_V_STORE_CPR_FIND_MASK 9
+#define SAC_V_STORE_ACCESS_VIOLATION 22
+#define SAC_V_STORE_SYSTEM_ERROR_INTERRUPTS 23
 
 void sac_reset_state(void);
 t_uint64 sac_read_64_bit_word(t_addr address);

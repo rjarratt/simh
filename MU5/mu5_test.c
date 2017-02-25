@@ -119,6 +119,15 @@ void mu5_selftest_assert_reg_instance_equals(TESTCONTEXT *context, DEVICE *devic
     }
 }
 
+void mu5_selftest_assert_no_interrupt(TESTCONTEXT *context)
+{
+    if (cpu_get_interrupt_number() != 255)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Unexpected interrupt\n");
+        mu5_selftest_set_failure(context);
+    }
+}
+
 void mu5_selftest_assert_interrupt_number(TESTCONTEXT *context, int expectedInterruptNumber)
 {
     if (cpu_get_interrupt_number() != expectedInterruptNumber)

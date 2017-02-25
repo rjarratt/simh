@@ -1811,11 +1811,7 @@ static void cpu_selftest_assert_interrupt(void)
 
 static void cpu_selftest_assert_no_interrupt(void)
 {
-    if (cpu_get_interrupt_number() != 255)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected interrupt\n");
-        cpu_selftest_set_failure();
-    }
+    mu5_selftest_assert_no_interrupt(localTestContext);
 }
 
 static void cpu_selftest_assert_d_interrupt(char *name, uint32 mask)
