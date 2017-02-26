@@ -38,13 +38,16 @@ The following V Store lines are not implemented: CPR X FIELD, SAC PARITY, SAC MO
 #define NUM_CPRS 32
 #define V_STORE_BLOCKS 8
 #define V_STORE_BLOCK_SIZE 256
-#define VA_MASK 0x3FFFFFFF
-#define VA_P_MASK (0xF << 26)
-#define VA_X_MASK (0xFFF)
-#define RA_MASK 0x7FFFFFFF
+#define CPR_VA_MASK 0x3FFFFFFF
+#define CPR_VA_P_MASK (0xF << 26)
+#define CPR_VA_X_MASK (0xFFF)
+#define CPR_RA_MASK 0x7FFFFFFF
 #define CPR_FIND_MASK_P_MASK 0x4000000
 #define CPR_FIND_MASK_S_MASK 0x3FFF000
 #define CPR_FIND_MASK_X_MASK 0x0000001
+
+#define RA_MASK 0xFFFFFF
+#define RA_V_MASK 0x800000
 
 typedef struct VSTORE_LINE
 {
@@ -54,6 +57,7 @@ typedef struct VSTORE_LINE
 
 static uint32 LocalStore[MAXMEMORY];
 static VSTORE_LINE VStore[V_STORE_BLOCKS][V_STORE_BLOCK_SIZE];
+static t_uint64 SystemVStore[V_STORE_BLOCK_SIZE];
 
 static UNIT sac_unit =
 {
@@ -111,6 +115,9 @@ static const char* sac_description(DEVICE *dptr) {
 }
 
 static t_stat sac_reset(DEVICE *dptr);
+
+static t_uint64 system_read_callback(uint8 line);
+static void system_write_callback(uint8 line, t_uint64 value);
 
 static t_uint64 prop_read_process_number_callback(uint8 line);
 static void prop_write_process_number_callback(uint8 line, t_uint64 value);
@@ -184,9 +191,16 @@ static t_stat sac_reset(DEVICE *dptr)
 
 void sac_reset_state(void)
 {
+    uint16 i;
 	memset(LocalStore, 0, sizeof(uint32) * MAXMEMORY);
     memset(VStore, 0, sizeof(VStore));
+    memset(SystemVStore, 0, sizeof(SystemVStore));
     memset(cpr, 0, sizeof(cpr));
+
+    for (i = 0; i < V_STORE_BLOCK_SIZE; i++)
+    {
+        sac_setup_v_store_location(SYSTEM_V_STORE_BLOCK, i & 0xFF, system_read_callback, system_write_callback);
+    }
 
     sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, prop_read_process_number_callback, prop_write_process_number_callback);
 
@@ -203,6 +217,7 @@ void sac_reset_state(void)
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NOT_EQUIVALENCE_S, sac_read_cpr_not_equivalence_s_callback, NULL);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_ACCESS_VIOLATION, sac_read_access_violation_callback, sac_write_access_violation_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_SYSTEM_ERROR_INTERRUPTS, sac_read_system_error_interrupts_callback, sac_write_system_error_interrupts_callback);
+    PROPProcessNumber = 0;
     CPRNumber = 0;
     CPRFind = 0;
     CPRFindMask = 0;
@@ -295,13 +310,41 @@ void sac_write_8_bit_word(t_addr address, uint8 value)
 
 uint32 sac_read_32_bit_word_real_address(t_addr address)
 {
-    uint32 result = LocalStore[address];
+    uint32 result;
+    t_addr addr24 = address & RA_MASK;
+    if (addr24 & RA_V_MASK)
+    {
+        t_uint64 fullWord = sac_read_v_store(SYSTEM_V_STORE_BLOCK, (addr24 & ~RA_V_MASK) >> 1);
+        result = (address & 1) ? fullWord & 0xFFFFFFFF : fullWord >> 32;
+    }
+    else
+    {
+        result = LocalStore[addr24];
+    }
+
     return result;
 }
 
 void sac_write_32_bit_word_real_address(t_addr address, uint32 value)
 {
-    LocalStore[address] = value;
+    t_addr addr24 = address & RA_MASK;
+    if (addr24 & RA_V_MASK)
+    {
+        t_uint64 fullWord = sac_read_v_store(SYSTEM_V_STORE_BLOCK, (addr24 & ~RA_V_MASK) >> 1);
+        if (address & 1)
+        {
+            fullWord = (fullWord & 0xFFFFFFFF00000000) | value;
+        }
+        else
+        {
+            fullWord = ((t_uint64)value << 32) | (fullWord & 0xFFFFFFFF);
+        }
+        sac_write_v_store(SYSTEM_V_STORE_BLOCK, (addr24 & ~RA_V_MASK) >> 1, fullWord);
+    }
+    else
+    {
+        LocalStore[address] = value;
+    }
 }
 
 void sac_setup_v_store_location(uint8 block, uint8 line, t_uint64(*readCallback)(uint8), void(*writeCallback)(uint8,t_uint64))
@@ -332,6 +375,16 @@ t_uint64 sac_read_v_store(uint8 block, uint8 line)
     return result;
 }
 
+static t_uint64 system_read_callback(uint8 line)
+{
+    return SystemVStore[line];
+}
+
+static void system_write_callback(uint8 line, t_uint64 value)
+{
+    SystemVStore[line] = value;
+}
+
 static t_uint64 prop_read_process_number_callback(uint8 line)
 {
     return PROPProcessNumber & 0xF;
@@ -347,14 +400,14 @@ static void sac_write_cpr_search_callback(uint8 line, t_uint64 value)
     uint32 mask = CPRFindMask & CPR_FIND_MASK_S_MASK;
     if (CPRFindMask & CPR_FIND_MASK_P_MASK)
     {
-        mask = mask | VA_P_MASK;
+        mask = mask | CPR_VA_P_MASK;
     }
     if (CPRFindMask & CPR_FIND_MASK_X_MASK)
     {
-        mask = mask | VA_X_MASK;
+        mask = mask | CPR_VA_X_MASK;
     }
 
-    CPRFind |= sac_search_cprs(mask, value & VA_MASK);
+    CPRFind |= sac_search_cprs(mask, value & CPR_VA_MASK);
 }
 
 static void sac_write_cpr_number_callback(uint8 line, t_uint64 value)
@@ -364,22 +417,22 @@ static void sac_write_cpr_number_callback(uint8 line, t_uint64 value)
 
 static t_uint64 sac_read_cpr_ra_callback(uint8 line)
 {
-    return cpr[CPRNumber] & RA_MASK;
+    return cpr[CPRNumber] & CPR_RA_MASK;
 }
 
 static void sac_write_cpr_ra_callback(uint8 line, t_uint64 value)
 {
-    cpr[CPRNumber] = (cpr[CPRNumber] & 0xFFFFFFFF00000000) | (value & RA_MASK);
+    cpr[CPRNumber] = (cpr[CPRNumber] & 0xFFFFFFFF00000000) | (value & CPR_RA_MASK);
 }
 
 static t_uint64 sac_read_cpr_va_callback(uint8 line)
 {
-    return (cpr[CPRNumber] >> 32) & VA_MASK;
+    return (cpr[CPRNumber] >> 32) & CPR_VA_MASK;
 }
 
 static void sac_write_cpr_va_callback(uint8 line, t_uint64 value)
 {
-    cpr[CPRNumber] = ((value & VA_MASK) << 32) | (cpr[CPRNumber] & RA_MASK);
+    cpr[CPRNumber] = ((value & CPR_VA_MASK) << 32) | (cpr[CPRNumber] & CPR_RA_MASK);
     sac_reset_cpr(CPRNumber);
 }
 

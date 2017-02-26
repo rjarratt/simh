@@ -32,6 +32,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define SAC_OBEY_ACCESS 0x1
 #define SAC_ALL_ACCESS 0xF
 
+#define SYSTEM_V_STORE_BLOCK 0
 #define PROP_V_STORE_BLOCK 1
 #define SAC_V_STORE_BLOCK 4
 
