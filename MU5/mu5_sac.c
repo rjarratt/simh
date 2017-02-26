@@ -230,21 +230,21 @@ void sac_write_64_bit_word(t_addr address, t_uint64 value)
 uint32 sac_read_32_bit_word(t_addr address)
 {
     t_addr mappedAddress = sac_map_address(address, SAC_READ_ACCESS);
-    uint32 result = LocalStore[mappedAddress];
+    uint32 result = sac_read_32_bit_word_real_address(mappedAddress);
     return result;
 }
 
 uint32 sac_read_32_bit_word_for_obey(t_addr address)
 {
     t_addr mappedAddress = sac_map_address(address, SAC_OBEY_ACCESS);
-    uint32 result = LocalStore[mappedAddress];
+    uint32 result = sac_read_32_bit_word_real_address(mappedAddress);
     return result;
 }
 
 void sac_write_32_bit_word(t_addr address, uint32 value)
 {
     t_addr mappedAddress = sac_map_address(address, SAC_WRITE_ACCESS);
-    LocalStore[mappedAddress] = value;
+    sac_write_32_bit_word_real_address(mappedAddress, value);
 }
 
 uint16 sac_read_16_bit_word(t_addr address)
@@ -293,14 +293,12 @@ void sac_write_8_bit_word(t_addr address, uint8 value)
     sac_write_32_bit_word(address >> 2, fullWord);
 }
 
-/* Intended for self test code only, not to be used by anything else */
 uint32 sac_read_32_bit_word_real_address(t_addr address)
 {
     uint32 result = LocalStore[address];
     return result;
 }
 
-/* Intended for self test code only, not to be used by anything else */
 void sac_write_32_bit_word_real_address(t_addr address, uint32 value)
 {
     LocalStore[address] = value;
