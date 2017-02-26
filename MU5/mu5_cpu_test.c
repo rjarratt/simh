@@ -730,6 +730,7 @@ static void cpu_selftest_org_return_sets_SF_and_unstacks_link(TESTCONTEXT *testC
 static void cpu_selftest_org_return_resets_link_except_privileged_ms_bits_in_user_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_org_return_does_not_pop_stack_if_operand_is_not_stack_but_sets_NB(TESTCONTEXT *testContext);
 static void cpu_selftest_org_XCn_stacks_operand_and_jumps_to_offset_n(TESTCONTEXT *testContext);
+static void cpu_selftest_org_XCn_sets_executive_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_org_stacklink_puts_link_on_stack_adding_operand_to_stacked_CO(TESTCONTEXT *testContext);
 static void cpu_selftest_org_stacklink_treats_operand_as_signed(TESTCONTEXT *testContext);
 /*static void cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_crosses_segment_boundary(TESTCONTEXT *testContext);*/
@@ -1289,6 +1290,7 @@ static UNITTEST tests[] =
     { "RETURN resets the link except privileged MS bits in user mode", cpu_selftest_org_return_resets_link_except_privileged_ms_bits_in_user_mode },
     { "RETURN does not pop stack if operand is not stack but does set SF to NB", cpu_selftest_org_return_does_not_pop_stack_if_operand_is_not_stack_but_sets_NB },
     { "XC0-6 orders stack operand and jump to offset n in segment 8193", cpu_selftest_org_XCn_stacks_operand_and_jumps_to_offset_n },
+    { "XC0-6 orders set executive mode", cpu_selftest_org_XCn_sets_executive_mode },
     { "STACK LINK puts link on the stack and adds the operand to the stacked value of CO", cpu_selftest_org_stacklink_puts_link_on_stack_adding_operand_to_stacked_CO },
     { "STACK LINK treats operand as signed", cpu_selftest_org_stacklink_treats_operand_as_signed },
     /*{ "STACK LINK generates an interrupt when adding the operand to CO crosses a segment boundary", cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_crosses_segment_boundary },*/
@@ -6451,6 +6453,19 @@ static void cpu_selftest_org_XCn_stacks_operand_and_jumps_to_offset_n(TESTCONTEX
         cpu_selftest_assert_memory_contents_64_bit(base + 2, 0xAAAABBBBCCCCDDDD);
         cpu_selftest_assert_reg_equals(REG_CO, 0x20010000 | (uint8)i);
         cpu_selftest_assert_no_interrupt();
+    }
+}
+
+static void cpu_selftest_org_XCn_sets_executive_mode(TESTCONTEXT *testContext)
+{
+    for (int i = 0; i < 7; i++)
+    {
+        cpu_selftest_set_load_location(0);
+        cpu_selftest_load_organisational_order_extended(F_XC0 + i, KP_LITERAL, NP_64_BIT_LITERAL);
+        cpu_selftest_load_64_bit_literal(0xAAAABBBBCCCCDDDD);
+        cpu_selftest_set_user_mode();
+        cpu_selftest_run_code();
+        cpu_selftest_assert_reg_equals_mask(REG_MS, ~0, 0x0004); /* not mentioned in section 6.6 of manual, but is mentioned section 7.2. RNI confirmed this is needed 26/2/2017 */
     }
 }
 

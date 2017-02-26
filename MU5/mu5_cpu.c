@@ -2457,6 +2457,7 @@ static void cpu_execute_organisational_xcn(uint16 order, DISPATCH_ENTRY *innerTa
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "XC%d ", n);
     cpu_push_value(cpu_get_operand(order));
     cpu_set_co(0x20010000 | n);
+    cpu_set_register_16(reg_ms, cpu_get_ms() | MS_MASK_EXEC);
 }
 
 static void cpu_execute_organisational_stacklink(uint16 order, DISPATCH_ENTRY *innerTable)
