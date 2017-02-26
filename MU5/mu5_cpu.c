@@ -318,7 +318,7 @@ static uint16 cpu_get_extended_n(uint16 order);
 static int cpu_operand_is_secondary(uint16 order);
 static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructionAddress, int *instructionLength);
-static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 instructionAddress, int *instructionLength, uint8 scale);
+static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 instructionAddress, int *instructionLength, uint8 scale, int *is64bit);
 static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructionAddress, int *instructionLength);
 static t_uint64 cpu_set_operand_internal_register(uint16 order, t_uint64 value);
 static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructionAddress, int *instructionLength);
@@ -1313,10 +1313,12 @@ static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructio
     return result;
 }
 
-static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 instructionAddress, int *instructionLength, uint8 scale)
+static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 instructionAddress, int *instructionLength, uint8 scale, int *is64bit)
 {
     t_addr result = 0;
     uint16 np = cpu_get_extended_n(order);
+
+    *is64bit = FALSE;
 
     switch (np)
     {
@@ -1356,6 +1358,7 @@ static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 ins
         case 4:
         {
             result = cpu_pop_address();
+            *is64bit = TRUE;
             sim_debug(LOG_CPU_DECODE, &cpu_dev, "STACK Z 0\n");
             break;
         }
@@ -1877,6 +1880,7 @@ static t_uint64 cpu_get_operand(uint16 order)
     int instructionLength = 1;
     uint16 k = cpu_get_k(order);
     uint32 instructionAddress = cpu_get_register_32(reg_co);
+    int is64bit;
 
     switch (k)
     {
@@ -1924,14 +1928,22 @@ static t_uint64 cpu_get_operand(uint16 order)
                 case 2:
                 {
                     sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 ");
-                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_32);
-                    result = sac_read_32_bit_word(addr);
+                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_32, &is64bit);
+                    if (is64bit)
+                    {
+                        result = sac_read_64_bit_word(addr);
+                    }
+                    else
+                    {
+                        result = sac_read_32_bit_word(addr);
+                    }
+
                     break;
                 }
                 case 3:
                 {
                     sim_debug(LOG_CPU_DECODE, &cpu_dev, "V64 ");
-                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64, &is64bit);
                     result = sac_read_64_bit_word(addr);
                     break;
                 }
@@ -1940,7 +1952,7 @@ static t_uint64 cpu_get_operand(uint16 order)
                 {
                     t_uint64 d;
                     sim_debug(LOG_CPU_DECODE, &cpu_dev, "S[B] ");
-                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64, &is64bit);
                     if (addr == 0)
                     {
                         d = cpu_get_register_64(reg_d);
@@ -1956,7 +1968,7 @@ static t_uint64 cpu_get_operand(uint16 order)
                 {
                     t_uint64 d;
                     sim_debug(LOG_CPU_DECODE, &cpu_dev, "S[0] ");
-                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64, &is64bit);
                     if (addr == 0)
                     {
                         d = cpu_get_register_64(reg_d);
@@ -1971,7 +1983,7 @@ static t_uint64 cpu_get_operand(uint16 order)
                 case 7:
                 {
                     sim_debug(LOG_CPU_DECODE, &cpu_dev, "V-S ");
-                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64, &is64bit);
                     uint8 block = (addr >> 8) & MASK_8;
                     uint8 line = addr & MASK_8;
                     if (cpu_is_executive_mode())
@@ -2010,6 +2022,7 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
     int instructionLength = 1;
     uint16 k = cpu_get_k(order);
     uint32 instructionAddress = cpu_get_register_32(reg_co);
+    int is64bit;
 
     switch (k)
     {
@@ -2047,14 +2060,21 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
                 case 2:
                 {
                     sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 ");
-                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_32);
-                    sac_write_32_bit_word(addr, value & MASK_32);
+                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_32, &is64bit);
+                    if (is64bit)
+                    {
+                        sac_write_64_bit_word(addr, value & MASK_32);
+                    }
+                    else
+                    {
+                        sac_write_32_bit_word(addr, value & MASK_32);
+                    }
                     break;
                 }
                 case 3:
                 {
                     sim_debug(LOG_CPU_DECODE, &cpu_dev, "V64 ");
-                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64, &is64bit);
                     sac_write_64_bit_word(addr, value);
                     break;
                 }
@@ -2063,7 +2083,7 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
                 {
                     t_uint64 d;
                     sim_debug(LOG_CPU_DECODE, &cpu_dev, "S[B] ");
-                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64, &is64bit);
                     if (addr == 0)
                     {
                         d = cpu_get_register_64(reg_d);
@@ -2079,7 +2099,7 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
                 {
                     t_uint64 d;
                     sim_debug(LOG_CPU_DECODE, &cpu_dev, "S[0] ");
-                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64, &is64bit);
                     if (addr == 0)
                     {
                         d = cpu_get_register_64(reg_d);
@@ -2095,7 +2115,7 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
                     uint8 block;
                     uint8 line;
                     sim_debug(LOG_CPU_DECODE, &cpu_dev, "V-S ");
-                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64);
+                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64, &is64bit);
                     block = (addr >> 8) & MASK_8;
                     line = addr & MASK_8;
                     if (cpu_is_executive_mode())

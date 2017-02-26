@@ -2511,7 +2511,7 @@ static void cpu_selftest_load_operand_extended_32_bit_variable_from_stack(TESTCO
 {
     uint32 base = 0x00F0;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_STACK);
-    sac_write_32_bit_word(base, 0xAAAABBBB);
+    sac_write_64_bit_word(base, 0xAAAABBBB);
     cpu_selftest_set_register(REG_SF, base);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAABBBB);
@@ -3439,6 +3439,7 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_xnb(
     cpu_selftest_assert_memory_contents_32_bit(base + n, 0xAAAABBBB);
     cpu_selftest_assert_no_interrupt();
 }
+
 static void cpu_selftest_store_operand_extended_32_bit_variable_from_stack(TESTCONTEXT *testContext)
 {
     uint32 base = 0x00F0;
@@ -3447,7 +3448,7 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_from_stack(TESTC
     cpu_selftest_set_register(REG_A, 0xFFFFFFFFAAAABBBB);
     cpu_selftest_set_register(REG_SF, base);
     cpu_selftest_run_code();
-    cpu_selftest_assert_memory_contents_32_bit(base, 0xAAAABBBB);
+    cpu_selftest_assert_memory_contents_32_bit(base + 1, 0xAAAABBBB);
     cpu_selftest_assert_reg_equals(REG_SF, base - 2);
     cpu_selftest_assert_no_interrupt();
 }
