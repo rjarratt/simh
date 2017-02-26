@@ -172,12 +172,12 @@ void mu5_selftest_assert_vstore_contents(TESTCONTEXT *context, uint8 block, uint
     }
 }
 
-t_uint64 mu5_selftest_read_callback_for_static_64_bit_location(void)
+t_uint64 mu5_selftest_read_callback_for_static_64_bit_location(uint8 line)
 {
     return VStoreTestLocation;
 }
 
-void mu5_selftest_write_callback_for_static_64_bit_location(t_uint64 value)
+void mu5_selftest_write_callback_for_static_64_bit_location(uint8 line, t_uint64 value)
 {
     VStoreTestLocation = value;
 }

@@ -79,5 +79,5 @@ void mu5_selftest_assert_operand_access_violation(TESTCONTEXT *context);
 void mu5_selftest_assert_instruction_access_violation(TESTCONTEXT *context);
 void mu5_selftest_assert_vstore_contents(TESTCONTEXT *context, uint8 block, uint8 line, t_uint64 expectedValue);
 
-t_uint64 mu5_selftest_read_callback_for_static_64_bit_location(void);
-void mu5_selftest_write_callback_for_static_64_bit_location(t_uint64 value);
+t_uint64 mu5_selftest_read_callback_for_static_64_bit_location(uint8 line);
+void mu5_selftest_write_callback_for_static_64_bit_location(uint8 line, t_uint64 value);
