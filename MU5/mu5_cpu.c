@@ -37,8 +37,9 @@ B DIV implementation is a guess (not defined in MU5 Basic Programming Manual)
 No floating point orders
 No decimal orders
 Segment crossing boundary checks missing
-Interrupt processing is not implemented yet
+Interrupt processing is incomplete, all the points where an interrupt is generated need to record the cause, other details also incomplete.
 Type 3 descriptors not implemented yet.
+No instruction counter
 
 To Do
 -----
@@ -296,6 +297,8 @@ static void cpu_set_xnb(uint32 value);
 static void cpu_set_sf(uint16 value);
 static void cpu_set_co(uint32 value);
 static void cpu_set_ms_bn(int value);
+static t_uint64 cpu_get_link(void);
+static void cpu_set_link(t_uint64 link);
 static uint16 cpu_calculate_base_offset_from_addr(t_addr base, t_int64 offset, uint8 scale);
 static t_addr cpu_get_name_segment_address_from_addr(t_addr base, int16 offset, uint8 scale);
 static uint16 cpu_calculate_base_offset_from_reg_16(REG *reg, t_int64 offset, uint8 scale);
@@ -1048,6 +1051,19 @@ static void cpu_set_co(uint32 value)
 static void cpu_set_ms_bn(int value)
 {
     cpu_set_register_bit_16(reg_ms, mask_ms_bn, value);
+}
+
+static t_uint64 cpu_get_link(void)
+{
+    t_uint64 link = ((t_uint64)cpu_get_register_16(reg_ms) << 48) | ((t_uint64)cpu_get_register_16(reg_nb) << 32) | cpu_get_register_32(reg_co);
+    return link;
+}
+
+static void cpu_set_link(t_uint64 link)
+{
+    cpu_set_ms((link >> 48) & MASK_16);
+    cpu_set_nb((link >> 32) & MASK_16);
+    cpu_set_co(link & MASK_32);
 }
 
 static uint16 cpu_calculate_base_offset_from_addr(t_addr base, t_int64 offset, uint8 scale)
@@ -2178,8 +2194,13 @@ static void cpu_execute_illegal_order(uint16 order, DISPATCH_ENTRY *innerTable)
 
 static void cpu_start_interrupt_processing(void)
 {
-    printf("Interrupt %hu detected - processing TBD\n", (unsigned short)cpu_get_interrupt_number());
-    cpu_stopped = 1; /* TODO: temporary halt CPU until implement interrupt processing */
+    uint8 interruptNumber = cpu_get_interrupt_number();
+    t_uint64 link = cpu_get_link();
+    t_uint64 newLink = sac_read_v_store(SYSTEM_V_STORE_BLOCK, 16 + (interruptNumber * 2) + 1);
+    sac_write_v_store(SYSTEM_V_STORE_BLOCK, 16 + (interruptNumber * 2), link);
+    cpu_set_link(newLink);
+    printf("Interrupt %hu detected\n", (unsigned short)interruptNumber);
+    //cpu_stopped = 1; /* TODO: temporary halt CPU until implement interrupt processing */
 }
 
 static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -2384,9 +2405,7 @@ static void cpu_execute_organisational_exit(uint16 order, DISPATCH_ENTRY *innerT
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "EXIT ");
     t_uint64 operand = cpu_get_operand(order);
-    cpu_set_ms((operand >> 48) & MASK_16);
-    cpu_set_nb((operand >> 32) & MASK_16);
-    cpu_set_co(operand & MASK_32);
+    cpu_set_link(operand);
 }
 
 static void cpu_execute_organisational_absolute_jump(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -2459,7 +2478,7 @@ static void cpu_execute_organisational_spm(uint16 order, DISPATCH_ENTRY *innerTa
 static void cpu_execute_organisational_setlink(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "SETLINK ");
-    t_uint64 link = ((t_uint64)cpu_get_register_16(reg_ms) << 48) | ((t_uint64)cpu_get_register_16(reg_nb) << 32) | cpu_get_register_32(reg_co);
+    t_uint64 link = cpu_get_link();
     cpu_set_operand(order, link);
 }
 

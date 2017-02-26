@@ -807,6 +807,9 @@ static void cpu_selftest_no_zero_divide_interrupt_if_zero_divide_is_inhibited(TE
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(TESTCONTEXT *testContext);
 
+static void cpu_selftest_interrupt_stacks_link_in_system_v_store(TESTCONTEXT *testContext);
+static void cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store(TESTCONTEXT *testContext);
+
 CONDITIONTABLE conditionalFuncsTable[] =
 {
     { 0x0, 0, 0, 0 },
@@ -1355,7 +1358,11 @@ static UNITTEST tests[] =
     { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
     { "No zero divide interrupt if zero divide is inhibited", cpu_selftest_no_zero_divide_interrupt_if_zero_divide_is_inhibited },
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
-    { "No SSS interrupt if SSS interrupt is inhibited", cpu_selftest_no_sss_interrupt_if_sss_is_inhibited }
+    { "No SSS interrupt if SSS interrupt is inhibited", cpu_selftest_no_sss_interrupt_if_sss_is_inhibited },
+
+    { "Interrupt stacks link in System V-Store", cpu_selftest_interrupt_stacks_link_in_system_v_store },
+    { "Interrupt calls handler using link in System V-Store", cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store }
+
 };
 
 // TODO: test for illegal combinations, e.g. store to literal, V32 or V64 (k=2/3) with DR (n'=5).
@@ -7073,3 +7080,21 @@ static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(TESTCONTEXT *testC
     cpu_selftest_assert_no_sss_interrupt();
 }
 
+static void cpu_selftest_interrupt_stacks_link_in_system_v_store(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_register(REG_MS, 0xAA00);
+    cpu_selftest_set_register(REG_NB, 0xBBBB);
+    cpu_set_interrupt(INT_PROGRAM_FAULTS);
+    cpu_selftest_run_code_from_location(10);
+    mu5_selftest_assert_vstore_contents(testContext, SYSTEM_V_STORE_BLOCK, 28, 0xAA00BBBB0000000A);
+}
+
+static void cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store(TESTCONTEXT *testContext)
+{
+    sac_write_v_store(SYSTEM_V_STORE_BLOCK, 29, 0xBB84CCCC0000000B);
+    cpu_set_interrupt(INT_PROGRAM_FAULTS);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_MS, 0xBB84);
+    cpu_selftest_assert_reg_equals(REG_NB, 0xCCCC);
+    cpu_selftest_assert_reg_equals(REG_CO, 0x0000000B);
+}
