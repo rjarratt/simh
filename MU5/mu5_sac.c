@@ -347,6 +347,16 @@ void sac_write_32_bit_word_real_address(t_addr address, uint32 value)
     }
 }
 
+void sac_write_8_bit_word_real_address(t_addr address, uint8 value)
+{
+    uint32 fullWord = sac_read_32_bit_word_real_address(address >> 2);
+    uint8 byteNumber = 3 - (address & 0x3);
+    uint32 mask = 0xFF << (byteNumber << 3);
+    uint32 shiftedValue = (uint32)value << (byteNumber << 3);
+    fullWord = (fullWord & ~mask) | shiftedValue;
+    sac_write_32_bit_word_real_address(address >> 2, fullWord);
+}
+
 void sac_setup_v_store_location(uint8 block, uint8 line, t_uint64(*readCallback)(uint8), void(*writeCallback)(uint8,t_uint64))
 {
     VSTORE_LINE *l = &VStore[block][line];

@@ -780,6 +780,12 @@ t_stat sim_instr(void)
             }
         }
 
+        if ((sim_brk_summ & SWMASK('E')) && sim_brk_test(cpu_get_register_32(reg_co), SWMASK('E')))
+        {
+            reason = SCPE_STOP;
+            break;
+        }
+
         cpu_execute_next_order();
 
         sim_interval--;
@@ -809,7 +815,7 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
     else
     {
         origin = 0;
-        limit = (t_addr)cpu_unit.capac * 4; /* Capacity is in 32-bit words, we need bytes here */
+        limit = (t_addr)cpu_unit.capac * sizeof(uint32); /* Capacity is in 32-bit words, we need bytes here */
         if (sim_switches & SWMASK('O')) /* Origin option */
         {
             origin = (t_addr)get_uint(cptr, 16, limit, &r);
@@ -830,7 +836,7 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
                 break;
             }
 
-            sac_write_8_bit_word(origin, b & 0xFF);
+            sac_write_8_bit_word_real_address(origin, b & 0xFF);
             origin = origin + 1;
         }
     }
@@ -852,6 +858,7 @@ t_stat parse_sym(CONST char *cptr, t_addr addr, UNIT *uptr, t_value *val, int32 
 static t_stat cpu_reset(DEVICE *dptr)
 {
     t_stat result = SCPE_OK;
+    sim_brk_types = sim_brk_dflt = SWMASK('E');
     cpu_reset_state();
     if (sim_switches & SWMASK('T'))
     {
