@@ -1,5 +1,6 @@
 Contrary to the HASE example, the second descriptor has to have an origin of 524368 because the values in the vector are 64-bit rather than 32-bit.
 At least that has to be the case until I understand how 32-bit values can be loaded into ACC and operated on by the AU orders.
+Calculates scalar product of two vectors, expected result in A is 935 (dec), 3A7 (hex)
 
 CO     Oct/Hex  Hex     Instruction
 65536 01C121    0E51    Org NBld V32 Z 0
