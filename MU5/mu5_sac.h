@@ -1,4 +1,4 @@
-/* mu5_defs.h: MU5 Store Access Control definitions
+/* mu5_console.h: MU5 Store Access Control definitions
 
 Copyright (c) 2016-2017, Robert Jarratt
 
@@ -34,9 +34,14 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #define SYSTEM_V_STORE_BLOCK 0
 #define PROP_V_STORE_BLOCK 1
+#define CONSOLE_V_STORE_BLOCK 3
 #define SAC_V_STORE_BLOCK 4
 
 #define PROP_V_STORE_PROCESS_NUMBER 2
+
+#define CONSOLE_V_STORE_CONSOLE_INTERRUPT 0
+#define CONSOLE_V_STORE_TELETYPE_DATA 6
+#define CONSOLE_V_STORE_TELETYPE_CONTROL 7
 
 #define SAC_V_STORE_CPR_SEARCH 0
 #define SAC_V_STORE_CPR_NUMBER 1

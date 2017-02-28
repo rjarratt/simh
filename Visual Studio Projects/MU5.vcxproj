@@ -171,6 +171,7 @@
     <ClCompile Include="..\sim_timer.c" />
     <ClCompile Include="..\sim_tmxr.c" />
     <ClCompile Include="..\sim_video.c" />
+    <ClCompile Include="mu5_console.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\MU5\mu5_cpu.h" />
@@ -191,6 +192,7 @@
     <ClInclude Include="..\sim_timer.h" />
     <ClInclude Include="..\sim_tmxr.h" />
     <ClInclude Include="..\sim_video.h" />
+    <ClInclude Include="mu5_console.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -32,8 +32,9 @@ char sim_name[] = "MU5";
 
 extern DEVICE cpu_dev;
 extern DEVICE sac_dev;
+extern DEVICE console_dev;
 
-DEVICE *sim_devices[] = { &cpu_dev, &sac_dev, NULL };
+DEVICE *sim_devices[] = { &cpu_dev, &sac_dev, &console_dev, NULL };
 
 const char *sim_stop_messages[] =
 {
