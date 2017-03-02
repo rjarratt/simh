@@ -31,6 +31,7 @@ The following V Store lines are not implemented: CPR X FIELD, SAC PARITY, SAC MO
 
 */
 
+#include <assert.h>
 #include "mu5_defs.h"
 #include "mu5_cpu.h"
 #include "mu5_sac.h"
@@ -319,6 +320,7 @@ uint32 sac_read_32_bit_word_real_address(t_addr address)
     }
     else
     {
+        assert(addr24 < MAXMEMORY);
         result = LocalStore[addr24];
     }
 
@@ -343,7 +345,8 @@ void sac_write_32_bit_word_real_address(t_addr address, uint32 value)
     }
     else
     {
-        LocalStore[address] = value;
+        assert(addr24 < MAXMEMORY);
+        LocalStore[addr24] = value;
     }
 }
 
