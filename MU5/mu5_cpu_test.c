@@ -6776,11 +6776,15 @@ static void cpu_selftest_org_nb_plus_generates_interrupt_on_segment_underflow(TE
 
 static void cpu_selftest_org_nb_store_stores_SN_and_NB(TESTCONTEXT *testContext)
 {
+    /* because this test wants to use a non-zero value in SN we need to use virtual memory as the physical address would be too big for the Local Store */
     uint32 base = 32;
+    mu5_selftest_setup_cpr(0, VA(0, 0x0000, 0), RA(SAC_OBEY_ACCESS, 0, 0x2));
+    mu5_selftest_setup_cpr(1, VA(0, 0x0001, 4), RA(SAC_WRITE_ACCESS, 0x40, 0x2));
     cpu_selftest_load_organisational_order_extended(F_NB_STORE, K_V64, NP_0);
     cpu_selftest_load_16_bit_literal(base);
     cpu_selftest_set_register(REG_SN, 0x0001);
     cpu_selftest_set_register(REG_NB, 0xBBBA);
+    mu5_selftest_clear_bcpr(testContext, &cpu_dev);
     cpu_selftest_run_code();
     cpu_selftest_assert_memory_contents_64_bit(0x10000 + (base * 2), 0x000000000001BBBA);
     cpu_selftest_assert_no_interrupt();
