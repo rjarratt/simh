@@ -4,7 +4,8 @@ CO      Hex    Octal  Order
 65538   E20F          A(64) = %F
 65539   E7FA          A => V/V64 NB 0  :: Clear console interrupt  multiply by 2 because of scaling to get block and line. 1110 0111 1111 1010
 65540   0000         
-65541   2683          A(64) = %20       :: TTY output mode
+65541   E3CC          A(64) = %20       :: TTY output mode 1110001111001100
+        0020
 65542   2A84          A=> V/0 %67   :: Set teletype control
 65543   2E86          A = %40       :: @ sign
 65544   3088          A => V/0 %66  :: send to output
