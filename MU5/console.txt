@@ -1,53 +1,19 @@
 CO      Hex    Octal  Order
-65536   0E44          NB = 0x300       :: console base 0000111001000100
-65537   0600          %300
-65538   E20F          A(64) = %F
-65539   E7FA          A => V/V64 NB 0  :: Clear console interrupt  multiply by 2 because of scaling to get block and line. 1110 0111 1111 1010
+65536   0E44          NB = 0x600       :: console base as 64-bit address (i.e. 0x300 x 2)
+65537   0600          %600
+65538   E20F          A(64) = %F       :: Value that resets console interrupt bits
+65539   E7FA          A => V/ NB 0     :: Set Console Interrupt in Console V-Store
 65540   0000         
-65541   E3CC          A(64) = %20       :: TTY output mode 1110001111001100
-        0020
-65542   2A84          A=> V/0 %67   :: Set teletype control
-65543   2E86          A = %40       :: @ sign
-65544   3088          A => V/0 %66  :: send to output
-65545   328A          -> 0          :: STOP
-65546   3403          
-65547   368C          
-65548   3E92          
-65549   3891          
-65550   268B          
-65551   208A          
-65552   2894          
-65553   268D          
-65554   2489          
-65555   448B          
-65556   0EBE          
-65557   0D14          
-65558   E281          
-65559   A883          
-65560   AC84          
-65561   E680          
-65562   AA86          
-65563   AE88          
-65564   B08B          
-65565   B28C          
-65566   B402          
-65567   B68F          
-65568   BE90          
-65569   B892          
-65570   E68F          
-65571   E28E          
-65572   A894          
-65573   E68D          
-65574   E489          
-65575   21D4          
-65576   268A          
-65577   0E51          
-65578   0D06          
-65579   62C0          
-65580   42C1          
-65584   6C05          STS MOD lit Z 5
-65585   4E03          STS XMOD lit Z 3
-65581   66C2          STS D_ST V64 NB 2
-65582   46C3          STS XD_ST V64 NB 3
-65583   64C1          STS D_SLD V64 NB 1
-65586   0000          ACC STOP lit Z 0 Stops simulation 
+65541   E3CC          A(64) = %20      :: TTY output mode
+65542   0020
+65543   E7FA          A => V/ NB 7     :: Set teletype control
+65544   0007         
+65545   E3CC          A = %40          :: @ sign
+65546   0040          
+65547   E7FA          A => V/ NB 6     :: Set teletype data
+65548   0006         
+65549   E3FA          A(64) = V/NB 0   :: Read Console Interrupt 11100011
+65550   0000
+65551   BA00          AOD COMP 0       :: Poll for interrupt 1011 1010 00000000
+65552   103D          IF = 0 -> -3     :: Jump back to poll if interupt not set 0001 0000 0011 1101
+65553   0031          -> -15           :: Jump to start 0000 0000 0011 0001

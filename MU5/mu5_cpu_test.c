@@ -3107,7 +3107,7 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_1_bit_va
 
 static void cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode(TESTCONTEXT *testContext)
 {
-    uint32 base = TEST_V_STORE_LOCATION_BLOCK *256 + TEST_V_STORE_LOCATION_LINE;
+    uint32 base = (TEST_V_STORE_LOCATION_BLOCK *256 + TEST_V_STORE_LOCATION_LINE) << 1; /* multiply by 2 because it is treated as 64-bit address and scaled like one */
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_PRIVILEGED, NP_NB);
     cpu_selftest_load_16_bit_literal(0);
     cpu_selftest_setup_vstore_test_location();
