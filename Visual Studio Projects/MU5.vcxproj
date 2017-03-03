@@ -155,6 +155,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\MU5\mu5_console.c" />
+    <ClCompile Include="..\MU5\mu5_console_test.c" />
     <ClCompile Include="..\MU5\mu5_cpu.c" />
     <ClCompile Include="..\MU5\mu5_cpu_test.c" />
     <ClCompile Include="..\MU5\mu5_sac.c" />
@@ -175,6 +176,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\MU5\mu5_console.h" />
+    <ClInclude Include="..\MU5\mu5_console_test.h" />
     <ClInclude Include="..\MU5\mu5_cpu.h" />
     <ClInclude Include="..\MU5\mu5_cpu_test.h" />
     <ClInclude Include="..\MU5\mu5_defs.h" />

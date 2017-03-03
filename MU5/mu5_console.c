@@ -40,7 +40,7 @@ Only does Teletype output.
 #define MASK_TEII 0x4
 #define MASK_SCI 0x8
 
-#define MASK_TTY_OUTPUT 0x20
+#define MASK_TTY_INPUT 0x20
 
 static t_stat console_reset(DEVICE *dptr);
 static t_stat console_svc(UNIT *uptr);
@@ -118,6 +118,14 @@ DEVICE console_dev = {
 static t_stat console_reset(DEVICE *dptr)
 {
     t_stat result = SCPE_OK;
+    console_reset_state();
+    sim_cancel(&console_unit);
+    sim_activate(&console_unit, 1);
+    return result;
+}
+
+void console_reset_state(void)
+{
     ConsoleInterrupt = 0;
     TeletypeData = 0;
     TeletypeControl = 0;
@@ -125,16 +133,13 @@ static t_stat console_reset(DEVICE *dptr)
     sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_CONSOLE_INTERRUPT, console_read_console_interrupt_callback, console_write_console_interrupt_callback);
     sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TELETYPE_DATA, console_read_teletype_data_callback, console_write_teletype_data_callback);
     sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TELETYPE_CONTROL, console_read_teletype_control_callback, console_write_teletype_control_callback);
-    sim_cancel(&console_unit);
-    sim_activate(&console_unit, 1);
-    return result;
 }
 
 static t_stat console_svc(UNIT *uptr)
 {
     if (TeletypeOperationInProgress)
     {
-        if (TeletypeControl & MASK_TTY_OUTPUT)
+        if (!(TeletypeControl & MASK_TTY_INPUT))
         {
             printf("%c", TeletypeData);
             ConsoleInterrupt |= MASK_TCI;

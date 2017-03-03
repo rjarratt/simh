@@ -54,6 +54,7 @@ Page 2.10.1. Action section says that truncating a non-zero bit on store orders 
 #include "mu5_test.h"
 #include "mu5_cpu_test.h"
 #include "mu5_sac_test.h"
+#include "mu5_console_test.h"
 
 /* This structure is used to allow instruction execution to be table driven. It allows for tables to be nested. At each level the
    execute() function does anything it needs to do before invoking the function on the inner table. The leaf tables have a NULL for
@@ -866,6 +867,7 @@ static t_stat cpu_reset(DEVICE *dptr)
         mu5_selftest_start(&testContext);
         cpu_selftest(&testContext);
         sac_selftest(&testContext);
+        console_selftest(&testContext);
         result = mu5_selftest_end(&testContext);
     }
 

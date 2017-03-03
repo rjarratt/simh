@@ -1,4 +1,4 @@
-/* mu5_console.h: MU5 Store Access Control definitions
+/* mu5_console_test.h: MU5 simulator CONSOLE test definitions
 
 Copyright (c) 2016-2017, Robert Jarratt
 
@@ -24,6 +24,9 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Robert Jarratt.
 */
 
-#include "sim_defs.h"
+#include "mu5_defs.h"
+#include "mu5_test.h"
 
-void console_reset_state(void);
+#pragma once
+void console_selftest(TESTCONTEXT *testContext);
+

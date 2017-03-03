@@ -4,7 +4,7 @@ CO      Hex    Octal  Order
 65538   E20F          A(64) = %F       :: Value that resets console interrupt bits
 65539   E7FA          A => V/ NB 0     :: Set Console Interrupt in Console V-Store
 65540   0000         
-65541   E3CC          A(64) = %20      :: TTY output mode
+65541   E3CC          A(64) = %00      :: TTY output mode
 65542   0020
 65543   E7FA          A => V/ NB 7     :: Set teletype control
 65544   0007         
