@@ -87,6 +87,18 @@ t_stat mu5_selftest_end(TESTCONTEXT *context)
     return context->overallResult;
 }
 
+void mu5_selftest_set_level0_mode(TESTCONTEXT *context, DEVICE *device)
+{
+    uint16 ms = cpu_get_ms() | MS_MASK_LEVEL0;
+    mu5_selftest_set_register(context, device, REG_MS, ms);
+}
+
+void mu5_selftest_set_level1_mode(TESTCONTEXT *context, DEVICE *device)
+{
+    uint16 ms = cpu_get_ms() | MS_MASK_LEVEL1;
+    mu5_selftest_set_register(context, device, REG_MS, ms);
+}
+
 void mu5_selftest_set_executive_mode(TESTCONTEXT *context, DEVICE *device)
 {
     uint16 ms = cpu_get_ms() | MS_MASK_EXEC;

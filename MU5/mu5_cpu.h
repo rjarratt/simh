@@ -25,6 +25,8 @@ in this Software without prior written authorization from Robert Jarratt.
 */
 #pragma once
 
+#define MS_MASK_LEVEL0 0x0001
+#define MS_MASK_LEVEL1 0x0002
 #define MS_MASK_EXEC 0x0004
 #define MS_MASK_BCPR 0x0080
 

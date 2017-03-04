@@ -282,6 +282,8 @@ static void cpu_selftest_load_1_bit_value_to_descriptor_location(uint32 origin, 
 static uint32 cpu_selftest_byte_address_from_word_address(uint32 address);
 static void cpu_selftest_set_aod_operand_32_bit();
 static void cpu_selftest_set_aod_operand_64_bit();
+static void cpu_selftest_set_level0_mode(void);
+static void cpu_selftest_set_level1_mode(void);
 static void cpu_selftest_set_executive_mode(void);
 static void cpu_selftest_set_user_mode(void);
 static void cpu_selftest_set_bn(int8 bn);
@@ -325,7 +327,8 @@ static void cpu_selftest_assert_sss_interrupt(void);
 static void cpu_selftest_assert_no_bound_check_interrupt(void);
 static void cpu_selftest_assert_no_its_interrupt(void);
 static void cpu_selftest_assert_no_sss_interrupt(void);
-static void cpu_selftest_assert_segment_overflow_interrupt(void);
+static void cpu_selftest_assert_segment_overflow_interrupt_as_system_error(void);
+static void cpu_selftest_assert_segment_overflow_interrupt_as_program_fault(void);
 static void cpu_selftest_assert_test_equals(void);
 static void cpu_selftest_assert_test_greater_than(void);
 static void cpu_selftest_assert_test_less_than(void);
@@ -750,6 +753,10 @@ static void cpu_selftest_org_sn_load_in_executive_mode_loads_SN(TESTCONTEXT *tes
 static void cpu_selftest_org_xnb_plus_adds_operand_to_XNB(TESTCONTEXT *testContext);
 static void cpu_selftest_org_xnb_plus_generates_interrupt_if_segment_overflow(TESTCONTEXT *testContext);
 static void cpu_selftest_org_xnb_plus_generates_interrupt_if_segment_underflow(TESTCONTEXT *testContext);
+static void cpu_selftest_org_xnb_plus_generates_program_fault_interrupt_if_segment_overflow_in_user_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_level0_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_level1_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_executive_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_org_xnb_store_stores_XNB(TESTCONTEXT *testContext);
 static void cpu_selftest_org_sf_load_loads_SF(TESTCONTEXT *testContext);
 static void cpu_selftest_org_sf_plus_adds_operand_to_SF(TESTCONTEXT *testContext);
@@ -1314,6 +1321,10 @@ static UNITTEST tests[] =
     { "XNB+ adds operand to XNB", cpu_selftest_org_xnb_plus_adds_operand_to_XNB },
     { "XNB+ generates an interrupt if there is a segment overflow", cpu_selftest_org_xnb_plus_generates_interrupt_if_segment_overflow },
     { "XNB+ generates an interrupt if there is a segment underflow", cpu_selftest_org_xnb_plus_generates_interrupt_if_segment_underflow },
+    { "XNB+ generates a program fault interrupt if there is a segment overflow in user mode", cpu_selftest_org_xnb_plus_generates_program_fault_interrupt_if_segment_overflow_in_user_mode },
+    { "XNB+ generates a system error interrupt if there is a segment overflow in level 0 mode", cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_level0_mode },
+    { "XNB+ generates a system error interrupt if there is a segment overflow in level 1 mode", cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_level1_mode },
+    { "XNB+ generates a system error interrupt if there is a segment overflow in executive mode", cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_executive_mode },
     { "XNB=> stores XNB", cpu_selftest_org_xnb_store_stores_XNB },
     { "SF= loads SF", cpu_selftest_org_sf_load_loads_SF },
     { "SF+ adds operand to SF", cpu_selftest_org_sf_plus_adds_operand_to_SF },
@@ -1379,8 +1390,8 @@ static UNITTEST tests[] =
 
 static void cpu_selftest_reset(UNITTEST *test)
 {
+    sac_reset_state(); /* reset SAC first because it clears the V-Store callbacks which may be set by other devices */
     cpu_reset_state();
-    sac_reset_state();
     currentLoadLocation = 0;
 }
 
@@ -1556,6 +1567,16 @@ static void cpu_selftest_set_aod_operand_32_bit()
 static void cpu_selftest_set_aod_operand_64_bit()
 {
     cpu_selftest_set_register(REG_AOD, AOD_OPSIZ_MASK);
+}
+
+static void cpu_selftest_set_level0_mode(void)
+{
+    mu5_selftest_set_level0_mode(localTestContext, &cpu_dev);
+}
+
+static void cpu_selftest_set_level1_mode(void)
+{
+    mu5_selftest_set_level1_mode(localTestContext, &cpu_dev);
 }
 
 static void cpu_selftest_set_executive_mode(void)
@@ -1878,15 +1899,26 @@ static void cpu_selftest_assert_no_sss_interrupt(void)
     cpu_selftest_assert_no_d_interrupt("SSS", DOD_SSS_MASK);
 }
 
-static void cpu_selftest_assert_segment_overflow_interrupt(void)
+static void cpu_selftest_assert_segment_overflow_interrupt_as_system_error(void)
 {
-    if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
+    if (cpu_get_interrupt_number() != INT_SYSTEM_ERROR)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected segment overflow interrupt to have occurred\n");
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected segment overflow interrupt to have occurred as System Error\n");
         cpu_selftest_set_failure();
     }
 
-    /* TODO: Other checks to ensure this is a segment overflow */
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x10);
+}
+
+static void cpu_selftest_assert_segment_overflow_interrupt_as_program_fault(void)
+{
+    if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected segment overflow interrupt to have occurred as Program Fault\n");
+        cpu_selftest_set_failure();
+    }
+
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x40);
 }
 
 static void cpu_selftest_assert_test_equals(void)
@@ -6675,7 +6707,7 @@ static void cpu_selftest_org_xnb_plus_generates_interrupt_if_segment_overflow(TE
     cpu_selftest_load_32_bit_literal(0x00000002);
     cpu_selftest_set_register(REG_XNB, 0xAAAAFFFE);
     cpu_selftest_run_code();
-    cpu_selftest_assert_segment_overflow_interrupt();
+    cpu_selftest_assert_segment_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_org_xnb_plus_generates_interrupt_if_segment_underflow(TESTCONTEXT *testContext)
@@ -6684,7 +6716,47 @@ static void cpu_selftest_org_xnb_plus_generates_interrupt_if_segment_underflow(T
     cpu_selftest_load_32_bit_literal(0xFFFFFFFC);
     cpu_selftest_set_register(REG_XNB, 0xAAAA0002);
     cpu_selftest_run_code();
-    cpu_selftest_assert_segment_overflow_interrupt();
+    cpu_selftest_assert_segment_overflow_interrupt_as_system_error();
+}
+
+static void cpu_selftest_org_xnb_plus_generates_program_fault_interrupt_if_segment_overflow_in_user_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_organisational_order_extended(F_XNB_PLUS, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFC);
+    cpu_selftest_set_register(REG_XNB, 0xAAAA0002);
+    cpu_selftest_set_user_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_segment_overflow_interrupt_as_program_fault();
+}
+
+static void cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_level0_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_organisational_order_extended(F_XNB_PLUS, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFC);
+    cpu_selftest_set_register(REG_XNB, 0xAAAA0002);
+    cpu_selftest_set_level0_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_segment_overflow_interrupt_as_system_error();
+}
+
+static void cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_level1_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_organisational_order_extended(F_XNB_PLUS, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFC);
+    cpu_selftest_set_register(REG_XNB, 0xAAAA0002);
+    cpu_selftest_set_level1_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_segment_overflow_interrupt_as_system_error();
+}
+
+static void cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_executive_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_organisational_order_extended(F_XNB_PLUS, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFC);
+    cpu_selftest_set_register(REG_XNB, 0xAAAA0002);
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_segment_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_org_xnb_store_stores_XNB(TESTCONTEXT *testContext)
@@ -6723,7 +6795,7 @@ static void cpu_selftest_org_sf_plus_generates_interrupt_on_segment_overflow(TES
     cpu_selftest_load_32_bit_literal(0x00000002);
     cpu_selftest_set_register(REG_SF, 0xFFFE);
     cpu_selftest_run_code();
-    cpu_selftest_assert_segment_overflow_interrupt();
+    cpu_selftest_assert_segment_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_org_sf_plus_generates_interrupt_on_segment_underflow(TESTCONTEXT *testContext)
@@ -6732,7 +6804,7 @@ static void cpu_selftest_org_sf_plus_generates_interrupt_on_segment_underflow(TE
     cpu_selftest_load_32_bit_literal(0xFFFFFFFC);
     cpu_selftest_set_register(REG_SF, 0x0002);
     cpu_selftest_run_code();
-    cpu_selftest_assert_segment_overflow_interrupt();
+    cpu_selftest_assert_segment_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF(TESTCONTEXT *testContext)
@@ -6750,7 +6822,7 @@ static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_over
     cpu_selftest_load_32_bit_literal(0x0000FFFF);
     cpu_selftest_set_register(REG_NB, 10);
     cpu_selftest_run_code();
-    cpu_selftest_assert_segment_overflow_interrupt();
+    cpu_selftest_assert_segment_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow(TESTCONTEXT *testContext)
@@ -6759,7 +6831,7 @@ static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_unde
     cpu_selftest_load_32_bit_literal(0xFFFFFFFB);
     cpu_selftest_set_register(REG_NB, 2);
     cpu_selftest_run_code();
-    cpu_selftest_assert_segment_overflow_interrupt();
+    cpu_selftest_assert_segment_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_org_sf_store_stores_SF(TESTCONTEXT *testContext)
@@ -6797,7 +6869,7 @@ static void cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_over
     cpu_selftest_load_32_bit_literal(0x0000FFFF);
     cpu_selftest_set_register(REG_SF, 10);
     cpu_selftest_run_code();
-    cpu_selftest_assert_segment_overflow_interrupt();
+    cpu_selftest_assert_segment_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_underflow(TESTCONTEXT *testContext)
@@ -6806,7 +6878,7 @@ static void cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_unde
     cpu_selftest_load_32_bit_literal(0xFFFFFFFB);
     cpu_selftest_set_register(REG_SF, 2);
     cpu_selftest_run_code();
-    cpu_selftest_assert_segment_overflow_interrupt();
+    cpu_selftest_assert_segment_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_org_nb_plus_adds_signed_operand_to_NB(TESTCONTEXT *testContext)
@@ -6825,7 +6897,7 @@ static void cpu_selftest_org_nb_plus_generates_interrupt_on_segment_overflow(TES
     cpu_selftest_load_32_bit_literal(0x00000002);
     cpu_selftest_set_register(REG_NB, 0xFFFE);
     cpu_selftest_run_code();
-    cpu_selftest_assert_segment_overflow_interrupt();
+    cpu_selftest_assert_segment_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_org_nb_plus_generates_interrupt_on_segment_underflow(TESTCONTEXT *testContext)
@@ -6834,7 +6906,7 @@ static void cpu_selftest_org_nb_plus_generates_interrupt_on_segment_underflow(TE
     cpu_selftest_load_32_bit_literal(0xFFFFFFFC);
     cpu_selftest_set_register(REG_NB, 0x0002);
     cpu_selftest_run_code();
-    cpu_selftest_assert_segment_overflow_interrupt();
+    cpu_selftest_assert_segment_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_org_nb_store_stores_SN_and_NB(TESTCONTEXT *testContext)

@@ -34,7 +34,8 @@ extern DEVICE cpu_dev;
 extern DEVICE sac_dev;
 extern DEVICE console_dev;
 
-DEVICE *sim_devices[] = { &cpu_dev, &sac_dev, &console_dev, NULL };
+/* SAC first because it resets the V-Store callbacks which may be set by other devices */
+DEVICE *sim_devices[] = { &sac_dev, &cpu_dev, &console_dev, NULL };
 
 const char *sim_stop_messages[] =
 {

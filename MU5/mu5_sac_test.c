@@ -183,8 +183,8 @@ void sac_selftest(TESTCONTEXT *testContext)
 
 static void sac_selftest_reset(UNITTEST *test)
 {
+    sac_reset_state(); /* reset SAC first because it clears the V-Store callbacks which may be set by other devices */
     cpu_reset_state();
-    sac_reset_state();
     VStoreTestLocation = 0;
 }
 

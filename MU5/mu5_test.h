@@ -57,6 +57,8 @@ void mu5_selftest_start(TESTCONTEXT *context);
 void mu5_selftest_run_suite(TESTCONTEXT *context, UNITTEST *unitTests, uint32 numberOfUnitTests, void (*reset)(UNITTEST *unitTest));
 t_stat mu5_selftest_end(TESTCONTEXT *context);
 
+void mu5_selftest_set_level0_mode(TESTCONTEXT *context, DEVICE *device);
+void mu5_selftest_set_level1_mode(TESTCONTEXT *context, DEVICE *device);
 void mu5_selftest_set_executive_mode(TESTCONTEXT *context, DEVICE *device);
 void mu5_selftest_set_user_mode(TESTCONTEXT *context, DEVICE *device);
 void mu5_selftest_set_bcpr(TESTCONTEXT *context, DEVICE *device);

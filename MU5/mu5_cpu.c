@@ -273,6 +273,9 @@ static const char* cpu_description(DEVICE *dptr) {
     return "Central Processing Unit";
 }
 
+static int16 PROPProgramFaultStatus;
+static int16 PROPSystemErrorStatus;
+
 t_stat sim_instr(void);
 
 static t_stat cpu_ex(t_value *vptr, t_addr addr, UNIT *uptr, int32 sw);
@@ -310,6 +313,7 @@ static int cpu_is_executive_mode(void);
 static void cpu_clear_interrupt(uint8 number);
 static void cpu_clear_all_interrupts(void);
 static void cpu_set_bounds_check_interrupt();
+static void cpu_set_name_adder_overflow_interrupt();
 static uint8 cpu_get_cr(uint16 order);
 static uint8 cpu_get_f(uint16 order);
 static uint16 cpu_get_k(uint16 order);
@@ -346,6 +350,11 @@ static void cpu_push_value(t_uint64 value);
 static t_addr cpu_pop_address(void);
 static t_uint64 cpu_pop_value(void);
 static void cpu_test_value(t_int64 value);
+
+static t_uint64 prop_read_program_fault_status_callback(uint8 line);
+static void prop_write_program_fault_status_callback(uint8 line, t_uint64 value);
+static t_uint64 prop_read_system_error_status_callback(uint8 line);
+static void prop_write_system_error_status_callback(uint8 line, t_uint64 value);
 
 static void cpu_execute_illegal_order(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_start_interrupt_processing(void);
@@ -1080,7 +1089,7 @@ static uint16 cpu_calculate_base_offset_from_addr(t_addr base, t_int64 offset, u
     t_int64 result = base + (offset * scale);
     if (result < 0 || result > 65535)
     {
-        cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: must be segment overflow interrupt */
+        cpu_set_name_adder_overflow_interrupt();
     }
 
     return (uint16)(result & 0xFFFF);
@@ -1143,6 +1152,8 @@ void cpu_reset_state(void)
     cpu_set_register_32(reg_dt, 0x0);
     cpu_set_register_32(reg_xdt, 0x0);
     cpu_set_register_32(reg_dl, 0x0);
+    sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, prop_read_program_fault_status_callback, prop_write_program_fault_status_callback);
+    sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, prop_read_system_error_status_callback, prop_write_system_error_status_callback);
 }
 
 void cpu_set_interrupt(uint8 number)
@@ -1166,6 +1177,20 @@ static void cpu_set_bounds_check_interrupt(void)
     {
         cpu_set_register_bit_32(reg_dod, mask_dod_bch, 1);
         cpu_set_interrupt(INT_PROGRAM_FAULTS);
+    }
+}
+
+static void cpu_set_name_adder_overflow_interrupt()
+{
+    if (cpu_get_ms() & (MS_MASK_LEVEL0 | MS_MASK_LEVEL1 | MS_MASK_EXEC))
+    {
+        cpu_set_interrupt(INT_SYSTEM_ERROR);
+        PROPSystemErrorStatus |= 0x10;
+    }
+    else
+    {
+        cpu_set_interrupt(INT_PROGRAM_FAULTS);
+        PROPProgramFaultStatus |= 0x40;
     }
 }
 
@@ -2216,6 +2241,26 @@ void cpu_execute_next_order(void)
     {
         cpu_start_interrupt_processing();
     }
+}
+
+static t_uint64 prop_read_program_fault_status_callback(uint8 line)
+{
+    return PROPProgramFaultStatus & 0xFFD0;
+}
+
+static void prop_write_program_fault_status_callback(uint8 line, t_uint64 value)
+{
+    assert(0); /* TODO: not implemented because need test first, must reset the bits */
+}
+
+static t_uint64 prop_read_system_error_status_callback(uint8 line)
+{
+    return PROPSystemErrorStatus;
+}
+
+static void prop_write_system_error_status_callback(uint8 line, t_uint64 value)
+{
+    assert(0); /* TODO: not implemented because need test first, must reset the bits */
 }
 
 static void cpu_execute_illegal_order(uint16 order, DISPATCH_ENTRY *innerTable)
