@@ -319,6 +319,7 @@ static void cpu_clear_all_interrupts(void);
 static void cpu_set_program_fault_interrupt(uint16 reason);
 static void cpu_set_illegal_order_interrupt(uint16 reason);
 static void cpu_set_D_interrupt(void);
+static void cpu_set_sss_interrupt(void);
 static void cpu_set_bounds_check_interrupt(void);
 static void cpu_set_name_adder_overflow_interrupt(void);
 static void cpu_set_control_adder_overflow_interrupt(void);
@@ -1230,11 +1231,20 @@ static void cpu_set_D_interrupt(void)
     }
 }
 
+static void cpu_set_sss_interrupt(void)
+{
+    cpu_set_register_bit_32(reg_dod, mask_dod_sss, 1);
+    if (!cpu_get_register_bit_32(reg_dod, mask_dod_sssi))
+    {
+        cpu_set_D_interrupt();
+    }
+}
+
 static void cpu_set_bounds_check_interrupt(void)
 {
+    cpu_set_register_bit_32(reg_dod, mask_dod_bch, 1);
     if (!cpu_get_register_bit_32(reg_dod, mask_dod_bchi))
     {
-        cpu_set_register_bit_32(reg_dod, mask_dod_bch, 1);
         cpu_set_D_interrupt();
     }
 }
@@ -1745,10 +1755,9 @@ static void cpu_process_source_to_destination_descriptor_vector(t_uint64 operand
         }
         cpu_descriptor_modify(reg_d, n, FALSE);
         cpu_descriptor_modify(reg_xd, n, FALSE);
-        if (xdb < db && !cpu_get_register_bit_32(reg_dod, mask_dod_sssi))
+        if (xdb < db)
         {
-            cpu_set_register_bit_32(reg_dod, mask_dod_sss, 1);
-            cpu_set_D_interrupt();
+            cpu_set_sss_interrupt();
         }
     }
 }

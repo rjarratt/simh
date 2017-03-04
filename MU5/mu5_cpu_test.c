@@ -322,12 +322,15 @@ static void cpu_selftest_assert_a_zero_divide_interrupt(void);
 static void cpu_selftest_assert_interrupt(void);
 static void cpu_selftest_assert_no_interrupt(void);
 static void cpu_selftest_assert_dod_interrupt_as_system_error(char *name, uint32 mask);
+static void cpu_selftest_assert_d_error_no_interrupt(char *name, uint32 mask);
 static void cpu_selftest_assert_no_d_interrupt(char *name, uint32 mask);
 static void cpu_selftest_assert_bound_check_interrupt_as_system_error(void);
 static void cpu_selftest_assert_its_interrupt(void);
 static void cpu_selftest_assert_sss_interrupt(void);
+static void cpu_selftest_assert_bounds_check_no_interrupt(void);
 static void cpu_selftest_assert_no_bounds_check_interrupt(void);
 static void cpu_selftest_assert_no_its_interrupt(void);
+static void cpu_selftest_assert_sss_no_interrupt(void);
 static void cpu_selftest_assert_no_sss_interrupt(void);
 static void cpu_selftest_assert_name_adder_overflow_interrupt_as_system_error(void);
 static void cpu_selftest_assert_name_adder_overflow_interrupt_as_program_fault(void);
@@ -1910,6 +1913,18 @@ static void cpu_selftest_assert_dod_interrupt_as_system_error(char *name, uint32
     }
 }
 
+static void cpu_selftest_assert_d_error_no_interrupt(char *name, uint32 mask)
+{
+    cpu_selftest_assert_no_interrupt();
+
+    uint32 dod = cpu_selftest_get_register(REG_DOD) & 0xFFFFFFFF;
+    if (!(dod & mask))
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected %s bit to be set in DOD\n", name);
+        cpu_selftest_set_failure();
+    }
+}
+
 static void cpu_selftest_assert_no_d_interrupt(char *name, uint32 mask)
 {
     cpu_selftest_assert_no_interrupt();
@@ -1937,6 +1952,12 @@ static void cpu_selftest_assert_sss_interrupt(void)
     cpu_selftest_assert_dod_interrupt_as_system_error("SSS", DOD_SSS_MASK);
 }
 
+static void cpu_selftest_assert_bounds_check_no_interrupt(void)
+{
+    cpu_selftest_assert_d_error_no_interrupt("BCH", DOD_BCH_MASK);
+}
+
+
 static void cpu_selftest_assert_no_bounds_check_interrupt(void)
 {
     cpu_selftest_assert_no_d_interrupt("BCH", DOD_BCH_MASK);
@@ -1945,6 +1966,11 @@ static void cpu_selftest_assert_no_bounds_check_interrupt(void)
 static void cpu_selftest_assert_no_its_interrupt(void)
 {
     cpu_selftest_assert_no_d_interrupt("ITS", DOD_ITS_MASK);
+}
+
+static void cpu_selftest_assert_sss_no_interrupt(void)
+{
+    cpu_selftest_assert_d_error_no_interrupt("SSS", DOD_SSS_MASK);
 }
 
 static void cpu_selftest_assert_no_sss_interrupt(void)
@@ -7434,7 +7460,7 @@ static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(
     cpu_selftest_set_register(REG_DOD, DOD_BCHI_MASK);
     cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 8));
     cpu_selftest_run_code();
-    cpu_selftest_assert_no_bounds_check_interrupt();
+    cpu_selftest_assert_bounds_check_no_interrupt();
 }
 
 static void cpu_selftest_D_interrupt_as_system_error_in_executive_mode(TESTCONTEXT *testContext)
@@ -7488,7 +7514,7 @@ static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(TESTCONTEXT *testC
     cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, sourceOrigin));
     cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 2, destinationOrigin));
     cpu_selftest_run_code();
-    cpu_selftest_assert_no_sss_interrupt();
+    cpu_selftest_assert_sss_no_interrupt();
 }
 
 static void cpu_selftest_interrupt_stacks_link_in_system_v_store(TESTCONTEXT *testContext)
