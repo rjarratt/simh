@@ -61,6 +61,8 @@ void mu5_selftest_set_level0_mode(TESTCONTEXT *context, DEVICE *device);
 void mu5_selftest_set_level1_mode(TESTCONTEXT *context, DEVICE *device);
 void mu5_selftest_set_executive_mode(TESTCONTEXT *context, DEVICE *device);
 void mu5_selftest_set_user_mode(TESTCONTEXT *context, DEVICE *device);
+void mu5_selftest_set_b_and_d_faults_to_system_error_in_exec_mode(TESTCONTEXT *context, DEVICE *device);
+void mu5_selftest_set_inhibit_program_fault_interrupts(TESTCONTEXT *context, DEVICE *device);
 void mu5_selftest_set_bcpr(TESTCONTEXT *context, DEVICE *device);
 void mu5_selftest_clear_bcpr(TESTCONTEXT *context, DEVICE *device);
 void mu5_selftest_setup_cpr(uint8 cprNumber, uint32 va, uint32 ra);
