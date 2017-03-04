@@ -162,16 +162,40 @@ void mu5_selftest_assert_interrupt_number(TESTCONTEXT *context, int expectedInte
     }
 }
 
-void mu5_selftest_assert_operand_access_violation(TESTCONTEXT *context)
+void mu5_selftest_assert_access_violation_as_system_error(TESTCONTEXT *context)
+{
+    mu5_selftest_assert_interrupt_number(context, INT_SYSTEM_ERROR);
+    mu5_selftest_assert_vstore_contents(context, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0004);
+}
+
+void mu5_selftest_assert_access_violation_as_program_fault(TESTCONTEXT *context)
 {
     mu5_selftest_assert_interrupt_number(context, INT_PROGRAM_FAULTS);
+    mu5_selftest_assert_vstore_contents(context, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x0800);
+}
+
+void mu5_selftest_assert_operand_access_violation_as_system_error(TESTCONTEXT *context)
+{
+    mu5_selftest_assert_access_violation_as_system_error(context);
     mu5_selftest_assert_vstore_contents(context, SAC_V_STORE_BLOCK, SAC_V_STORE_ACCESS_VIOLATION, 0x2);
 }
 
-void mu5_selftest_assert_instruction_access_violation(TESTCONTEXT *context)
+void mu5_selftest_assert_operand_access_violation_as_program_fault(TESTCONTEXT *context)
 {
-    mu5_selftest_assert_interrupt_number(context, INT_PROGRAM_FAULTS);
+    mu5_selftest_assert_access_violation_as_program_fault(context);
+    mu5_selftest_assert_vstore_contents(context, SAC_V_STORE_BLOCK, SAC_V_STORE_ACCESS_VIOLATION, 0x2);
+}
+
+void mu5_selftest_assert_instruction_access_violation_as_system_error(TESTCONTEXT *context)
+{
+    mu5_selftest_assert_access_violation_as_system_error(context);
     mu5_selftest_assert_vstore_contents(context, SAC_V_STORE_BLOCK, SAC_V_STORE_ACCESS_VIOLATION, 0x6);
+}
+
+void mu5_selftest_assert_instruction_access_violation_as_program_fault(TESTCONTEXT *context)
+{
+    mu5_selftest_assert_access_violation_as_program_fault(context);
+    mu5_selftest_assert_vstore_contents(context, SAC_V_STORE_BLOCK, SAC_V_STORE_ACCESS_VIOLATION, 0x0006);
 }
 
 void mu5_selftest_assert_vstore_contents(TESTCONTEXT *context, uint8 block, uint8 line, t_uint64 expectedValue)

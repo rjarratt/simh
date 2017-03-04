@@ -2069,7 +2069,7 @@ static void cpu_selftest_16_bit_instruction_generates_instruction_access_violati
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
     mu5_selftest_clear_bcpr(testContext, &cpu_dev);
     cpu_selftest_run_code_from_location(0x40000000); /* expressed as 16-bit word address */
-    mu5_selftest_assert_instruction_access_violation(localTestContext);
+    mu5_selftest_assert_instruction_access_violation_as_system_error(localTestContext);
 }
 
 static void cpu_selftest_instruction_fetches_extended_literal_using_obey_access(TESTCONTEXT *testContext)
@@ -2147,7 +2147,7 @@ static void cpu_selftest_instruction_access_violation_when_fetching_extended_lit
     cpu_selftest_load_16_bit_literal(0xFFFF);
     mu5_selftest_clear_bcpr(testContext, &cpu_dev);
     cpu_selftest_run_code_from_location(0x4000001F); /* expressed as 16-bit word virtual address */
-    mu5_selftest_assert_instruction_access_violation(localTestContext);
+    mu5_selftest_assert_instruction_access_violation_as_system_error(localTestContext);
 }
 
 static void cpu_selftest_16_bit_instruction_advances_co_by_1(TESTCONTEXT *testContext)

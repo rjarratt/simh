@@ -77,8 +77,12 @@ void mu5_selftest_assert_reg_equals(TESTCONTEXT *context, DEVICE *device, char *
 void mu5_selftest_assert_reg_instance_equals(TESTCONTEXT *context, DEVICE *device, char *name, uint8 index, t_uint64 expectedValue);
 void mu5_selftest_assert_no_interrupt(TESTCONTEXT *context);
 void mu5_selftest_assert_interrupt_number(TESTCONTEXT *context, int expectedInterruptNumber);
-void mu5_selftest_assert_operand_access_violation(TESTCONTEXT *context);
-void mu5_selftest_assert_instruction_access_violation(TESTCONTEXT *context);
+void mu5_selftest_assert_access_violation_as_system_error(TESTCONTEXT *context);
+void mu5_selftest_assert_access_violation_as_program_fault(TESTCONTEXT *context);
+void mu5_selftest_assert_operand_access_violation_as_system_error(TESTCONTEXT *context);
+void mu5_selftest_assert_operand_access_violation_as_program_fault(TESTCONTEXT *context);
+void mu5_selftest_assert_instruction_access_violation_as_system_error(TESTCONTEXT *context);
+void mu5_selftest_assert_instruction_access_violation_as_program_fault(TESTCONTEXT *context);
 void mu5_selftest_assert_vstore_contents(TESTCONTEXT *context, uint8 block, uint8 line, t_uint64 expectedValue);
 
 t_uint64 mu5_selftest_read_callback_for_static_64_bit_location(uint8 line);

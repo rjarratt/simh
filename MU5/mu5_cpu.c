@@ -1233,6 +1233,20 @@ static void cpu_set_control_adder_overflow_interrupt()
     }
 }
 
+void cpu_set_access_violation_interrupt()
+{
+    if (cpu_get_ms() & MS_MASK_EXEC)
+    {
+        cpu_set_interrupt(INT_SYSTEM_ERROR);
+        PROPSystemErrorStatus |= 0x0004;
+    }
+    else
+    {
+        cpu_set_interrupt(INT_PROGRAM_FAULTS);
+        PROPProgramFaultStatus |= 0x0800;
+    }
+}
+
 uint8 cpu_get_interrupt_number(void)
 {
     uint8 i;

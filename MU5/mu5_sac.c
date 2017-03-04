@@ -628,7 +628,6 @@ static t_addr sac_map_address(t_addr address, uint8 access)
 
             if (!sac_check_access(access, (cpr[firstMatchIndex] >> 28) & 0xF))
             {
-                cpu_set_interrupt(INT_PROGRAM_FAULTS);
                 if (access & SAC_OBEY_ACCESS)
                 {
                     AccessViolation |= 0x6;
@@ -637,6 +636,8 @@ static t_addr sac_map_address(t_addr address, uint8 access)
                 {
                     AccessViolation |= 0x2;
                 }
+
+                cpu_set_access_violation_interrupt();
             }
         }
         else if (numMatches == 0)
