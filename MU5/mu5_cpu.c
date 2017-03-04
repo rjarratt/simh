@@ -302,6 +302,7 @@ static void cpu_set_xnb(uint32 value);
 static void cpu_set_sf(uint16 value);
 static void cpu_set_co(uint32 value);
 static void cpu_set_ms_bn(int value);
+static uint32 cpu_co_add(uint32 co, t_int64 operand);
 static t_uint64 cpu_get_link(void);
 static void cpu_set_link(t_uint64 link);
 static uint16 cpu_calculate_base_offset_from_addr(t_addr base, t_int64 offset, uint8 scale);
@@ -315,6 +316,7 @@ static void cpu_clear_interrupt(uint8 number);
 static void cpu_clear_all_interrupts(void);
 static void cpu_set_bounds_check_interrupt();
 static void cpu_set_name_adder_overflow_interrupt();
+static void cpu_set_control_adder_overflow_interrupt();
 static uint8 cpu_get_cr(uint16 order);
 static uint8 cpu_get_f(uint16 order);
 static uint16 cpu_get_k(uint16 order);
@@ -1074,6 +1076,19 @@ static void cpu_set_ms_bn(int value)
     cpu_set_register_bit_16(reg_ms, mask_ms_bn, value);
 }
 
+static uint32 cpu_co_add(uint32 co, t_int64 operand)
+{
+    uint16 originalSegment = co >> 16;
+    uint32 newCo = ((t_uint64)co + operand) & MASK_32;
+    uint16 newSegment = newCo >> 16;
+    if (originalSegment != newSegment)
+    {
+        cpu_set_control_adder_overflow_interrupt();
+    }
+
+    return newCo;  /* TODO: find comment refs to this and implement there too */
+}
+
 static t_uint64 cpu_get_link(void)
 {
     t_uint64 link = ((t_uint64)cpu_get_register_16(reg_ms) << 48) | ((t_uint64)cpu_get_register_16(reg_nb) << 32) | cpu_get_register_32(reg_co);
@@ -1194,12 +1209,26 @@ static void cpu_set_name_adder_overflow_interrupt()
     if (cpu_get_ms() & (MS_MASK_LEVEL0 | MS_MASK_LEVEL1 | MS_MASK_EXEC))
     {
         cpu_set_interrupt(INT_SYSTEM_ERROR);
-        PROPSystemErrorStatus |= 0x10;
+        PROPSystemErrorStatus |= 0x0010;
     }
     else
     {
         cpu_set_interrupt(INT_PROGRAM_FAULTS);
-        PROPProgramFaultStatus |= 0x40;
+        PROPProgramFaultStatus |= 0x4000;
+    }
+}
+
+static void cpu_set_control_adder_overflow_interrupt()
+{
+    if (cpu_get_ms() & (MS_MASK_LEVEL0 | MS_MASK_LEVEL1 | MS_MASK_EXEC))
+    {
+        cpu_set_interrupt(INT_SYSTEM_ERROR);
+        PROPSystemErrorStatus |= 0x0008;
+    }
+    else
+    {
+        cpu_set_interrupt(INT_PROGRAM_FAULTS);
+        PROPProgramFaultStatus |= 0x2000;
     }
 }
 
@@ -2048,7 +2077,7 @@ static t_uint64 cpu_get_operand(uint16 order)
         }
     }
 
-    cpu_set_co(instructionAddress + instructionLength);
+    cpu_set_co(instructionAddress + instructionLength); /* TODO: control adder overflow using cpu_co_add() */
 
     return result;
 }
@@ -2182,7 +2211,7 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
         }
     }
 
-    cpu_set_co(instructionAddress + instructionLength);
+    cpu_set_co(instructionAddress + instructionLength); /* TODO: control adder overflow using cpu_co_add() */
 }
 
 static t_uint64 cpu_sign_extend(t_uint64 value, int8 bits)
@@ -2308,12 +2337,11 @@ static void cpu_jump_relative(uint16 order, int performJump)
 {
     int32 relativeTo = (int32)cpu_get_register_32(reg_co); /* Get CO before it is advanced by getting operand as we jump relative to instruction */
     int32 relative = (int32)(cpu_get_operand(order) & MASK_32);
-    uint32 newCo = (uint32)(relativeTo + relative);
+    uint32 newCo = (uint32)(relativeTo + relative); /* TODO: control adder overflow using cpu_co_add() */
 
     if (performJump)
     {
         cpu_set_co(newCo);
-        // TODO: cross-segment generates interrupt
 
         /* The real MU5 did not have a STOP instruction, see comment above the declaration of cpu_stopped */
         if (relative == 0)
@@ -2530,10 +2558,10 @@ static void cpu_execute_organisational_xcn(uint16 order, DISPATCH_ENTRY *innerTa
 
 static void cpu_execute_organisational_stacklink(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STACK LINK ");
-    t_uint64 co = cpu_get_register_32(reg_co); /* Get CO before it is advanced by getting operand as we jump relative to instruction */
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "STACKLINK ");
+    uint32 co = cpu_get_register_32(reg_co); /* Get CO before it is advanced by getting operand as we jump relative to instruction */
     t_uint64 operand = cpu_get_operand(order);
-    t_uint64 link = ((t_uint64)cpu_get_register_16(reg_ms) << 48) | ((t_uint64)cpu_get_register_16(reg_nb) << 32) | ((co + operand) & MASK_32); /* TODO: seg overflow check */
+    t_uint64 link = ((t_uint64)cpu_get_register_16(reg_ms) << 48) | ((t_uint64)cpu_get_register_16(reg_nb) << 32) | cpu_co_add(co, operand);
     cpu_push_value(link);
 }
 
