@@ -317,6 +317,7 @@ static int cpu_is_executive_mode(void);
 static void cpu_clear_interrupt(uint8 number);
 static void cpu_clear_all_interrupts(void);
 static void cpu_set_program_fault_interrupt(uint16 reason);
+static void cpu_set_illegal_order_interrupt(uint16 reason);
 static void cpu_set_D_interrupt(void);
 static void cpu_set_bounds_check_interrupt(void);
 static void cpu_set_name_adder_overflow_interrupt(void);
@@ -1207,6 +1208,12 @@ static void cpu_set_program_fault_interrupt(uint16 reason)
     PROPProgramFaultStatus |= reason;
 }
 
+static void cpu_set_illegal_order_interrupt(uint16 reason)
+{
+    cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+    PROPProgramFaultStatus |= reason;
+}
+
 static void cpu_set_D_interrupt(void)
 {
     if (cpu_ms_is_all(MS_MASK_EXEC))
@@ -1500,7 +1507,7 @@ static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 ins
         }
         default:
         {
-            cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+            cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
             break;
         }
     }
@@ -1590,7 +1597,7 @@ static int32 cpu_scale_descriptor_modifier(t_uint64 descriptor, uint32 modifier)
             }
             default:
             {
-                cpu_set_interrupt(INT_ILLEGAL_ORDERS); /* TODO: needs to be an interrupt about a bad descriptor */
+                cpu_set_illegal_order_interrupt(0); /* TODO: needs to be an interrupt about a bad descriptor, D fault */
                 break;
             }
         }
@@ -1978,7 +1985,7 @@ static t_uint64 cpu_set_operand_internal_register(uint16 order, t_uint64 value)
         }
         default:
         {
-            cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+            cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
             break;
         }
     }
@@ -2108,13 +2115,13 @@ static t_uint64 cpu_get_operand(uint16 order)
                     }
                     else
                     {
-                        cpu_set_program_fault_interrupt(0); /* TODO: set proper interrupt here */
+                        cpu_set_illegal_order_interrupt(0x1000);
                     }
                     break;
                 }
                 default:
                 {
-                    cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+                    cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
                     break;
                 }
             }
@@ -2123,7 +2130,7 @@ static t_uint64 cpu_get_operand(uint16 order)
         }
         default:
         {
-            cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+            cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
         }
     }
 
@@ -2241,14 +2248,14 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
                     }
                     else
                     {
-                        cpu_set_program_fault_interrupt(0); /* TODO: set proper interrupt here */
+                        cpu_set_illegal_order_interrupt(0x1000);
                     }
                     break;
                 }
                 }
                 default:
                 {
-                    cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+                    cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
                     break;
                 }
             }
@@ -2257,7 +2264,7 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
         }
         default:
         {
-            cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+            cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
         }
     }
 
@@ -2363,7 +2370,7 @@ static void prop_write_system_error_status_callback(uint8 line, t_uint64 value)
 
 static void cpu_execute_illegal_order(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-    cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+    cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
 }
 
 static void cpu_start_interrupt_processing(void)
@@ -3006,7 +3013,7 @@ static void cpu_execute_sts1_xd_store(uint16 order, DISPATCH_ENTRY *innerTable)
     }
     else
     {
-        cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+        cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
     }
 }
 
@@ -3043,7 +3050,7 @@ static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable)
     uint8 subtype = cpu_get_descriptor_subtype(xd);
     if (type == DESCRIPTOR_TYPE_MISCELLANEOUS && (subtype >= DESCRIPTOR_TYPE_MISCELLANEOUS && subtype <= 31))
     {
-        cpu_set_interrupt(INT_ILLEGAL_ORDERS); /* TODO: better interrupt handling */
+        cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
     }
 
     cpu_execute_descriptor_modify(order, reg_xd);
@@ -3171,7 +3178,7 @@ static void cpu_execute_sts1_talu(uint16 order, DISPATCH_ENTRY *innerTable)
     }
     else
     {
-        cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+        cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
     }
 }
 
@@ -3269,7 +3276,7 @@ static void cpu_execute_sts2_d_store(uint16 order, DISPATCH_ENTRY *innerTable)
     }
     else
     {
-        cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+        cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
     }
 }
 
@@ -3804,7 +3811,7 @@ static void cpu_execute_fp_signed_convert(uint16 order, DISPATCH_ENTRY *innerTab
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "X CONV ");
     /* TODO: Implement convert to floating point */
-    cpu_set_interrupt(INT_ILLEGAL_ORDERS);
+    cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
 }
 
 static void cpu_execute_fp_signed_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)

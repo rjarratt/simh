@@ -335,6 +335,7 @@ static void cpu_selftest_assert_control_adder_overflow_interrupt_as_system_error
 static void cpu_selftest_assert_control_adder_overflow_interrupt_as_program_fault(void);
 static void cpu_selftest_assert_B_or_D_interrupt_as_system_error(void);
 static void cpu_selftest_assert_D_interrupt_as_program_fault(void);
+static void cpu_selftest_assert_illegal_v_store_access_interrupt();
 static void cpu_selftest_assert_test_equals(void);
 static void cpu_selftest_assert_test_greater_than(void);
 static void cpu_selftest_assert_test_less_than(void);
@@ -2017,6 +2018,17 @@ static void cpu_selftest_assert_D_interrupt_as_program_fault(void)
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x0040);
 }
 
+static void cpu_selftest_assert_illegal_v_store_access_interrupt()
+{
+    if (cpu_get_interrupt_number() != INT_ILLEGAL_ORDERS)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected illegal V-store access interrupt to have occurred as Illegal Order\n");
+        cpu_selftest_set_failure();
+    }
+
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x1000);
+}
+
 static void cpu_selftest_assert_test_equals(void)
 {
     cpu_selftest_assert_reg_equals_mask(REG_MS, TEST_EQUALS, MS_TEST_MASK);
@@ -3287,7 +3299,7 @@ static void cpu_selftest_load_operand_privileged_generates_interrupt_in_user_mod
     sac_write_v_store(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_set_user_mode();
     cpu_selftest_run_code();
-    cpu_selftest_assert_interrupt();
+    cpu_selftest_assert_illegal_v_store_access_interrupt();
 }
 
 static void cpu_selftest_store_operand_6_bit_literal_generates_interrupt(TESTCONTEXT *testContext)
@@ -4273,7 +4285,7 @@ static void cpu_selftest_store_operand_privileged_generates_interrupt_in_user_mo
     sac_write_v_store(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0x000000000000);
     cpu_selftest_set_user_mode();
     cpu_selftest_run_code();
-    cpu_selftest_assert_interrupt();
+    cpu_selftest_assert_illegal_v_store_access_interrupt();
     cpu_selftest_assert_v_store_contents(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0x000000000000);
 }
 
