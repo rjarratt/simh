@@ -2335,9 +2335,9 @@ static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable)
 
 static void cpu_jump_relative(uint16 order, int performJump)
 {
-    int32 relativeTo = (int32)cpu_get_register_32(reg_co); /* Get CO before it is advanced by getting operand as we jump relative to instruction */
-    int32 relative = (int32)(cpu_get_operand(order) & MASK_32);
-    uint32 newCo = (uint32)(relativeTo + relative); /* TODO: control adder overflow using cpu_co_add() */
+    uint32 relativeTo = cpu_get_register_32(reg_co); /* Get CO before it is advanced by getting operand as we jump relative to instruction */
+    t_int64 relative = (t_int64)cpu_get_operand(order) & MASK_32;
+    uint32 newCo = cpu_co_add(relativeTo, relative);
 
     if (performJump)
     {

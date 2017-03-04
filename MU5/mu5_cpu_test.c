@@ -731,7 +731,7 @@ static void cpu_selftest_flt_and(TESTCONTEXT *testContext);
 
 static void cpu_selftest_org_relative_jump_jumps_forward(TESTCONTEXT *testContext);
 static void cpu_selftest_org_relative_jump_jumps_backward(TESTCONTEXT *testContext);
-/* TODO: static void cpu_selftest_org_relative_across_segement_boundary_generates_interrupt(TESTCONTEXT *testContext); */
+static void cpu_selftest_org_relative_jump_across_segement_boundary_generates_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_org_exit_resets_link_in_executive_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_org_exit_resets_link_except_privileged_ms_bits_in_user_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_org_absolute_jump(TESTCONTEXT *testContext);
@@ -1307,7 +1307,7 @@ static UNITTEST tests[] =
 
     { "Relative Jump jumps forward", cpu_selftest_org_relative_jump_jumps_forward },
     { "Relative Jump jumps backward", cpu_selftest_org_relative_jump_jumps_backward },
-    /* TODO: { "Relative jump across segment boundary generates interrupt", cpu_selftest_org_relative_across_segement_boundary_generates_interrupt }, */
+    { "Relative jump across segment boundary generates interrupt", cpu_selftest_org_relative_jump_across_segement_boundary_generates_interrupt },
     { "EXIT resets the link in executive mode", cpu_selftest_org_exit_resets_link_in_executive_mode },
     { "EXIT resets the link except the privileged MS bits is user mode", cpu_selftest_org_exit_resets_link_except_privileged_ms_bits_in_user_mode },
     { "Absolute jump jumps to new location", cpu_selftest_org_absolute_jump },
@@ -6494,7 +6494,12 @@ static void cpu_selftest_org_relative_jump_jumps_backward(TESTCONTEXT *testConte
     cpu_selftest_assert_no_interrupt();
 }
 
-/* TODO: static void cpu_selftest_org_relative_across_segement_boundary_generates_interrupt(TESTCONTEXT *testContext) { cpu_selftest_assert_fail(); } */
+static void cpu_selftest_org_relative_jump_across_segement_boundary_generates_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_organisational_order_literal(F_RELJUMP, 0x3E);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_control_adder_overflow_interrupt_as_system_error();
+}
 
 static void cpu_selftest_org_exit_resets_link_in_executive_mode(TESTCONTEXT *testContext)
 {
