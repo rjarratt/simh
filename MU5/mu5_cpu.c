@@ -316,10 +316,10 @@ static int cpu_is_executive_mode(void);
 
 static void cpu_clear_interrupt(uint8 number);
 static void cpu_clear_all_interrupts(void);
-static void cpu_set_D_interrupt();
-static void cpu_set_bounds_check_interrupt();
-static void cpu_set_name_adder_overflow_interrupt();
-static void cpu_set_control_adder_overflow_interrupt();
+static void cpu_set_D_interrupt(void);
+static void cpu_set_bounds_check_interrupt(void);
+static void cpu_set_name_adder_overflow_interrupt(void);
+static void cpu_set_control_adder_overflow_interrupt(void);
 static uint8 cpu_get_cr(uint16 order);
 static uint8 cpu_get_f(uint16 order);
 static uint16 cpu_get_k(uint16 order);
@@ -518,7 +518,7 @@ static void cpu_execute_fp_decimal_store(uint16 order, DISPATCH_ENTRY *innerTabl
 static void cpu_execute_fp_decimal_compare(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* floating point order functions */
-static t_uint64 cpu_get_acc_value();
+static t_uint64 cpu_get_acc_value(void);
 static void cpu_execute_flp_load_single(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_flp_load_double(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_flp_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable);

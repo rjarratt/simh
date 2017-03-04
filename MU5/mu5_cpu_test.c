@@ -280,8 +280,8 @@ static void cpu_selftest_load_8_bit_value_to_descriptor_location(uint32 origin, 
 static void cpu_selftest_load_4_bit_value_to_descriptor_location(uint32 origin, uint32 offset, uint8 value);
 static void cpu_selftest_load_1_bit_value_to_descriptor_location(uint32 origin, uint32 offset, uint8 value);
 static uint32 cpu_selftest_byte_address_from_word_address(uint32 address);
-static void cpu_selftest_set_aod_operand_32_bit();
-static void cpu_selftest_set_aod_operand_64_bit();
+static void cpu_selftest_set_aod_operand_32_bit(void);
+static void cpu_selftest_set_aod_operand_64_bit(void);
 static void cpu_selftest_set_level0_mode(void);
 static void cpu_selftest_set_level1_mode(void);
 static void cpu_selftest_set_executive_mode(void);
