@@ -822,6 +822,9 @@ static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(TESTCONTEXT *testC
 static void cpu_selftest_interrupt_stacks_link_in_system_v_store(TESTCONTEXT *testContext);
 static void cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store(TESTCONTEXT *testContext);
 
+static void cpu_selftest_write_to_prop_program_fault_status_resets_it(TESTCONTEXT *testContext);
+static void cpu_selftest_write_to_prop_system_error_status_resets_it(TESTCONTEXT *testContext);
+
 CONDITIONTABLE conditionalFuncsTable[] =
 {
     { 0x0, 0, 0, 0 },
@@ -1382,7 +1385,10 @@ static UNITTEST tests[] =
     { "No SSS interrupt if SSS interrupt is inhibited", cpu_selftest_no_sss_interrupt_if_sss_is_inhibited },
 
     { "Interrupt stacks link in System V-Store", cpu_selftest_interrupt_stacks_link_in_system_v_store },
-    { "Interrupt calls handler using link in System V-Store", cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store }
+    { "Interrupt calls handler using link in System V-Store", cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store },
+
+    { "Write to PROP PROGRAM FAULT STATUS V-Line resets it", cpu_selftest_write_to_prop_program_fault_status_resets_it },
+    { "Write to PROP SYSTEM ERROR STATUS V-Line resets it", cpu_selftest_write_to_prop_system_error_status_resets_it }
 
 };
 
@@ -7252,4 +7258,26 @@ static void cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store(TE
     cpu_selftest_assert_reg_equals(REG_MS, 0xBB84);
     cpu_selftest_assert_reg_equals(REG_NB, 0xCCCC);
     cpu_selftest_assert_reg_equals(REG_CO, 0x0000000B);
+}
+
+static void cpu_selftest_write_to_prop_program_fault_status_resets_it(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_organisational_order_extended(F_XNB_PLUS, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFC);
+    cpu_selftest_set_register(REG_XNB, 0xAAAA0002);
+    cpu_selftest_set_user_mode();
+    cpu_selftest_run_code();
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0xFF);
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0);
+}
+
+static void cpu_selftest_write_to_prop_system_error_status_resets_it(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_organisational_order_extended(F_XNB_PLUS, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFC);
+    cpu_selftest_set_register(REG_XNB, 0xAAAA0002);
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_run_code();
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0xFF);
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0);
 }

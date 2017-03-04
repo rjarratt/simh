@@ -2269,7 +2269,7 @@ static t_uint64 prop_read_program_fault_status_callback(uint8 line)
 
 static void prop_write_program_fault_status_callback(uint8 line, t_uint64 value)
 {
-    assert(0); /* TODO: not implemented because need test first, must reset the bits */
+    PROPProgramFaultStatus = 0;
 }
 
 static t_uint64 prop_read_system_error_status_callback(uint8 line)
@@ -2279,7 +2279,7 @@ static t_uint64 prop_read_system_error_status_callback(uint8 line)
 
 static void prop_write_system_error_status_callback(uint8 line, t_uint64 value)
 {
-    assert(0); /* TODO: not implemented because need test first, must reset the bits */
+    PROPSystemErrorStatus = 0;
 }
 
 static void cpu_execute_illegal_order(uint16 order, DISPATCH_ENTRY *innerTable)
