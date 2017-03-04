@@ -28,7 +28,10 @@ in this Software without prior written authorization from Robert Jarratt.
 #define MS_MASK_LEVEL0 0x0001
 #define MS_MASK_LEVEL1 0x0002
 #define MS_MASK_EXEC 0x0004
+#define MS_MASK_A_SYS_ERR_EXEC 0x0008
+#define MS_MASK_B_D_SYS_ERR_EXEC 0x0010
 #define MS_MASK_BCPR 0x0080
+#define MS_MASK_INH_PROG_FLT 0x0400
 
 void cpu_reset_state(void);
 void cpu_execute_next_order(void);
@@ -36,4 +39,6 @@ void cpu_set_interrupt(uint8 number);
 uint8 cpu_get_interrupt_number(void);
 void cpu_set_access_violation_interrupt(void);
 uint16 cpu_get_ms(void);
+int cpu_ms_is_all(uint16 bits);
+int cpu_ms_is_any(uint16 bits);
 

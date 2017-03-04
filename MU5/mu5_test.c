@@ -111,6 +111,12 @@ void mu5_selftest_set_user_mode(TESTCONTEXT *context, DEVICE *device)
     mu5_selftest_set_register(context, device, REG_MS, ms);
 }
 
+void mu5_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode(TESTCONTEXT *context, DEVICE *device)
+{
+    uint16 ms = cpu_get_ms() & ~MS_MASK_B_D_SYS_ERR_EXEC;
+    mu5_selftest_set_register(context, device, REG_MS, ms);
+}
+
 void mu5_selftest_set_b_and_d_faults_to_system_error_in_exec_mode(TESTCONTEXT *context, DEVICE *device)
 {
     uint16 ms = cpu_get_ms() | MS_MASK_B_D_SYS_ERR_EXEC;

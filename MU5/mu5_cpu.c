@@ -160,7 +160,9 @@ BITFIELD ms_bits[] = {
 
 static uint16 mask_ms_exec = MS_MASK_EXEC;
 static uint16 mask_ms_bcpr = MS_MASK_BCPR;
-static uint16 mask_ms_bn   = 0x0100;
+static uint16 mask_ms_b_d_sys_err_exec = MS_MASK_B_D_SYS_ERR_EXEC;
+static uint16 mask_ms_a_sys_err_exec = MS_MASK_A_SYS_ERR_EXEC;
+static uint16 mask_ms_bn = 0x0100;
 static uint16 mask_ms_t2   = 0x0200;
 static uint16 mask_ms_t1   = 0x0400;
 static uint16 mask_ms_t0   = 0x0800;
@@ -314,6 +316,7 @@ static int cpu_is_executive_mode(void);
 
 static void cpu_clear_interrupt(uint8 number);
 static void cpu_clear_all_interrupts(void);
+static void cpu_set_D_interrupt();
 static void cpu_set_bounds_check_interrupt();
 static void cpu_set_name_adder_overflow_interrupt();
 static void cpu_set_control_adder_overflow_interrupt();
@@ -1196,32 +1199,49 @@ static void cpu_clear_all_interrupts(void)
     interrupt = 0;
 }
 
+static void cpu_set_D_interrupt(void)
+{
+    if (cpu_ms_is_all(MS_MASK_EXEC))
+    {
+        if (cpu_ms_is_all(MS_MASK_B_D_SYS_ERR_EXEC))
+        {
+            cpu_set_interrupt(INT_SYSTEM_ERROR);
+            PROPSystemErrorStatus |= 0x0080;
+        }
+    }
+    else if (!cpu_ms_is_all(MS_MASK_INH_PROG_FLT))
+    {
+        cpu_set_interrupt(INT_PROGRAM_FAULTS);
+        PROPProgramFaultStatus |= 0x0040;
+    }
+}
+
 static void cpu_set_bounds_check_interrupt(void)
 {
     if (!cpu_get_register_bit_32(reg_dod, mask_dod_bchi))
     {
         cpu_set_register_bit_32(reg_dod, mask_dod_bch, 1);
-        cpu_set_interrupt(INT_PROGRAM_FAULTS);
+        cpu_set_D_interrupt();
     }
 }
 
-static void cpu_set_name_adder_overflow_interrupt()
+static void cpu_set_name_adder_overflow_interrupt() /* TODO: control and name adder are ILLEGAL ORDER interrupts */
 {
-    if (cpu_get_ms() & (MS_MASK_LEVEL0 | MS_MASK_LEVEL1 | MS_MASK_EXEC))
+    if (cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1 | MS_MASK_EXEC))
     {
         cpu_set_interrupt(INT_SYSTEM_ERROR);
         PROPSystemErrorStatus |= 0x0010;
     }
     else
     {
-        cpu_set_interrupt(INT_PROGRAM_FAULTS);
+        cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: inhibit program faults interrupts if MS1 says so */
         PROPProgramFaultStatus |= 0x4000;
     }
 }
 
 static void cpu_set_control_adder_overflow_interrupt()
 {
-    if (cpu_get_ms() & (MS_MASK_LEVEL0 | MS_MASK_LEVEL1 | MS_MASK_EXEC))
+    if (cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1 | MS_MASK_EXEC))
     {
         cpu_set_interrupt(INT_SYSTEM_ERROR);
         PROPSystemErrorStatus |= 0x0008;
@@ -1235,7 +1255,7 @@ static void cpu_set_control_adder_overflow_interrupt()
 
 void cpu_set_access_violation_interrupt()
 {
-    if (cpu_get_ms() & MS_MASK_EXEC)
+    if (cpu_ms_is_all(MS_MASK_EXEC))
     {
         cpu_set_interrupt(INT_SYSTEM_ERROR);
         PROPSystemErrorStatus |= 0x0004;
@@ -1267,6 +1287,16 @@ uint8 cpu_get_interrupt_number(void)
 uint16 cpu_get_ms(void)
 {
     return cpu_get_register_16(reg_ms);
+}
+
+int cpu_ms_is_all(uint16 bits)
+{
+    return (cpu_get_ms() & bits) == bits;
+}
+
+int cpu_ms_is_any(uint16 bits)
+{
+    return cpu_get_ms() & bits;
 }
 
 static uint8 cpu_get_cr(uint16 order)
@@ -1620,7 +1650,8 @@ static t_uint64 cpu_get_operand_by_descriptor_vector(t_uint64 descriptor, uint32
         }
         default:
         {
-            cpu_set_interrupt(INT_ILLEGAL_ORDERS); /* TODO: needs to be an interrupt about a bad descriptor */
+            result = 0;
+            cpu_set_D_interrupt();
             break;
         }
     }
@@ -1678,7 +1709,7 @@ static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 mod
         }
         default:
         {
-            cpu_set_interrupt(INT_ILLEGAL_ORDERS); /* TODO: needs to be an interrupt about a bad descriptor */
+            cpu_set_D_interrupt();
             break;
         }
     }
@@ -1706,7 +1737,7 @@ static void cpu_process_source_to_destination_descriptor_vector(t_uint64 operand
         if (xdb < db && !cpu_get_register_bit_32(reg_dod, mask_dod_sssi))
         {
             cpu_set_register_bit_32(reg_dod, mask_dod_sss, 1);
-            cpu_set_interrupt(INT_PROGRAM_FAULTS);
+            cpu_set_D_interrupt();
         }
     }
 }
@@ -2891,7 +2922,7 @@ static int cpu_check_string_descriptor(t_uint64 descriptor)
     uint8 size = cpu_get_descriptor_size(descriptor);
     if (type > DESCRIPTOR_TYPE_ADDRESS_VECTOR || size != DESCRIPTOR_SIZE_8_BIT)
     {
-        cpu_set_interrupt(INT_PROGRAM_FAULTS);
+        cpu_set_D_interrupt();
         cpu_set_register_bit_32(reg_dod, mask_dod_its, 1);
         result = 0;
     }

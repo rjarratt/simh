@@ -286,6 +286,8 @@ static void cpu_selftest_set_level0_mode(void);
 static void cpu_selftest_set_level1_mode(void);
 static void cpu_selftest_set_executive_mode(void);
 static void cpu_selftest_set_user_mode(void);
+static void cpu_selftest_set_b_and_d_faults_to_system_error_in_exec_mode(void);
+static void cpu_selftest_set_inhibit_program_fault_interrupts(void);
 static void cpu_selftest_set_bn(int8 bn);
 static void cpu_selftest_set_test_is_zero(int8 isZero);
 static void cpu_selftest_run_code(void);
@@ -319,18 +321,20 @@ static void cpu_selftest_assert_a_zero_divide(void);
 static void cpu_selftest_assert_a_zero_divide_interrupt(void);
 static void cpu_selftest_assert_interrupt(void);
 static void cpu_selftest_assert_no_interrupt(void);
-static void cpu_selftest_assert_d_interrupt(char *name, uint32 mask);
+static void cpu_selftest_assert_dod_interrupt_as_system_error(char *name, uint32 mask);
 static void cpu_selftest_assert_no_d_interrupt(char *name, uint32 mask);
-static void cpu_selftest_assert_bound_check_interrupt(void);
+static void cpu_selftest_assert_bound_check_interrupt_as_system_error(void);
 static void cpu_selftest_assert_its_interrupt(void);
 static void cpu_selftest_assert_sss_interrupt(void);
-static void cpu_selftest_assert_no_bound_check_interrupt(void);
+static void cpu_selftest_assert_no_bounds_check_interrupt(void);
 static void cpu_selftest_assert_no_its_interrupt(void);
 static void cpu_selftest_assert_no_sss_interrupt(void);
 static void cpu_selftest_assert_name_adder_overflow_interrupt_as_system_error(void);
 static void cpu_selftest_assert_name_adder_overflow_interrupt_as_program_fault(void);
 static void cpu_selftest_assert_control_adder_overflow_interrupt_as_system_error(void);
 static void cpu_selftest_assert_control_adder_overflow_interrupt_as_program_fault(void);
+static void cpu_selftest_assert_B_or_D_interrupt_as_system_error(void);
+static void cpu_selftest_assert_D_interrupt_as_program_fault(void);
 static void cpu_selftest_assert_test_equals(void);
 static void cpu_selftest_assert_test_greater_than(void);
 static void cpu_selftest_assert_test_less_than(void);
@@ -445,6 +449,7 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_16_bit_v
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_8_bit_value_from_nb(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_4_bit_value_from_nb(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_1_bit_value_from_nb(TESTCONTEXT *testContext);
+static void cpu_selftest_load_operand_with_invalid_descriptor_element_size_generates_D_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_privileged_generates_interrupt_in_user_mode(TESTCONTEXT *testContext);
 
@@ -522,6 +527,7 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_16_bit_
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_8_bit_value_from_nb(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_4_bit_value_from_nb(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_value_from_nb(TESTCONTEXT *testContext);
+static void cpu_selftest_store_operand_with_invalid_descriptor_element_size_generates_D_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_privileged_generates_interrupt_in_user_mode(TESTCONTEXT *testContext);
 
@@ -827,6 +833,10 @@ static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(TEST
 static void cpu_selftest_no_zero_divide_interrupt_if_zero_divide_is_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(TESTCONTEXT *testContext);
+static void cpu_selftest_D_interrupt_as_system_error_in_executive_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_no_D_interrupt_if_inhibited_in_executive_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_D_interrupt_as_program_fault_in_user_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_no_D_interrupt_if_inhibited_in_user_mode(TESTCONTEXT *testContext);
 
 static void cpu_selftest_interrupt_stacks_link_in_system_v_store(TESTCONTEXT *testContext);
 static void cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store(TESTCONTEXT *testContext);
@@ -1021,6 +1031,7 @@ static UNITTEST tests[] =
     { "Load operand 8-bit extended from 0-relative descriptor from NB", cpu_selftest_load_operand_extended_zero_relative_descriptor_8_bit_value_from_nb },
     { "Load operand 4-bit extended from 0-relative descriptor from NB", cpu_selftest_load_operand_extended_zero_relative_descriptor_4_bit_value_from_nb },
     { "Load operand 1-bit extended from 0-relative descriptor from NB", cpu_selftest_load_operand_extended_zero_relative_descriptor_1_bit_value_from_nb },
+    { "Load operand with invalid descriptor element size generates D interrupt", cpu_selftest_load_operand_with_invalid_descriptor_element_size_generates_D_interrupt },
     { "Load privileged operand reads the V-Store in executive mode", cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode },
     { "Load privileged operand generates interrupt in user mode", cpu_selftest_load_operand_privileged_generates_interrupt_in_user_mode },
 
@@ -1099,6 +1110,7 @@ static UNITTEST tests[] =
     { "Store operand 8-bit extended from 0-relative descriptor from NB", cpu_selftest_store_operand_extended_zero_relative_descriptor_8_bit_value_from_nb },
     { "Store operand 4-bit extended from 0-relative descriptor from NB", cpu_selftest_store_operand_extended_zero_relative_descriptor_4_bit_value_from_nb },
     { "Store operand 1-bit extended from 0-relative descriptor from NB", cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_value_from_nb },
+    { "Store operand with invalid descriptor element size generates D interrupt", cpu_selftest_store_operand_with_invalid_descriptor_element_size_generates_D_interrupt },
     { "Store privileged operand storess the V-Store in executive mode", cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mode },
     { "Store privileged operand generates interrupt in user mode", cpu_selftest_store_operand_privileged_generates_interrupt_in_user_mode },
 
@@ -1395,10 +1407,15 @@ static UNITTEST tests[] =
     { "Boolean order with function from operand on bn test is false", cpu_selftest_org_bn_bn_on_false },
     { "Boolean order with function from operand on bn test is ", cpu_selftest_org_bn_bn_on_true },
     { "Boolean order with function from order, tests all functions", cpu_selftest_org_bn_order_tests },
+
     { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
     { "No zero divide interrupt if zero divide is inhibited", cpu_selftest_no_zero_divide_interrupt_if_zero_divide_is_inhibited },
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
     { "No SSS interrupt if SSS interrupt is inhibited", cpu_selftest_no_sss_interrupt_if_sss_is_inhibited },
+    { "D interrupt as system error in executive mode", cpu_selftest_D_interrupt_as_system_error_in_executive_mode },
+    { "No D interrupt if inhibited in executive mode", cpu_selftest_no_D_interrupt_if_inhibited_in_executive_mode },
+    { "D interrupt as program fault in user mode", cpu_selftest_D_interrupt_as_program_fault_in_user_mode },
+    { "No D interrupt if inhibited in user mode", cpu_selftest_no_D_interrupt_if_inhibited_in_user_mode },
 
     { "Interrupt stacks link in System V-Store", cpu_selftest_interrupt_stacks_link_in_system_v_store },
     { "Interrupt calls handler using link in System V-Store", cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store },
@@ -1415,6 +1432,7 @@ static void cpu_selftest_reset(UNITTEST *test)
     sac_reset_state(); /* reset SAC first because it clears the V-Store callbacks which may be set by other devices */
     cpu_reset_state();
     currentLoadLocation = 0;
+    cpu_selftest_set_b_and_d_faults_to_system_error_in_exec_mode();
 }
 
 static void cpu_selftest_set_load_location(uint32 location)
@@ -1610,6 +1628,22 @@ static void cpu_selftest_set_user_mode(void)
 {
     mu5_selftest_set_user_mode(localTestContext, &cpu_dev);
 }
+
+static void cpu_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode(void)
+{
+    mu5_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode(localTestContext, &cpu_dev);
+}
+
+static void cpu_selftest_set_b_and_d_faults_to_system_error_in_exec_mode(void)
+{
+    mu5_selftest_set_b_and_d_faults_to_system_error_in_exec_mode(localTestContext, &cpu_dev);
+}
+
+static void cpu_selftest_set_inhibit_program_fault_interrupts(void)
+{
+    mu5_selftest_set_inhibit_program_fault_interrupts(localTestContext, &cpu_dev);
+}
+
 
 static void cpu_selftest_set_bn(int8 bn)
 {
@@ -1863,13 +1897,9 @@ static void cpu_selftest_assert_no_interrupt(void)
     mu5_selftest_assert_no_interrupt(localTestContext);
 }
 
-static void cpu_selftest_assert_d_interrupt(char *name, uint32 mask)
+static void cpu_selftest_assert_dod_interrupt_as_system_error(char *name, uint32 mask)
 {
-    if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected %s interrupt to have occurred\n", name);
-        cpu_selftest_set_failure();
-    }
+    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
 
     uint32 dod = cpu_selftest_get_register(REG_DOD) & 0xFFFFFFFF;
     if (!(dod & mask))
@@ -1891,22 +1921,22 @@ static void cpu_selftest_assert_no_d_interrupt(char *name, uint32 mask)
     }
 }
 
-static void cpu_selftest_assert_bound_check_interrupt(void)
+static void cpu_selftest_assert_bound_check_interrupt_as_system_error(void)
 {
-    cpu_selftest_assert_d_interrupt("BCH", DOD_BCH_MASK);
+    cpu_selftest_assert_dod_interrupt_as_system_error("BCH", DOD_BCH_MASK);
 }
 
 static void cpu_selftest_assert_its_interrupt(void)
 {
-    cpu_selftest_assert_d_interrupt("ITS", DOD_ITS_MASK);
+    cpu_selftest_assert_dod_interrupt_as_system_error("ITS", DOD_ITS_MASK);
 }
 
 static void cpu_selftest_assert_sss_interrupt(void)
 {
-    cpu_selftest_assert_d_interrupt("SSS", DOD_SSS_MASK);
+    cpu_selftest_assert_dod_interrupt_as_system_error("SSS", DOD_SSS_MASK);
 }
 
-static void cpu_selftest_assert_no_bound_check_interrupt(void)
+static void cpu_selftest_assert_no_bounds_check_interrupt(void)
 {
     cpu_selftest_assert_no_d_interrupt("BCH", DOD_BCH_MASK);
 }
@@ -1965,6 +1995,27 @@ static void cpu_selftest_assert_control_adder_overflow_interrupt_as_program_faul
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x2000);
 }
 
+static void cpu_selftest_assert_B_or_D_interrupt_as_system_error(void)
+{
+    if (cpu_get_interrupt_number() != INT_SYSTEM_ERROR)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected B or D interrupt to have occurred as System Error\n");
+        cpu_selftest_set_failure();
+    }
+
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0080);
+}
+
+static void cpu_selftest_assert_D_interrupt_as_program_fault(void)
+{
+    if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected D interrupt to have occurred as Program Fault\n");
+        cpu_selftest_set_failure();
+    }
+
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x0040);
+}
 
 static void cpu_selftest_assert_test_equals(void)
 {
@@ -3199,6 +3250,19 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_1_bit_va
     cpu_selftest_assert_no_interrupt();
 }
 
+static void cpu_selftest_load_operand_with_invalid_descriptor_element_size_generates_D_interrupt(TESTCONTEXT *testContext)
+{
+    uint32 base = 0x00F0;
+    uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
+    int8 n = 0x2;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_S0, NP_NB);
+    cpu_selftest_load_16_bit_literal(n);
+    cpu_selftest_set_register(REG_NB, base);
+    sac_write_64_bit_word(base + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_64_BIT + 1, 2, vecorigin));
+    cpu_selftest_run_code();
+    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+}
+
 static void cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode(TESTCONTEXT *testContext)
 {
     uint32 base = (TEST_V_STORE_LOCATION_BLOCK *256 + TEST_V_STORE_LOCATION_LINE) << 1; /* multiply by 2 because it is treated as 64-bit address and scaled like one */
@@ -4168,6 +4232,21 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_v
     cpu_selftest_assert_no_interrupt();
 }
 
+static void cpu_selftest_store_operand_with_invalid_descriptor_element_size_generates_D_interrupt(TESTCONTEXT *testContext)
+{
+    uint32 base = 0x00F0;
+    uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
+    int8 n = 0x2;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_NB);
+    cpu_selftest_load_16_bit_literal(n);
+    cpu_selftest_set_register(REG_NB, base);
+    sac_write_64_bit_word(base + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_64_BIT + 1, 2, vecorigin));
+    cpu_selftest_set_aod_operand_64_bit();
+    cpu_selftest_set_register(REG_A, 0x0000000000000001);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+}
+
 static void cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mode(TESTCONTEXT *testContext)
 {
     uint32 base = TEST_V_STORE_LOCATION_BLOCK * 256 + TEST_V_STORE_LOCATION_LINE;
@@ -4365,7 +4444,7 @@ static void cpu_selftest_sts1_smod_does_not_check_bounds(TESTCONTEXT *testContex
     cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, 4));
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, 12));
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts1_xmod_adds_signed_operand_to_XD_origin_subtracts_from_bound(TESTCONTEXT *testContext)
@@ -4464,7 +4543,7 @@ static void cpu_selftest_sts1_xmod_checks_bounds_for_type_0(TESTCONTEXT *testCon
     cpu_selftest_load_32_bit_literal(0x00000001);
     cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 8));
     cpu_selftest_run_code();
-    cpu_selftest_assert_bound_check_interrupt();
+    cpu_selftest_assert_bound_check_interrupt_as_system_error();
 }
 
 static void cpu_selftest_sts1_xmod_checks_bounds_for_type_1(TESTCONTEXT *testContext)
@@ -4473,7 +4552,7 @@ static void cpu_selftest_sts1_xmod_checks_bounds_for_type_1(TESTCONTEXT *testCon
     cpu_selftest_load_32_bit_literal(0x00000001);
     cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 1, 8));
     cpu_selftest_run_code();
-    cpu_selftest_assert_bound_check_interrupt();
+    cpu_selftest_assert_bound_check_interrupt_as_system_error();
 }
 
 static void cpu_selftest_sts1_xmod_checks_bounds_for_type_2(TESTCONTEXT *testContext)
@@ -4482,7 +4561,7 @@ static void cpu_selftest_sts1_xmod_checks_bounds_for_type_2(TESTCONTEXT *testCon
     cpu_selftest_load_32_bit_literal(0x00000001);
     cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_64_BIT, 1, 8));
     cpu_selftest_run_code();
-    cpu_selftest_assert_bound_check_interrupt();
+    cpu_selftest_assert_bound_check_interrupt_as_system_error();
 }
 
 static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_0_when_BC_set(TESTCONTEXT *testContext)
@@ -4491,7 +4570,7 @@ static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_0_when_BC_set(
     cpu_selftest_load_32_bit_literal(0x00000001);
     cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 8) | DESCRIPTOR_BC_MASK);
     cpu_selftest_run_code();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_1_when_BC_set(TESTCONTEXT *testContext)
@@ -4500,7 +4579,7 @@ static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_1_when_BC_set(
     cpu_selftest_load_32_bit_literal(0x00000001);
     cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 1, 8) | DESCRIPTOR_BC_MASK);
     cpu_selftest_run_code();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_2_when_BC_set(TESTCONTEXT *testContext)
@@ -4509,7 +4588,7 @@ static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_2_when_BC_set(
     cpu_selftest_load_32_bit_literal(0x00000001);
     cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_64_BIT, 1, 8) | DESCRIPTOR_BC_MASK);
     cpu_selftest_run_code();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_source_not_8_bit(TESTCONTEXT *testContext)
@@ -4721,7 +4800,7 @@ static void cpu_selftest_sts1_smvb_generates_checks_bound_on_destination_not_0(T
     cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 1, 8));
     cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 0, 16));
     cpu_selftest_run_code();
-    cpu_selftest_assert_bound_check_interrupt();
+    cpu_selftest_assert_bound_check_interrupt_as_system_error();
 }
 
 static void cpu_selftest_sts1_smvb_copies_byte_with_mask(TESTCONTEXT *testContext)
@@ -4739,7 +4818,7 @@ static void cpu_selftest_sts1_smvb_copies_byte_with_mask(TESTCONTEXT *testContex
     cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 0, 0x2A);
     cpu_selftest_assert_no_its_interrupt();
     cpu_selftest_assert_no_sss_interrupt();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts1_smvb_uses_filler_when_source_empty_with_mask(TESTCONTEXT *testContext)
@@ -4756,7 +4835,7 @@ static void cpu_selftest_sts1_smvb_uses_filler_when_source_empty_with_mask(TESTC
     cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 0, 0x3B);
     cpu_selftest_assert_no_its_interrupt();
     cpu_selftest_assert_no_sss_interrupt();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts1_smvf_generates_its_interrupt_if_source_not_8_bit(TESTCONTEXT *testContext)
@@ -4793,7 +4872,7 @@ static void cpu_selftest_sts1_smvf_copies_to_zero_length_destination(TESTCONTEXT
     cpu_selftest_assert_reg_equals(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_8_BIT, 0, destinationOrigin));
     cpu_selftest_assert_no_its_interrupt();
     cpu_selftest_assert_no_sss_interrupt();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts1_smvf_copies_bytes_and_fills_with_mask(TESTCONTEXT *testContext)
@@ -4813,7 +4892,7 @@ static void cpu_selftest_sts1_smvf_copies_bytes_and_fills_with_mask(TESTCONTEXT 
     cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 2, 0x3B);
     cpu_selftest_assert_no_its_interrupt();
     cpu_selftest_assert_no_sss_interrupt();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts1_talu_returns_test_register_greater_than_if_not_found(TESTCONTEXT *testContext)
@@ -4832,7 +4911,7 @@ static void cpu_selftest_sts1_talu_returns_test_register_greater_than_if_not_fou
     cpu_selftest_assert_test_greater_than();
     cpu_selftest_assert_no_its_interrupt();
     cpu_selftest_assert_no_sss_interrupt();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts1_talu_returns_test_register_equals_if_found_in_type_0(TESTCONTEXT *testContext)
@@ -4851,7 +4930,7 @@ static void cpu_selftest_sts1_talu_returns_test_register_equals_if_found_in_type
     cpu_selftest_assert_test_equals();
     cpu_selftest_assert_no_its_interrupt();
     cpu_selftest_assert_no_sss_interrupt();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts1_talu_returns_test_register_equals_if_found_in_type_2(TESTCONTEXT *testContext)
@@ -4870,7 +4949,7 @@ static void cpu_selftest_sts1_talu_returns_test_register_equals_if_found_in_type
     cpu_selftest_assert_test_equals();
     cpu_selftest_assert_no_its_interrupt();
     cpu_selftest_assert_no_sss_interrupt();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts1_scmp_generates_its_interrupt_if_source_not_8_bit(TESTCONTEXT *testContext)
@@ -4913,7 +4992,7 @@ static void cpu_selftest_sts1_scmp_returns_test_register_equals_if_strings_ident
     cpu_selftest_assert_test_equals();
     cpu_selftest_assert_no_its_interrupt();
     cpu_selftest_assert_no_sss_interrupt();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts1_scmp_returns_test_register_equals_if_strings_identical_with_filler(TESTCONTEXT *testContext)
@@ -4934,7 +5013,7 @@ static void cpu_selftest_sts1_scmp_returns_test_register_equals_if_strings_ident
     cpu_selftest_assert_test_equals();
     cpu_selftest_assert_no_its_interrupt();
     cpu_selftest_assert_no_sss_interrupt();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts1_scmp_returns_test_register_equals_if_destination_is_shorter_and_subset_is_equal(TESTCONTEXT *testContext)
@@ -4955,7 +5034,7 @@ static void cpu_selftest_sts1_scmp_returns_test_register_equals_if_destination_i
     cpu_selftest_assert_test_equals();
     cpu_selftest_assert_no_its_interrupt();
     cpu_selftest_assert_no_sss_interrupt();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts1_scmp_returns_test_register_greater_than_if_source_byte_greater_than_destination_byte(TESTCONTEXT *testContext)
@@ -4978,7 +5057,7 @@ static void cpu_selftest_sts1_scmp_returns_test_register_greater_than_if_source_
     cpu_selftest_assert_test_greater_than();
     cpu_selftest_assert_no_its_interrupt();
     cpu_selftest_assert_no_sss_interrupt();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts1_scmp_returns_test_register_less_than_if_source_byte_less_than_destination_byte(TESTCONTEXT *testContext)
@@ -5001,7 +5080,7 @@ static void cpu_selftest_sts1_scmp_returns_test_register_less_than_if_source_byt
     cpu_selftest_assert_test_less_than();
     cpu_selftest_assert_no_its_interrupt();
     cpu_selftest_assert_no_sss_interrupt();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts1_sub1_loads_XD_and_modifies_it(TESTCONTEXT *testContext)
@@ -5219,7 +5298,7 @@ static void cpu_selftest_sts2_mod_checks_bounds_for_type_0(TESTCONTEXT *testCont
     cpu_selftest_load_32_bit_literal(0x00000001);
     cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 8));
     cpu_selftest_run_code();
-    cpu_selftest_assert_bound_check_interrupt();
+    cpu_selftest_assert_bound_check_interrupt_as_system_error();
 }
 
 static void cpu_selftest_sts2_mod_checks_bounds_for_type_1(TESTCONTEXT *testContext)
@@ -5228,7 +5307,7 @@ static void cpu_selftest_sts2_mod_checks_bounds_for_type_1(TESTCONTEXT *testCont
     cpu_selftest_load_32_bit_literal(0x00000001);
     cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 1, 8));
     cpu_selftest_run_code();
-    cpu_selftest_assert_bound_check_interrupt();
+    cpu_selftest_assert_bound_check_interrupt_as_system_error();
 }
 
 static void cpu_selftest_sts2_mod_checks_bounds_for_type_2(TESTCONTEXT *testContext)
@@ -5237,7 +5316,7 @@ static void cpu_selftest_sts2_mod_checks_bounds_for_type_2(TESTCONTEXT *testCont
     cpu_selftest_load_32_bit_literal(0x00000001);
     cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_64_BIT, 1, 8));
     cpu_selftest_run_code();
-    cpu_selftest_assert_bound_check_interrupt();
+    cpu_selftest_assert_bound_check_interrupt_as_system_error();
 }
 
 static void cpu_selftest_sts2_mod_does_not_check_bounds_for_type_0_when_BC_set(TESTCONTEXT *testContext)
@@ -5246,7 +5325,7 @@ static void cpu_selftest_sts2_mod_does_not_check_bounds_for_type_0_when_BC_set(T
     cpu_selftest_load_32_bit_literal(0x00000001);
     cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 8) | DESCRIPTOR_BC_MASK);
     cpu_selftest_run_code();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts2_mod_does_not_check_bounds_for_type_1_when_BC_set(TESTCONTEXT *testContext)
@@ -5255,7 +5334,7 @@ static void cpu_selftest_sts2_mod_does_not_check_bounds_for_type_1_when_BC_set(T
     cpu_selftest_load_32_bit_literal(0x00000001);
     cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 1, 8) | DESCRIPTOR_BC_MASK);
     cpu_selftest_run_code();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts2_mod_does_not_check_bounds_for_type_2_when_BC_set(TESTCONTEXT *testContext)
@@ -5264,7 +5343,7 @@ static void cpu_selftest_sts2_mod_does_not_check_bounds_for_type_2_when_BC_set(T
     cpu_selftest_load_32_bit_literal(0x00000001);
     cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_64_BIT, 1, 8) | DESCRIPTOR_BC_MASK);
     cpu_selftest_run_code();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts2_rmod_loads_least_significant_half_of_D_and_adds_to_origin(TESTCONTEXT *testContext)
@@ -5366,7 +5445,7 @@ static void cpu_selftest_sts2_bmvb_generates_checks_bound_on_destination_not_0(T
     cpu_selftest_load_64_bit_literal(0x0000000000000000);
     cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 0, 16));
     cpu_selftest_run_code();
-    cpu_selftest_assert_bound_check_interrupt();
+    cpu_selftest_assert_bound_check_interrupt_as_system_error();
 }
 
 static void cpu_selftest_sts2_bmvb_copies_byte_with_mask(TESTCONTEXT *testContext)
@@ -5380,7 +5459,7 @@ static void cpu_selftest_sts2_bmvb_copies_byte_with_mask(TESTCONTEXT *testContex
     cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 0, 0x2A);
     cpu_selftest_assert_no_its_interrupt();
     cpu_selftest_assert_no_sss_interrupt();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts2_bmve_generates_its_interrupt_if_destination_not_8_bit(TESTCONTEXT *testContext)
@@ -5405,7 +5484,7 @@ static void cpu_selftest_sts2_bmve_copies_byte_with_mask_to_whole_destination(TE
     cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 2, 0x2A);
     cpu_selftest_assert_no_its_interrupt();
     cpu_selftest_assert_no_sss_interrupt();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts2_smvf_copies_bytes_and_fills_with_mask(TESTCONTEXT *testContext)
@@ -5425,7 +5504,7 @@ static void cpu_selftest_sts2_smvf_copies_bytes_and_fills_with_mask(TESTCONTEXT 
     cpu_selftest_assert_vector_content_8_bit(destinationOrigin, 2, 0x3B);
     cpu_selftest_assert_no_its_interrupt();
     cpu_selftest_assert_no_sss_interrupt();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
 }
 
 static void cpu_selftest_sts2_bscn_generates_its_interrupt_if_destination_not_8_bit(TESTCONTEXT *testContext)
@@ -7343,7 +7422,49 @@ static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(
     cpu_selftest_set_register(REG_DOD, DOD_BCHI_MASK);
     cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 8));
     cpu_selftest_run_code();
-    cpu_selftest_assert_no_bound_check_interrupt();
+    cpu_selftest_assert_no_bounds_check_interrupt();
+}
+
+static void cpu_selftest_D_interrupt_as_system_error_in_executive_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x00000001);
+    cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 8));
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+}
+
+static void cpu_selftest_no_D_interrupt_if_inhibited_in_executive_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x00000001);
+    cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 8));
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_D_interrupt_as_program_fault_in_user_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x00000001);
+    cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 8));
+    cpu_selftest_set_user_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_D_interrupt_as_program_fault();
+}
+
+static void cpu_selftest_no_D_interrupt_if_inhibited_in_user_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x00000001);
+    cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 8));
+    cpu_selftest_set_user_mode();
+    cpu_selftest_set_inhibit_program_fault_interrupts();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(TESTCONTEXT *testContext)
