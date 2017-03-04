@@ -65,7 +65,7 @@ static UNIT sac_unit =
     UDATA(NULL, UNIT_FIX | UNIT_BINK, MAXMEMORY)
 };
 
-static uint8 PROPProcessNumber;
+extern uint8 PROPProcessNumber;
 static uint8 CPRNumber;
 static uint32 CPRFind;
 static uint32 CPRFindMask;
@@ -119,9 +119,6 @@ static t_stat sac_reset(DEVICE *dptr);
 
 static t_uint64 system_read_callback(uint8 line);
 static void system_write_callback(uint8 line, t_uint64 value);
-
-static t_uint64 prop_read_process_number_callback(uint8 line);
-static void prop_write_process_number_callback(uint8 line, t_uint64 value);
 
 static void sac_write_cpr_search_callback(uint8 line, t_uint64 value);
 static void sac_write_cpr_number_callback(uint8 line, t_uint64 value);
@@ -203,8 +200,6 @@ void sac_reset_state(void)
         sac_setup_v_store_location(SYSTEM_V_STORE_BLOCK, i & 0xFF, system_read_callback, system_write_callback);
     }
 
-    sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, prop_read_process_number_callback, prop_write_process_number_callback);
-
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, NULL, sac_write_cpr_search_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, NULL, sac_write_cpr_number_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, sac_read_cpr_ra_callback, sac_write_cpr_ra_callback);
@@ -218,7 +213,6 @@ void sac_reset_state(void)
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NOT_EQUIVALENCE_S, sac_read_cpr_not_equivalence_s_callback, NULL);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_ACCESS_VIOLATION, sac_read_access_violation_callback, sac_write_access_violation_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_SYSTEM_ERROR_INTERRUPTS, sac_read_system_error_interrupts_callback, sac_write_system_error_interrupts_callback);
-    PROPProcessNumber = 0;
     CPRNumber = 0;
     CPRFind = 0;
     CPRFindMask = 0;
@@ -396,16 +390,6 @@ static t_uint64 system_read_callback(uint8 line)
 static void system_write_callback(uint8 line, t_uint64 value)
 {
     SystemVStore[line] = value;
-}
-
-static t_uint64 prop_read_process_number_callback(uint8 line)
-{
-    return PROPProcessNumber & 0xF;
-}
-
-static void prop_write_process_number_callback(uint8 line, t_uint64 value)
-{
-    PROPProcessNumber = value & 0xF;
 }
 
 static void sac_write_cpr_search_callback(uint8 line, t_uint64 value)

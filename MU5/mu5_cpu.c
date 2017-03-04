@@ -273,6 +273,7 @@ static const char* cpu_description(DEVICE *dptr) {
     return "Central Processing Unit";
 }
 
+uint8 PROPProcessNumber;
 static int16 PROPProgramFaultStatus;
 static int16 PROPSystemErrorStatus;
 
@@ -351,6 +352,8 @@ static t_addr cpu_pop_address(void);
 static t_uint64 cpu_pop_value(void);
 static void cpu_test_value(t_int64 value);
 
+static t_uint64 prop_read_process_number_callback(uint8 line);
+static void prop_write_process_number_callback(uint8 line, t_uint64 value);
 static t_uint64 prop_read_program_fault_status_callback(uint8 line);
 static void prop_write_program_fault_status_callback(uint8 line, t_uint64 value);
 static t_uint64 prop_read_system_error_status_callback(uint8 line);
@@ -1152,8 +1155,14 @@ void cpu_reset_state(void)
     cpu_set_register_32(reg_dt, 0x0);
     cpu_set_register_32(reg_xdt, 0x0);
     cpu_set_register_32(reg_dl, 0x0);
+
+    sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, prop_read_process_number_callback, prop_write_process_number_callback);
     sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, prop_read_program_fault_status_callback, prop_write_program_fault_status_callback);
     sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, prop_read_system_error_status_callback, prop_write_system_error_status_callback);
+
+    PROPProcessNumber = 0;
+    PROPProgramFaultStatus = 0;
+    PROPSystemErrorStatus = 0;
 }
 
 void cpu_set_interrupt(uint8 number)
@@ -2241,6 +2250,16 @@ void cpu_execute_next_order(void)
     {
         cpu_start_interrupt_processing();
     }
+}
+
+static t_uint64 prop_read_process_number_callback(uint8 line)
+{
+    return PROPProcessNumber & 0xF;
+}
+
+static void prop_write_process_number_callback(uint8 line, t_uint64 value)
+{
+    PROPProcessNumber = value & 0xF;
 }
 
 static t_uint64 prop_read_program_fault_status_callback(uint8 line)
