@@ -1087,7 +1087,7 @@ static uint32 cpu_co_add(uint32 co, t_int64 operand)
         cpu_set_control_adder_overflow_interrupt();
     }
 
-    return newCo;  /* TODO: find comment refs to this and implement there too */
+    return newCo;
 }
 
 static t_uint64 cpu_get_link(void)
