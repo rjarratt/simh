@@ -357,6 +357,8 @@ static void cpu_selftest_16_bit_instruction_advances_co_by_1(TESTCONTEXT *testCo
 static void cpu_selftest_32_bit_instruction_advances_co_by_2(TESTCONTEXT *testContext);
 static void cpu_selftest_48_bit_instruction_advances_co_by_3(TESTCONTEXT *testContext);
 static void cpu_selftest_80_bit_instruction_advances_co_by_5(TESTCONTEXT *testContext);
+static void cpu_selftest_advancing_co_across_segment_boundary_with_get_operand_generates_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_advancing_co_across_segment_boundary_with_set_operand_generates_interrupt(TESTCONTEXT *testContext);
 
 static void cpu_selftest_load_operand_6_bit_positive_literal(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_6_bit_negative_literal(TESTCONTEXT *testContext);
@@ -930,6 +932,8 @@ static UNITTEST tests[] =
     { "32-bit instruction advances CO by 2", cpu_selftest_32_bit_instruction_advances_co_by_2 },
     { "48-bit instruction advances CO by 3", cpu_selftest_48_bit_instruction_advances_co_by_3 },
     { "80-bit instruction advances CO by 5", cpu_selftest_80_bit_instruction_advances_co_by_5 },
+    { "Instruction with get operand that advances CO across a segment boundary generates an interrupt", cpu_selftest_advancing_co_across_segment_boundary_with_get_operand_generates_interrupt },
+    { "Instruction with set operand that advances CO across a segment boundary generates an interrupt", cpu_selftest_advancing_co_across_segment_boundary_with_set_operand_generates_interrupt },
 
     { "Load operand 6-bit positive literal", cpu_selftest_load_operand_6_bit_positive_literal },
     { "Load operand 6-bit negative literal", cpu_selftest_load_operand_6_bit_negative_literal },
@@ -2180,6 +2184,23 @@ static void cpu_selftest_80_bit_instruction_advances_co_by_5(TESTCONTEXT *testCo
     cpu_selftest_assert_reg_equals(REG_CO, 5);
     cpu_selftest_assert_no_interrupt();
 }
+
+static void cpu_selftest_advancing_co_across_segment_boundary_with_get_operand_generates_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_load_location(0xFFFF);
+    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
+    cpu_selftest_run_code_from_location(0xFFFF);
+    cpu_selftest_assert_control_adder_overflow_interrupt_as_system_error();
+}
+
+static void cpu_selftest_advancing_co_across_segment_boundary_with_set_operand_generates_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_load_location(0xFFFF);
+    cpu_selftest_load_order(CR_FLOAT, F_STORE, K_V64, 0);
+    cpu_selftest_run_code_from_location(0xFFFF);
+    cpu_selftest_assert_control_adder_overflow_interrupt_as_system_error();
+}
+
 
 static void cpu_selftest_load_operand_6_bit_positive_literal(TESTCONTEXT *testContext)
 {

@@ -1078,6 +1078,7 @@ static void cpu_set_ms_bn(int value)
 
 static uint32 cpu_co_add(uint32 co, t_int64 operand)
 {
+    /* TODO: I think this is wrong because CO is the address of a 16-bit word and segments are 64K 32-bit words (I think) */
     uint16 originalSegment = co >> 16;
     uint32 newCo = ((t_uint64)co + operand) & MASK_32;
     uint16 newSegment = newCo >> 16;
@@ -2077,7 +2078,7 @@ static t_uint64 cpu_get_operand(uint16 order)
         }
     }
 
-    cpu_set_co(instructionAddress + instructionLength); /* TODO: control adder overflow using cpu_co_add() */
+    cpu_set_co(cpu_co_add(instructionAddress, instructionLength));
 
     return result;
 }
@@ -2211,7 +2212,7 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
         }
     }
 
-    cpu_set_co(instructionAddress + instructionLength); /* TODO: control adder overflow using cpu_co_add() */
+    cpu_set_co(cpu_co_add(instructionAddress, instructionLength));
 }
 
 static t_uint64 cpu_sign_extend(t_uint64 value, int8 bits)
