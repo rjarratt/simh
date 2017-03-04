@@ -276,8 +276,8 @@ static const char* cpu_description(DEVICE *dptr) {
 }
 
 uint8 PROPProcessNumber;
-static int16 PROPProgramFaultStatus;
-static int16 PROPSystemErrorStatus;
+static uint16 PROPProgramFaultStatus;
+static uint16 PROPSystemErrorStatus;
 
 t_stat sim_instr(void);
 
@@ -316,6 +316,7 @@ static int cpu_is_executive_mode(void);
 
 static void cpu_clear_interrupt(uint8 number);
 static void cpu_clear_all_interrupts(void);
+static void cpu_set_program_fault_interrupt(uint16 reason);
 static void cpu_set_D_interrupt(void);
 static void cpu_set_bounds_check_interrupt(void);
 static void cpu_set_name_adder_overflow_interrupt(void);
@@ -1199,6 +1200,13 @@ static void cpu_clear_all_interrupts(void)
     interrupt = 0;
 }
 
+static void cpu_set_program_fault_interrupt(uint16 reason)
+{
+    /* TODO: inhibit program faults interrupts if MS1 says so */
+    cpu_set_interrupt(INT_PROGRAM_FAULTS);
+    PROPProgramFaultStatus |= reason;
+}
+
 static void cpu_set_D_interrupt(void)
 {
     if (cpu_ms_is_all(MS_MASK_EXEC))
@@ -1211,8 +1219,7 @@ static void cpu_set_D_interrupt(void)
     }
     else if (!cpu_ms_is_all(MS_MASK_INH_PROG_FLT))
     {
-        cpu_set_interrupt(INT_PROGRAM_FAULTS);
-        PROPProgramFaultStatus |= 0x0040;
+        cpu_set_program_fault_interrupt(0x0040);
     }
 }
 
@@ -1234,8 +1241,7 @@ static void cpu_set_name_adder_overflow_interrupt() /* TODO: control and name ad
     }
     else
     {
-        cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: inhibit program faults interrupts if MS1 says so */
-        PROPProgramFaultStatus |= 0x4000;
+        cpu_set_program_fault_interrupt(0x4000);
     }
 }
 
@@ -1248,8 +1254,7 @@ static void cpu_set_control_adder_overflow_interrupt()
     }
     else
     {
-        cpu_set_interrupt(INT_PROGRAM_FAULTS);
-        PROPProgramFaultStatus |= 0x2000;
+        cpu_set_program_fault_interrupt(0x2000);
     }
 }
 
@@ -1262,8 +1267,7 @@ void cpu_set_access_violation_interrupt()
     }
     else
     {
-        cpu_set_interrupt(INT_PROGRAM_FAULTS);
-        PROPProgramFaultStatus |= 0x0800;
+        cpu_set_program_fault_interrupt(0x0800);
     }
 }
 
@@ -2104,7 +2108,7 @@ static t_uint64 cpu_get_operand(uint16 order)
                     }
                     else
                     {
-                        cpu_set_interrupt(INT_PROGRAM_FAULTS);
+                        cpu_set_program_fault_interrupt(0); /* TODO: set proper interrupt here */
                     }
                     break;
                 }
@@ -2237,7 +2241,7 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
                     }
                     else
                     {
-                        cpu_set_interrupt(INT_PROGRAM_FAULTS);
+                        cpu_set_program_fault_interrupt(0); /* TODO: set proper interrupt here */
                     }
                     break;
                 }
@@ -3473,7 +3477,7 @@ static void cpu_check_b_overflow(t_uint64 result)
         cpu_set_register_bit_32(reg_bod, mask_bod_bovf, 1);
         if (!cpu_get_register_bit_32(reg_bod, mask_bod_ibovf))
         {
-            cpu_set_interrupt(INT_PROGRAM_FAULTS);
+            cpu_set_program_fault_interrupt(0); /* TODO: set B Fault interrupt here */
         }
     }
     else
@@ -3556,7 +3560,7 @@ static void cpu_execute_b_div(uint16 order, DISPATCH_ENTRY *innerTable)
     t_int64 divisor = cpu_sign_extend_32_bit(cpu_get_operand(order) & MASK_32);
     if (divisor == 0)
     {
-        cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
+        cpu_set_program_fault_interrupt(0); /* TODO: set proper interrupt here */
     }
     else
     {
@@ -3620,7 +3624,7 @@ static void cpu_execute_b_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)
     t_int64 dividend = cpu_sign_extend_32_bit(cpu_get_operand(order) & MASK_32);
     if (divisor == 0)
     {
-        cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
+        cpu_set_program_fault_interrupt(0); /* TODO: set proper interrupt here */
     }
     else
     {
@@ -3657,7 +3661,7 @@ static void cpu_check_x_overflow(t_uint64 result)
         cpu_set_register_bit_64(reg_aod, mask_aod_fxpovf, 1);
         if (!cpu_get_register_bit_64(reg_aod, mask_aod_ifxpovf))
         {
-            cpu_set_interrupt(INT_PROGRAM_FAULTS);
+            cpu_set_program_fault_interrupt(0); /* TODO: set proper interrupt here */
         }
     }
     else
@@ -3725,7 +3729,7 @@ static void cpu_execute_fp_signed_div(uint16 order, DISPATCH_ENTRY *innerTable)
         cpu_set_register_bit_64(reg_aod, mask_aod_zdiv, 1);
         if (!cpu_get_register_bit_64(reg_aod, mask_aod_izdiv))
         {
-            cpu_set_interrupt(INT_PROGRAM_FAULTS);
+            cpu_set_program_fault_interrupt(0); /* TODO: set proper interrupt here */
         }
     }
     else
@@ -3813,7 +3817,7 @@ static void cpu_execute_fp_signed_reverse_div(uint16 order, DISPATCH_ENTRY *inne
         cpu_set_register_bit_64(reg_aod, mask_aod_zdiv, 1);
         if (!cpu_get_register_bit_64(reg_aod, mask_aod_izdiv))
         {
-            cpu_set_interrupt(INT_PROGRAM_FAULTS);
+            cpu_set_program_fault_interrupt(0); /* TODO: set proper interrupt here */
         }
     }
     else
@@ -3877,7 +3881,7 @@ static void cpu_execute_fp_unsigned_div(uint16 order, DISPATCH_ENTRY *innerTable
     uint32 divisor = cpu_get_operand(order) & MASK_32;
     if (divisor == 0)
     {
-        cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
+        cpu_set_program_fault_interrupt(0); /* TODO: set proper interrupt here */
     }
     else
     {
@@ -3939,7 +3943,7 @@ static void cpu_execute_fp_unsigned_reverse_div(uint16 order, DISPATCH_ENTRY *in
     uint32 dividend = cpu_get_operand(order) & MASK_32;
     if (divisor == 0)
     {
-        cpu_set_interrupt(INT_PROGRAM_FAULTS); /* TODO: more to do here? */
+        cpu_set_program_fault_interrupt(0); /* TODO: set proper interrupt here */
     }
     else
     {
