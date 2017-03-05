@@ -36,7 +36,6 @@ Z register is not implemented.
 B DIV implementation is a guess (not defined in MU5 Basic Programming Manual)
 No floating point orders
 No decimal orders
-Segment crossing boundary checks missing
 Interrupt processing is incomplete, all the points where an interrupt is generated need to record the cause, other details also incomplete.
 Type 3 descriptors not implemented yet.
 No instruction counter
@@ -92,6 +91,13 @@ to set the MS register to some appropriate setting.
 
 #define SCALE_32 1
 #define SCALE_64 2
+
+#define SYSTEM_ERROR_STATUS_MASK_B_OR_D_ERROR            0x0080
+#define SYSTEM_ERROR_STATUS_MASK_ACC_ERROR               0x0040
+#define SYSTEM_ERROR_STATUS_MASK_ILLEGAL_FUNCTION_ERROR  0x0020
+#define SYSTEM_ERROR_STATUS_MASK_NAME_ADDER_OVF_ERROR    0x0010
+#define SYSTEM_ERROR_STATUS_MASK_CONTROL_ADDER_OVF_ERROR 0x0008
+#define SYSTEM_ERROR_STATUS_MASK_CPR_ERROR               0x0004
 
 static int cpu_stopped = 0;
 
@@ -1205,8 +1211,14 @@ static void cpu_clear_all_interrupts(void)
 
 static void cpu_set_system_error_interrupt(uint16 reason)
 {
-    cpu_set_interrupt(INT_SYSTEM_ERROR);
-    PROPSystemErrorStatus |= reason;
+    if ((cpu_ms_is_all(MS_MASK_B_D_SYS_ERR_EXEC) && (reason == SYSTEM_ERROR_STATUS_MASK_B_OR_D_ERROR))
+        ||
+        reason != SYSTEM_ERROR_STATUS_MASK_B_OR_D_ERROR
+       )
+    {
+        cpu_set_interrupt(INT_SYSTEM_ERROR);
+        PROPSystemErrorStatus |= reason;
+    }
 }
 
 static void cpu_set_program_fault_interrupt(uint16 reason)
@@ -1228,10 +1240,7 @@ static void cpu_set_D_interrupt(void)
 {
     if (cpu_ms_is_all(MS_MASK_EXEC))
     {
-        if (cpu_ms_is_all(MS_MASK_B_D_SYS_ERR_EXEC))
-        {
-            cpu_set_system_error_interrupt(0x0080); /* TODO: consider putting inhibit logic inside function and checking the reason*/
-        }
+        cpu_set_system_error_interrupt(SYSTEM_ERROR_STATUS_MASK_B_OR_D_ERROR);
     }
     else
     {
@@ -1261,7 +1270,7 @@ static void cpu_set_name_adder_overflow_interrupt()
 {
     if (cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1 | MS_MASK_EXEC))
     {
-        cpu_set_system_error_interrupt(0x0010);
+        cpu_set_system_error_interrupt(SYSTEM_ERROR_STATUS_MASK_NAME_ADDER_OVF_ERROR);
     }
     else
     {
@@ -1273,7 +1282,7 @@ static void cpu_set_control_adder_overflow_interrupt()
 {
     if (cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1 | MS_MASK_EXEC))
     {
-        cpu_set_system_error_interrupt(0x0008);
+        cpu_set_system_error_interrupt(SYSTEM_ERROR_STATUS_MASK_CONTROL_ADDER_OVF_ERROR);
     }
     else
     {
@@ -1285,7 +1294,7 @@ void cpu_set_access_violation_interrupt()
 {
     if (cpu_ms_is_all(MS_MASK_EXEC))
     {
-        cpu_set_system_error_interrupt(0x0004);
+        cpu_set_system_error_interrupt(SYSTEM_ERROR_STATUS_MASK_CPR_ERROR);
     }
     else
     {
