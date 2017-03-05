@@ -316,6 +316,7 @@ static int cpu_is_executive_mode(void);
 
 static void cpu_clear_interrupt(uint8 number);
 static void cpu_clear_all_interrupts(void);
+static void cpu_set_system_error_interrupt(uint16 reason);
 static void cpu_set_program_fault_interrupt(uint16 reason);
 static void cpu_set_illegal_order_interrupt(uint16 reason);
 static void cpu_set_D_interrupt(void);
@@ -1202,6 +1203,12 @@ static void cpu_clear_all_interrupts(void)
     interrupt = 0;
 }
 
+static void cpu_set_system_error_interrupt(uint16 reason)
+{
+    cpu_set_interrupt(INT_SYSTEM_ERROR);
+    PROPSystemErrorStatus |= reason;
+}
+
 static void cpu_set_program_fault_interrupt(uint16 reason)
 {
     /* TODO: inhibit program faults interrupts if MS1 says so */
@@ -1221,8 +1228,7 @@ static void cpu_set_D_interrupt(void)
     {
         if (cpu_ms_is_all(MS_MASK_B_D_SYS_ERR_EXEC))
         {
-            cpu_set_interrupt(INT_SYSTEM_ERROR);
-            PROPSystemErrorStatus |= 0x0080;
+            cpu_set_system_error_interrupt(0x0080);
         }
     }
     else if (!cpu_ms_is_all(MS_MASK_INH_PROG_FLT))
@@ -1253,8 +1259,7 @@ static void cpu_set_name_adder_overflow_interrupt() /* TODO: control and name ad
 {
     if (cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1 | MS_MASK_EXEC))
     {
-        cpu_set_interrupt(INT_SYSTEM_ERROR); /* TODO: Make method of this */
-        PROPSystemErrorStatus |= 0x0010;
+        cpu_set_system_error_interrupt(0x0010);
     }
     else
     {
@@ -1266,8 +1271,7 @@ static void cpu_set_control_adder_overflow_interrupt()
 {
     if (cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1 | MS_MASK_EXEC))
     {
-        cpu_set_interrupt(INT_SYSTEM_ERROR);
-        PROPSystemErrorStatus |= 0x0008;
+        cpu_set_system_error_interrupt(0x0008);
     }
     else
     {
@@ -1279,8 +1283,7 @@ void cpu_set_access_violation_interrupt()
 {
     if (cpu_ms_is_all(MS_MASK_EXEC))
     {
-        cpu_set_interrupt(INT_SYSTEM_ERROR);
-        PROPSystemErrorStatus |= 0x0004;
+        cpu_set_system_error_interrupt(0x0004);
     }
     else
     {
