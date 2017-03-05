@@ -111,6 +111,7 @@ to set the MS register to some appropriate setting.
 #define PROGRAM_FAULT_STATUS_MASK_CPR_ERROR               0x0800
 #define PROGRAM_FAULT_STATUS_MASK_B_ERROR                 0x0080
 #define PROGRAM_FAULT_STATUS_MASK_D_ERROR                 0x0040
+#define PROGRAM_FAULT_STATUS_MASK_ACC_ERROR               0x0020
 
 static int cpu_stopped = 0;
 
@@ -338,6 +339,7 @@ static void cpu_clear_all_interrupts(void);
 static void cpu_set_system_error_interrupt(uint16 reason);
 static void cpu_set_program_fault_interrupt(uint16 reason);
 static void cpu_set_illegal_order_interrupt(uint16 reason);
+static void cpu_set_A_interrupt(void);
 static void cpu_set_B_interrupt(void);
 static void cpu_set_D_interrupt(void);
 static void cpu_set_its_interrupt(void);
@@ -1228,7 +1230,12 @@ static void cpu_set_system_error_interrupt(uint16 reason)
 {
     if ((cpu_ms_is_all(MS_MASK_B_D_SYS_ERR_EXEC) && (reason == SYSTEM_ERROR_STATUS_MASK_B_OR_D_ERROR))
         ||
-        reason != SYSTEM_ERROR_STATUS_MASK_B_OR_D_ERROR
+        (cpu_ms_is_all(MS_MASK_A_SYS_ERR_EXEC) && (reason == SYSTEM_ERROR_STATUS_MASK_ACC_ERROR))
+        ||
+        (reason != SYSTEM_ERROR_STATUS_MASK_B_OR_D_ERROR
+         &&
+         reason != SYSTEM_ERROR_STATUS_MASK_ACC_ERROR
+        )
        )
     {
         cpu_set_interrupt(INT_SYSTEM_ERROR);
@@ -1249,6 +1256,18 @@ static void cpu_set_illegal_order_interrupt(uint16 reason)
 {
     cpu_set_interrupt(INT_ILLEGAL_ORDERS);
     PROPProgramFaultStatus |= reason;
+}
+
+static void cpu_set_A_interrupt(void)
+{
+    if (cpu_ms_is_all(MS_MASK_EXEC))
+    {
+        cpu_set_system_error_interrupt(SYSTEM_ERROR_STATUS_MASK_ACC_ERROR);
+    }
+    else
+    {
+        cpu_set_program_fault_interrupt(PROGRAM_FAULT_STATUS_MASK_ACC_ERROR);
+    }
 }
 
 static void cpu_set_B_interrupt(void)
@@ -2392,7 +2411,7 @@ static void prop_write_process_number_callback(uint8 line, t_uint64 value)
 
 static t_uint64 prop_read_program_fault_status_callback(uint8 line)
 {
-    return PROPProgramFaultStatus & 0xFFD0;
+    return PROPProgramFaultStatus & 0xFFE0;
 }
 
 static void prop_write_program_fault_status_callback(uint8 line, t_uint64 value)
@@ -3718,7 +3737,7 @@ static void cpu_check_x_overflow(t_uint64 result)
         cpu_set_register_bit_64(reg_aod, mask_aod_fxpovf, 1);
         if (!cpu_get_register_bit_64(reg_aod, mask_aod_ifxpovf))
         {
-            cpu_set_program_fault_interrupt(0); /* TODO: set proper interrupt here */
+            cpu_set_A_interrupt();
         }
     }
     else
@@ -3786,7 +3805,7 @@ static void cpu_execute_fp_signed_div(uint16 order, DISPATCH_ENTRY *innerTable)
         cpu_set_register_bit_64(reg_aod, mask_aod_zdiv, 1);
         if (!cpu_get_register_bit_64(reg_aod, mask_aod_izdiv))
         {
-            cpu_set_program_fault_interrupt(0); /* TODO: set proper interrupt here */
+            cpu_set_A_interrupt();
         }
     }
     else

@@ -287,6 +287,9 @@ static void cpu_selftest_set_level0_mode(void);
 static void cpu_selftest_set_level1_mode(void);
 static void cpu_selftest_set_executive_mode(void);
 static void cpu_selftest_set_user_mode(void);
+static void cpu_selftest_clear_acc_faults_to_system_error_in_exec_mode(void);
+static void cpu_selftest_set_acc_faults_to_system_error_in_exec_mode(void);
+static void cpu_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode(void);
 static void cpu_selftest_set_b_and_d_faults_to_system_error_in_exec_mode(void);
 static void cpu_selftest_set_inhibit_program_fault_interrupts(void);
 static void cpu_selftest_set_bn(int8 bn);
@@ -312,10 +315,10 @@ static void cpu_selftest_assert_no_b_overflow(void);
 static void cpu_selftest_assert_no_b_overflow_interrupt(void);
 static void cpu_selftest_assert_b_overflow(void);
 static void cpu_selftest_assert_b_overflow_interrupt_as_system_error(void);
-static void cpu_selftest_assert_no_a_overflow(void);
-static void cpu_selftest_assert_no_a_overflow_interrupt(void);
-static void cpu_selftest_assert_a_overflow(void);
-static void cpu_selftest_assert_a_overflow_interrupt(void);
+static void cpu_selftest_assert_no_acc_overflow(void);
+static void cpu_selftest_assert_no_acc_overflow_interrupt(void);
+static void cpu_selftest_assert_acc_overflow(void);
+static void cpu_selftest_assert_acc_overflow_interrupt_as_system_error(void);
 static void cpu_selftest_assert_no_a_zero_divide(void);
 static void cpu_selftest_assert_no_a_zero_divide_interrupt(void);
 static void cpu_selftest_assert_a_zero_divide(void);
@@ -337,6 +340,8 @@ static void cpu_selftest_assert_name_adder_overflow_interrupt_as_system_error(vo
 static void cpu_selftest_assert_name_adder_overflow_interrupt_as_illegal_order(void);
 static void cpu_selftest_assert_control_adder_overflow_interrupt_as_system_error(void);
 static void cpu_selftest_assert_control_adder_overflow_interrupt_as_illegal_order(void);
+static void cpu_selftest_assert_acc_interrupt_as_system_error(void);
+static void cpu_selftest_assert_acc_interrupt_as_program_fault(void);
 static void cpu_selftest_assert_B_or_D_interrupt_as_system_error(void);
 static void cpu_selftest_assert_B_interrupt_as_program_fault(void);
 static void cpu_selftest_assert_D_interrupt_as_program_fault(void);
@@ -842,7 +847,7 @@ static void cpu_selftest_org_bn_bn_on_true(TESTCONTEXT *testContext);
 static void cpu_selftest_org_bn_order_tests(TESTCONTEXT *testContext);
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(TESTCONTEXT *testContext);
-static void cpu_selftest_no_zero_divide_interrupt_if_zero_divide_is_inhibited(TESTCONTEXT *testContext);
+static void cpu_selftest_no_acc_zero_divide_interrupt_if_acc_zero_divide_is_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_D_interrupt_as_system_error_in_executive_mode(TESTCONTEXT *testContext);
@@ -853,6 +858,10 @@ static void cpu_selftest_B_interrupt_as_system_error_in_executive_mode(TESTCONTE
 static void cpu_selftest_no_B_interrupt_if_inhibited_in_executive_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_B_interrupt_as_program_fault_in_user_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_no_B_interrupt_if_inhibited_in_user_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_acc_interrupt_as_system_error_in_executive_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_no_acc_interrupt_if_inhibited_in_executive_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_acc_interrupt_as_program_fault_in_user_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_no_acc_interrupt_if_inhibited_in_user_mode(TESTCONTEXT *testContext);
 
 static void cpu_selftest_interrupt_stacks_link_in_system_v_store(TESTCONTEXT *testContext);
 static void cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store(TESTCONTEXT *testContext);
@@ -1431,7 +1440,7 @@ static UNITTEST tests[] =
     { "Boolean order with function from order, tests all functions", cpu_selftest_org_bn_order_tests },
 
     { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
-    { "No zero divide interrupt if zero divide is inhibited", cpu_selftest_no_zero_divide_interrupt_if_zero_divide_is_inhibited },
+    { "No Acc zero divide interrupt if Acc zero divide is inhibited", cpu_selftest_no_acc_zero_divide_interrupt_if_acc_zero_divide_is_inhibited },
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
     { "No SSS interrupt if SSS interrupt is inhibited", cpu_selftest_no_sss_interrupt_if_sss_is_inhibited },
     { "D interrupt as system error in executive mode", cpu_selftest_D_interrupt_as_system_error_in_executive_mode },
@@ -1442,6 +1451,10 @@ static UNITTEST tests[] =
     { "No B interrupt if inhibited in executive mode", cpu_selftest_no_B_interrupt_if_inhibited_in_executive_mode },
     { "B interrupt as program fault in user mode", cpu_selftest_B_interrupt_as_program_fault_in_user_mode },
     { "No B interrupt if inhibited in user mode", cpu_selftest_no_B_interrupt_if_inhibited_in_user_mode },
+    { "Acc interrupt as system error in executive mode", cpu_selftest_acc_interrupt_as_system_error_in_executive_mode },
+    { "No Acc interrupt if inhibited in executive mode", cpu_selftest_no_acc_interrupt_if_inhibited_in_executive_mode },
+    { "Acc interrupt as program fault in user mode", cpu_selftest_acc_interrupt_as_program_fault_in_user_mode },
+    { "No Acc interrupt if inhibited in user mode", cpu_selftest_no_acc_interrupt_if_inhibited_in_user_mode },
 
     { "Interrupt stacks link in System V-Store", cpu_selftest_interrupt_stacks_link_in_system_v_store },
     { "Interrupt calls handler using link in System V-Store", cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store },
@@ -1458,6 +1471,7 @@ static void cpu_selftest_reset(UNITTEST *test)
     sac_reset_state(); /* reset SAC first because it clears the V-Store callbacks which may be set by other devices */
     cpu_reset_state();
     currentLoadLocation = 0;
+    cpu_selftest_set_acc_faults_to_system_error_in_exec_mode();
     cpu_selftest_set_b_and_d_faults_to_system_error_in_exec_mode();
 }
 
@@ -1666,6 +1680,16 @@ static void cpu_selftest_set_user_mode(void)
     mu5_selftest_set_user_mode(localTestContext, &cpu_dev);
 }
 
+static void cpu_selftest_clear_acc_faults_to_system_error_in_exec_mode(void)
+{
+    mu5_selftest_clear_acc_faults_to_system_error_in_exec_mode(localTestContext, &cpu_dev);
+}
+
+static void cpu_selftest_set_acc_faults_to_system_error_in_exec_mode(void)
+{
+    mu5_selftest_set_acc_faults_to_system_error_in_exec_mode(localTestContext, &cpu_dev);
+}
+
 static void cpu_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode(void)
 {
     mu5_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode(localTestContext, &cpu_dev);
@@ -1858,7 +1882,7 @@ static void cpu_selftest_assert_b_overflow_interrupt_as_system_error(void)
     cpu_selftest_assert_b_overflow();
 }
 
-static void cpu_selftest_assert_no_a_overflow(void)
+static void cpu_selftest_assert_no_acc_overflow(void)
 {
     t_uint64 aod = cpu_selftest_get_register(REG_AOD);
     if (aod &AOD_OVF_MASK)
@@ -1867,13 +1891,13 @@ static void cpu_selftest_assert_no_a_overflow(void)
         cpu_selftest_set_failure();
     }
 }
-static void cpu_selftest_assert_no_a_overflow_interrupt(void)
+static void cpu_selftest_assert_no_acc_overflow_interrupt(void)
 {
     cpu_selftest_assert_no_interrupt();
-    cpu_selftest_assert_no_a_overflow();
+    cpu_selftest_assert_no_acc_overflow();
 }
 
-static void cpu_selftest_assert_a_overflow(void)
+static void cpu_selftest_assert_acc_overflow(void)
 {
     t_uint64 aod = cpu_selftest_get_register(REG_AOD);
     if (!(aod & AOD_OVF_MASK))
@@ -1883,10 +1907,10 @@ static void cpu_selftest_assert_a_overflow(void)
     }
 }
 
-static void cpu_selftest_assert_a_overflow_interrupt(void)
+static void cpu_selftest_assert_acc_overflow_interrupt_as_system_error(void)
 {
-    cpu_selftest_assert_interrupt();
-    cpu_selftest_assert_a_overflow();
+    cpu_selftest_assert_acc_interrupt_as_system_error();
+    cpu_selftest_assert_acc_overflow();
 }
 
 static void cpu_selftest_assert_no_a_zero_divide(void)
@@ -2053,6 +2077,28 @@ static void cpu_selftest_assert_control_adder_overflow_interrupt_as_illegal_orde
     }
 
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x2000);
+}
+
+static void cpu_selftest_assert_acc_interrupt_as_system_error(void)
+{
+    if (cpu_get_interrupt_number() != INT_SYSTEM_ERROR)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected Acc interrupt to have occurred as System Error\n");
+        cpu_selftest_set_failure();
+    }
+
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0040);
+}
+
+static void cpu_selftest_assert_acc_interrupt_as_program_fault(void)
+{
+    if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected Acc interrupt to have occurred as Program Fault\n");
+        cpu_selftest_set_failure();
+    }
+
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x0020);
 }
 
 static void cpu_selftest_assert_B_or_D_interrupt_as_system_error(void)
@@ -6169,7 +6215,7 @@ static void cpu_selftest_x_add_adds_operand_to_X(TESTCONTEXT *testContext)
     cpu_selftest_set_register(REG_X, 0x0AAAAAAA);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_X, 0x0AAAAAA9);
-    cpu_selftest_assert_no_a_overflow_interrupt();
+    cpu_selftest_assert_no_acc_overflow_interrupt();
 }
 
 static void cpu_selftest_x_add_flags_overflow(TESTCONTEXT *testContext)
@@ -6178,7 +6224,7 @@ static void cpu_selftest_x_add_flags_overflow(TESTCONTEXT *testContext)
     cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
     cpu_selftest_set_register(REG_X, 0x80000000);
     cpu_selftest_run_code();
-    cpu_selftest_assert_a_overflow_interrupt();
+    cpu_selftest_assert_acc_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_x_sub_subtracts_operand_from_X(TESTCONTEXT *testContext)
@@ -6188,7 +6234,7 @@ static void cpu_selftest_x_sub_subtracts_operand_from_X(TESTCONTEXT *testContext
     cpu_selftest_set_register(REG_X, 0xAAAAAAAA);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_X, 0xAAAAAAAB);
-    cpu_selftest_assert_no_a_overflow_interrupt();
+    cpu_selftest_assert_no_acc_overflow_interrupt();
 }
 
 static void cpu_selftest_x_sub_flags_overflow(TESTCONTEXT *testContext)
@@ -6197,7 +6243,7 @@ static void cpu_selftest_x_sub_flags_overflow(TESTCONTEXT *testContext)
     cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
     cpu_selftest_set_register(REG_X, 0x7FFFFFFF);
     cpu_selftest_run_code();
-    cpu_selftest_assert_a_overflow_interrupt();
+    cpu_selftest_assert_acc_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_x_mul_multiplies_operand_by_X(TESTCONTEXT *testContext)
@@ -6207,7 +6253,7 @@ static void cpu_selftest_x_mul_multiplies_operand_by_X(TESTCONTEXT *testContext)
     cpu_selftest_set_register(REG_X, 6);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_X, -30 & 0xFFFFFFFF);
-    cpu_selftest_assert_no_a_overflow_interrupt();
+    cpu_selftest_assert_no_acc_overflow_interrupt();
 }
 
 static void cpu_selftest_x_mul_flags_overflow(TESTCONTEXT *testContext)
@@ -6216,7 +6262,7 @@ static void cpu_selftest_x_mul_flags_overflow(TESTCONTEXT *testContext)
     cpu_selftest_load_32_bit_literal(0x7FFFFFFF);
     cpu_selftest_set_register(REG_X, 0x7FFFFFFF);
     cpu_selftest_run_code();
-    cpu_selftest_assert_a_overflow_interrupt();
+    cpu_selftest_assert_acc_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_x_div_divides_X_by_operand(TESTCONTEXT *testContext)
@@ -6281,7 +6327,7 @@ static void cpu_selftest_x_shift_flags_overflow(TESTCONTEXT *testContext)
     cpu_selftest_load_order(CR_XS, F_SHIFT_L_X, K_LITERAL, 0x01);
     cpu_selftest_set_register(REG_X, 0x80000000);
     cpu_selftest_run_code();
-    cpu_selftest_assert_a_overflow_interrupt();
+    cpu_selftest_assert_acc_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_x_rdiv_divides_operand_by_X(TESTCONTEXT *testContext)
@@ -6320,7 +6366,7 @@ static void cpu_selftest_x_rsub_subtracts_X_from_operand(TESTCONTEXT *testContex
     cpu_selftest_set_register(REG_X, 0xFFFFFFFF);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_X, 0xAAAAAAAB);
-    cpu_selftest_assert_no_a_overflow_interrupt();
+    cpu_selftest_assert_no_acc_overflow_interrupt();
 }
 
 static void cpu_selftest_x_rsub_flags_overflow(TESTCONTEXT *testContext)
@@ -6329,7 +6375,7 @@ static void cpu_selftest_x_rsub_flags_overflow(TESTCONTEXT *testContext)
     cpu_selftest_load_32_bit_literal(0x7FFFFFFF);
     cpu_selftest_set_register(REG_X, 0xFFFFFFFF);
     cpu_selftest_run_code();
-    cpu_selftest_assert_a_overflow_interrupt();
+    cpu_selftest_assert_acc_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_x_comp_sets_less_than_when_X_less_than_operand(TESTCONTEXT *testContext)
@@ -6340,7 +6386,7 @@ static void cpu_selftest_x_comp_sets_less_than_when_X_less_than_operand(TESTCONT
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_X, 0xFFFFFFFF);
     cpu_selftest_assert_test_less_than();
-    cpu_selftest_assert_no_a_overflow();
+    cpu_selftest_assert_no_acc_overflow();
 }
 
 static void cpu_selftest_x_comp_sets_equals_when_X_equals_operand(TESTCONTEXT *testContext)
@@ -6351,7 +6397,7 @@ static void cpu_selftest_x_comp_sets_equals_when_X_equals_operand(TESTCONTEXT *t
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_X, 0xFFFFFFFF);
     cpu_selftest_assert_test_equals();
-    cpu_selftest_assert_no_a_overflow();
+    cpu_selftest_assert_no_acc_overflow();
 }
 
 static void cpu_selftest_x_comp_sets_greater_than_when_X_greater_than_operand(TESTCONTEXT *testContext)
@@ -6362,7 +6408,7 @@ static void cpu_selftest_x_comp_sets_greater_than_when_X_greater_than_operand(TE
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_X, 0x00000001);
     cpu_selftest_assert_test_greater_than();
-    cpu_selftest_assert_no_a_overflow();
+    cpu_selftest_assert_no_acc_overflow();
 }
 
 static void cpu_selftest_x_comp_sets_overflow(TESTCONTEXT *testContext)
@@ -6373,7 +6419,7 @@ static void cpu_selftest_x_comp_sets_overflow(TESTCONTEXT *testContext)
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_X, 0x80000000);
     cpu_selftest_assert_test_overflow();
-    cpu_selftest_assert_a_overflow();
+    cpu_selftest_assert_acc_overflow();
 }
 
 static void cpu_selftest_a_load_loads_AOD(TESTCONTEXT *testContext)
@@ -6418,7 +6464,7 @@ static void cpu_selftest_a_add_adds_operand_to_A(TESTCONTEXT *testContext)
     cpu_selftest_set_register(REG_A, 0xFFFFFFFF00000001);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0x0000000100000000);
-    cpu_selftest_assert_no_a_overflow_interrupt();
+    cpu_selftest_assert_no_acc_overflow_interrupt();
 }
 
 static void cpu_selftest_a_sub_subtracts_operand_from_A(TESTCONTEXT *testContext)
@@ -6428,7 +6474,7 @@ static void cpu_selftest_a_sub_subtracts_operand_from_A(TESTCONTEXT *testContext
     cpu_selftest_set_register(REG_A, 0xFFFFFFFF);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0xFFFFFFFE);
-    cpu_selftest_assert_no_a_overflow_interrupt();
+    cpu_selftest_assert_no_acc_overflow_interrupt();
 }
 
 static void cpu_selftest_a_mul_multiplies_operand_by_A(TESTCONTEXT *testContext)
@@ -6438,7 +6484,7 @@ static void cpu_selftest_a_mul_multiplies_operand_by_A(TESTCONTEXT *testContext)
     cpu_selftest_set_register(REG_A, 0x80000000);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0x0000000100000000);
-    cpu_selftest_assert_no_a_overflow_interrupt();
+    cpu_selftest_assert_no_acc_overflow_interrupt();
 }
 
 static void cpu_selftest_a_xor(TESTCONTEXT *testContext)
@@ -6498,7 +6544,7 @@ static void cpu_selftest_a_rsub_subtracts_A_from_operand(TESTCONTEXT *testContex
     cpu_selftest_set_register(REG_A, 0x00000001);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0xFFFFFFFE);
-    cpu_selftest_assert_no_a_overflow_interrupt();
+    cpu_selftest_assert_no_acc_overflow_interrupt();
 }
 
 static void cpu_selftest_a_comp_sets_less_than_when_A_less_than_operand(TESTCONTEXT *testContext)
@@ -7540,13 +7586,14 @@ static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(TEST
     cpu_selftest_assert_no_interrupt();
 }
 
-static void cpu_selftest_no_zero_divide_interrupt_if_zero_divide_is_inhibited(TESTCONTEXT *testContext)
+static void cpu_selftest_no_acc_zero_divide_interrupt_if_acc_zero_divide_is_inhibited(TESTCONTEXT *testContext)
 {
     cpu_selftest_set_register(REG_AOD, AOD_IZDIV_MASK);
     cpu_selftest_load_order_extended(CR_XS, F_DIV_X, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0x00000000);
     cpu_selftest_set_register(REG_X, -4 & 0xFFFFFFFF);
     cpu_selftest_run_code();
+    cpu_selftest_assert_a_zero_divide();
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -7634,6 +7681,48 @@ static void cpu_selftest_no_B_interrupt_if_inhibited_in_user_mode(TESTCONTEXT *t
 {
     cpu_selftest_load_order_extended(CR_B, F_LOAD_DEC_B, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0x80000000);
+    cpu_selftest_set_user_mode();
+    cpu_selftest_set_inhibit_program_fault_interrupts();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_acc_interrupt_as_system_error_in_executive_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_XS, F_ADD_X, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
+    cpu_selftest_set_register(REG_X, 0x80000000);
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_acc_interrupt_as_system_error();
+}
+
+static void cpu_selftest_no_acc_interrupt_if_inhibited_in_executive_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_XS, F_ADD_X, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
+    cpu_selftest_set_register(REG_X, 0x80000000);
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_clear_acc_faults_to_system_error_in_exec_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_acc_interrupt_as_program_fault_in_user_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_XS, F_ADD_X, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
+    cpu_selftest_set_register(REG_X, 0x80000000);
+    cpu_selftest_set_user_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_acc_interrupt_as_program_fault();
+}
+
+static void cpu_selftest_no_acc_interrupt_if_inhibited_in_user_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_XS, F_ADD_X, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
+    cpu_selftest_set_register(REG_X, 0x80000000);
     cpu_selftest_set_user_mode();
     cpu_selftest_set_inhibit_program_fault_interrupts();
     cpu_selftest_run_code();
