@@ -388,7 +388,7 @@ static void prop_write_program_fault_status_callback(uint8 line, t_uint64 value)
 static t_uint64 prop_read_system_error_status_callback(uint8 line);
 static void prop_write_system_error_status_callback(uint8 line, t_uint64 value);
 
-static void cpu_execute_illegal_order(uint16 order, DISPATCH_ENTRY *innerTable);
+static void cpu_execute_dummy_order(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_start_interrupt_processing(void);
 
 /* cr functions */
@@ -586,12 +586,12 @@ static DISPATCH_ENTRY organisationalDispatchTable[] =
 {
     { cpu_execute_organisational_relative_jump,         NULL }, /* 0 */
     { cpu_execute_organisational_exit,                  NULL }, /* 1 */
-    { cpu_execute_illegal_order,                        NULL }, /* 2 */
-    { cpu_execute_illegal_order,                        NULL }, /* 3 */
+    { cpu_execute_dummy_order,                          NULL }, /* 2 */
+    { cpu_execute_dummy_order,                          NULL }, /* 3 */
     { cpu_execute_organisational_absolute_jump,         NULL }, /* 4 */
     { cpu_execute_organisational_return,                NULL }, /* 5 */
-    { cpu_execute_illegal_order,                        NULL }, /* 6 */
-    { cpu_execute_illegal_order,                        NULL }, /* 7 */
+    { cpu_execute_dummy_order,                          NULL }, /* 6 */
+    { cpu_execute_dummy_order,                          NULL }, /* 7 */
     { cpu_execute_organisational_xcn,                   NULL }, /* 8 */
     { cpu_execute_organisational_xcn,                   NULL }, /* 9 */
     { cpu_execute_organisational_xcn,                   NULL }, /* 10 */
@@ -665,7 +665,7 @@ static DISPATCH_ENTRY sts1DispatchTable[] =
     { cpu_execute_sts1_smve,     NULL },   /* 10 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
     { cpu_execute_sts1_smvf,     NULL },   /* 11*/
     { cpu_execute_sts1_talu,     NULL },   /* 12 */
-    { cpu_execute_illegal_order, NULL },   /* 13 */
+    { cpu_execute_dummy_order,   NULL },   /* 13 */
     { cpu_execute_sts1_scmp,     NULL },   /* 14 */
     { cpu_execute_sts1_sub1,     NULL },   /* 15 */
 };
@@ -684,7 +684,7 @@ static DISPATCH_ENTRY sts2DispatchTable[] =
     { cpu_execute_sts2_bmvb,             NULL },   /* 9 */
     { cpu_execute_sts2_bmve,             NULL },   /* 10 */
     { cpu_execute_sts1_smvf,             NULL },   /* 11*/
-    { cpu_execute_illegal_order,         NULL },   /* 12 */
+    { cpu_execute_dummy_order,           NULL },   /* 12 */
     { cpu_execute_sts2_bscn,             NULL },   /* 13 */
     { cpu_execute_sts2_bcmp,             NULL },   /* 14 */
     { cpu_execute_sts2_sub2,             NULL },   /* 15 */
@@ -713,7 +713,7 @@ static DISPATCH_ENTRY bDispatchTable[] =
 static DISPATCH_ENTRY accFPSignedDispatchTable[] =
 {
     { cpu_execute_fp_signed_load_single,    NULL }, /* 0 */
-    { cpu_execute_illegal_order,            NULL }, /* 1 */
+    { cpu_execute_dummy_order,              NULL }, /* 1 */
     { cpu_execute_fp_signed_stack_and_load, NULL }, /* 2 */
     { cpu_execute_fp_signed_store,          NULL }, /* 3 */
     { cpu_execute_fp_signed_add,            NULL }, /* 4 */
@@ -733,7 +733,7 @@ static DISPATCH_ENTRY accFPSignedDispatchTable[] =
 static DISPATCH_ENTRY accFPUnsignedDispatchTable[] =
 {
     { cpu_execute_fp_unsigned_load_single,    NULL }, /* 0 */
-    { cpu_execute_illegal_order,              NULL }, /* 1 */
+    { cpu_execute_dummy_order,                NULL }, /* 1 */
     { cpu_execute_fp_unsigned_stack_and_load, NULL }, /* 2 */
     { cpu_execute_fp_unsigned_store,          NULL }, /* 3 */
     { cpu_execute_fp_unsigned_add,            NULL }, /* 4 */
@@ -746,28 +746,28 @@ static DISPATCH_ENTRY accFPUnsignedDispatchTable[] =
     { cpu_execute_fp_unsigned_and,            NULL }, /* 11*/
     { cpu_execute_fp_unsigned_reverse_sub,    NULL }, /* 12 */
     { cpu_execute_fp_unsigned_compare,        NULL }, /* 13 */
-    { cpu_execute_illegal_order,              NULL }, /* 14 */
+    { cpu_execute_dummy_order,                NULL }, /* 14 */
     { cpu_execute_fp_unsigned_reverse_div,    NULL }, /* 15 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
 };
 
 static DISPATCH_ENTRY accFPDecimalDispatchTable[] =
 {
-    { cpu_execute_illegal_order,             NULL }, /* 0 */
+    { cpu_execute_dummy_order,               NULL }, /* 0 */
     { cpu_execute_fp_decimal_load_double,    NULL }, /* 1 */
     { cpu_execute_fp_decimal_stack_and_load, NULL }, /* 2 */
     { cpu_execute_fp_decimal_store,          NULL }, /* 3 */
-    { cpu_execute_illegal_order,             NULL }, /* 4 */
-    { cpu_execute_illegal_order,             NULL }, /* 5 */
-    { cpu_execute_illegal_order,             NULL }, /* 6 */
-    { cpu_execute_illegal_order,             NULL }, /* 7 */
-    { cpu_execute_illegal_order,             NULL }, /* 8 */
-    { cpu_execute_illegal_order,             NULL }, /* 9 */
-    { cpu_execute_illegal_order,             NULL }, /* 10 */
-    { cpu_execute_illegal_order,             NULL }, /* 11*/
+    { cpu_execute_dummy_order,               NULL }, /* 4 */
+    { cpu_execute_dummy_order,               NULL }, /* 5 */
+    { cpu_execute_dummy_order,               NULL }, /* 6 */
+    { cpu_execute_dummy_order,               NULL }, /* 7 */
+    { cpu_execute_dummy_order,               NULL }, /* 8 */
+    { cpu_execute_dummy_order,               NULL }, /* 9 */
+    { cpu_execute_dummy_order,               NULL }, /* 10 */
+    { cpu_execute_dummy_order,               NULL }, /* 11*/
     { cpu_execute_fp_decimal_compare,        NULL }, /* 12 */
-    { cpu_execute_illegal_order,             NULL }, /* 13 */
-    { cpu_execute_illegal_order,             NULL }, /* 14 */
-    { cpu_execute_illegal_order,             NULL }, /* 15 */
+    { cpu_execute_dummy_order,               NULL }, /* 13 */
+    { cpu_execute_dummy_order,               NULL }, /* 14 */
+    { cpu_execute_dummy_order,               NULL }, /* 15 */
 };
 
 static DISPATCH_ENTRY floatingPointDispatchTable[] =
@@ -776,18 +776,18 @@ static DISPATCH_ENTRY floatingPointDispatchTable[] =
     { cpu_execute_flp_load_double,    NULL }, /* 1 */
     { cpu_execute_flp_stack_and_load, NULL }, /* 2 */
     { cpu_execute_flp_store,          NULL }, /* 3 */
-    { cpu_execute_illegal_order,      NULL }, /* 4 */
-    { cpu_execute_illegal_order,      NULL }, /* 5 */
-    { cpu_execute_illegal_order,      NULL }, /* 6 */
-    { cpu_execute_illegal_order,      NULL }, /* 7 */
+    { cpu_execute_dummy_order,        NULL }, /* 4 */
+    { cpu_execute_dummy_order,        NULL }, /* 5 */
+    { cpu_execute_dummy_order,        NULL }, /* 6 */
+    { cpu_execute_dummy_order,        NULL }, /* 7 */
     { cpu_execute_flp_unsigned_xor,   NULL }, /* 8 */
     { cpu_execute_flp_unsigned_or,    NULL }, /* 9 */
     { cpu_execute_flp_shift_circ,     NULL }, /* 10 */
     { cpu_execute_flp_unsigned_and,   NULL }, /* 11*/
-    { cpu_execute_illegal_order,      NULL }, /* 12 */
-    { cpu_execute_illegal_order,      NULL }, /* 13 */
-    { cpu_execute_illegal_order,      NULL }, /* 14 */
-    { cpu_execute_illegal_order,      NULL }, /* 15 */
+    { cpu_execute_dummy_order,        NULL }, /* 12 */
+    { cpu_execute_dummy_order,        NULL }, /* 13 */
+    { cpu_execute_dummy_order,        NULL }, /* 14 */
+    { cpu_execute_dummy_order,        NULL }, /* 15 */
 };
 
 static DISPATCH_ENTRY crDispatchTable[] =
@@ -2403,9 +2403,9 @@ static void prop_write_system_error_status_callback(uint8 line, t_uint64 value)
     PROPSystemErrorStatus = 0;
 }
 
-static void cpu_execute_illegal_order(uint16 order, DISPATCH_ENTRY *innerTable)
+static void cpu_execute_dummy_order(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-    cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
+    /* Dummy orders are legal, they just have no effect. */
 }
 
 static void cpu_start_interrupt_processing(void)
