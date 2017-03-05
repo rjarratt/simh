@@ -38,6 +38,7 @@ No floating point orders
 No decimal orders
 Interrupt processing is incomplete, all the points where an interrupt is generated need to record the cause, other details also incomplete.
 Type 3 descriptors not implemented yet.
+Read only descriptors (1978 manual), RNI email of 4/3/17 says write access to these should generate illegal order interrupt
 No instruction counter
 
 To Do
@@ -1536,11 +1537,6 @@ static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 ins
             sim_debug(LOG_CPU_DECODE, &cpu_dev, "XNB 0\n");
             break;
         }
-        default:
-        {
-            cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
-            break;
-        }
     }
 
     return result;
@@ -2149,18 +2145,9 @@ static t_uint64 cpu_get_operand(uint16 order)
                     }
                     break;
                 }
-                default:
-                {
-                    cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
-                    break;
-                }
             }
 
             break;
-        }
-        default:
-        {
-            cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
         }
     }
 
