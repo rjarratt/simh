@@ -81,9 +81,9 @@ void mu5_selftest_assert_reg_instance_equals(TESTCONTEXT *context, DEVICE *devic
 void mu5_selftest_assert_no_interrupt(TESTCONTEXT *context);
 void mu5_selftest_assert_interrupt_number(TESTCONTEXT *context, int expectedInterruptNumber);
 void mu5_selftest_assert_access_violation_as_system_error(TESTCONTEXT *context);
-void mu5_selftest_assert_access_violation_as_program_fault(TESTCONTEXT *context);
+void mu5_selftest_assert_access_violation_as_illegal_order(TESTCONTEXT *context);
 void mu5_selftest_assert_operand_access_violation_as_system_error(TESTCONTEXT *context);
-void mu5_selftest_assert_operand_access_violation_as_program_fault(TESTCONTEXT *context);
+void mu5_selftest_assert_operand_access_violation_as_illegal_order(TESTCONTEXT *context);
 void mu5_selftest_assert_instruction_access_violation_as_system_error(TESTCONTEXT *context);
 void mu5_selftest_assert_instruction_access_violation_as_program_fault(TESTCONTEXT *context);
 void mu5_selftest_assert_vstore_contents(TESTCONTEXT *context, uint8 block, uint8 line, t_uint64 expectedValue);

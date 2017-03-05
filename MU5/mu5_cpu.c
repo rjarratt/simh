@@ -1287,7 +1287,7 @@ void cpu_set_access_violation_interrupt()
     }
     else
     {
-        cpu_set_program_fault_interrupt(0x0800);
+        cpu_set_illegal_order_interrupt(0x0800);
     }
 }
 
