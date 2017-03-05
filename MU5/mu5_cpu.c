@@ -99,6 +99,13 @@ to set the MS register to some appropriate setting.
 #define SYSTEM_ERROR_STATUS_MASK_CONTROL_ADDER_OVF_ERROR 0x0008
 #define SYSTEM_ERROR_STATUS_MASK_CPR_ERROR               0x0004
 
+#define PROGRAM_FAULT_STATUS_MASK_ILLEGAL_FUNCTION_ERROR  0x8000
+#define PROGRAM_FAULT_STATUS_MASK_NAME_ADDER_OVF_ERROR    0x4000
+#define PROGRAM_FAULT_STATUS_MASK_CONTROL_ADDER_OVF_ERROR 0x2000
+#define PROGRAM_FAULT_STATUS_ILLEGAL_V_STORE_ACCESS_ERROR 0x1000
+#define PROGRAM_FAULT_STATUS_MASK_CPR_ERROR               0x0800
+#define PROGRAM_FAULT_STATUS_MASK_D_ERROR                 0x0040
+
 static int cpu_stopped = 0;
 
 int32 sim_emax;
@@ -1244,7 +1251,7 @@ static void cpu_set_D_interrupt(void)
     }
     else
     {
-        cpu_set_program_fault_interrupt(0x0040);
+        cpu_set_program_fault_interrupt(PROGRAM_FAULT_STATUS_MASK_D_ERROR);
     }
 }
 
@@ -1274,7 +1281,7 @@ static void cpu_set_name_adder_overflow_interrupt()
     }
     else
     {
-        cpu_set_illegal_order_interrupt(0x4000);
+        cpu_set_illegal_order_interrupt(PROGRAM_FAULT_STATUS_MASK_NAME_ADDER_OVF_ERROR);
     }
 }
 
@@ -1286,7 +1293,7 @@ static void cpu_set_control_adder_overflow_interrupt()
     }
     else
     {
-        cpu_set_illegal_order_interrupt(0x2000);
+        cpu_set_illegal_order_interrupt(PROGRAM_FAULT_STATUS_MASK_CONTROL_ADDER_OVF_ERROR);
     }
 }
 
@@ -1298,7 +1305,7 @@ void cpu_set_access_violation_interrupt()
     }
     else
     {
-        cpu_set_illegal_order_interrupt(0x0800);
+        cpu_set_illegal_order_interrupt(PROGRAM_FAULT_STATUS_MASK_CPR_ERROR);
     }
 }
 
@@ -2138,7 +2145,7 @@ static t_uint64 cpu_get_operand(uint16 order)
                     }
                     else
                     {
-                        cpu_set_illegal_order_interrupt(0x1000);
+                        cpu_set_illegal_order_interrupt(PROGRAM_FAULT_STATUS_ILLEGAL_V_STORE_ACCESS_ERROR);
                     }
                     break;
                 }
@@ -2271,7 +2278,7 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
                     }
                     else
                     {
-                        cpu_set_illegal_order_interrupt(0x1000);
+                        cpu_set_illegal_order_interrupt(PROGRAM_FAULT_STATUS_ILLEGAL_V_STORE_ACCESS_ERROR);
                     }
                     break;
                 }
