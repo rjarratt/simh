@@ -1255,7 +1255,7 @@ static void cpu_set_bounds_check_interrupt(void)
     }
 }
 
-static void cpu_set_name_adder_overflow_interrupt() /* TODO: control and name adder are ILLEGAL ORDER interrupts */
+static void cpu_set_name_adder_overflow_interrupt()
 {
     if (cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1 | MS_MASK_EXEC))
     {
