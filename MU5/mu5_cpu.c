@@ -1649,7 +1649,7 @@ static int32 cpu_scale_descriptor_modifier(t_uint64 descriptor, uint32 modifier)
             }
             default:
             {
-                cpu_set_illegal_order_interrupt(0); /* TODO: needs to be an interrupt about a bad descriptor, D fault */
+                cpu_set_its_interrupt();
                 break;
             }
         }
@@ -1714,7 +1714,7 @@ static t_uint64 cpu_get_operand_by_descriptor_vector(t_uint64 descriptor, uint32
         default:
         {
             result = 0;
-            cpu_set_D_interrupt();
+            cpu_set_its_interrupt();
             break;
         }
     }
@@ -1772,7 +1772,7 @@ static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 mod
         }
         default:
         {
-            cpu_set_D_interrupt();
+            cpu_set_its_interrupt();
             break;
         }
     }

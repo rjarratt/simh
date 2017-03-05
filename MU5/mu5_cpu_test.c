@@ -454,7 +454,7 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_16_bit_v
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_8_bit_value_from_nb(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_4_bit_value_from_nb(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_1_bit_value_from_nb(TESTCONTEXT *testContext);
-static void cpu_selftest_load_operand_with_invalid_descriptor_element_size_generates_D_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_load_operand_with_invalid_descriptor_element_size_generates_its_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_privileged_generates_interrupt_in_user_mode(TESTCONTEXT *testContext);
 
@@ -532,9 +532,11 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_16_bit_
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_8_bit_value_from_nb(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_4_bit_value_from_nb(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_value_from_nb(TESTCONTEXT *testContext);
-static void cpu_selftest_store_operand_with_invalid_descriptor_element_size_generates_D_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_store_operand_with_invalid_descriptor_element_size_generates_its_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_privileged_generates_interrupt_in_user_mode(TESTCONTEXT *testContext);
+
+static void cpu_selftest_any_descriptor_modify_generates_its_interrupt_if_descriptor_has_invalid_size(TESTCONTEXT *testContext);
 
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(TESTCONTEXT *testContext);
 static void cpu_selftest_sts1_xd_load_loads_whole_of_XD(TESTCONTEXT *testContext);
@@ -1043,7 +1045,7 @@ static UNITTEST tests[] =
     { "Load operand 8-bit extended from 0-relative descriptor from NB", cpu_selftest_load_operand_extended_zero_relative_descriptor_8_bit_value_from_nb },
     { "Load operand 4-bit extended from 0-relative descriptor from NB", cpu_selftest_load_operand_extended_zero_relative_descriptor_4_bit_value_from_nb },
     { "Load operand 1-bit extended from 0-relative descriptor from NB", cpu_selftest_load_operand_extended_zero_relative_descriptor_1_bit_value_from_nb },
-    { "Load operand with invalid descriptor element size generates D interrupt", cpu_selftest_load_operand_with_invalid_descriptor_element_size_generates_D_interrupt },
+    { "Load operand with invalid descriptor element size generates ITS interrupt", cpu_selftest_load_operand_with_invalid_descriptor_element_size_generates_its_interrupt },
     { "Load privileged operand reads the V-Store in executive mode", cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode },
     { "Load privileged operand generates interrupt in user mode", cpu_selftest_load_operand_privileged_generates_interrupt_in_user_mode },
 
@@ -1122,9 +1124,11 @@ static UNITTEST tests[] =
     { "Store operand 8-bit extended from 0-relative descriptor from NB", cpu_selftest_store_operand_extended_zero_relative_descriptor_8_bit_value_from_nb },
     { "Store operand 4-bit extended from 0-relative descriptor from NB", cpu_selftest_store_operand_extended_zero_relative_descriptor_4_bit_value_from_nb },
     { "Store operand 1-bit extended from 0-relative descriptor from NB", cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_value_from_nb },
-    { "Store operand with invalid descriptor element size generates D interrupt", cpu_selftest_store_operand_with_invalid_descriptor_element_size_generates_D_interrupt },
+    { "Store operand with invalid descriptor element size generates ITS interrupt", cpu_selftest_store_operand_with_invalid_descriptor_element_size_generates_its_interrupt },
     { "Store privileged operand storess the V-Store in executive mode", cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mode },
     { "Store privileged operand generates interrupt in user mode", cpu_selftest_store_operand_privileged_generates_interrupt_in_user_mode },
+
+    { "Any descriptor modify generates an ITS interrupt if the descriptor has an invalid size", cpu_selftest_any_descriptor_modify_generates_its_interrupt_if_descriptor_has_invalid_size },
 
     { "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD },
     { "STS1 XD Load Loads whole of XD", cpu_selftest_sts1_xd_load_loads_whole_of_XD },
@@ -3314,7 +3318,7 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_1_bit_va
     cpu_selftest_assert_no_interrupt();
 }
 
-static void cpu_selftest_load_operand_with_invalid_descriptor_element_size_generates_D_interrupt(TESTCONTEXT *testContext)
+static void cpu_selftest_load_operand_with_invalid_descriptor_element_size_generates_its_interrupt(TESTCONTEXT *testContext)
 {
     uint32 base = 0x00F0;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
@@ -3324,7 +3328,7 @@ static void cpu_selftest_load_operand_with_invalid_descriptor_element_size_gener
     cpu_selftest_set_register(REG_NB, base);
     sac_write_64_bit_word(base + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_64_BIT + 1, 2, vecorigin));
     cpu_selftest_run_code();
-    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+    cpu_selftest_assert_its_interrupt_as_system_error();
 }
 
 static void cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode(TESTCONTEXT *testContext)
@@ -4296,7 +4300,7 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_v
     cpu_selftest_assert_no_interrupt();
 }
 
-static void cpu_selftest_store_operand_with_invalid_descriptor_element_size_generates_D_interrupt(TESTCONTEXT *testContext)
+static void cpu_selftest_store_operand_with_invalid_descriptor_element_size_generates_its_interrupt(TESTCONTEXT *testContext)
 {
     uint32 base = 0x00F0;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
@@ -4308,7 +4312,7 @@ static void cpu_selftest_store_operand_with_invalid_descriptor_element_size_gene
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0x0000000000000001);
     cpu_selftest_run_code();
-    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+    cpu_selftest_assert_its_interrupt_as_system_error();
 }
 
 static void cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mode(TESTCONTEXT *testContext)
@@ -4339,6 +4343,15 @@ static void cpu_selftest_store_operand_privileged_generates_interrupt_in_user_mo
     cpu_selftest_run_code();
     cpu_selftest_assert_illegal_v_store_access_interrupt();
     cpu_selftest_assert_v_store_contents(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0x000000000000);
+}
+
+static void cpu_selftest_any_descriptor_modify_generates_its_interrupt_if_descriptor_has_invalid_size(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_STS1, F_SMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_64_BIT + 1, 2, 4));
+    cpu_selftest_run_code();
+    cpu_selftest_assert_its_interrupt_as_system_error();
 }
 
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(TESTCONTEXT *testContext)
