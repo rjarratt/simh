@@ -3611,7 +3611,10 @@ static void cpu_execute_b_div(uint16 order, DISPATCH_ENTRY *innerTable)
     t_int64 divisor = cpu_sign_extend_32_bit(cpu_get_operand(order) & MASK_32);
     if (divisor == 0)
     {
-        cpu_set_program_fault_interrupt(0); /* TODO: set proper interrupt here */
+        /* Since this order is not in the programming manual, there are no BOD status bits that can be used to report divide by zero, so just set a B interrupt. It is likely
+           to confuse any interrupt handler though, but real software would never execute this instruction in any case.
+        */
+        cpu_set_B_interrupt();
     }
     else
     {
@@ -3675,7 +3678,10 @@ static void cpu_execute_b_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)
     t_int64 dividend = cpu_sign_extend_32_bit(cpu_get_operand(order) & MASK_32);
     if (divisor == 0)
     {
-        cpu_set_program_fault_interrupt(0); /* TODO: set proper interrupt here */
+        /* Since this order is not in the programming manual, there are no BOD status bits that can be used to report divide by zero, so just set a B interrupt. It is likely
+           to confuse any interrupt handler though, but real software would never execute this instruction in any case.
+        */
+        cpu_set_B_interrupt();
     }
     else
     {
