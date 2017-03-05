@@ -756,7 +756,7 @@ static void cpu_selftest_org_stacklink_puts_link_on_stack_adding_operand_to_stac
 static void cpu_selftest_org_stacklink_treats_operand_as_signed(TESTCONTEXT *testContext);
 static void cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_overflows_segment_boundary(TESTCONTEXT *testContext);
 static void cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_underflows_segment_boundary(TESTCONTEXT *testContext);
-static void cpu_selftest_org_stacklink_generates_program_fault_interrupt_if_segment_overflow_in_user_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_org_stacklink_generates_illegal_order_interrupt_if_segment_overflow_in_user_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_org_stacklink_generates_system_error_interrupt_if_segment_overflow_in_level0_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_org_stacklink_generates_system_error_interrupt_if_segment_overflow_in_level1_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_org_stacklink_generates_system_error_interrupt_if_segment_overflow_in_executive_mode(TESTCONTEXT *testContext);
@@ -772,7 +772,7 @@ static void cpu_selftest_org_sn_load_in_executive_mode_loads_SN(TESTCONTEXT *tes
 static void cpu_selftest_org_xnb_plus_adds_operand_to_XNB(TESTCONTEXT *testContext);
 static void cpu_selftest_org_xnb_plus_generates_interrupt_if_segment_overflow(TESTCONTEXT *testContext);
 static void cpu_selftest_org_xnb_plus_generates_interrupt_if_segment_underflow(TESTCONTEXT *testContext);
-static void cpu_selftest_org_xnb_plus_generates_program_fault_interrupt_if_segment_overflow_in_user_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_org_xnb_plus_generates_illegal_order_interrupt_if_segment_overflow_in_user_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_level0_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_level1_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_executive_mode(TESTCONTEXT *testContext);
@@ -1340,7 +1340,7 @@ static UNITTEST tests[] =
     { "STACK LINK treats operand as signed", cpu_selftest_org_stacklink_treats_operand_as_signed },
     { "STACK LINK generates an interrupt when adding the operand to CO overflows a segment boundary", cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_overflows_segment_boundary },
     { "STACK LINK generates an interrupt when adding the operand to CO underlows a segment boundary", cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_underflows_segment_boundary },
-    { "STACK LINK generates a program fault interrupt when segment overflow occurs in user mode", cpu_selftest_org_stacklink_generates_program_fault_interrupt_if_segment_overflow_in_user_mode },
+    { "STACK LINK generates an illegal order interrupt when segment overflow occurs in user mode", cpu_selftest_org_stacklink_generates_illegal_order_interrupt_if_segment_overflow_in_user_mode },
     { "STACK LINK generates a system error interrupt when when segment overflow occurs in level 0 mode", cpu_selftest_org_stacklink_generates_system_error_interrupt_if_segment_overflow_in_level0_mode },
     { "STACK LINK generates a system error interrupt when when segment overflow occurs in level 1 mode", cpu_selftest_org_stacklink_generates_system_error_interrupt_if_segment_overflow_in_level1_mode },
     { "STACK LINK generates a system error interrupt when when segment overflow occurs in executive mode", cpu_selftest_org_stacklink_generates_system_error_interrupt_if_segment_overflow_in_executive_mode },
@@ -1356,7 +1356,7 @@ static UNITTEST tests[] =
     { "XNB+ adds operand to XNB", cpu_selftest_org_xnb_plus_adds_operand_to_XNB },
     { "XNB+ generates an interrupt if there is a segment overflow", cpu_selftest_org_xnb_plus_generates_interrupt_if_segment_overflow },
     { "XNB+ generates an interrupt if there is a segment underflow", cpu_selftest_org_xnb_plus_generates_interrupt_if_segment_underflow },
-    { "XNB+ generates a program fault interrupt if there is a segment overflow in user mode", cpu_selftest_org_xnb_plus_generates_program_fault_interrupt_if_segment_overflow_in_user_mode },
+    { "XNB+ generates an illegal order interrupt if there is a segment overflow in user mode", cpu_selftest_org_xnb_plus_generates_illegal_order_interrupt_if_segment_overflow_in_user_mode },
     { "XNB+ generates a system error interrupt if there is a segment overflow in level 0 mode", cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_level0_mode },
     { "XNB+ generates a system error interrupt if there is a segment overflow in level 1 mode", cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_level1_mode },
     { "XNB+ generates a system error interrupt if there is a segment overflow in executive mode", cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_executive_mode },
@@ -6800,7 +6800,7 @@ static void cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_t
     cpu_selftest_assert_control_adder_overflow_interrupt_as_system_error();
 }
 
-static void cpu_selftest_org_stacklink_generates_program_fault_interrupt_if_segment_overflow_in_user_mode(TESTCONTEXT *testContext)
+static void cpu_selftest_org_stacklink_generates_illegal_order_interrupt_if_segment_overflow_in_user_mode(TESTCONTEXT *testContext)
 {
     uint32 base = 32;
     cpu_selftest_load_organisational_order_extended(F_STACKLINK, KP_LITERAL, NP_32_BIT_SIGNED_LITERAL);
@@ -6959,7 +6959,7 @@ static void cpu_selftest_org_xnb_plus_generates_interrupt_if_segment_underflow(T
     cpu_selftest_assert_name_adder_overflow_interrupt_as_system_error();
 }
 
-static void cpu_selftest_org_xnb_plus_generates_program_fault_interrupt_if_segment_overflow_in_user_mode(TESTCONTEXT *testContext)
+static void cpu_selftest_org_xnb_plus_generates_illegal_order_interrupt_if_segment_overflow_in_user_mode(TESTCONTEXT *testContext)
 {
     cpu_selftest_load_organisational_order_extended(F_XNB_PLUS, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0xFFFFFFFC);
