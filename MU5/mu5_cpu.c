@@ -340,6 +340,7 @@ static void cpu_set_program_fault_interrupt(uint16 reason);
 static void cpu_set_illegal_order_interrupt(uint16 reason);
 static void cpu_set_B_interrupt(void);
 static void cpu_set_D_interrupt(void);
+static void cpu_set_its_interrupt(void);
 static void cpu_set_sss_interrupt(void);
 static void cpu_set_bounds_check_interrupt(void);
 static void cpu_set_name_adder_overflow_interrupt(void);
@@ -1272,6 +1273,12 @@ static void cpu_set_D_interrupt(void)
     {
         cpu_set_program_fault_interrupt(PROGRAM_FAULT_STATUS_MASK_D_ERROR);
     }
+}
+
+static void cpu_set_its_interrupt(void)
+{
+    cpu_set_register_bit_32(reg_dod, mask_dod_its, 1);
+    cpu_set_D_interrupt();
 }
 
 static void cpu_set_sss_interrupt(void)
@@ -2968,8 +2975,7 @@ static int cpu_check_string_descriptor(t_uint64 descriptor)
     uint8 size = cpu_get_descriptor_size(descriptor);
     if (type > DESCRIPTOR_TYPE_ADDRESS_VECTOR || size != DESCRIPTOR_SIZE_8_BIT)
     {
-        cpu_set_D_interrupt();
-        cpu_set_register_bit_32(reg_dod, mask_dod_its, 1);
+        cpu_set_its_interrupt();
         result = 0;
     }
 
@@ -2978,9 +2984,16 @@ static int cpu_check_string_descriptor(t_uint64 descriptor)
 
 static int cpu_check_32bit_descriptor(t_uint64 descriptor)
 {
+    int result;
     uint8 dt = cpu_get_descriptor_type(descriptor);
     uint8 ds = cpu_get_descriptor_size(descriptor);
-    return (dt == DESCRIPTOR_TYPE_GENERAL_VECTOR || dt == DESCRIPTOR_TYPE_ADDRESS_VECTOR) && ds == DESCRIPTOR_SIZE_32_BIT;
+    result = (dt == DESCRIPTOR_TYPE_GENERAL_VECTOR || dt == DESCRIPTOR_TYPE_ADDRESS_VECTOR) && ds == DESCRIPTOR_SIZE_32_BIT;
+    if (!result)
+    {
+        cpu_set_its_interrupt();
+    }
+
+    return result;
 }
 
 /* operand is the mask to apply to the source to get the destination */
@@ -3210,10 +3223,6 @@ static void cpu_execute_sts1_talu(uint16 order, DISPATCH_ENTRY *innerTable)
         }
 
         cpu_test_value(found ? 0 : 1);
-    }
-    else
-    {
-        cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
     }
 }
 
