@@ -310,7 +310,7 @@ static void cpu_selftest_assert_vector_content_1_bit(t_addr origin, uint32 offse
 static void cpu_selftest_assert_no_b_overflow(void);
 static void cpu_selftest_assert_no_b_overflow_interrupt(void);
 static void cpu_selftest_assert_b_overflow(void);
-static void cpu_selftest_assert_b_overflow_interrupt(void);
+static void cpu_selftest_assert_b_overflow_interrupt_as_system_error(void);
 static void cpu_selftest_assert_no_a_overflow(void);
 static void cpu_selftest_assert_no_a_overflow_interrupt(void);
 static void cpu_selftest_assert_a_overflow(void);
@@ -841,6 +841,8 @@ static void cpu_selftest_D_interrupt_as_system_error_in_executive_mode(TESTCONTE
 static void cpu_selftest_no_D_interrupt_if_inhibited_in_executive_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_D_interrupt_as_program_fault_in_user_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_no_D_interrupt_if_inhibited_in_user_mode(TESTCONTEXT *testContext);
+
+/* TODO: No interrupt if BOD inhibit, sys or prog fault according to mode, sys inhibited */
 
 static void cpu_selftest_interrupt_stacks_link_in_system_v_store(TESTCONTEXT *testContext);
 static void cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store(TESTCONTEXT *testContext);
@@ -1819,9 +1821,9 @@ static void cpu_selftest_assert_b_overflow(void)
     }
 }
 
-static void cpu_selftest_assert_b_overflow_interrupt(void)
+static void cpu_selftest_assert_b_overflow_interrupt_as_system_error(void)
 {
-    cpu_selftest_assert_interrupt();
+    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
     cpu_selftest_assert_b_overflow();
 }
 
@@ -5796,7 +5798,7 @@ static void cpu_selftest_b_load_and_decrement_flags_overflow(TESTCONTEXT *testCo
     cpu_selftest_load_order_extended(CR_B, F_LOAD_DEC_B, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0x80000000);
     cpu_selftest_run_code();
-    cpu_selftest_assert_b_overflow_interrupt();
+    cpu_selftest_assert_b_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_b_stack_and_load_stacks_B_and_loads_B(TESTCONTEXT *testContext)
@@ -5841,7 +5843,7 @@ static void cpu_selftest_b_add_flags_overflow(TESTCONTEXT *testContext)
     cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
     cpu_selftest_set_register(REG_B, 0x80000000);
     cpu_selftest_run_code();
-    cpu_selftest_assert_b_overflow_interrupt();
+    cpu_selftest_assert_b_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_b_sub_subtracts_operand_from_B(TESTCONTEXT *testContext)
@@ -5860,7 +5862,7 @@ static void cpu_selftest_b_sub_flags_overflow(TESTCONTEXT *testContext)
     cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
     cpu_selftest_set_register(REG_B, 0x7FFFFFFF);
     cpu_selftest_run_code();
-    cpu_selftest_assert_b_overflow_interrupt();
+    cpu_selftest_assert_b_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_b_mul_multiplies_operand_by_B(TESTCONTEXT *testContext)
@@ -5879,7 +5881,7 @@ static void cpu_selftest_b_mul_flags_overflow(TESTCONTEXT *testContext)
     cpu_selftest_load_32_bit_literal(0x7FFFFFFF);
     cpu_selftest_set_register(REG_B, 0x7FFFFFFF);
     cpu_selftest_run_code();
-    cpu_selftest_assert_b_overflow_interrupt();
+    cpu_selftest_assert_b_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_b_xor(TESTCONTEXT *testContext)
@@ -5925,7 +5927,7 @@ static void cpu_selftest_b_shift_flags_overflow(TESTCONTEXT *testContext)
     cpu_selftest_load_order(CR_B, F_SHIFT_L_B, K_LITERAL, 0x01);
     cpu_selftest_set_register(REG_B, 0x80000000);
     cpu_selftest_run_code();
-    cpu_selftest_assert_b_overflow_interrupt();
+    cpu_selftest_assert_b_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_b_and(TESTCONTEXT *testContext)
@@ -5954,7 +5956,7 @@ static void cpu_selftest_b_rsub_flags_overflow(TESTCONTEXT *testContext)
     cpu_selftest_load_32_bit_literal(0x7FFFFFFF);
     cpu_selftest_set_register(REG_B, 0xFFFFFFFF);
     cpu_selftest_run_code();
-    cpu_selftest_assert_b_overflow_interrupt();
+    cpu_selftest_assert_b_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_b_comp_sets_less_than_when_B_less_than_operand(TESTCONTEXT *testContext)
@@ -6027,7 +6029,7 @@ static void cpu_selftest_b_cinc_flags_overflow(TESTCONTEXT *testContext)
     cpu_selftest_load_32_bit_literal(0x7FFFFFFF);
     cpu_selftest_set_register(REG_B, 0x7FFFFFFF);
     cpu_selftest_run_code();
-    cpu_selftest_assert_b_overflow_interrupt();
+    cpu_selftest_assert_b_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_x_load_loads_X(TESTCONTEXT *testContext)

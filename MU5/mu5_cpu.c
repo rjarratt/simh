@@ -105,6 +105,7 @@ to set the MS register to some appropriate setting.
 #define PROGRAM_FAULT_STATUS_MASK_CONTROL_ADDER_OVF_ERROR 0x2000
 #define PROGRAM_FAULT_STATUS_ILLEGAL_V_STORE_ACCESS_ERROR 0x1000
 #define PROGRAM_FAULT_STATUS_MASK_CPR_ERROR               0x0800
+#define PROGRAM_FAULT_STATUS_MASK_B_ERROR                 0x0040 /* todo: deliberately wrong to make test fail when it is first written, should be 0x0080 */
 #define PROGRAM_FAULT_STATUS_MASK_D_ERROR                 0x0040
 
 static int cpu_stopped = 0;
@@ -333,6 +334,7 @@ static void cpu_clear_all_interrupts(void);
 static void cpu_set_system_error_interrupt(uint16 reason);
 static void cpu_set_program_fault_interrupt(uint16 reason);
 static void cpu_set_illegal_order_interrupt(uint16 reason);
+static void cpu_set_B_interrupt(void);
 static void cpu_set_D_interrupt(void);
 static void cpu_set_sss_interrupt(void);
 static void cpu_set_bounds_check_interrupt(void);
@@ -1242,6 +1244,18 @@ static void cpu_set_illegal_order_interrupt(uint16 reason)
 {
     cpu_set_interrupt(INT_ILLEGAL_ORDERS);
     PROPProgramFaultStatus |= reason;
+}
+
+static void cpu_set_B_interrupt(void)
+{
+    if (cpu_ms_is_all(MS_MASK_EXEC))
+    {
+        cpu_set_system_error_interrupt(SYSTEM_ERROR_STATUS_MASK_B_OR_D_ERROR);
+    }
+    else
+    {
+        cpu_set_program_fault_interrupt(PROGRAM_FAULT_STATUS_MASK_B_ERROR);
+    }
 }
 
 static void cpu_set_D_interrupt(void)
@@ -3501,7 +3515,7 @@ static void cpu_check_b_overflow(t_uint64 result)
         cpu_set_register_bit_32(reg_bod, mask_bod_bovf, 1);
         if (!cpu_get_register_bit_32(reg_bod, mask_bod_ibovf))
         {
-            cpu_set_program_fault_interrupt(0); /* TODO: set B Fault interrupt here */
+            cpu_set_B_interrupt();
         }
     }
     else
@@ -3514,7 +3528,7 @@ static void cpu_test_b_value(t_int64 value)
 {
     cpu_test_value(value);
     cpu_check_b_overflow(value);
-    cpu_clear_interrupt(INT_PROGRAM_FAULTS); /* supposed to ignore B overflow interrupts, just copy the overflow bit */
+    cpu_clear_interrupt(INT_PROGRAM_FAULTS); /* TODO: supposed to ignore B overflow interrupts, just copy the overflow bit, clearing the interrupt may clear the wrong one */
     cpu_set_register_bit_16(reg_ms, mask_ms_t0, cpu_get_register_bit_32(reg_bod, mask_bod_bovf));
 }
 
