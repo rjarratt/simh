@@ -105,7 +105,7 @@ to set the MS register to some appropriate setting.
 #define PROGRAM_FAULT_STATUS_MASK_CONTROL_ADDER_OVF_ERROR 0x2000
 #define PROGRAM_FAULT_STATUS_ILLEGAL_V_STORE_ACCESS_ERROR 0x1000
 #define PROGRAM_FAULT_STATUS_MASK_CPR_ERROR               0x0800
-#define PROGRAM_FAULT_STATUS_MASK_B_ERROR                 0x0040 /* todo: deliberately wrong to make test fail when it is first written, should be 0x0080 */
+#define PROGRAM_FAULT_STATUS_MASK_B_ERROR                 0x0080
 #define PROGRAM_FAULT_STATUS_MASK_D_ERROR                 0x0040
 
 static int cpu_stopped = 0;
@@ -3515,7 +3515,7 @@ static void cpu_check_b_overflow(t_uint64 result)
         cpu_set_register_bit_32(reg_bod, mask_bod_bovf, 1);
         if (!cpu_get_register_bit_32(reg_bod, mask_bod_ibovf))
         {
-            cpu_set_B_interrupt();
+            cpu_set_B_interrupt(); /* TODO: make B overflow tests check more precisely for a B overflow interrupt, not just any interrupt */
         }
     }
     else

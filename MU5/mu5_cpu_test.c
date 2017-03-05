@@ -337,6 +337,7 @@ static void cpu_selftest_assert_name_adder_overflow_interrupt_as_illegal_order(v
 static void cpu_selftest_assert_control_adder_overflow_interrupt_as_system_error(void);
 static void cpu_selftest_assert_control_adder_overflow_interrupt_as_illegal_order(void);
 static void cpu_selftest_assert_B_or_D_interrupt_as_system_error(void);
+static void cpu_selftest_assert_B_interrupt_as_program_fault(void);
 static void cpu_selftest_assert_D_interrupt_as_program_fault(void);
 static void cpu_selftest_assert_illegal_v_store_access_interrupt();
 static void cpu_selftest_assert_test_equals(void);
@@ -841,8 +842,10 @@ static void cpu_selftest_D_interrupt_as_system_error_in_executive_mode(TESTCONTE
 static void cpu_selftest_no_D_interrupt_if_inhibited_in_executive_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_D_interrupt_as_program_fault_in_user_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_no_D_interrupt_if_inhibited_in_user_mode(TESTCONTEXT *testContext);
-
-/* TODO: No interrupt if BOD inhibit, sys or prog fault according to mode, sys inhibited */
+static void cpu_selftest_B_interrupt_as_system_error_in_executive_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_no_B_interrupt_if_inhibited_in_executive_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_B_interrupt_as_program_fault_in_user_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_no_B_interrupt_if_inhibited_in_user_mode(TESTCONTEXT *testContext);
 
 static void cpu_selftest_interrupt_stacks_link_in_system_v_store(TESTCONTEXT *testContext);
 static void cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store(TESTCONTEXT *testContext);
@@ -1422,6 +1425,10 @@ static UNITTEST tests[] =
     { "No D interrupt if inhibited in executive mode", cpu_selftest_no_D_interrupt_if_inhibited_in_executive_mode },
     { "D interrupt as program fault in user mode", cpu_selftest_D_interrupt_as_program_fault_in_user_mode },
     { "No D interrupt if inhibited in user mode", cpu_selftest_no_D_interrupt_if_inhibited_in_user_mode },
+    { "B interrupt as system error in executive mode", cpu_selftest_B_interrupt_as_system_error_in_executive_mode },
+    { "No B interrupt if inhibited in executive mode", cpu_selftest_no_B_interrupt_if_inhibited_in_executive_mode },
+    { "B interrupt as program fault in user mode", cpu_selftest_B_interrupt_as_program_fault_in_user_mode },
+    { "No B interrupt if inhibited in user mode", cpu_selftest_no_B_interrupt_if_inhibited_in_user_mode },
 
     { "Interrupt stacks link in System V-Store", cpu_selftest_interrupt_stacks_link_in_system_v_store },
     { "Interrupt calls handler using link in System V-Store", cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store },
@@ -2033,6 +2040,17 @@ static void cpu_selftest_assert_B_or_D_interrupt_as_system_error(void)
     }
 
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0080);
+}
+
+static void cpu_selftest_assert_B_interrupt_as_program_fault(void)
+{
+    if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected B interrupt to have occurred as Program Fault\n");
+        cpu_selftest_set_failure();
+    }
+
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x0080);
 }
 
 static void cpu_selftest_assert_D_interrupt_as_program_fault(void)
@@ -7501,6 +7519,44 @@ static void cpu_selftest_no_D_interrupt_if_inhibited_in_user_mode(TESTCONTEXT *t
     cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0x00000001);
     cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 1, 8));
+    cpu_selftest_set_user_mode();
+    cpu_selftest_set_inhibit_program_fault_interrupts();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_B_interrupt_as_system_error_in_executive_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_B, F_LOAD_DEC_B, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x80000000);
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+}
+
+static void cpu_selftest_no_B_interrupt_if_inhibited_in_executive_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_B, F_LOAD_DEC_B, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x80000000);
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_B_interrupt_as_program_fault_in_user_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_B, F_LOAD_DEC_B, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x80000000);
+    cpu_selftest_set_user_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_B_interrupt_as_program_fault();
+}
+
+static void cpu_selftest_no_B_interrupt_if_inhibited_in_user_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_B, F_LOAD_DEC_B, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x80000000);
     cpu_selftest_set_user_mode();
     cpu_selftest_set_inhibit_program_fault_interrupts();
     cpu_selftest_run_code();
