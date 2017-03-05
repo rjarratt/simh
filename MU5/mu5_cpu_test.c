@@ -333,9 +333,9 @@ static void cpu_selftest_assert_no_its_interrupt(void);
 static void cpu_selftest_assert_sss_no_interrupt(void);
 static void cpu_selftest_assert_no_sss_interrupt(void);
 static void cpu_selftest_assert_name_adder_overflow_interrupt_as_system_error(void);
-static void cpu_selftest_assert_name_adder_overflow_interrupt_as_program_fault(void);
+static void cpu_selftest_assert_name_adder_overflow_interrupt_as_illegal_order(void);
 static void cpu_selftest_assert_control_adder_overflow_interrupt_as_system_error(void);
-static void cpu_selftest_assert_control_adder_overflow_interrupt_as_program_fault(void);
+static void cpu_selftest_assert_control_adder_overflow_interrupt_as_illegal_order(void);
 static void cpu_selftest_assert_B_or_D_interrupt_as_system_error(void);
 static void cpu_selftest_assert_D_interrupt_as_program_fault(void);
 static void cpu_selftest_assert_illegal_v_store_access_interrupt();
@@ -1989,11 +1989,11 @@ static void cpu_selftest_assert_name_adder_overflow_interrupt_as_system_error(vo
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0010);
 }
 
-static void cpu_selftest_assert_name_adder_overflow_interrupt_as_program_fault(void)
+static void cpu_selftest_assert_name_adder_overflow_interrupt_as_illegal_order(void)
 {
-    if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
+    if (cpu_get_interrupt_number() != INT_ILLEGAL_ORDERS)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected name adder overflow interrupt to have occurred as Program Fault\n");
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected name adder overflow interrupt to have occurred as Illegal Order\n");
         cpu_selftest_set_failure();
     }
 
@@ -2011,11 +2011,11 @@ static void cpu_selftest_assert_control_adder_overflow_interrupt_as_system_error
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0008);
 }
 
-static void cpu_selftest_assert_control_adder_overflow_interrupt_as_program_fault(void)
+static void cpu_selftest_assert_control_adder_overflow_interrupt_as_illegal_order(void)
 {
-    if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
+    if (cpu_get_interrupt_number() != INT_ILLEGAL_ORDERS)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected control adder overflow interrupt to have occurred as Program Fault\n");
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected control adder overflow interrupt to have occurred as Illegal Order\n");
         cpu_selftest_set_failure();
     }
 
@@ -6807,7 +6807,7 @@ static void cpu_selftest_org_stacklink_generates_program_fault_interrupt_if_segm
     cpu_selftest_load_32_bit_literal(0x7FFFFFFF);
     cpu_selftest_set_user_mode();
     cpu_selftest_run_code();
-    cpu_selftest_assert_control_adder_overflow_interrupt_as_program_fault();
+    cpu_selftest_assert_control_adder_overflow_interrupt_as_illegal_order();
 }
 
 static void cpu_selftest_org_stacklink_generates_system_error_interrupt_if_segment_overflow_in_level0_mode(TESTCONTEXT *testContext)
@@ -6966,7 +6966,7 @@ static void cpu_selftest_org_xnb_plus_generates_program_fault_interrupt_if_segme
     cpu_selftest_set_register(REG_XNB, 0xAAAA0002);
     cpu_selftest_set_user_mode();
     cpu_selftest_run_code();
-    cpu_selftest_assert_name_adder_overflow_interrupt_as_program_fault();
+    cpu_selftest_assert_name_adder_overflow_interrupt_as_illegal_order();
 }
 
 static void cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_level0_mode(TESTCONTEXT *testContext)

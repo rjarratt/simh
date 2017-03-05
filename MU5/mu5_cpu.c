@@ -1253,12 +1253,12 @@ static void cpu_set_name_adder_overflow_interrupt() /* TODO: control and name ad
 {
     if (cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1 | MS_MASK_EXEC))
     {
-        cpu_set_interrupt(INT_SYSTEM_ERROR);
+        cpu_set_interrupt(INT_SYSTEM_ERROR); /* TODO: Make method of this */
         PROPSystemErrorStatus |= 0x0010;
     }
     else
     {
-        cpu_set_program_fault_interrupt(0x4000);
+        cpu_set_illegal_order_interrupt(0x4000);
     }
 }
 
@@ -1271,7 +1271,7 @@ static void cpu_set_control_adder_overflow_interrupt()
     }
     else
     {
-        cpu_set_program_fault_interrupt(0x2000);
+        cpu_set_illegal_order_interrupt(0x2000);
     }
 }
 
