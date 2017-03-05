@@ -267,6 +267,7 @@ static void cpu_selftest_load_16_bit_literal(uint16 value);
 static void cpu_selftest_load_32_bit_literal(uint32 value);
 static void cpu_selftest_load_64_bit_literal(t_uint64 value);
 static t_uint64 cpu_selftest_create_descriptor(uint8 type, uint8 size, uint32 bound, uint32 origin);
+static t_uint64 cpu_selftest_create_miscellaneous_descriptor(uint8 type, uint8 subtype, uint32 bound, uint32 origin);
 static t_addr cpu_selftest_get_64_bit_vector_element_address(uint32 origin, uint32 offset);
 static t_addr cpu_selftest_get_32_bit_vector_element_address(uint32 origin, uint32 offset);
 static t_addr cpu_selftest_get_16_bit_vector_element_address(uint32 origin, uint32 offset);
@@ -569,6 +570,7 @@ static void cpu_selftest_sts1_xmod_checks_bounds_for_type_2(TESTCONTEXT *testCon
 static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_0_when_BC_set(TESTCONTEXT *testContext);
 static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_1_when_BC_set(TESTCONTEXT *testContext);
 static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_2_when_BC_set(TESTCONTEXT *testContext);
+static void cpu_selftest_sts1_xmod_generates_its_interrupt_if_illegal_descriptor_type_used(TESTCONTEXT *testContext);
 static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_source_not_8_bit(TESTCONTEXT *testContext);
 static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_destination_not_8_bit(TESTCONTEXT *testContext);
 static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_source_is_type_3(TESTCONTEXT *testContext);
@@ -1162,6 +1164,7 @@ static UNITTEST tests[] =
     { "XMOD does not check bounds for type 0 descriptor when BC is set", cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_0_when_BC_set },
     { "XMOD does not check bounds for type 1 descriptor when BC is set", cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_1_when_BC_set },
     { "XMOD does not check bounds for type 2 descriptor when BC is set", cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_2_when_BC_set },
+    { "XMOD generates ITS interrupt if illegal descriptor type is used", cpu_selftest_sts1_xmod_generates_its_interrupt_if_illegal_descriptor_type_used },
     { "SLGC generates ITS interrupt if source is not 8-bit", cpu_selftest_sts1_slgc_generates_its_interrupt_if_source_not_8_bit },
     { "SLGC generates ITS interrupt if destination is not 8-bit", cpu_selftest_sts1_slgc_generates_its_interrupt_if_destination_not_8_bit },
     { "SLGC generates ITS interrupt if source is type 3", cpu_selftest_sts1_slgc_generates_its_interrupt_if_source_is_type_3 },
@@ -1540,6 +1543,17 @@ static t_uint64 cpu_selftest_create_descriptor(uint8 type, uint8 size, uint32 bo
     result |= (t_uint64)(type & 0x3) << 62;
     result |= (t_uint64)(size & 0x7) << 59;
     result |= (t_uint64)bound << 32;
+    result |= origin;
+
+    return result;
+}
+
+static t_uint64 cpu_selftest_create_miscellaneous_descriptor(uint8 type, uint8 subtype, uint32 bound, uint32 origin)
+{
+    t_uint64 result = 0;
+    result |= (t_uint64)(type & 0x3) << 62;
+    result |= (t_uint64)(subtype & 0x3F) << 56;
+    result |= (t_uint64)(bound & 0x0FFF) << 32;
     result |= origin;
 
     return result;
@@ -4666,6 +4680,15 @@ static void cpu_selftest_sts1_xmod_does_not_check_bounds_for_type_2_when_BC_set(
     cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_ADDRESS_VECTOR, DESCRIPTOR_SIZE_64_BIT, 1, 8) | DESCRIPTOR_BC_MASK);
     cpu_selftest_run_code();
     cpu_selftest_assert_no_bounds_check_interrupt();
+}
+
+static void cpu_selftest_sts1_xmod_generates_its_interrupt_if_illegal_descriptor_type_used(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_STS1, F_XMOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x00000001);
+    cpu_selftest_set_register(REG_XD, cpu_selftest_create_miscellaneous_descriptor(DESCRIPTOR_TYPE_MISCELLANEOUS, 3, 1, 8));
+    cpu_selftest_run_code();
+    cpu_selftest_assert_its_interrupt_as_system_error();
 }
 
 static void cpu_selftest_sts1_slgc_generates_its_interrupt_if_source_not_8_bit(TESTCONTEXT *testContext)

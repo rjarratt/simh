@@ -3098,7 +3098,7 @@ static void cpu_execute_sts1_xmod(uint16 order, DISPATCH_ENTRY *innerTable)
     uint8 subtype = cpu_get_descriptor_subtype(xd);
     if (type == DESCRIPTOR_TYPE_MISCELLANEOUS && (subtype >= DESCRIPTOR_TYPE_MISCELLANEOUS && subtype <= 31))
     {
-        cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
+        cpu_set_its_interrupt();
     }
 
     cpu_execute_descriptor_modify(order, reg_xd);
