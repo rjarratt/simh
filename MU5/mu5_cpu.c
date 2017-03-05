@@ -45,6 +45,10 @@ To Do
 -----
 Page 2.10.1. Action section says that truncating a non-zero bit on store orders will cause an interrupt.
 
+RNI: The Name Base is conceptually 16 bits long but the l.s. bit is always zero, so the name for a 32-bit variable is shifted
+down 1 place and the l.s. bit is used to select the appropriate half of the 64-bit word accessed from the name store.
+So for a V-store access, the name part of the instruction just points to a 64-bit word.
+
 */
 
 #include <assert.h>
@@ -3515,7 +3519,7 @@ static void cpu_check_b_overflow(t_uint64 result)
         cpu_set_register_bit_32(reg_bod, mask_bod_bovf, 1);
         if (!cpu_get_register_bit_32(reg_bod, mask_bod_ibovf))
         {
-            cpu_set_B_interrupt(); /* TODO: make B overflow tests check more precisely for a B overflow interrupt, not just any interrupt */
+            cpu_set_B_interrupt();
         }
     }
     else
