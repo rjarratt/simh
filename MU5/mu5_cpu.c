@@ -1211,9 +1211,11 @@ static void cpu_set_system_error_interrupt(uint16 reason)
 
 static void cpu_set_program_fault_interrupt(uint16 reason)
 {
-    /* TODO: inhibit program faults interrupts if MS1 says so */
-    cpu_set_interrupt(INT_PROGRAM_FAULTS);
-    PROPProgramFaultStatus |= reason;
+    if (!cpu_ms_is_all(MS_MASK_INH_PROG_FLT))
+    {
+        cpu_set_interrupt(INT_PROGRAM_FAULTS);
+        PROPProgramFaultStatus |= reason;
+    }
 }
 
 static void cpu_set_illegal_order_interrupt(uint16 reason)
@@ -1228,10 +1230,10 @@ static void cpu_set_D_interrupt(void)
     {
         if (cpu_ms_is_all(MS_MASK_B_D_SYS_ERR_EXEC))
         {
-            cpu_set_system_error_interrupt(0x0080);
+            cpu_set_system_error_interrupt(0x0080); /* TODO: consider putting inhibit logic inside function and checking the reason*/
         }
     }
-    else if (!cpu_ms_is_all(MS_MASK_INH_PROG_FLT))
+    else
     {
         cpu_set_program_fault_interrupt(0x0040);
     }
