@@ -1940,7 +1940,7 @@ static void cpu_selftest_assert_a_zero_divide(void)
 
 static void cpu_selftest_assert_a_zero_divide_interrupt(void)
 {
-    cpu_selftest_assert_interrupt();
+    cpu_selftest_assert_acc_interrupt_as_system_error();
     cpu_selftest_assert_a_zero_divide();
 }
 

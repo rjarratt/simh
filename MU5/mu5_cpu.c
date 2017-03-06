@@ -506,6 +506,7 @@ static void cpu_execute_b_compare(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_compare_and_increment(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* fixed point signed order functions */
+static void cpu_set_divide_by_zero(void);
 static void cpu_check_x_overflow(t_uint64 result);
 static void cpu_execute_fp_signed_load_single(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_fp_signed_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -3739,6 +3740,15 @@ static void cpu_execute_b_compare_and_increment(uint16 order, DISPATCH_ENTRY *in
     cpu_set_register_32(reg_b, b & MASK_32);
 }
 
+static void cpu_set_divide_by_zero(void)
+{
+    cpu_set_register_bit_64(reg_aod, mask_aod_zdiv, 1);
+    if (!cpu_get_register_bit_64(reg_aod, mask_aod_izdiv))
+    {
+        cpu_set_A_interrupt();
+    }
+}
+
 static void cpu_check_x_overflow(t_uint64 result)
 {
     uint32 ms = result >> 32;
@@ -3813,11 +3823,7 @@ static void cpu_execute_fp_signed_div(uint16 order, DISPATCH_ENTRY *innerTable)
     t_int64 divisor = cpu_sign_extend_32_bit(cpu_get_operand(order) & MASK_32);
     if (divisor == 0)
     {
-        cpu_set_register_bit_64(reg_aod, mask_aod_zdiv, 1);
-        if (!cpu_get_register_bit_64(reg_aod, mask_aod_izdiv))
-        {
-            cpu_set_A_interrupt();
-        }
+        cpu_set_divide_by_zero();
     }
     else
     {
@@ -3901,11 +3907,7 @@ static void cpu_execute_fp_signed_reverse_div(uint16 order, DISPATCH_ENTRY *inne
     t_int64 dividend = cpu_sign_extend_32_bit(cpu_get_operand(order) & MASK_32);
     if (divisor == 0)
     {
-        cpu_set_register_bit_64(reg_aod, mask_aod_zdiv, 1);
-        if (!cpu_get_register_bit_64(reg_aod, mask_aod_izdiv))
-        {
-            cpu_set_program_fault_interrupt(0); /* TODO: set proper interrupt here */
-        }
+        cpu_set_divide_by_zero();
     }
     else
     {
