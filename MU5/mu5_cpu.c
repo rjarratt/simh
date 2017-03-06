@@ -485,7 +485,8 @@ static void cpu_execute_sts2_bcmp(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_sts2_sub2(uint16 order, DISPATCH_ENTRY *innerTable);
 
 /* B order functions */
-static void cpu_check_b_overflow(t_uint64 result);
+static int cpu_test_b_overflow(t_uint64 value);
+static void cpu_check_b_overflow(t_uint64 value);
 static void cpu_test_b_value(t_int64 value);
 static void cpu_execute_b_load(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_load_and_decrement(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -3538,30 +3539,38 @@ static void cpu_execute_sts2_sub2(uint16 order, DISPATCH_ENTRY *innerTable)
     }
 }
 
-static void cpu_check_b_overflow(t_uint64 result)
+static int cpu_test_b_overflow(t_uint64 value)
 {
-    uint32 ms = result >> 32;
-    uint8 sign = result >> 31 & 1;
+    int result = 0;
+    uint32 ms = value >> 32;
+    uint8 sign = value >> 31 & 1;
     if (!(sign == 0 && ms == 0) && !(sign == 1 && ms == ~0))
     {
-        cpu_set_register_bit_32(reg_bod, mask_bod_bovf, 1);
+        result = 1;
+    }
+
+    cpu_set_register_bit_32(reg_bod, mask_bod_bovf, result);
+
+    return result;
+}
+
+static void cpu_check_b_overflow(t_uint64 value)
+{
+    if (cpu_test_b_overflow(value))
+    {
         if (!cpu_get_register_bit_32(reg_bod, mask_bod_ibovf))
         {
             cpu_set_B_interrupt();
         }
     }
-    else
-    {
-        cpu_set_register_bit_32(reg_bod, mask_bod_bovf, 0);
-    }
 }
 
 static void cpu_test_b_value(t_int64 value)
 {
+    int overflow;
     cpu_test_value(value);
-    cpu_check_b_overflow(value);
-    cpu_clear_interrupt(INT_PROGRAM_FAULTS); /* TODO: supposed to ignore B overflow interrupts, just copy the overflow bit, clearing the interrupt may clear the wrong one */
-    cpu_set_register_bit_16(reg_ms, mask_ms_t0, cpu_get_register_bit_32(reg_bod, mask_bod_bovf));
+    overflow = cpu_test_b_overflow(value);
+    cpu_set_register_bit_16(reg_ms, mask_ms_t0, overflow);
 }
 
 static void cpu_execute_b_load(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -3709,6 +3718,8 @@ static void cpu_execute_b_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)
     }
 }
 
+/* The programming manual says "no overflow may occur", the interpretation from RNI of this statement is "COMP won't generate an overflow interrupt if overflow occurs because
+   B isn't altered so B hasn't overflowed. If the result overflows, Test bit 0 is set." */
 static void cpu_execute_b_compare(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B COMP ");
@@ -3880,7 +3891,7 @@ static void cpu_execute_fp_signed_convert(uint16 order, DISPATCH_ENTRY *innerTab
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "X CONV ");
     /* TODO: Implement convert to floating point */
-    cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
+    cpu_set_illegal_order_interrupt(0);
 }
 
 static void cpu_execute_fp_signed_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)

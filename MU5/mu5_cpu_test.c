@@ -6141,7 +6141,7 @@ static void cpu_selftest_b_comp_sets_overflow(TESTCONTEXT *testContext)
     cpu_selftest_assert_reg_equals(REG_B, 0x80000000);
     cpu_selftest_assert_test_overflow();
     cpu_selftest_assert_b_overflow();
-    //cpu_selftest_assert_no_interrupt(); // TODO: commented for now as B COMP semantics are unclear.
+    cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_b_cinc_compares_B_with_operand(TESTCONTEXT *testContext)
