@@ -3970,7 +3970,7 @@ static void cpu_execute_fp_unsigned_div(uint16 order, DISPATCH_ENTRY *innerTable
     uint32 divisor = cpu_get_operand(order) & MASK_32;
     if (divisor == 0)
     {
-        cpu_set_program_fault_interrupt(0); /* TODO: set proper interrupt here */
+        cpu_set_divide_by_zero();
     }
     else
     {
@@ -4032,7 +4032,7 @@ static void cpu_execute_fp_unsigned_reverse_div(uint16 order, DISPATCH_ENTRY *in
     uint32 dividend = cpu_get_operand(order) & MASK_32;
     if (divisor == 0)
     {
-        cpu_set_program_fault_interrupt(0); /* TODO: set proper interrupt here */
+        cpu_set_divide_by_zero();
     }
     else
     {
