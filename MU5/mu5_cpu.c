@@ -1895,7 +1895,7 @@ static void cpu_set_operand_from_descriptor(uint16 order, uint32 instructionAddr
 
     daddr = cpu_get_name_segment_address_from_reg(reg_nb, n, SCALE_64);
     d = sac_read_64_bit_word(daddr);
-    /*cpu_set_register_64(reg_d, d);*/ /* TODO: Check, should D be written? */
+    cpu_set_register_64(reg_d, d);
 
     cpu_set_operand_by_descriptor_vector(d, modifier, value);
 }

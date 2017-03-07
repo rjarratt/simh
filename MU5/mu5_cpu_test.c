@@ -396,6 +396,7 @@ static void cpu_selftest_load_operand_internal_register_48(TESTCONTEXT *testCont
 static void cpu_selftest_load_operand_32_bit_variable(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_32_bit_variable_6_bit_offset_is_unsigned(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_64_bit_variable(TESTCONTEXT *testContext);
+static void cpu_selftest_load_operand_b_relative_descriptor_loads_D(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_4(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_5(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_b_relative_descriptor_64_bit_value_at_6_bit_offset(TESTCONTEXT *testContext);
@@ -403,6 +404,7 @@ static void cpu_selftest_load_operand_b_relative_descriptor_16_bit_value_at_6_bi
 static void cpu_selftest_load_operand_b_relative_descriptor_8_bit_value_at_6_bit_offset(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_b_relative_descriptor_4_bit_value_at_6_bit_offset(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_b_relative_descriptor_1_bit_value_at_6_bit_offset(TESTCONTEXT *testContext);
+static void cpu_selftest_load_operand_zero_relative_descriptor_loads_D(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_zero_relative_descriptor_64_bit_value_at_6_bit_offset(TESTCONTEXT *testContext);
 
 static void cpu_selftest_load_operand_16_bit_signed_positive_literal(TESTCONTEXT *testContext);
@@ -483,6 +485,7 @@ static void cpu_selftest_store_operand_internal_register_48(TESTCONTEXT *testCon
 
 static void cpu_selftest_store_operand_32_bit_variable(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_64_bit_variable(TESTCONTEXT *testContext);
+static void cpu_selftest_store_operand_b_relative_descriptor_loads_D(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_4(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_5(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_b_relative_descriptor_64_bit_value_at_6_bit_offset(TESTCONTEXT *testContext);
@@ -490,6 +493,7 @@ static void cpu_selftest_store_operand_b_relative_descriptor_16_bit_value_at_6_b
 static void cpu_selftest_store_operand_b_relative_descriptor_8_bit_value_at_6_bit_offset(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_b_relative_descriptor_4_bit_value_at_6_bit_offset(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_b_relative_descriptor_1_bit_value_at_6_bit_offset(TESTCONTEXT *testContext);
+static void cpu_selftest_store_operand_zero_relative_descriptor_loads_D(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_zero_relative_descriptor_64_bit_value_at_6_bit_offset(TESTCONTEXT *testContext);
 
 static void cpu_selftest_store_operand_extended_literal_kp_0_generates_interrupt(TESTCONTEXT *testContext);
@@ -991,6 +995,7 @@ static UNITTEST tests[] =
     { "Load operand 32-bit variable", cpu_selftest_load_operand_32_bit_variable },
     { "Load operand 32-bit variable 6-bit offset is unsigned", cpu_selftest_load_operand_32_bit_variable_6_bit_offset_is_unsigned },
     { "Load operand 64-bit variable", cpu_selftest_load_operand_64_bit_variable },
+    { "Load operand 32-bit via B-relative descriptor loads D", cpu_selftest_load_operand_b_relative_descriptor_loads_D },
     { "Load operand 32-bit via B-relative descriptor at 6-bit offset for k=4", cpu_selftest_load_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_4 },
     { "Load operand 32-bit via B-relative descriptor at 6-bit offset for k=5", cpu_selftest_load_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_5 },
     { "Load operand 64-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_64_bit_value_at_6_bit_offset },
@@ -998,6 +1003,7 @@ static UNITTEST tests[] =
     { "Load operand 8-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_8_bit_value_at_6_bit_offset },
     { "Load operand 4-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_4_bit_value_at_6_bit_offset },
     { "Load operand 1-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_1_bit_value_at_6_bit_offset },
+    { "Load operand 64-bit via 0-relative descriptor loads D", cpu_selftest_load_operand_zero_relative_descriptor_loads_D },
     { "Load operand 64-bit via 0-relative descriptor at 6-bit offset", cpu_selftest_load_operand_zero_relative_descriptor_64_bit_value_at_6_bit_offset },
 
     { "Load operand 16-bit signed positive literal", cpu_selftest_load_operand_16_bit_signed_positive_literal },
@@ -1079,6 +1085,7 @@ static UNITTEST tests[] =
 
     { "Store operand 32-bit variable", cpu_selftest_store_operand_32_bit_variable },
     { "Store operand 64-bit variable", cpu_selftest_store_operand_64_bit_variable },
+    { "Store operand 32-bit via B-relative descriptor loads D", cpu_selftest_store_operand_b_relative_descriptor_loads_D },
     { "Store operand 32-bit via B-relative descriptor at 6-bit offset for k=4", cpu_selftest_store_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_4 },
     { "Store operand 32-bit via B-relative descriptor at 6-bit offset for k=5", cpu_selftest_store_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_5 },
     { "Store operand 64-bit via B-relative descriptor at 6-bit offset", cpu_selftest_store_operand_b_relative_descriptor_64_bit_value_at_6_bit_offset },
@@ -1086,6 +1093,7 @@ static UNITTEST tests[] =
     { "Store operand 8-bit via B-relative descriptor at 6-bit offset", cpu_selftest_store_operand_b_relative_descriptor_8_bit_value_at_6_bit_offset },
     { "Store operand 4-bit via B-relative descriptor at 6-bit offset", cpu_selftest_store_operand_b_relative_descriptor_4_bit_value_at_6_bit_offset },
     { "Store operand 1-bit via B-relative descriptor at 6-bit offset", cpu_selftest_store_operand_b_relative_descriptor_1_bit_value_at_6_bit_offset },
+    { "Store operand 64-bit via 0-relative descriptor loads D", cpu_selftest_store_operand_zero_relative_descriptor_loads_D },
     { "Store operand 64-bit via 0-relative descriptor at 6-bit offset", cpu_selftest_store_operand_zero_relative_descriptor_64_bit_value_at_6_bit_offset },
 
     { "Store operand to extended literal generates interrupt, k'=0", cpu_selftest_store_operand_extended_literal_kp_0_generates_interrupt },
@@ -2570,6 +2578,22 @@ static void cpu_selftest_load_operand_64_bit_variable(TESTCONTEXT *testContext)
 // TODO: p17 SN interrupt on overflow
 // TODO: p17 long instruction offset is signed (?)
 
+static void cpu_selftest_load_operand_b_relative_descriptor_loads_D(TESTCONTEXT *testContext)
+{
+    uint32 base = 0x00F0;
+    uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
+    uint32 vecoffset = 1;
+    int8 n = 0x1;
+    t_uint64 d = cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin);
+    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_SB, n);
+    cpu_selftest_set_register(REG_NB, base);
+    cpu_selftest_set_register(REG_B, vecoffset);
+    sac_write_64_bit_word(base + 2 * n, d);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_D, d);
+    cpu_selftest_assert_no_interrupt();
+}
+
 static void cpu_selftest_load_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_4(TESTCONTEXT *testContext)
 {
     uint32 base = 0x00F0;
@@ -2679,6 +2703,20 @@ static void cpu_selftest_load_operand_b_relative_descriptor_1_bit_value_at_6_bit
     cpu_selftest_load_8_bit_value_to_descriptor_location(vecorigin, 0, 0x40);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0x0000000000000001);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_load_operand_zero_relative_descriptor_loads_D(TESTCONTEXT *testContext)
+{
+    uint32 base = 0x00F0;
+    uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
+    int8 n = 0x1;
+    t_uint64 d = cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_64_BIT, 2, vecorigin);
+    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_S0, n);
+    cpu_selftest_set_register(REG_NB, base);
+    sac_write_64_bit_word(base + 2 * n, d);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_D, d);
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -3587,6 +3625,22 @@ static void cpu_selftest_store_operand_64_bit_variable(TESTCONTEXT *testContext)
     cpu_selftest_assert_no_interrupt();
 }
 
+static void cpu_selftest_store_operand_b_relative_descriptor_loads_D(TESTCONTEXT *testContext)
+{
+    uint32 base = 0x00F0;
+    uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
+    uint32 vecoffset = 1;
+    int8 n = 0x1;
+    t_uint64 d = cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin);
+    cpu_selftest_load_order(CR_FLOAT, F_STORE, K_SB, n);
+    cpu_selftest_set_register(REG_NB, base);
+    cpu_selftest_set_register(REG_B, vecoffset);
+    sac_write_64_bit_word(base + 2 * n, d);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_D, d);
+    cpu_selftest_assert_no_interrupt();
+}
+
 static void cpu_selftest_store_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_4(TESTCONTEXT *testContext)
 {
     uint32 base = 0x00F0;
@@ -3703,6 +3757,21 @@ static void cpu_selftest_store_operand_b_relative_descriptor_1_bit_value_at_6_bi
     sac_write_64_bit_word(base + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 2, vecorigin));
     cpu_selftest_run_code();
     cpu_selftest_assert_vector_content_1_bit(vecorigin, vecoffset, 0x1);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_operand_zero_relative_descriptor_loads_D(TESTCONTEXT *testContext)
+{
+    uint32 base = 0x00F0;
+    uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
+    int8 n = 0x1;
+    t_uint64 d = cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_64_BIT, 2, vecorigin);
+    cpu_selftest_load_order(CR_FLOAT, F_STORE, K_S0, n);
+    cpu_selftest_set_register(REG_A, 0xAAAAAAAABBBBBBBB);
+    cpu_selftest_set_register(REG_NB, base);
+    sac_write_64_bit_word(base + 2 * n, d);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_D, d);
     cpu_selftest_assert_no_interrupt();
 }
 
