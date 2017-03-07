@@ -689,7 +689,7 @@ static void cpu_selftest_b_rsub_flags_overflow(TESTCONTEXT *testContext);
 static void cpu_selftest_b_comp_sets_less_than_when_B_less_than_operand(TESTCONTEXT *testContext);
 static void cpu_selftest_b_comp_sets_equals_when_B_equals_operand(TESTCONTEXT *testContext);
 static void cpu_selftest_b_comp_sets_greater_than_when_B_greater_than_operand(TESTCONTEXT *testContext);
-static void cpu_selftest_b_comp_sets_overflow(TESTCONTEXT *testContext);
+static void cpu_selftest_b_comp_sets_overflow_in_t0_only(TESTCONTEXT *testContext);
 static void cpu_selftest_b_cinc_compares_B_with_operand(TESTCONTEXT *testContext);
 static void cpu_selftest_b_cinc_increments_B(TESTCONTEXT *testContext);
 static void cpu_selftest_b_cinc_flags_overflow(TESTCONTEXT *testContext);
@@ -1287,7 +1287,7 @@ static UNITTEST tests[] =
     { "B COMP sets < when B is less than operand", cpu_selftest_b_comp_sets_less_than_when_B_less_than_operand },
     { "B COMP sets = when B equals operand", cpu_selftest_b_comp_sets_equals_when_B_equals_operand },
     { "B COMP sets > when B is greater than operand", cpu_selftest_b_comp_sets_greater_than_when_B_greater_than_operand },
-    { "B COMP sets overflow", cpu_selftest_b_comp_sets_overflow },
+    { "B COMP sets overflow in T0 only", cpu_selftest_b_comp_sets_overflow_in_t0_only },
     { "B CINC compares B with operand", cpu_selftest_b_cinc_compares_B_with_operand },
     { "B CINC increments B", cpu_selftest_b_cinc_increments_B },
     { "B CINC flags overflow", cpu_selftest_b_cinc_flags_overflow },
@@ -6132,7 +6132,7 @@ static void cpu_selftest_b_comp_sets_greater_than_when_B_greater_than_operand(TE
     cpu_selftest_assert_no_b_overflow();
 }
 
-static void cpu_selftest_b_comp_sets_overflow(TESTCONTEXT *testContext)
+static void cpu_selftest_b_comp_sets_overflow_in_t0_only(TESTCONTEXT *testContext)
 {
     cpu_selftest_load_order_extended(CR_B, F_COMP_B, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0x00000001);
@@ -6140,7 +6140,7 @@ static void cpu_selftest_b_comp_sets_overflow(TESTCONTEXT *testContext)
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_B, 0x80000000);
     cpu_selftest_assert_test_overflow();
-    cpu_selftest_assert_b_overflow();
+    cpu_selftest_assert_no_b_overflow();
     cpu_selftest_assert_no_interrupt();
 }
 

@@ -3550,8 +3550,6 @@ static int cpu_test_b_overflow(t_uint64 value)
         result = 1;
     }
 
-    cpu_set_register_bit_32(reg_bod, mask_bod_bovf, result);
-
     return result;
 }
 
@@ -3559,6 +3557,8 @@ static void cpu_check_b_overflow(t_uint64 value)
 {
     if (cpu_test_b_overflow(value))
     {
+        cpu_set_register_bit_32(reg_bod, mask_bod_bovf, 1);
+
         if (!cpu_get_register_bit_32(reg_bod, mask_bod_ibovf))
         {
             cpu_set_B_interrupt();
@@ -3720,7 +3720,8 @@ static void cpu_execute_b_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)
 }
 
 /* The programming manual says "no overflow may occur", the interpretation from RNI of this statement is "COMP won't generate an overflow interrupt if overflow occurs because
-   B isn't altered so B hasn't overflowed. If the result overflows, Test bit 0 is set." */
+   B isn't altered so B hasn't overflowed. If the result overflows, Test bit 0 is set." In a follow up with RNI he said: "I think the manual is misleading, I don't think
+   the bit got set in BOD at all, just sent to Test 0" */
 static void cpu_execute_b_compare(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B COMP ");
