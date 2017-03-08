@@ -442,6 +442,7 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_valu
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_xnb(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_stack(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_dr(TESTCONTEXT *testContext);
+static void cpu_selftest_load_operand_extended_b_relative_descriptor_from_dr_does_not_load_D(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_nb_ref(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_xnb_ref(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_64_bit_value_from_nb(TESTCONTEXT *testContext);
@@ -455,6 +456,7 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_v
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_value_from_stack(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_value_from_dr(TESTCONTEXT *testContext);
+static void cpu_selftest_load_operand_extended_zero_relative_descriptor_from_dr_does_not_load_D(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_value_from_nb_ref(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb_ref(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_64_bit_value_from_nb(TESTCONTEXT *testContext);
@@ -522,6 +524,7 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_val
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_xnb(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_stack(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_dr(TESTCONTEXT *testContext);
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_from_dr_does_not_load_D(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_nb_ref(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_xnb_ref(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_64_bit_value_from_nb(TESTCONTEXT *testContext);
@@ -535,6 +538,7 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_stack(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_dr(TESTCONTEXT *testContext);
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_from_dr_does_not_load_D(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_nb_ref(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb_ref(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_64_bit_value_from_nb(TESTCONTEXT *testContext);
@@ -995,7 +999,7 @@ static UNITTEST tests[] =
     { "Load operand 32-bit variable", cpu_selftest_load_operand_32_bit_variable },
     { "Load operand 32-bit variable 6-bit offset is unsigned", cpu_selftest_load_operand_32_bit_variable_6_bit_offset_is_unsigned },
     { "Load operand 64-bit variable", cpu_selftest_load_operand_64_bit_variable },
-    { "Load operand 32-bit via B-relative descriptor loads D", cpu_selftest_load_operand_b_relative_descriptor_loads_D },
+    { "Load operand via B-relative descriptor loads D", cpu_selftest_load_operand_b_relative_descriptor_loads_D },
     { "Load operand 32-bit via B-relative descriptor at 6-bit offset for k=4", cpu_selftest_load_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_4 },
     { "Load operand 32-bit via B-relative descriptor at 6-bit offset for k=5", cpu_selftest_load_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_5 },
     { "Load operand 64-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_64_bit_value_at_6_bit_offset },
@@ -1003,7 +1007,7 @@ static UNITTEST tests[] =
     { "Load operand 8-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_8_bit_value_at_6_bit_offset },
     { "Load operand 4-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_4_bit_value_at_6_bit_offset },
     { "Load operand 1-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_1_bit_value_at_6_bit_offset },
-    { "Load operand 64-bit via 0-relative descriptor loads D", cpu_selftest_load_operand_zero_relative_descriptor_loads_D },
+    { "Load operand via 0-relative descriptor loads D", cpu_selftest_load_operand_zero_relative_descriptor_loads_D },
     { "Load operand 64-bit via 0-relative descriptor at 6-bit offset", cpu_selftest_load_operand_zero_relative_descriptor_64_bit_value_at_6_bit_offset },
 
     { "Load operand 16-bit signed positive literal", cpu_selftest_load_operand_16_bit_signed_positive_literal },
@@ -1041,6 +1045,7 @@ static UNITTEST tests[] =
     { "Load operand 32-bit extended from b-relative descriptor from XNB", cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_xnb },
     { "Load operand 32-bit extended from b-relative descriptor from stack", cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_stack },
     { "Load operand 32-bit extended from b-relative descriptor from D", cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_dr },
+    { "Load operand extended from b-relative descriptor from D does not load D", cpu_selftest_load_operand_extended_b_relative_descriptor_from_dr_does_not_load_D },
     { "Load operand 32-bit extended from b-relative descriptor from (NB)", cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_nb_ref },
     { "Load operand 32-bit extended from b-relative descriptor from (XNB)", cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_xnb_ref },
     { "Load operand 64-bit extended from b-relative descriptor from NB", cpu_selftest_load_operand_extended_b_relative_descriptor_64_bit_value_from_nb },
@@ -1055,6 +1060,7 @@ static UNITTEST tests[] =
     { "Load operand 32-bit extended from 0-relative descriptor from XNB", cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb },
     { "Load operand 32-bit extended from 0-relative descriptor from stack", cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_value_from_stack },
     { "Load operand 32-bit extended from 0-relative descriptor from D", cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_value_from_dr },
+    { "Load operand extended from 0-relative descriptor from D", cpu_selftest_load_operand_extended_zero_relative_descriptor_from_dr_does_not_load_D },
     { "Load operand 32-bit extended from 0-relative descriptor from (NB)", cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_value_from_nb_ref },
     { "Load operand 32-bit extended from 0-relative descriptor from (XNB)", cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb_ref },
     { "Load operand 64-bit extended from 0-relative descriptor from NB", cpu_selftest_load_operand_extended_zero_relative_descriptor_64_bit_value_from_nb },
@@ -1122,6 +1128,7 @@ static UNITTEST tests[] =
     { "Store operand 32-bit extended from b-relative descriptor from XNB", cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_xnb },
     { "Store operand 32-bit extended from b-relative descriptor from stack", cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_stack },
     { "Store operand 32-bit extended from b-relative descriptor from D", cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_dr },
+    { "Store operand extended from b-relative descriptor from D does not load D", cpu_selftest_store_operand_extended_b_relative_descriptor_from_dr_does_not_load_D },
     { "Store operand 32-bit extended from b-relative descriptor from (NB)", cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_nb_ref },
     { "Store operand 32-bit extended from b-relative descriptor from (XNB)", cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_xnb_ref },
     { "Store operand 64-bit extended from b-relative descriptor from NB", cpu_selftest_store_operand_extended_b_relative_descriptor_64_bit_value_from_nb },
@@ -1136,6 +1143,7 @@ static UNITTEST tests[] =
     { "Store operand 32-bit extended from 0-relative descriptor from XNB", cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb },
     { "Store operand 32-bit extended from 0-relative descriptor from stack", cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_stack },
     { "Store operand 32-bit extended from 0-relative descriptor from D", cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_dr },
+    { "Store operand extended from 0-relative descriptor from D does not load D", cpu_selftest_store_operand_extended_zero_relative_descriptor_from_dr_does_not_load_D },
     { "Store operand 32-bit extended from 0-relative descriptor from (NB)", cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_nb_ref },
     { "Store operand 32-bit extended from 0-relative descriptor from (XNB)", cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb_ref },
     { "Store operand 64-bit extended from 0-relative descriptor from NB", cpu_selftest_store_operand_extended_zero_relative_descriptor_64_bit_value_from_nb },
@@ -3115,6 +3123,20 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_valu
     cpu_selftest_assert_no_interrupt();
 }
 
+static void cpu_selftest_load_operand_extended_b_relative_descriptor_from_dr_does_not_load_D(TESTCONTEXT *testContext)
+{
+    uint32 base = 0x00F0;
+    uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
+    uint32 vecoffset = 1;
+    t_uint64 d = cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin);
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_SB, NP_DR);
+    cpu_selftest_set_register(REG_B, vecoffset);
+    cpu_selftest_set_register(REG_D, d);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_D, d);
+    cpu_selftest_assert_no_interrupt();
+}
+
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_nb_ref(TESTCONTEXT *testContext)
 {
     uint32 base = 0x00F0;
@@ -3312,6 +3334,18 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_v
     cpu_selftest_load_32_bit_value_to_descriptor_location(vecorigin, 0, 0xAAAABBBB);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAABBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_load_operand_extended_zero_relative_descriptor_from_dr_does_not_load_D(TESTCONTEXT *testContext)
+{
+    uint32 base = 0x00F0;
+    uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
+    t_uint64 d = cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin);
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_S0, NP_DR);
+    cpu_selftest_set_register(REG_D, d);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_D, d);
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -4108,6 +4142,21 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_val
     cpu_selftest_assert_no_interrupt();
 }
 
+static void cpu_selftest_store_operand_extended_b_relative_descriptor_from_dr_does_not_load_D(TESTCONTEXT *testContext)
+{
+    uint32 base = 0x00F0;
+    uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
+    uint32 vecoffset = 1;
+    t_uint64 d = cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin);
+    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_SB, NP_DR);
+    cpu_selftest_set_register(REG_B, vecoffset);
+    cpu_selftest_set_register(REG_D, d);
+    cpu_selftest_set_aod_operand_64_bit();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_D, d);
+    cpu_selftest_assert_no_interrupt();
+}
+
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_nb_ref(TESTCONTEXT *testContext)
 {
     uint32 base = 0x00F0;
@@ -4318,6 +4367,20 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_
     cpu_selftest_set_register(REG_A, 0x00000000AAAABBBB);
     cpu_selftest_run_code();
     cpu_selftest_assert_vector_content_32_bit(vecorigin, 0, 0xAAAABBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_operand_extended_zero_relative_descriptor_from_dr_does_not_load_D(TESTCONTEXT *testContext)
+{
+    uint32 base = 0x00F0;
+    uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
+    t_uint64 d = cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin);
+    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_DR);
+    cpu_selftest_set_register(REG_D, d);
+    cpu_selftest_set_aod_operand_64_bit();
+    cpu_selftest_set_register(REG_A, 0x00000000AAAABBBB);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_D, d);
     cpu_selftest_assert_no_interrupt();
 }
 
