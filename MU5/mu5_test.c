@@ -48,6 +48,7 @@ void mu5_selftest_start(TESTCONTEXT *context)
     context->countFailed = 0;
     context->countSuccessful = 0;
     context->result = SCPE_OK;
+    context->overallResult = SCPE_OK;
 }
 
 void mu5_selftest_run_suite(TESTCONTEXT *context, UNITTEST *unitTests, uint32 numberOfUnitTests, void(*reset)(UNITTEST *unitTest))

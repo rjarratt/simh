@@ -196,6 +196,9 @@
     <ClInclude Include="..\sim_tmxr.h" />
     <ClInclude Include="..\sim_video.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\MU5\mu5.ini" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
