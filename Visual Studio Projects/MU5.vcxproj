@@ -198,6 +198,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\MU5\mu5.ini" />
+    <None Include="..\MU5\xpl.l" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
