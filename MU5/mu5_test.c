@@ -169,7 +169,7 @@ void mu5_selftest_assert_reg_instance_equals(TESTCONTEXT *context, DEVICE *devic
 
     if (actualValue != expectedValue)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Expected value in register %s[%hu] to be %llX, but was %llX\n", name, index, expectedValue, actualValue);
+        sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Expected value in register %s[%hu] to be %llX, but was %llX\n", name, (unsigned short)index, expectedValue, actualValue);
         mu5_selftest_set_failure(context);
     }
 }
@@ -236,7 +236,7 @@ void mu5_selftest_assert_vstore_contents(TESTCONTEXT *context, uint8 block, uint
     t_uint64 actualValue = sac_read_v_store(block, line);
     if (actualValue != expectedValue)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Expected value in V-Store block %hu line %hu to be %llX, but was %llX\n", block, line, expectedValue, actualValue);
+        sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Expected value in V-Store block %hu line %hu to be %llX, but was %llX\n", (unsigned short)block, (unsigned short)line, expectedValue, actualValue);
         mu5_selftest_set_failure(context);
     }
 }

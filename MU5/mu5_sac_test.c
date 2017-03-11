@@ -577,7 +577,7 @@ static void sac_selftest_writing_read_only_vstore_line_does_nothing(TESTCONTEXT 
     sac_selftest_assert_vstore_contents(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0);
     if (VStoreTestLocation != 0)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, testContext->dev, "Expected value in V-Store test backing location to be %llX, but was %llX\n", 0, VStoreTestLocation);
+        sim_debug(LOG_CPU_SELFTEST_FAIL, testContext->dev, "Expected value in V-Store test backing location to be 0, but was %llX\n", VStoreTestLocation);
         mu5_selftest_set_failure(testContext);
     }
 }
@@ -690,7 +690,7 @@ static void sac_selftest_search_cpr_finds_matches_ignoring_P_and_X(TESTCONTEXT *
     mu5_selftest_setup_cpr(2, VA(0, 1, 2), 0);
 
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, 0x4000001);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(0xFF, 1, 0xFFF));
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(0xF, 1, 0xFFF));
 
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, 0x7);
 }
@@ -702,7 +702,7 @@ static void sac_selftest_search_cpr_finds_matches_masking_selected_S_bits(TESTCO
     mu5_selftest_setup_cpr(2, VA(0, 0x3FFD, 1), 0);
 
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, 0x4006001);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(0xFF, 0x3FFF, 0xFFF));
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(0xF, 0x3FFF, 0xFFF));
 
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, 0x5);
 }

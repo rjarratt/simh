@@ -1866,7 +1866,7 @@ mu5 : ${BIN}mu5${EXE}
 
 ${BIN}mu5${EXE} : ${MU5} ${SIM}
 	${MKDIRBIN}
-	${CC} ${MU5} ${SIM} ${MU5_OPT} $(CC_OUTSPEC) ${LDFLAGS}
+	${CC} -DUSE_INT64 ${MU5} ${SIM} ${MU5_OPT} $(CC_OUTSPEC) ${LDFLAGS}
 
 cdc1700 : ${BIN}cdc1700${EXE}
 
