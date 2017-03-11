@@ -23,7 +23,10 @@ Except as contained in this notice, the name of Robert Jarratt shall not be
 used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Robert Jarratt.
 
-This is the MU5 Store Access Control unit.
+This is the MU5 Store Access Control unit. The Local Store consisted of four
+4096-word memory units, each word containing 64 data bits + 8 parity bits.
+The Mass Store consisted of two 128K-word memory units, each word containing
+36 bits. The Fixed-head Disc consisted of two 2.4 Mbyte units. 
 
 Known Limitations
 -----------------
