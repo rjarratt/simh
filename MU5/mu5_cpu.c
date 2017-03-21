@@ -2786,8 +2786,15 @@ static void cpu_execute_organisational_XNB_plus(uint16 order, DISPATCH_ENTRY *in
 static void cpu_execute_organisational_XNB_store(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "XNB=> ");
-    t_uint64 xnb = cpu_get_register_32(reg_xnb);
-    cpu_set_operand(order, xnb);
+	if (!cpu_operand_is_secondary(order))
+	{
+		t_uint64 xnb = cpu_get_register_32(reg_xnb);
+		cpu_set_operand(order, xnb);
+	}
+	else
+	{
+		cpu_set_illegal_function_interrupt();
+	}
 }
 
 static void cpu_execute_organisational_SF_load(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -2815,14 +2822,21 @@ static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_EN
 static void cpu_execute_organisational_SF_store(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "SF=> ");
-    t_uint64 sf = cpu_get_register_16(reg_sf);
-    cpu_set_operand(order, sf);
+	if (!cpu_operand_is_secondary(order))
+	{
+		t_uint64 sf = cpu_get_register_16(reg_sf);
+        cpu_set_operand(order, sf);
+	}
+	else
+	{
+		cpu_set_illegal_function_interrupt();
+	}
 }
 
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB= ");
-    t_uint64 newBase = cpu_get_operand(order); /* TODO: the operand may not be a secondary operand - see p59 */
+    t_uint64 newBase = cpu_get_operand(order);
     cpu_set_nb(newBase & MASK_16);
 }
 
@@ -2844,8 +2858,15 @@ static void cpu_execute_organisational_NB_plus(uint16 order, DISPATCH_ENTRY *inn
 static void cpu_execute_organisational_NB_store(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB=> ");
-    t_uint64 nb = ((t_uint64)cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg_nb);
-    cpu_set_operand(order, nb);
+	if (!cpu_operand_is_secondary(order))
+	{
+		t_uint64 nb = ((t_uint64)cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg_nb);
+		cpu_set_operand(order, nb);
+	}
+	else
+	{
+		cpu_set_illegal_function_interrupt();
+	}
 }
 
 static void cpu_execute_organisational_branch_eq(uint16 order, DISPATCH_ENTRY *innerTable)

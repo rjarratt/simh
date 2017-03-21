@@ -804,6 +804,7 @@ static void cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segmen
 static void cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_level1_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_executive_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_org_xnb_store_stores_XNB(TESTCONTEXT *testContext);
+static void cpu_selftest_org_xnb_store_to_secondary_operand_generates_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_org_sf_load_loads_SF(TESTCONTEXT *testContext);
 static void cpu_selftest_org_sf_plus_adds_operand_to_SF(TESTCONTEXT *testContext);
 static void cpu_selftest_org_sf_plus_generates_interrupt_on_segment_overflow(TESTCONTEXT *testContext);
@@ -812,6 +813,7 @@ static void cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_store
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow(TESTCONTEXT *testContext);
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow(TESTCONTEXT *testContext);
 static void cpu_selftest_org_sf_store_stores_SF(TESTCONTEXT *testContext);
+static void cpu_selftest_org_sf_store_to_secondary_operand_generates_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_org_nb_load_loads_NB(TESTCONTEXT *testContext);
 static void cpu_selftest_org_nb_load_sf_plus_adds_SF_to_signed_operand_and_stores_to_NB(TESTCONTEXT *testContext);
 static void cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_overflow(TESTCONTEXT *testContext);
@@ -820,6 +822,7 @@ static void cpu_selftest_org_nb_plus_adds_signed_operand_to_NB(TESTCONTEXT *test
 static void cpu_selftest_org_nb_plus_generates_interrupt_on_segment_overflow(TESTCONTEXT *testContext);
 static void cpu_selftest_org_nb_plus_generates_interrupt_on_segment_underflow(TESTCONTEXT *testContext);
 static void cpu_selftest_org_nb_store_stores_SN_and_NB(TESTCONTEXT *testContext);
+static void cpu_selftest_org_nb_store_to_secondary_operand_generates_interrupt(TESTCONTEXT *testContext);
 static uint16 cpu_selftest_calculate_ms_from_t_bits(uint16 t0, uint16 t1, uint16 t2, uint16 bn);
 static void cpu_selftest_org_branch_test_branch_taken(uint8 f, uint16 t0, uint16 t1, uint16 t2, uint16 bn);
 static void cpu_selftest_org_branch_test_branch_not_taken(uint8 f, uint16 t0, uint16 t1, uint16 t2, uint16 bn);
@@ -1413,24 +1416,27 @@ static UNITTEST tests[] =
     { "XNB+ generates a system error interrupt if there is a segment overflow in level 0 mode", cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_level0_mode },
     { "XNB+ generates a system error interrupt if there is a segment overflow in level 1 mode", cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_level1_mode },
     { "XNB+ generates a system error interrupt if there is a segment overflow in executive mode", cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_executive_mode },
-    { "XNB=> stores XNB", cpu_selftest_org_xnb_store_stores_XNB },
-    { "SF= loads SF", cpu_selftest_org_sf_load_loads_SF },
+	{ "XNB=> stores XNB", cpu_selftest_org_xnb_store_stores_XNB },
+	{ "XNB=> to secondary operand generates interrupt", cpu_selftest_org_xnb_store_to_secondary_operand_generates_interrupt },
+	{ "SF= loads SF", cpu_selftest_org_sf_load_loads_SF },
     { "SF+ adds operand to SF", cpu_selftest_org_sf_plus_adds_operand_to_SF },
     { "SF+ ", cpu_selftest_org_sf_plus_generates_interrupt_on_segment_overflow },
     { "SF+ ", cpu_selftest_org_sf_plus_generates_interrupt_on_segment_underflow },
     { "SF=NB+ adds NB to signed operand and stores result to SF", cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF },
     { "SF=NB+ generates interrupt on segment overflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow },
     { "SF=NB+ generates interrupt on segment underflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow },
-    { "SF=> stores SF", cpu_selftest_org_sf_store_stores_SF },
-    { "NB= loads NB", cpu_selftest_org_nb_load_loads_NB },
+	{ "SF=> stores SF", cpu_selftest_org_sf_store_stores_SF },
+	{ "SF=> to secondary operand generates interrupt", cpu_selftest_org_sf_store_to_secondary_operand_generates_interrupt },
+	{ "NB= loads NB", cpu_selftest_org_nb_load_loads_NB },
     { "NB=SF+ adds SF to signed operand and stores result to NB", cpu_selftest_org_nb_load_sf_plus_adds_SF_to_signed_operand_and_stores_to_NB },
     { "NB=SF+ generates interrupt on segment overflow", cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_overflow },
     { "NB=SF+ generates interrupt on segment underflow", cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_underflow },
     { "NB+ adds signed operand to NB", cpu_selftest_org_nb_plus_adds_signed_operand_to_NB },
     { "NB+ generates interrupt on segment overflow", cpu_selftest_org_nb_plus_generates_interrupt_on_segment_overflow },
     { "NB+ generates interrupt on segment underflow", cpu_selftest_org_nb_plus_generates_interrupt_on_segment_underflow },
-    { "NB=> stores SN and NB ", cpu_selftest_org_nb_store_stores_SN_and_NB },
-    { "Branch on eq does not branch on false", cpu_selftest_org_br_eq_does_not_branch_on_false },
+	{ "NB=> stores SN and NB", cpu_selftest_org_nb_store_stores_SN_and_NB },
+	{ "NB=> to secondary operand generates interrupt", cpu_selftest_org_nb_store_to_secondary_operand_generates_interrupt },
+	{ "Branch on eq does not branch on false", cpu_selftest_org_br_eq_does_not_branch_on_false },
     { "Branch on eq branches on true", cpu_selftest_org_br_eq_does_branch_on_true },
     { "Branch on ne does not branch on false", cpu_selftest_org_br_ne_does_not_branch_on_false },
     { "Branch on ne branches on true", cpu_selftest_org_br_ne_does_branch_on_true },
@@ -7355,13 +7361,21 @@ static void cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segmen
 
 static void cpu_selftest_org_xnb_store_stores_XNB(TESTCONTEXT *testContext)
 {
-    uint32 base = 32;
-    cpu_selftest_load_organisational_order_extended(F_XNB_STORE, K_V64, NP_0);
-    cpu_selftest_load_16_bit_literal(base);
-    cpu_selftest_set_register(REG_XNB, 0xBBBBAAAA);
-    cpu_selftest_run_code();
-    cpu_selftest_assert_memory_contents_64_bit(base * 2, 0x00000000BBBBAAAA);
-    cpu_selftest_assert_no_interrupt();
+	uint32 base = 32;
+	cpu_selftest_load_organisational_order_extended(F_XNB_STORE, K_V64, NP_0);
+	cpu_selftest_load_16_bit_literal(base);
+	cpu_selftest_set_register(REG_XNB, 0xBBBBAAAA);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_memory_contents_64_bit(base * 2, 0x00000000BBBBAAAA);
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_org_xnb_store_to_secondary_operand_generates_interrupt(TESTCONTEXT *testContext)
+{
+	uint32 base = 32;
+	cpu_selftest_load_organisational_order_extended(F_XNB_STORE, K_SB, 0);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_org_sf_load_loads_SF(TESTCONTEXT *testContext)
@@ -7437,6 +7451,14 @@ static void cpu_selftest_org_sf_store_stores_SF(TESTCONTEXT *testContext)
     cpu_selftest_run_code();
     cpu_selftest_assert_memory_contents_64_bit(base * 2, 0x000000000000AAAA);
     cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_org_sf_store_to_secondary_operand_generates_interrupt(TESTCONTEXT *testContext)
+{
+	uint32 base = 32;
+	cpu_selftest_load_organisational_order_extended(F_SF_STORE, K_SB, 0);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_org_nb_load_loads_NB(TESTCONTEXT *testContext)
@@ -7517,6 +7539,14 @@ static void cpu_selftest_org_nb_store_stores_SN_and_NB(TESTCONTEXT *testContext)
     cpu_selftest_run_code();
     cpu_selftest_assert_memory_contents_64_bit(0x10000 + (base * 2), 0x000000000001BBBA);
     cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_org_nb_store_to_secondary_operand_generates_interrupt(TESTCONTEXT *testContext)
+{
+	uint32 base = 32;
+	cpu_selftest_load_organisational_order_extended(F_NB_STORE, K_SB, 0);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static uint16 cpu_selftest_calculate_ms_from_t_bits(uint16 t0, uint16 t1, uint16 t2, uint16 bn)
