@@ -2350,7 +2350,7 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
                 }
                 default:
                 {
-                    cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
+					cpu_set_illegal_function_interrupt();
                     break;
                 }
             }
@@ -2359,7 +2359,7 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
         }
         default:
         {
-            cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
+			cpu_set_illegal_function_interrupt();
         }
     }
 

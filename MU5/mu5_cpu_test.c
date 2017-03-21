@@ -3535,7 +3535,7 @@ static void cpu_selftest_store_operand_6_bit_literal_generates_interrupt(TESTCON
 {
     cpu_selftest_load_order(CR_FLOAT, F_STORE, K_LITERAL, 0x1F);
     cpu_selftest_run_code();
-    cpu_selftest_assert_interrupt();
+    cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_store_operand_internal_register_0_generates_interrupt(TESTCONTEXT *testContext)
@@ -3908,7 +3908,7 @@ static void cpu_selftest_store_operand_extended_literal_kp_0_generates_interrupt
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, KP_LITERAL, NP_64_BIT_LITERAL_6);
     cpu_selftest_load_64_bit_literal(0xAAAABBBBCCCCDDDD);
     cpu_selftest_run_code();
-    cpu_selftest_assert_interrupt();
+    cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_store_operand_extended_literal_kp_1_generates_interrupt(TESTCONTEXT *testContext)
@@ -3916,7 +3916,7 @@ static void cpu_selftest_store_operand_extended_literal_kp_1_generates_interrupt
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, KP_LITERAL_1, NP_64_BIT_LITERAL_6);
     cpu_selftest_load_64_bit_literal(0xAAAABBBBCCCCDDDD);
     cpu_selftest_run_code();
-    cpu_selftest_assert_interrupt();
+	cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_sf(TESTCONTEXT *testContext)
