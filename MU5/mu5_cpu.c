@@ -347,6 +347,7 @@ static void cpu_set_sss_interrupt(void);
 static void cpu_set_bounds_check_interrupt(void);
 static void cpu_set_name_adder_overflow_interrupt(void);
 static void cpu_set_control_adder_overflow_interrupt(void);
+static void cpu_set_illegal_function_interrupt(void);
 static uint8 cpu_get_cr(uint16 order);
 static uint8 cpu_get_f(uint16 order);
 static uint16 cpu_get_k(uint16 order);
@@ -1344,6 +1345,18 @@ static void cpu_set_control_adder_overflow_interrupt()
     }
 }
 
+static void cpu_set_illegal_function_interrupt(void)
+{
+	if (cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1 | MS_MASK_EXEC))
+	{
+		cpu_set_system_error_interrupt(SYSTEM_ERROR_STATUS_MASK_ILLEGAL_FUNCTION_ERROR);
+	}
+	else
+	{
+		cpu_set_illegal_order_interrupt(PROGRAM_FAULT_STATUS_MASK_ILLEGAL_FUNCTION_ERROR);
+	}
+}
+
 void cpu_set_access_violation_interrupt()
 {
     if (cpu_ms_is_all(MS_MASK_EXEC))
@@ -2002,6 +2015,15 @@ static t_uint64 cpu_set_operand_internal_register(uint16 order, t_uint64 value)
 
     switch (n)
     {
+		case 0:
+		case 1:
+		case 2:
+		case 3:
+		case 4:
+		{
+			cpu_set_illegal_function_interrupt();
+			break;
+		}
         case 16:
         {
             cpu_set_register_64(reg_d, value);
@@ -2057,7 +2079,6 @@ static t_uint64 cpu_set_operand_internal_register(uint16 order, t_uint64 value)
         }
         default:
         {
-            cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
             break;
         }
     }

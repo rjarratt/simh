@@ -346,6 +346,8 @@ static void cpu_selftest_assert_B_or_D_interrupt_as_system_error(void);
 static void cpu_selftest_assert_B_interrupt_as_program_fault(void);
 static void cpu_selftest_assert_D_interrupt_as_program_fault(void);
 static void cpu_selftest_assert_illegal_v_store_access_interrupt();
+static void cpu_selftest_assert_illegal_function_as_system_error(void);
+static void cpu_selftest_assert_illegal_function_as_illegal_order(void);
 static void cpu_selftest_assert_test_equals(void);
 static void cpu_selftest_assert_test_greater_than(void);
 static void cpu_selftest_assert_test_less_than(void);
@@ -392,6 +394,7 @@ static void cpu_selftest_load_operand_internal_register_32(TESTCONTEXT *testCont
 static void cpu_selftest_load_operand_internal_register_33(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_internal_register_34(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_internal_register_48(TESTCONTEXT *testContext);
+static void cpu_selftest_load_operand_non_existent_internal_register(TESTCONTEXT *testContext);
 
 static void cpu_selftest_load_operand_32_bit_variable(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_32_bit_variable_6_bit_offset_is_unsigned(TESTCONTEXT *testContext);
@@ -470,7 +473,8 @@ static void cpu_selftest_load_operand_privileged_generates_interrupt_in_user_mod
 
 static void cpu_selftest_store_operand_6_bit_literal_generates_interrupt(TESTCONTEXT *testContext);
 
-static void cpu_selftest_store_operand_internal_register_0_generates_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_store_operand_internal_register_0_generates_interrupt_as_illegal_order_in_user_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_store_operand_internal_register_0_generates_interrupt_as_system_error_in_executive_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_internal_register_1_generates_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_internal_register_2_generates_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_internal_register_3_generates_interrupt(TESTCONTEXT *testContext);
@@ -484,6 +488,7 @@ static void cpu_selftest_store_operand_internal_register_32(TESTCONTEXT *testCon
 static void cpu_selftest_store_operand_internal_register_33(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_internal_register_34(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_internal_register_48(TESTCONTEXT *testContext);
+static void cpu_selftest_store_operand_non_existent_internal_register(TESTCONTEXT *testContext);
 
 static void cpu_selftest_store_operand_32_bit_variable(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_64_bit_variable(TESTCONTEXT *testContext);
@@ -994,7 +999,8 @@ static UNITTEST tests[] =
     { "Load operand internal register 32", cpu_selftest_load_operand_internal_register_32 },
     { "Load operand internal register 33", cpu_selftest_load_operand_internal_register_33 },
     { "Load operand internal register 34", cpu_selftest_load_operand_internal_register_34 },
-    { "Load operand internal register 48", cpu_selftest_load_operand_internal_register_48 },
+	{ "Load operand internal register 48", cpu_selftest_load_operand_internal_register_48 },
+	{ "Load operand from non-existent internal register", cpu_selftest_load_operand_non_existent_internal_register },
 
     { "Load operand 32-bit variable", cpu_selftest_load_operand_32_bit_variable },
     { "Load operand 32-bit variable 6-bit offset is unsigned", cpu_selftest_load_operand_32_bit_variable_6_bit_offset_is_unsigned },
@@ -1074,8 +1080,9 @@ static UNITTEST tests[] =
 
     { "Store operand 6-bit literal generates interrupt", cpu_selftest_store_operand_6_bit_literal_generates_interrupt },
 
-    { "Store operand internal register 0 generates an interrupt", cpu_selftest_store_operand_internal_register_0_generates_interrupt },
-    { "Store operand internal register 1 generates an interrupt", cpu_selftest_store_operand_internal_register_1_generates_interrupt },
+	{ "Store operand internal register 0 generates an illegal order interrupt in user mode", cpu_selftest_store_operand_internal_register_0_generates_interrupt_as_illegal_order_in_user_mode },
+	{ "Store operand internal register 0 generates a system error interrupt in executive mode", cpu_selftest_store_operand_internal_register_0_generates_interrupt_as_system_error_in_executive_mode },
+	{ "Store operand internal register 1 generates an interrupt", cpu_selftest_store_operand_internal_register_1_generates_interrupt },
     { "Store operand internal register 2 generates an interrupt", cpu_selftest_store_operand_internal_register_2_generates_interrupt },
     { "Store operand internal register 3 generates an interrupt", cpu_selftest_store_operand_internal_register_3_generates_interrupt },
     { "Store operand internal register 4 generates an interrupt", cpu_selftest_store_operand_internal_register_4_generates_interrupt },
@@ -1087,7 +1094,8 @@ static UNITTEST tests[] =
     { "Store operand internal register 32", cpu_selftest_store_operand_internal_register_32 },
     { "Store operand internal register 33", cpu_selftest_store_operand_internal_register_33 },
     { "Store operand internal register 34", cpu_selftest_store_operand_internal_register_34 },
-    { "Store operand internal register 48", cpu_selftest_store_operand_internal_register_48 },
+	{ "Store operand internal register 48", cpu_selftest_store_operand_internal_register_48 },
+	{ "Store operand to non-existent internal register", cpu_selftest_store_operand_non_existent_internal_register },
 
     { "Store operand 32-bit variable", cpu_selftest_store_operand_32_bit_variable },
     { "Store operand 64-bit variable", cpu_selftest_store_operand_64_bit_variable },
@@ -2161,6 +2169,28 @@ static void cpu_selftest_assert_illegal_v_store_access_interrupt()
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x1000);
 }
 
+static void cpu_selftest_assert_illegal_function_as_system_error(void)
+{
+	if (cpu_get_interrupt_number() != INT_SYSTEM_ERROR)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected illegal function interrupt to have occurred as System Error\n");
+		cpu_selftest_set_failure();
+	}
+
+	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0020);
+}
+static void cpu_selftest_assert_illegal_function_as_illegal_order(void)
+{
+	if (cpu_get_interrupt_number() != INT_ILLEGAL_ORDERS)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected illegal function interrupt to have occurred as Illegal Order\n");
+		cpu_selftest_set_failure();
+	}
+
+	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x8000);
+}
+
+
 static void cpu_selftest_assert_test_equals(void)
 {
     cpu_selftest_assert_reg_equals_mask(REG_MS, TEST_EQUALS, MS_TEST_MASK);
@@ -2544,6 +2574,15 @@ static void cpu_selftest_load_operand_internal_register_48(TESTCONTEXT *testCont
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0xABABABABABABABAB);
     cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_load_operand_non_existent_internal_register(TESTCONTEXT *testContext)
+{
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 49);
+	cpu_selftest_set_register(REG_AEX, 0xABABABABABABABAB);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_A, 0x0);
+	cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_load_operand_32_bit_variable(TESTCONTEXT *testContext)
@@ -3508,21 +3547,40 @@ static void cpu_selftest_store_operand_internal_register_0_generates_interrupt(T
     cpu_selftest_assert_interrupt();
 }
 
+static void cpu_selftest_store_operand_internal_register_0_generates_interrupt_as_illegal_order_in_user_mode(TESTCONTEXT *testContext)
+{
+	cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 1);
+	cpu_selftest_set_user_mode();
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XNB, 0);
+	cpu_selftest_assert_illegal_function_as_illegal_order();
+}
+
+static void cpu_selftest_store_operand_internal_register_0_generates_interrupt_as_system_error_in_executive_mode(TESTCONTEXT *testContext)
+{
+	cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 1);
+	cpu_selftest_set_executive_mode();
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_XNB, 0);
+	cpu_selftest_assert_illegal_function_as_system_error();
+}
+
 static void cpu_selftest_store_operand_internal_register_1_generates_interrupt(TESTCONTEXT *testContext)
 {
-    cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 1);
-    cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_XNB, 0);
-    cpu_selftest_assert_interrupt();
+	cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 1);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_SN, 0);
+	cpu_selftest_assert_reg_equals(REG_NB, 0);
+	cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_store_operand_internal_register_2_generates_interrupt(TESTCONTEXT *testContext)
 {
-    cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 2);
-    cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_SN, 0);
-    cpu_selftest_assert_reg_equals(REG_NB, 0);
-    cpu_selftest_assert_interrupt();
+	cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 2);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_SN, 0);
+	cpu_selftest_assert_reg_equals(REG_NB, 0);
+	cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_store_operand_internal_register_3_generates_interrupt(TESTCONTEXT *testContext)
@@ -3531,7 +3589,7 @@ static void cpu_selftest_store_operand_internal_register_3_generates_interrupt(T
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_SN, 0);
     cpu_selftest_assert_reg_equals(REG_SF, 0);
-    cpu_selftest_assert_interrupt();
+	cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_store_operand_internal_register_4_generates_interrupt(TESTCONTEXT *testContext)
@@ -3540,7 +3598,7 @@ static void cpu_selftest_store_operand_internal_register_4_generates_interrupt(T
     uint16 initMs = (uint16)cpu_selftest_get_register(REG_MS);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_MS, initMs);
-    cpu_selftest_assert_interrupt();
+	cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_store_operand_internal_register_16(TESTCONTEXT *testContext)
@@ -3631,6 +3689,16 @@ static void cpu_selftest_store_operand_internal_register_48(TESTCONTEXT *testCon
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_AEX, 0xABABABABABABABAB);
     cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_operand_non_existent_internal_register(TESTCONTEXT *testContext)
+{
+	cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 49);
+	cpu_selftest_set_aod_operand_64_bit();
+	cpu_selftest_set_register(REG_A, 0xABABABABABABABAB);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_AEX, 0x0);
+	cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_store_operand_32_bit_variable(TESTCONTEXT *testContext)
