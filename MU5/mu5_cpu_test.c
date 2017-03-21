@@ -479,6 +479,7 @@ static void cpu_selftest_store_operand_internal_register_1_generates_interrupt(T
 static void cpu_selftest_store_operand_internal_register_2_generates_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_internal_register_3_generates_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_internal_register_4_generates_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_store_operand_non_existent_prop_internal_register_generates_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_internal_register_16(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_internal_register_17(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_internal_register_18(TESTCONTEXT *testContext);
@@ -1086,6 +1087,7 @@ static UNITTEST tests[] =
     { "Store operand internal register 2 generates an interrupt", cpu_selftest_store_operand_internal_register_2_generates_interrupt },
     { "Store operand internal register 3 generates an interrupt", cpu_selftest_store_operand_internal_register_3_generates_interrupt },
     { "Store operand internal register 4 generates an interrupt", cpu_selftest_store_operand_internal_register_4_generates_interrupt },
+	{ "Store operand to non-existent internal register in prop generates an interrupt", cpu_selftest_store_operand_non_existent_prop_internal_register_generates_interrupt },
     { "Store operand internal register 16", cpu_selftest_store_operand_internal_register_16 },
     { "Store operand internal register 17", cpu_selftest_store_operand_internal_register_17 },
     { "Store operand internal register 18", cpu_selftest_store_operand_internal_register_18 },
@@ -3598,6 +3600,15 @@ static void cpu_selftest_store_operand_internal_register_4_generates_interrupt(T
     uint16 initMs = (uint16)cpu_selftest_get_register(REG_MS);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_MS, initMs);
+	cpu_selftest_assert_illegal_function_as_system_error();
+}
+
+static void cpu_selftest_store_operand_non_existent_prop_internal_register_generates_interrupt(TESTCONTEXT *testContext)
+{
+	cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 15);
+	uint16 initMs = (uint16)cpu_selftest_get_register(REG_MS);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_MS, initMs);
 	cpu_selftest_assert_illegal_function_as_system_error();
 }
 

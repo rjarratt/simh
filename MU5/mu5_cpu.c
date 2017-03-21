@@ -2020,6 +2020,17 @@ static t_uint64 cpu_set_operand_internal_register(uint16 order, t_uint64 value)
 		case 2:
 		case 3:
 		case 4:
+		case 5:
+		case 6:
+		case 7:
+		case 8:
+		case 9:
+		case 10:
+		case 11:
+		case 12:
+		case 13:
+		case 14:
+		case 15:
 		{
 			cpu_set_illegal_function_interrupt();
 			break;
