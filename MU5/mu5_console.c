@@ -86,7 +86,7 @@ static const char* console_description(DEVICE *dptr) {
 }
 
 DEVICE console_dev = {
-    "CONSOLE",            /* name */
+    "TTY",                /* name */
     &console_unit,        /* units */
     console_reg,          /* registers */
     console_mod,          /* modifiers */
@@ -141,7 +141,7 @@ static t_stat console_svc(UNIT *uptr)
     {
         if (!(TeletypeControl & MASK_TTY_INPUT))
         {
-            printf("%c", TeletypeData);
+            sim_putchar(TeletypeData);
             ConsoleInterrupt |= MASK_TCI;
             /* TODO actually set interrupt here, for now just enable polling */
         }
