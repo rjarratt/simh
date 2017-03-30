@@ -849,10 +849,16 @@ t_stat sim_instr(void)
     return reason;
 }
 
-/* file loaded is a sequence of 16-bit words */
+/* Loads two formats of file. Both formats are sequences of 16-bit words. If the -o option is specified then an absolute binary file loaded starting at the specified physical origin. If the
+ -o option is not specified then the file is a multi-segment binary file loaded into virtual addresses as specified in the file. The multi-segement file uses a format that has been made-up, as I
+ don't know how this was done in MU5 itself. Each segment in the file starts with a 16-bit segment number and a 16-bit length (in 16-bit words), followed by the binary. This format allows files
+ produced by my XPL cross-compiler to be loaded. */
 t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
 {
     t_stat r = SCPE_OK;
+	uint16 i;
+	uint32 segment;
+	uint16 segment_length;
     int b;
     t_addr origin, limit;
 
@@ -876,17 +882,39 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
 
     if (r == SCPE_OK)
     {
-        while ((b = Fgetc(ptr)) != EOF)
-        {
-            if (origin >= limit)
-            {
-                r = SCPE_NXM;
-                break;
-            }
+		if (sim_switches & SWMASK('O'))
+		{
+			while ((b = Fgetc(ptr)) != EOF)
+			{
+				if (origin >= limit)
+				{
+					r = SCPE_NXM;
+					break;
+				}
 
-            sac_write_8_bit_word_real_address(origin, b & 0xFF);
-            origin = origin + 1;
-        }
+				sac_write_8_bit_word_real_address(origin++, b & 0xFF);
+			}
+		}
+		else
+		{
+			do
+			{
+				segment = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
+				segment_length = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
+				if (feof(ptr))
+				{
+					break;
+				}
+
+				origin = segment << 18;
+				printf("Loading segment %u of length %hu at virtual address %08X\n", segment, segment_length, origin);
+				for (i = 0; i < 2 * segment_length; i++)
+				{
+					b = Fgetc(ptr);
+					sac_write_8_bit_word(origin++, b);
+				}
+			} while (!feof(ptr));
+		}
     }
 
     return r;
