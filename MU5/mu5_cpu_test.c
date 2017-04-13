@@ -2548,13 +2548,17 @@ static void cpu_selftest_load_operand_internal_register_20(TESTCONTEXT *testCont
     cpu_selftest_assert_no_interrupt();
 }
 
+/* RNI comment April 2017 in relation to BOD for IR 32: The 1978 manual shows IR32 as just B, so either the 1972 version was wrong or the hardware
+   was altered - I have a vague memory that this did happen. The book agrees with the 1978 version, so I'm sure it's
+   correct and I've listed the B IR's this way in my reconstruction.
+*/
 static void cpu_selftest_load_operand_internal_register_32(TESTCONTEXT *testContext)
 {
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 32);
     cpu_selftest_set_register(REG_BOD, 0xAAAAAAA);
     cpu_selftest_set_register(REG_B, 0xBBBBBBBB);
     cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_A, 0xAAAAAAABBBBBBBB);
+    cpu_selftest_assert_reg_equals(REG_A, 0x00000000BBBBBBBB);
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -3668,13 +3672,17 @@ static void cpu_selftest_store_operand_internal_register_20(TESTCONTEXT *testCon
     cpu_selftest_assert_no_interrupt();
 }
 
+/* RNI comment April 2017 in relation to BOD for IR 32: The 1978 manual shows IR32 as just B, so either the 1972 version was wrong or the hardware
+was altered - I have a vague memory that this did happen. The book agrees with the 1978 version, so I'm sure it's
+correct and I've listed the B IR's this way in my reconstruction.
+*/
 static void cpu_selftest_store_operand_internal_register_32(TESTCONTEXT *testContext)
 {
     cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 32);
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0xAAAAAAABBBBBBBB);
     cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_BOD, 0xAAAAAAA);
+    cpu_selftest_assert_reg_equals(REG_BOD, 0x00000000);
     cpu_selftest_assert_reg_equals(REG_B, 0xBBBBBBBB);
     cpu_selftest_assert_no_interrupt();
 }

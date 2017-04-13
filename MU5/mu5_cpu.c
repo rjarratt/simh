@@ -2000,7 +2000,11 @@ static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructi
         }
         case 32:
         {
-            result = ((t_uint64)cpu_get_register_32(reg_bod) << 32) | cpu_get_register_32(reg_b);
+			/* RNI comment April 2017 in relation to BOD for IR 32: The 1978 manual shows IR32 as just B, so either the 1972 version was wrong or the hardware
+			was altered - I have a vague memory that this did happen. The book agrees with the 1978 version, so I'm sure it's
+			correct and I've listed the B IR's this way in my reconstruction.
+			*/
+            result = cpu_get_register_32(reg_b);
             break;
         }
         case 33:
@@ -2090,7 +2094,10 @@ static t_uint64 cpu_set_operand_internal_register(uint16 order, t_uint64 value)
         }
         case 32:
         {
-            cpu_set_register_32(reg_bod, (value >> 32) & MASK_32);
+			/* RNI comment April 2017 in relation to BOD for IR 32: The 1978 manual shows IR32 as just B, so either the 1972 version was wrong or the hardware
+			was altered - I have a vague memory that this did happen. The book agrees with the 1978 version, so I'm sure it's
+			correct and I've listed the B IR's this way in my reconstruction.
+			*/
             cpu_set_register_32(reg_b, value & MASK_32);
             break;
         }
