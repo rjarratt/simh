@@ -40,6 +40,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define PROP_V_STORE_PROGRAM_FAULT_STATUS 0
 #define PROP_V_STORE_SYSTEM_ERROR_STATUS 1
 #define PROP_V_STORE_PROCESS_NUMBER 2
+#define PROP_V_STORE_INSTRUCTION_COUNTER 3
 
 #define CONSOLE_V_STORE_CONSOLE_INTERRUPT 0
 #define CONSOLE_V_STORE_TELETYPE_DATA 6

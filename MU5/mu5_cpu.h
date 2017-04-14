@@ -30,6 +30,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define MS_MASK_EXEC 0x0004
 #define MS_MASK_A_SYS_ERR_EXEC 0x0008
 #define MS_MASK_B_D_SYS_ERR_EXEC 0x0010
+#define MS_MASK_INH_INS_COUNT 0x0020
 #define MS_MASK_BCPR 0x0080
 #define MS_MASK_INH_PROG_FLT 0x0400
 

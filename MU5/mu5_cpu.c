@@ -298,6 +298,7 @@ static const char* cpu_description(DEVICE *dptr) {
 uint8 PROPProcessNumber;
 static uint16 PROPProgramFaultStatus;
 static uint16 PROPSystemErrorStatus;
+static uint16 PROPInstructionCounter;
 
 t_stat sim_instr(void);
 
@@ -391,6 +392,8 @@ static t_uint64 prop_read_program_fault_status_callback(uint8 line);
 static void prop_write_program_fault_status_callback(uint8 line, t_uint64 value);
 static t_uint64 prop_read_system_error_status_callback(uint8 line);
 static void prop_write_system_error_status_callback(uint8 line, t_uint64 value);
+static t_uint64 prop_read_instruction_counter(uint8 line);
+static void prop_write_instruction_counter(uint8 line, t_uint64 value);
 
 static void cpu_execute_dummy_order(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_start_interrupt_processing(void);
@@ -1235,11 +1238,13 @@ void cpu_reset_state(void)
 
     sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, prop_read_process_number_callback, prop_write_process_number_callback);
     sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, prop_read_program_fault_status_callback, prop_write_program_fault_status_callback);
-    sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, prop_read_system_error_status_callback, prop_write_system_error_status_callback);
+	sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, prop_read_system_error_status_callback, prop_write_system_error_status_callback);
+	sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, prop_read_instruction_counter, prop_write_instruction_counter);
 
     PROPProcessNumber = 0;
     PROPProgramFaultStatus = 0;
     PROPSystemErrorStatus = 0;
+	PROPInstructionCounter = 0;
 }
 
 void cpu_set_interrupt(uint8 number)
@@ -2459,6 +2464,14 @@ void cpu_execute_next_order(void)
     {
         order = sac_read_16_bit_word_for_obey(cpu_get_register_32(reg_co));
         cr = cpu_get_cr(order);
+		if ((cpu_get_ms() & MS_MASK_INH_INS_COUNT) == 0 && PROPInstructionCounter > 0)
+		{
+			PROPInstructionCounter--;
+			if (PROPInstructionCounter == 0)
+			{
+				cpu_set_interrupt(INT_INSTRUCTION_COUNT_ZERO);
+			}
+		}
 
         crDispatchTable[cr].execute(order, crDispatchTable[cr].innerTable);
     }
@@ -2491,6 +2504,16 @@ static void prop_write_program_fault_status_callback(uint8 line, t_uint64 value)
 static t_uint64 prop_read_system_error_status_callback(uint8 line)
 {
     return PROPSystemErrorStatus;
+}
+
+static t_uint64 prop_read_instruction_counter(uint8 line)
+{
+	return PROPInstructionCounter;
+}
+
+static void prop_write_instruction_counter(uint8 line, t_uint64 value)
+{
+	PROPInstructionCounter = value & 0xFFFF;
 }
 
 static void prop_write_system_error_status_callback(uint8 line, t_uint64 value)

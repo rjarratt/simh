@@ -292,6 +292,7 @@ static void cpu_selftest_set_acc_faults_to_system_error_in_exec_mode(void);
 static void cpu_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode(void);
 static void cpu_selftest_set_b_and_d_faults_to_system_error_in_exec_mode(void);
 static void cpu_selftest_set_inhibit_program_fault_interrupts(void);
+static void cpu_selftest_set_inhibit_instruction_counter(void);
 static void cpu_selftest_set_bn(int8 bn);
 static void cpu_selftest_set_test_is_zero(int8 isZero);
 static void cpu_selftest_run_code(void);
@@ -348,6 +349,7 @@ static void cpu_selftest_assert_D_interrupt_as_program_fault(void);
 static void cpu_selftest_assert_illegal_v_store_access_interrupt();
 static void cpu_selftest_assert_illegal_function_as_system_error(void);
 static void cpu_selftest_assert_illegal_function_as_illegal_order(void);
+static void cpu_selftest_assert_instruction_counter_interrupt(void);
 static void cpu_selftest_assert_test_equals(void);
 static void cpu_selftest_assert_test_greater_than(void);
 static void cpu_selftest_assert_test_less_than(void);
@@ -885,6 +887,13 @@ static void cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store(TE
 
 static void cpu_selftest_write_to_prop_program_fault_status_resets_it(TESTCONTEXT *testContext);
 static void cpu_selftest_write_to_prop_system_error_status_resets_it(TESTCONTEXT *testContext);
+
+static void cpu_selftest_read_and_write_instruction_counter(TESTCONTEXT *testContext);
+static void cpu_selftest_executing_instruction_decrements_instruction_counter(TESTCONTEXT *testContext);
+static void cpu_selftest_instruction_counter_not_decremented_if_inhibited(TESTCONTEXT *testContext);
+static void cpu_selftest_instruction_counter_not_decremented_if_already_zero(TESTCONTEXT *testContext);
+static void cpu_selftest_instruction_counter_zero_generates_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_instruction_counter_already_zero_does_not_generate_new_interrupt(TESTCONTEXT *testContext);
 
 CONDITIONTABLE conditionalFuncsTable[] =
 {
@@ -1492,7 +1501,14 @@ static UNITTEST tests[] =
     { "Interrupt calls handler using link in System V-Store", cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store },
 
     { "Write to PROP PROGRAM FAULT STATUS V-Line resets it", cpu_selftest_write_to_prop_program_fault_status_resets_it },
-    { "Write to PROP SYSTEM ERROR STATUS V-Line resets it", cpu_selftest_write_to_prop_system_error_status_resets_it }
+    { "Write to PROP SYSTEM ERROR STATUS V-Line resets it", cpu_selftest_write_to_prop_system_error_status_resets_it },
+
+	{ "Read and write instruction counter ", cpu_selftest_read_and_write_instruction_counter },
+	{ "Executing instruction decrements instruction counter ", cpu_selftest_executing_instruction_decrements_instruction_counter },
+	{ "Instruction counter not decremented if inhibited", cpu_selftest_instruction_counter_not_decremented_if_inhibited },
+	{ "Instruction counter not decremented if already zero", cpu_selftest_instruction_counter_not_decremented_if_already_zero },
+	{ "Instruction counter zero generates interrupt", cpu_selftest_instruction_counter_zero_generates_interrupt },
+	{ "Instruction counter already zero does not generate new interrupt", cpu_selftest_instruction_counter_already_zero_does_not_generate_new_interrupt },
 
 };
 
@@ -1737,6 +1753,11 @@ static void cpu_selftest_set_inhibit_program_fault_interrupts(void)
     mu5_selftest_set_inhibit_program_fault_interrupts(localTestContext, &cpu_dev);
 }
 
+static void cpu_selftest_set_inhibit_instruction_counter(void)
+{
+	uint16 ms = cpu_get_ms() | MS_MASK_INH_INS_COUNT;
+	mu5_selftest_set_register(localTestContext, &cpu_dev, REG_MS, ms);
+}
 
 static void cpu_selftest_set_bn(int8 bn)
 {
@@ -2198,6 +2219,14 @@ static void cpu_selftest_assert_illegal_function_as_illegal_order(void)
 	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x8000);
 }
 
+static void cpu_selftest_assert_instruction_counter_interrupt(void)
+{
+	if (cpu_get_interrupt_number() != INT_INSTRUCTION_COUNT_ZERO)
+	{
+		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected instruction counter zero interrupt to have occurred\n");
+		cpu_selftest_set_failure();
+	}
+}
 
 static void cpu_selftest_assert_test_equals(void)
 {
@@ -8029,4 +8058,54 @@ static void cpu_selftest_write_to_prop_system_error_status_resets_it(TESTCONTEXT
     cpu_selftest_run_code();
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0xFF);
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0);
+}
+
+static void cpu_selftest_read_and_write_instruction_counter(TESTCONTEXT *testContext)
+{
+	sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFFAAAA);
+	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xAAAA);
+}
+
+static void cpu_selftest_executing_instruction_decrements_instruction_counter(TESTCONTEXT *testContext)
+{
+	sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFF);
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
+	cpu_selftest_run_code();
+	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFE);
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_instruction_counter_not_decremented_if_inhibited(TESTCONTEXT *testContext)
+{
+	cpu_selftest_set_inhibit_instruction_counter();
+	sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFF);
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
+	cpu_selftest_run_code();
+	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFF);
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_instruction_counter_not_decremented_if_already_zero(TESTCONTEXT *testContext)
+{
+	sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x00);
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
+	cpu_selftest_run_code();
+	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x00);
+}
+
+static void cpu_selftest_instruction_counter_zero_generates_interrupt(TESTCONTEXT *testContext)
+{
+	sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x01);
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
+	cpu_selftest_run_code();
+	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x00);
+	cpu_selftest_assert_instruction_counter_interrupt();
+}
+
+static void cpu_selftest_instruction_counter_already_zero_does_not_generate_new_interrupt(TESTCONTEXT *testContext)
+{
+	sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x00);
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_no_interrupt();
 }
