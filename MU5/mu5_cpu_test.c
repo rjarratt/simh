@@ -4720,7 +4720,7 @@ static void cpu_selftest_sts1_xd_store_to_secondary_operand_generates_interrupt(
     cpu_selftest_set_register(REG_NB, base);
     cpu_selftest_set_register(REG_XD, 0xAAAAAAAABBBBBBBB);
     cpu_selftest_run_code();
-    cpu_selftest_assert_interrupt();
+    cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_sts1_xdb_load_loads_bound_in_XD(TESTCONTEXT *testContext)
@@ -5598,7 +5598,7 @@ static void cpu_selftest_sts2_d_store_to_secondary_operand_generates_interrupt(T
     cpu_selftest_set_register(REG_NB, base);
     cpu_selftest_set_register(REG_D, 0xAAAAAAAABBBBBBBB);
     cpu_selftest_run_code();
-    cpu_selftest_assert_interrupt();
+    cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_sts2_db_load_loads_bound_in_D(TESTCONTEXT *testContext)

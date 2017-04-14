@@ -3193,7 +3193,7 @@ static void cpu_execute_sts1_xd_store(uint16 order, DISPATCH_ENTRY *innerTable)
     }
     else
     {
-        cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
+		cpu_set_illegal_function_interrupt();
     }
 }
 
@@ -3452,8 +3452,8 @@ static void cpu_execute_sts2_d_store(uint16 order, DISPATCH_ENTRY *innerTable)
     }
     else
     {
-        cpu_set_illegal_order_interrupt(0); /* TODO: make sure this is the correct interrupt */
-    }
+		cpu_set_illegal_function_interrupt();
+	}
 }
 
 static void cpu_execute_sts2_db_load(uint16 order, DISPATCH_ENTRY *innerTable)
