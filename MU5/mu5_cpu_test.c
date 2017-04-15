@@ -409,6 +409,8 @@ static void cpu_selftest_load_operand_b_relative_descriptor_16_bit_value_at_6_bi
 static void cpu_selftest_load_operand_b_relative_descriptor_8_bit_value_at_6_bit_offset(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_b_relative_descriptor_4_bit_value_at_6_bit_offset(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_b_relative_descriptor_1_bit_value_at_6_bit_offset(TESTCONTEXT *testContext);
+static void cpu_selftest_load_operand_b_relative_descriptor_with_negative_modifier_generates_bounds_check(TESTCONTEXT *testContext);
+static void cpu_selftest_load_operand_b_relative_descriptor_modifier_greater_than_bound_generates_bounds_check(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_zero_relative_descriptor_loads_D(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_zero_relative_descriptor_64_bit_value_at_6_bit_offset(TESTCONTEXT *testContext);
 
@@ -1026,6 +1028,8 @@ static UNITTEST tests[] =
     { "Load operand 8-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_8_bit_value_at_6_bit_offset },
     { "Load operand 4-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_4_bit_value_at_6_bit_offset },
     { "Load operand 1-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_1_bit_value_at_6_bit_offset },
+	{ "Load operend via B-relative descriptor with a negative modifier generates a bounds check", cpu_selftest_load_operand_b_relative_descriptor_with_negative_modifier_generates_bounds_check },
+	{ "Load operend via B-relative descriptor with a modifier greater than the bound generates a bounds check", cpu_selftest_load_operand_b_relative_descriptor_modifier_greater_than_bound_generates_bounds_check },
     { "Load operand via 0-relative descriptor loads D", cpu_selftest_load_operand_zero_relative_descriptor_loads_D },
     { "Load operand 64-bit via 0-relative descriptor at 6-bit offset", cpu_selftest_load_operand_zero_relative_descriptor_64_bit_value_at_6_bit_offset },
 
@@ -2792,6 +2796,34 @@ static void cpu_selftest_load_operand_b_relative_descriptor_1_bit_value_at_6_bit
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0x0000000000000001);
     cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_load_operand_b_relative_descriptor_with_negative_modifier_generates_bounds_check(TESTCONTEXT *testContext)
+{
+	uint32 base = 0x00F0;
+	uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
+	uint32 vecoffset = -1;
+	int8 n = 0x1;
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_SB, n);
+	cpu_selftest_set_register(REG_NB, base);
+	cpu_selftest_set_register(REG_B, vecoffset);
+	sac_write_64_bit_word(base + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 2, vecorigin));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_bound_check_interrupt_as_system_error();
+}
+
+static void cpu_selftest_load_operand_b_relative_descriptor_modifier_greater_than_bound_generates_bounds_check(TESTCONTEXT *testContext)
+{
+	uint32 base = 0x00F0;
+	uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
+	uint32 vecoffset = 2;
+	int8 n = 0x1;
+	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_SB, n);
+	cpu_selftest_set_register(REG_NB, base);
+	cpu_selftest_set_register(REG_B, vecoffset);
+	sac_write_64_bit_word(base + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 2, vecorigin));
+	cpu_selftest_run_code();
+	cpu_selftest_assert_bound_check_interrupt_as_system_error();
 }
 
 static void cpu_selftest_load_operand_zero_relative_descriptor_loads_D(TESTCONTEXT *testContext)

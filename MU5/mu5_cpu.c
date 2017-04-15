@@ -449,6 +449,7 @@ static uint32 cpu_get_descriptor_origin(t_uint64 descriptor);
 static void cpu_set_descriptor_bound(t_uint64 *descriptor, uint32 bound);
 static void cpu_set_descriptor_origin(t_uint64 *descriptor, uint32 origin);
 static void cpu_descriptor_modify(REG *descriptorReg, int32 modifier, int originOnly);
+static int cpu_check_bound(t_uint64 descriptor, int32 modifier);
 static void cpu_execute_descriptor_modify(uint16 order, REG *descriptorReg);
 
 static void cpu_parse_sts_string_to_string_operand(t_uint64 operand, uint8 *mask, uint8 *filler);
@@ -1725,7 +1726,7 @@ static int32 cpu_scale_descriptor_modifier(t_uint64 descriptor, uint32 modifier)
     return result;
 }
 
-/* see p 90 of Morris and Ibbett and p23 of programming manual */
+/* see p 90 of Morris and Ibbett and section 2.10 of programming manual */
 static t_addr cpu_get_operand_byte_address_by_descriptor_vector_access(t_uint64 descriptor, uint32 modifier)
 {
     t_addr result;
@@ -1738,53 +1739,56 @@ static t_addr cpu_get_operand_byte_address_by_descriptor_vector_access(t_uint64 
 static t_uint64 cpu_get_operand_by_descriptor_vector(t_uint64 descriptor, uint32 modifier)
 {
     t_addr addr;
-    t_uint64 result;
+    t_uint64 result = 0;
 
-    addr = cpu_get_operand_byte_address_by_descriptor_vector_access(descriptor, modifier);
+	if (cpu_check_bound(descriptor, modifier))
+	{
+		addr = cpu_get_operand_byte_address_by_descriptor_vector_access(descriptor, modifier);
 
-    switch (cpu_get_descriptor_size(descriptor))
-    {
-        case DESCRIPTOR_SIZE_1_BIT:
-        {
-            int bit = 7 - (modifier & 7);
-            result = sac_read_8_bit_word(addr);
-            result = (result >> bit) & 1;
-            break;
-        }
-        case DESCRIPTOR_SIZE_4_BIT:
-        {
-            int nibble = 1 - (modifier & 1);
-            result = sac_read_8_bit_word(addr);
-            result = (result >> (4 * nibble)) & 0xF;
-            break;
-        }
-        case DESCRIPTOR_SIZE_8_BIT:
-        {
-            result = sac_read_8_bit_word(addr);
-            break;
-        }
-        case DESCRIPTOR_SIZE_16_BIT:
-        {
-            result = sac_read_16_bit_word(addr >> 1); /* TODO: 16-bit word routine takes a 16-bit word address, not a byte address. Need to make memory access consistent */
-            break;
-        }
-        case DESCRIPTOR_SIZE_32_BIT:
-        {
-            result = sac_read_32_bit_word(addr >> 2); /* TODO: 32-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
-            break;
-        }
-        case DESCRIPTOR_SIZE_64_BIT:
-        {
-            result = sac_read_64_bit_word(addr >> 2); /* TODO: 64-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
-            break;
-        }
-        default:
-        {
-            result = 0;
-            cpu_set_its_interrupt();
-            break;
-        }
-    }
+		switch (cpu_get_descriptor_size(descriptor))
+		{
+			case DESCRIPTOR_SIZE_1_BIT:
+			{
+				int bit = 7 - (modifier & 7);
+				result = sac_read_8_bit_word(addr);
+				result = (result >> bit) & 1;
+				break;
+			}
+			case DESCRIPTOR_SIZE_4_BIT:
+			{
+				int nibble = 1 - (modifier & 1);
+				result = sac_read_8_bit_word(addr);
+				result = (result >> (4 * nibble)) & 0xF;
+				break;
+			}
+			case DESCRIPTOR_SIZE_8_BIT:
+			{
+				result = sac_read_8_bit_word(addr);
+				break;
+			}
+			case DESCRIPTOR_SIZE_16_BIT:
+			{
+				result = sac_read_16_bit_word(addr >> 1); /* TODO: 16-bit word routine takes a 16-bit word address, not a byte address. Need to make memory access consistent */
+				break;
+			}
+			case DESCRIPTOR_SIZE_32_BIT:
+			{
+				result = sac_read_32_bit_word(addr >> 2); /* TODO: 32-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
+				break;
+			}
+			case DESCRIPTOR_SIZE_64_BIT:
+			{
+				result = sac_read_64_bit_word(addr >> 2); /* TODO: 64-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
+				break;
+			}
+			default:
+			{
+				result = 0;
+				cpu_set_its_interrupt();
+				break;
+			}
+		}
+	}
 
     return result;
 }
@@ -1793,56 +1797,59 @@ static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 mod
 {
     t_addr addr;
 
-    addr = cpu_get_operand_byte_address_by_descriptor_vector_access(descriptor, modifier);
+	if (cpu_check_bound(descriptor, modifier))
+	{
+		addr = cpu_get_operand_byte_address_by_descriptor_vector_access(descriptor, modifier);
 
-    switch (cpu_get_descriptor_size(descriptor))
-    {
-        case DESCRIPTOR_SIZE_1_BIT:
-        {
-            uint8 byte = sac_read_8_bit_word(addr);
-            uint8 shift = 7 - (modifier & 0x7);
-            uint8 bitMask = (uint8)0x1 << shift;
-            uint8 bit = (value & 0x1) << shift;
-            byte = (byte & ~bitMask) | bit;
-            sac_write_8_bit_word(addr, byte);
-            break;
-        }
-        case DESCRIPTOR_SIZE_4_BIT:
-        {
-            uint8 byte = sac_read_8_bit_word(addr);
-            uint8 shift = 4 * (1 - (modifier & 0x1));
-            uint8 nibbleMask = (uint8)0xF << shift;
-            uint8 nibble = (value & 0xF) << shift;
-            byte = (byte & ~nibbleMask) | nibble;
-            sac_write_8_bit_word(addr, byte);
-            break;
-        }
-        case DESCRIPTOR_SIZE_8_BIT:
-        {
-            sac_write_8_bit_word(addr, value & 0xFF);
-            break;
-        }
-        case DESCRIPTOR_SIZE_16_BIT:
-        {
-            sac_write_16_bit_word(addr >> 1, value & 0xFFFF);  /* TODO: 16-bit word routine takes a 16-bit word address, not a byte address. Need to make memory access consistent */
-            break;
-        }
-        case DESCRIPTOR_SIZE_32_BIT:
-        {
-            sac_write_32_bit_word(addr >> 2, value & MASK_32); /* TODO: 32-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
-            break;
-        }
-        case DESCRIPTOR_SIZE_64_BIT:
-        {
-            sac_write_64_bit_word(addr >> 2, value); /* TODO: 64-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
-            break;
-        }
-        default:
-        {
-            cpu_set_its_interrupt();
-            break;
-        }
-    }
+		switch (cpu_get_descriptor_size(descriptor))
+		{
+			case DESCRIPTOR_SIZE_1_BIT:
+			{
+				uint8 byte = sac_read_8_bit_word(addr);
+				uint8 shift = 7 - (modifier & 0x7);
+				uint8 bitMask = (uint8)0x1 << shift;
+				uint8 bit = (value & 0x1) << shift;
+				byte = (byte & ~bitMask) | bit;
+				sac_write_8_bit_word(addr, byte);
+				break;
+			}
+			case DESCRIPTOR_SIZE_4_BIT:
+			{
+				uint8 byte = sac_read_8_bit_word(addr);
+				uint8 shift = 4 * (1 - (modifier & 0x1));
+				uint8 nibbleMask = (uint8)0xF << shift;
+				uint8 nibble = (value & 0xF) << shift;
+				byte = (byte & ~nibbleMask) | nibble;
+				sac_write_8_bit_word(addr, byte);
+				break;
+			}
+			case DESCRIPTOR_SIZE_8_BIT:
+			{
+				sac_write_8_bit_word(addr, value & 0xFF);
+				break;
+			}
+			case DESCRIPTOR_SIZE_16_BIT:
+			{
+				sac_write_16_bit_word(addr >> 1, value & 0xFFFF);  /* TODO: 16-bit word routine takes a 16-bit word address, not a byte address. Need to make memory access consistent */
+				break;
+			}
+			case DESCRIPTOR_SIZE_32_BIT:
+			{
+				sac_write_32_bit_word(addr >> 2, value & MASK_32); /* TODO: 32-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
+				break;
+			}
+			case DESCRIPTOR_SIZE_64_BIT:
+			{
+				sac_write_64_bit_word(addr >> 2, value); /* TODO: 64-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
+				break;
+			}
+			default:
+			{
+				cpu_set_its_interrupt();
+				break;
+			}
+		}
+	}
 }
 
 static void cpu_process_source_to_destination_descriptor_vector(t_uint64 operand, t_uint64(*func)(t_uint64 source, t_uint64 destination, t_uint64 operand))
@@ -3061,23 +3068,33 @@ static void cpu_descriptor_modify(REG *descriptorReg, int32 modifier, int origin
     cpu_set_register_64(descriptorReg, d);
 }
 
+static int cpu_check_bound(t_uint64 descriptor, int32 modifier)
+{
+	int result = 1;
+	uint8 type = cpu_get_descriptor_type(descriptor);
+	uint8 subtype = cpu_get_descriptor_subtype(descriptor);
+	uint32 bound = cpu_get_descriptor_bound(descriptor);
+	cpu_set_register_bit_32(reg_dod, mask_dod_bch, 0);
+	if (!cpu_get_descriptor_bound_check_inhibit(descriptor) && (type == DESCRIPTOR_TYPE_GENERAL_VECTOR || type == DESCRIPTOR_TYPE_GENERAL_STRING || type == DESCRIPTOR_TYPE_ADDRESS_VECTOR || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 0) || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 1) || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 2)))
+	{
+		if (modifier < 0 || (uint32)modifier >= bound)
+		{
+			cpu_set_bounds_check_interrupt();
+			result = 0;
+		}
+	}
+
+	return result;
+}
+
 static void cpu_execute_descriptor_modify(uint16 order, REG *descriptorReg)
 {
     t_uint64 d = cpu_get_register_64(descriptorReg);
-    uint8 type = cpu_get_descriptor_type(d);
-    uint8 subtype = cpu_get_descriptor_subtype(d);
-    uint32 bound = cpu_get_descriptor_bound(d);
     int32 modifier = cpu_get_operand(order) & MASK_32;
-    cpu_set_register_bit_32(reg_dod, mask_dod_bch, 0);
-    if (!cpu_get_descriptor_bound_check_inhibit(d) && (type == DESCRIPTOR_TYPE_GENERAL_VECTOR || type == DESCRIPTOR_TYPE_GENERAL_STRING || type == DESCRIPTOR_TYPE_ADDRESS_VECTOR || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 0) || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 1) || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 2)))
-    {
-        if (modifier < 0 || (uint32)modifier >= bound)
-        {
-            cpu_set_bounds_check_interrupt();
-        }
-    }
-
-    cpu_descriptor_modify(descriptorReg, modifier, FALSE);
+	if (cpu_check_bound(d, modifier))
+	{
+		cpu_descriptor_modify(descriptorReg, modifier, FALSE);
+	}
 }
 
 static void cpu_parse_sts_string_to_string_operand(t_uint64 operand, uint8 *mask, uint8 *filler)
