@@ -2542,6 +2542,7 @@ static void cpu_start_interrupt_processing(void)
 	cpu_set_register_bit_16(reg_ms, MS_MASK_EXEC, 1);
     cpu_set_link(newLink);
     printf("Interrupt %hu detected\n", (unsigned short)interruptNumber);
+	cpu_clear_interrupt(interruptNumber); /* TODO: this is a hack for now until I do the cascaded logic and implement L0IF and L1IF to inhibit */
     //cpu_stopped = 1; /* TODO: temporary halt CPU until implement interrupt processing */
 }
 
@@ -4018,7 +4019,7 @@ static void cpu_execute_fp_signed_compare(uint16 order, DISPATCH_ENTRY *innerTab
     t_int64 result = x - comparand;
     cpu_test_value(result);
     cpu_check_x_overflow(result);
-    cpu_clear_interrupt(INT_PROGRAM_FAULTS); /* supposed to ignore A overflow interrupts, just copy the overflow bit */
+    cpu_clear_interrupt(INT_PROGRAM_FAULTS); /* TODO: supposed to ignore A overflow interrupts, just copy the overflow bit, is there a better way to do this now? */
     t0 = cpu_get_register_bit_64(reg_aod, mask_aod_fxpovf) || cpu_get_register_bit_64(reg_aod, mask_aod_zdiv);
     cpu_set_register_bit_16(reg_ms, mask_ms_t0, t0);
 }
