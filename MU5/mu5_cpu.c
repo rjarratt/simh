@@ -2539,6 +2539,7 @@ static void cpu_start_interrupt_processing(void)
     t_uint64 link = cpu_get_link();
     t_uint64 newLink = sac_read_v_store(SYSTEM_V_STORE_BLOCK, 16 + (interruptNumber * 2) + 1);
     sac_write_v_store(SYSTEM_V_STORE_BLOCK, 16 + (interruptNumber * 2), link);
+	cpu_set_register_bit_16(reg_ms, MS_MASK_EXEC, 1);
     cpu_set_link(newLink);
     printf("Interrupt %hu detected\n", (unsigned short)interruptNumber);
     //cpu_stopped = 1; /* TODO: temporary halt CPU until implement interrupt processing */

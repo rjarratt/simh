@@ -886,6 +886,7 @@ static void cpu_selftest_no_acc_interrupt_if_inhibited_in_user_mode(TESTCONTEXT 
 
 static void cpu_selftest_interrupt_stacks_link_in_system_v_store(TESTCONTEXT *testContext);
 static void cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store(TESTCONTEXT *testContext);
+static void cpu_selftest_interrupt_sets_executive_mode(TESTCONTEXT *testContext);
 
 static void cpu_selftest_write_to_prop_program_fault_status_resets_it(TESTCONTEXT *testContext);
 static void cpu_selftest_write_to_prop_system_error_status_resets_it(TESTCONTEXT *testContext);
@@ -1503,6 +1504,7 @@ static UNITTEST tests[] =
 
     { "Interrupt stacks link in System V-Store", cpu_selftest_interrupt_stacks_link_in_system_v_store },
     { "Interrupt calls handler using link in System V-Store", cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store },
+	{ "Interrupt sets executive mode", cpu_selftest_interrupt_sets_executive_mode },
 
     { "Write to PROP PROGRAM FAULT STATUS V-Line resets it", cpu_selftest_write_to_prop_program_fault_status_resets_it },
     { "Write to PROP SYSTEM ERROR STATUS V-Line resets it", cpu_selftest_write_to_prop_system_error_status_resets_it },
@@ -8068,6 +8070,16 @@ static void cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store(TE
     cpu_selftest_assert_reg_equals(REG_MS, 0xBB84);
     cpu_selftest_assert_reg_equals(REG_NB, 0xCCCC);
     cpu_selftest_assert_reg_equals(REG_CO, 0x0000000B);
+}
+
+static void cpu_selftest_interrupt_sets_executive_mode(TESTCONTEXT *testContext)
+{
+	cpu_selftest_set_register(REG_MS, 0);
+	cpu_selftest_set_user_mode();
+	sac_write_v_store(SYSTEM_V_STORE_BLOCK, 29, 0xBB84CCCC0000000B);
+	cpu_set_interrupt(INT_PROGRAM_FAULTS);
+	cpu_selftest_run_code();
+	cpu_selftest_assert_reg_equals(REG_MS, 0xBB84);
 }
 
 static void cpu_selftest_write_to_prop_program_fault_status_resets_it(TESTCONTEXT *testContext)
