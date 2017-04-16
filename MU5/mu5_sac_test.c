@@ -92,8 +92,10 @@ static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTE
 static void sac_selftest_writing_read_only_vstore_line_does_nothing(TESTCONTEXT *testContext);
 static void sac_selftest_read_write_vstore_location_can_be_read_back_after_write(TESTCONTEXT *testContext);
 static void sac_selftest_can_write_real_address_to_cpr(TESTCONTEXT *testContext);
+static void sac_selftest_writing_real_address_to_reserved_cpr_has_no_effect(TESTCONTEXT *testContext);
 static void sac_selftest_can_read_real_address_from_cpr(TESTCONTEXT *testContext);
 static void sac_selftest_can_write_virtual_address_to_cpr(TESTCONTEXT *testContext);
+static void sac_selftest_writing_virtual_address_to_reserved_cpr_has_no_effect(TESTCONTEXT *testContext);
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_ignore_bit(TESTCONTEXT *testContext);
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_find_bit(TESTCONTEXT *testContext);
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_referenced_bit(TESTCONTEXT *testContext);
@@ -153,10 +155,12 @@ static UNITTEST tests[] =
     { "Reading a write-only V-Store line returns zeroes", sac_selftest_reading_write_only_vstore_line_returns_zeroes },
     { "Writing a read-only V-Store line does nothing", sac_selftest_writing_read_only_vstore_line_does_nothing },
     { "A read/write V-Store line can be read back after writing", sac_selftest_read_write_vstore_location_can_be_read_back_after_write },
-    { "Can write a real address to a CPR", sac_selftest_can_write_real_address_to_cpr },
-    { "Can read a real address from a CPR", sac_selftest_can_read_real_address_from_cpr },
+	{ "Can write a real address to a CPR", sac_selftest_can_write_real_address_to_cpr },
+	{ "Writing a real address to a reserved CPR has no effect", sac_selftest_writing_real_address_to_reserved_cpr_has_no_effect },
+	{ "Can read a real address from a CPR", sac_selftest_can_read_real_address_from_cpr },
     { "Can write a virtual address to a CPR", sac_selftest_can_write_virtual_address_to_cpr },
-    { "Writing a virtual address to a CPR clears the associated ignore bit", sac_selftest_writing_virtual_address_to_cpr_clears_associated_ignore_bit },
+	{ "Writing a virtual address to a reserved CPR has no effect", sac_selftest_writing_virtual_address_to_reserved_cpr_has_no_effect },
+	{ "Writing a virtual address to a CPR clears the associated ignore bit", sac_selftest_writing_virtual_address_to_cpr_clears_associated_ignore_bit },
     { "Writing a virtual address to a CPR clears the associated find bit", sac_selftest_writing_virtual_address_to_cpr_clears_associated_find_bit },
     { "Writing a virtual address to a CPR clears the associated referenced bit", sac_selftest_writing_virtual_address_to_cpr_clears_associated_referenced_bit },
     { "Writing a virtual address to a CPR clears the associated altered bit", sac_selftest_writing_virtual_address_to_cpr_clears_associated_altered_bit },
@@ -591,9 +595,16 @@ static void sac_selftest_read_write_vstore_location_can_be_read_back_after_write
 
 static void sac_selftest_can_write_real_address_to_cpr(TESTCONTEXT *testContext)
 {
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, 0xAAAAAAAAFFFFFFFF);
-    sac_selftest_assert_reg_instance_equals(REG_CPR, 31, 0x000000007FFFFFFF);
+	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 27);
+	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, 0xAAAAAAAAFFFFFFFF);
+	sac_selftest_assert_reg_instance_equals(REG_CPR, 27, 0x000000007FFFFFFF);
+}
+
+static void sac_selftest_writing_real_address_to_reserved_cpr_has_no_effect(TESTCONTEXT *testContext)
+{
+	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
+	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, 0xAAAAAAAAFFFFFFFF);
+	sac_selftest_assert_reg_instance_equals(REG_CPR, 31, 0x0200000078000005);
 }
 
 static void sac_selftest_can_read_real_address_from_cpr(TESTCONTEXT *testContext)
@@ -605,16 +616,23 @@ static void sac_selftest_can_read_real_address_from_cpr(TESTCONTEXT *testContext
 
 static void sac_selftest_can_write_virtual_address_to_cpr(TESTCONTEXT *testContext)
 {
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0xAAAAAAAAFFFFFFFF);
-    sac_selftest_assert_reg_instance_equals(REG_CPR, 31, 0x3FFFFFFF00000000);
+	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 27);
+	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0xAAAAAAAAFFFFFFFF);
+	sac_selftest_assert_reg_instance_equals(REG_CPR, 27, 0x3FFFFFFF00000000);
+}
+
+static void sac_selftest_writing_virtual_address_to_reserved_cpr_has_no_effect(TESTCONTEXT *testContext)
+{
+	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 28);
+	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0xAAAAAAAAFFFFFFFF);
+	sac_selftest_assert_reg_instance_equals(REG_CPR, 28, 0x0200000078000005);
 }
 
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_ignore_bit(TESTCONTEXT *testContext)
 {
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 27);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0xAAAAAAAAFFFFFFFF);
-    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0x7FFFFFFF);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0xF7FFFFFF);
 }
 
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_find_bit(TESTCONTEXT *testContext)
@@ -628,17 +646,17 @@ static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_find_b
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_referenced_bit(TESTCONTEXT *testContext)
 {
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_REFERENCED, 0xFFFFFFFF);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 27);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0xAAAAAAAAFFFFFFFF);
-    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_REFERENCED, 0x7FFFFFFF);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_REFERENCED, 0xF7FFFFFF);
 }
 
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_altered_bit(TESTCONTEXT *testContext)
 {
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_ALTERED, 0xFFFFFFFF);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 27);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0xAAAAAAAAFFFFFFFF);
-    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_ALTERED, 0x7FFFFFFF);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_ALTERED, 0xF7FFFFFF);
 }
 
 static void sac_selftest_can_read_virtual_address_from_cpr(TESTCONTEXT *testContext)
@@ -711,14 +729,14 @@ static void sac_selftest_search_cpr_ignores_empty_cprs(TESTCONTEXT *testContext)
 {
     mu5_selftest_setup_cpr(0, VA(1, 1, 1), 0);
     mu5_selftest_setup_cpr(1, VA(1, 1, 1), 0);
-    mu5_selftest_setup_cpr(30, VA(1, 1, 1), 0);
-    mu5_selftest_setup_cpr(31, VA(1, 1, 1), 0);
+    mu5_selftest_setup_cpr(26, VA(1, 1, 1), 0);
+    mu5_selftest_setup_cpr(27, VA(1, 1, 1), 0);
 
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, 0);
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0x80000001);
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0x08000001);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, VA(1, 1, 1));
 
-    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, 0x40000002);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, 0x04000002);
 }
 
 static void sac_selftest_search_cpr_does_not_update_cpr_referenced_bits(TESTCONTEXT *testContext)

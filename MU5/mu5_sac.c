@@ -28,6 +28,10 @@ This is the MU5 Store Access Control unit. The Local Store consisted of four
 The Mass Store consisted of two 128K-word memory units, each word containing
 36 bits. The Fixed-head Disc consisted of two 2.4 Mbyte units. 
 
+There are believed to be 4 hard-wired CPRs. When asked in April 2017 RNI was
+not sure which ones and did not know their values. He said: "Assume 4 for now
+and assume they are numbers 28-31. Writing to them would have no effect."
+
 Known Limitations
 -----------------
 The following V Store lines are not implemented: CPR X FIELD, SAC PARITY, SAC MODE, UNIT STATUS, 1905E INTERRUPT.
@@ -197,6 +201,13 @@ void sac_reset_state(void)
     memset(VStore, 0, sizeof(VStore));
     memset(SystemVStore, 0, sizeof(SystemVStore));
     memset(cpr, 0, sizeof(cpr));
+	/* set up the reserved CPRs. These are made-up values, don't know the originals. Size 5 = 512 words */
+	/* at the moment these are all the same value as I don't know what they should be, just make sure the 
+	   CPR IGNORE ignores all but one of them to avoid a multiple equivalence error */
+	cpr[28] = 0x0200000078000005;
+	cpr[29] = 0x0200000078000005;
+	cpr[30] = 0x0200000078000005;
+	cpr[31] = 0x0200000078000005; /* Maps V-Store to segment 8192, exec mode only access */
 
     for (i = 0; i < V_STORE_BLOCK_SIZE; i++)
     {
@@ -422,7 +433,10 @@ static t_uint64 sac_read_cpr_ra_callback(uint8 line)
 
 static void sac_write_cpr_ra_callback(uint8 line, t_uint64 value)
 {
-    cpr[CPRNumber] = (cpr[CPRNumber] & 0xFFFFFFFF00000000) | (value & CPR_RA_MASK);
+	if (CPRNumber < 28)
+	{
+		cpr[CPRNumber] = (cpr[CPRNumber] & 0xFFFFFFFF00000000) | (value & CPR_RA_MASK);
+	}
 }
 
 static t_uint64 sac_read_cpr_va_callback(uint8 line)
@@ -432,8 +446,11 @@ static t_uint64 sac_read_cpr_va_callback(uint8 line)
 
 static void sac_write_cpr_va_callback(uint8 line, t_uint64 value)
 {
-    cpr[CPRNumber] = ((value & CPR_VA_MASK) << 32) | (cpr[CPRNumber] & CPR_RA_MASK);
-    sac_reset_cpr(CPRNumber);
+	if (CPRNumber < 28)
+	{
+		cpr[CPRNumber] = ((value & CPR_VA_MASK) << 32) | (cpr[CPRNumber] & CPR_RA_MASK);
+		sac_reset_cpr(CPRNumber);
+	}
 }
 
 static t_uint64 sac_read_cpr_ignore_callback(uint8 line)
