@@ -34,8 +34,13 @@ in this Software without prior written authorization from Robert Jarratt.
 #define MS_MASK_BCPR 0x0080
 #define MS_MASK_INH_PROG_FLT 0x0400
 
+/* Program fault status register masks */
+#define PFS_B_FAULT 0x0080
+
+
 void cpu_reset_state(void);
 void cpu_execute_next_order(void);
+void cpu_set_register(REG *reg, t_uint64 value); /* for selftest purposes only, so register setting includes calling the callbacks if appropriate, to make interrupt testing easier */
 void cpu_set_interrupt(uint8 number);
 uint8 cpu_get_interrupt_number(void);
 void cpu_set_access_violation_interrupt(void);

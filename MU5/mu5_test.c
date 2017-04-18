@@ -175,6 +175,25 @@ void mu5_selftest_assert_reg_instance_equals(TESTCONTEXT *context, DEVICE *devic
     }
 }
 
+void mu5_selftest_assert_no_system_error(TESTCONTEXT *context)
+{
+    mu5_selftest_assert_vstore_contents(context, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0);
+}
+
+void mu5_selftest_assert_no_program_fault(TESTCONTEXT *context)
+{
+    mu5_selftest_assert_vstore_contents(context, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0);
+}
+
+void mu5_selftest_assert_interrupt_inhibited(TESTCONTEXT *context)
+{
+    if (cpu_get_interrupt_number() != 255)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Unexpected interrupt\n");
+        mu5_selftest_set_failure(context);
+    }
+}
+
 void mu5_selftest_assert_no_interrupt(TESTCONTEXT *context)
 {
     if (cpu_get_interrupt_number() != 255)
@@ -183,8 +202,8 @@ void mu5_selftest_assert_no_interrupt(TESTCONTEXT *context)
         mu5_selftest_set_failure(context);
     }
 
-    mu5_selftest_assert_vstore_contents(context, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0);
-    mu5_selftest_assert_vstore_contents(context, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0);
+    mu5_selftest_assert_no_system_error(context);
+    mu5_selftest_assert_no_program_fault(context);
 }
 
 void mu5_selftest_assert_interrupt_number(TESTCONTEXT *context, int expectedInterruptNumber)
@@ -358,35 +377,35 @@ void mu5_selftest_set_register_instance(TESTCONTEXT *context, DEVICE *device, ch
     assert(index >= 0 && index < reg->depth);
     if (reg->depth == 1)
     {
-        loc = reg->loc;
+        cpu_set_register(reg, value);
     }
     else
     {
         loc = (uint8 *)reg->loc + index * (reg->width / 8);
-    }
 
-    switch (reg->width)
-    {
-        case 16:
+        switch (reg->width)
         {
-            *(uint16 *)(loc) = value & 0xFFFF;
-            break;
-        }
-        case 32:
-        {
-            *(uint32 *)(loc) = value & 0xFFFFFFFF;
-            break;
-        }
-        case 64:
-        {
-            *(t_uint64 *)(loc) = value & 0xFFFFFFFFFFFFFFFF;
-            break;
-        }
-        default:
-        {
-            sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Unexpected register width %d for register %s\n", reg->width, name);
-            mu5_selftest_set_failure(context);
-            break;
+            case 16:
+            {
+                *(uint16 *)(loc) = value & 0xFFFF;
+                break;
+            }
+            case 32:
+            {
+                *(uint32 *)(loc) = value & 0xFFFFFFFF;
+                break;
+            }
+            case 64:
+            {
+                *(t_uint64 *)(loc) = value & 0xFFFFFFFFFFFFFFFF;
+                break;
+            }
+            default:
+            {
+                sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Unexpected register width %d for register %s\n", reg->width, name);
+                mu5_selftest_set_failure(context);
+                break;
+            }
         }
     }
 }

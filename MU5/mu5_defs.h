@@ -24,6 +24,8 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Robert Jarratt.
 */
 
+#pragma once
+
 #include "sim_defs.h"
 
 #define REG_A "A"
@@ -44,6 +46,9 @@ in this Software without prior written authorization from Robert Jarratt.
 #define REG_MS "MS"
 #define REG_CO "CO"
 #define REG_DL "DL"
+
+/* flag used to mark a register as needing a callback when it is written*/
+#define REG_CALLBACK 0x8000000
 
 /* Debug flags */
 #define LOG_CPU_PERF            (1 << 0)
@@ -74,3 +79,21 @@ in this Software without prior written authorization from Robert Jarratt.
 #define DESCRIPTOR_SIZE_16_BIT 4
 #define DESCRIPTOR_SIZE_32_BIT 5
 #define DESCRIPTOR_SIZE_64_BIT 6
+
+typedef struct
+{
+	uint16 backing_value;
+	void(*callback)(uint16 old_value, uint16 new_value);
+} uint16_register_backing;
+
+typedef struct
+{
+	uint32 backing_value;
+	void(*callback)(uint32 old_value, uint32 new_value);
+} uint32_register_backing;
+
+typedef struct
+{
+	t_uint64 backing_value;
+	void(*callback)(t_uint64 old_value, t_uint64 new_value);
+} t_uint64_register_backing;

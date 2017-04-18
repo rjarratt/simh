@@ -312,6 +312,10 @@ static void cpu_selftest_assert_vector_content_16_bit(t_addr origin, uint32 offs
 static void cpu_selftest_assert_vector_content_8_bit(t_addr origin, uint32 offset, uint8 expectedValue);
 static void cpu_selftest_assert_vector_content_4_bit(t_addr origin, uint32 offset, uint8 expectedValue);
 static void cpu_selftest_assert_vector_content_1_bit(t_addr origin, uint32 offset, uint8 expectedValue);
+
+static void cpu_selftest_assert_inhibited_program_fault_interrupt(uint16 expected_program_fault_status);
+
+// TODO: After interrupt design change check which of the following are really needed.
 static void cpu_selftest_assert_no_b_overflow(void);
 static void cpu_selftest_assert_no_b_overflow_interrupt(void);
 static void cpu_selftest_assert_b_overflow(void);
@@ -325,6 +329,7 @@ static void cpu_selftest_assert_no_a_zero_divide_interrupt(void);
 static void cpu_selftest_assert_a_zero_divide(void);
 static void cpu_selftest_assert_a_zero_divide_interrupt(void);
 static void cpu_selftest_assert_interrupt(void);
+static void cpu_selftest_assert_interrupt_inhibited(void);
 static void cpu_selftest_assert_no_interrupt(void);
 static void cpu_selftest_assert_dod_interrupt_as_system_error(char *name, uint32 mask);
 static void cpu_selftest_assert_d_error_no_interrupt(char *name, uint32 mask);
@@ -364,6 +369,7 @@ static void cpu_selftest_assert_fail(void);
 static void cpu_selftest_set_failure(void);
 
 static void cpu_selftest_16_bit_instruction_fetches_using_obey_access(TESTCONTEXT *testContext);
+static void cpu_selftest_instruction_not_obeyed_if_access_violation_when_fetching_instruction(TESTCONTEXT *testContext);
 static void cpu_selftest_16_bit_instruction_generates_instruction_access_violation_when_fetching_from_non_executable_segment(TESTCONTEXT *testContext);
 static void cpu_selftest_instruction_fetches_extended_literal_using_obey_access(TESTCONTEXT *testContext);
 static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_from_sf_using_obey_access(TESTCONTEXT *testContext);
@@ -867,6 +873,18 @@ static void cpu_selftest_org_bn_bn_on_false(TESTCONTEXT *testContext);
 static void cpu_selftest_org_bn_bn_on_true(TESTCONTEXT *testContext);
 static void cpu_selftest_org_bn_order_tests(TESTCONTEXT *testContext);
 
+static void cpu_selftest_program_fault_sets_v_line_but_does_not_generate_interrupt_if_program_faults_are_inhibited(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_bod_b_overflow_in_executive_mode_generates_b_or_d_system_error_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_bod_b_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_bod_b_overflow_in_user_mode_generates_b_program_fault_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_bod_b_overflow_in_user_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
+static void cpu_selftest_clearing_bod_b_overflow_in_executive_mode_clears_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_clearing_bod_b_overflow_in_user_mode_clears_interrupt(TESTCONTEXT *testContext);
+
+// TODO:
+static void cpu_selftest_switch_to_user_mode_when_bod_b_overflow_set_resets_system_error_v_line(TESTCONTEXT *testContext);
+static void cpu_selftest_switch_to_user_mode_resets_system_error_interrupt(TESTCONTEXT *testContext);
+
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_no_acc_zero_divide_interrupt_if_acc_zero_divide_is_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited(TESTCONTEXT *testContext);
@@ -878,7 +896,6 @@ static void cpu_selftest_no_D_interrupt_if_inhibited_in_user_mode(TESTCONTEXT *t
 static void cpu_selftest_B_interrupt_as_system_error_in_executive_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_no_B_interrupt_if_inhibited_in_executive_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_B_interrupt_as_program_fault_in_user_mode(TESTCONTEXT *testContext);
-static void cpu_selftest_no_B_interrupt_if_inhibited_in_user_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_acc_interrupt_as_system_error_in_executive_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_no_acc_interrupt_if_inhibited_in_executive_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_acc_interrupt_as_program_fault_in_user_mode(TESTCONTEXT *testContext);
@@ -986,6 +1003,7 @@ static UNITTEST tests[] =
 {
     { "16-bit instruction fetches using obey access", cpu_selftest_16_bit_instruction_fetches_using_obey_access },
     { "16-bit instruction generates instruction access violation when fetching from a non-executable segment", cpu_selftest_16_bit_instruction_generates_instruction_access_violation_when_fetching_from_non_executable_segment },
+    { "Instruction not obeyed if there is an access violation fetching the instruction", cpu_selftest_instruction_not_obeyed_if_access_violation_when_fetching_instruction },
     { "Instruction fetches extended literal using obey access", cpu_selftest_instruction_fetches_extended_literal_using_obey_access },
     { "Instruction fetches extended operand offset from SF using obey access", cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_from_sf_using_obey_access },
     { "Instruction fetches extended operand offset from Zero using obey access", cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_from_zero_using_obey_access },
@@ -1016,8 +1034,8 @@ static UNITTEST tests[] =
     { "Load operand internal register 32", cpu_selftest_load_operand_internal_register_32 },
     { "Load operand internal register 33", cpu_selftest_load_operand_internal_register_33 },
     { "Load operand internal register 34", cpu_selftest_load_operand_internal_register_34 },
-	{ "Load operand internal register 48", cpu_selftest_load_operand_internal_register_48 },
-	{ "Load operand from non-existent internal register", cpu_selftest_load_operand_non_existent_internal_register },
+    { "Load operand internal register 48", cpu_selftest_load_operand_internal_register_48 },
+    { "Load operand from non-existent internal register", cpu_selftest_load_operand_non_existent_internal_register },
 
     { "Load operand 32-bit variable", cpu_selftest_load_operand_32_bit_variable },
     { "Load operand 32-bit variable 6-bit offset is unsigned", cpu_selftest_load_operand_32_bit_variable_6_bit_offset_is_unsigned },
@@ -1030,8 +1048,8 @@ static UNITTEST tests[] =
     { "Load operand 8-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_8_bit_value_at_6_bit_offset },
     { "Load operand 4-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_4_bit_value_at_6_bit_offset },
     { "Load operand 1-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_1_bit_value_at_6_bit_offset },
-	{ "Load operend via B-relative descriptor with a negative modifier generates a bounds check", cpu_selftest_load_operand_b_relative_descriptor_with_negative_modifier_generates_bounds_check },
-	{ "Load operend via B-relative descriptor with a modifier greater than the bound generates a bounds check", cpu_selftest_load_operand_b_relative_descriptor_modifier_greater_than_bound_generates_bounds_check },
+    { "Load operend via B-relative descriptor with a negative modifier generates a bounds check", cpu_selftest_load_operand_b_relative_descriptor_with_negative_modifier_generates_bounds_check },
+    { "Load operend via B-relative descriptor with a modifier greater than the bound generates a bounds check", cpu_selftest_load_operand_b_relative_descriptor_modifier_greater_than_bound_generates_bounds_check },
     { "Load operand via 0-relative descriptor loads D", cpu_selftest_load_operand_zero_relative_descriptor_loads_D },
     { "Load operand 64-bit via 0-relative descriptor at 6-bit offset", cpu_selftest_load_operand_zero_relative_descriptor_64_bit_value_at_6_bit_offset },
 
@@ -1099,13 +1117,13 @@ static UNITTEST tests[] =
 
     { "Store operand 6-bit literal generates interrupt", cpu_selftest_store_operand_6_bit_literal_generates_interrupt },
 
-	{ "Store operand internal register 0 generates an illegal order interrupt in user mode", cpu_selftest_store_operand_internal_register_0_generates_interrupt_as_illegal_order_in_user_mode },
-	{ "Store operand internal register 0 generates a system error interrupt in executive mode", cpu_selftest_store_operand_internal_register_0_generates_interrupt_as_system_error_in_executive_mode },
-	{ "Store operand internal register 1 generates an interrupt", cpu_selftest_store_operand_internal_register_1_generates_interrupt },
+    { "Store operand internal register 0 generates an illegal order interrupt in user mode", cpu_selftest_store_operand_internal_register_0_generates_interrupt_as_illegal_order_in_user_mode },
+    { "Store operand internal register 0 generates a system error interrupt in executive mode", cpu_selftest_store_operand_internal_register_0_generates_interrupt_as_system_error_in_executive_mode },
+    { "Store operand internal register 1 generates an interrupt", cpu_selftest_store_operand_internal_register_1_generates_interrupt },
     { "Store operand internal register 2 generates an interrupt", cpu_selftest_store_operand_internal_register_2_generates_interrupt },
     { "Store operand internal register 3 generates an interrupt", cpu_selftest_store_operand_internal_register_3_generates_interrupt },
     { "Store operand internal register 4 generates an interrupt", cpu_selftest_store_operand_internal_register_4_generates_interrupt },
-	{ "Store operand to non-existent internal register in prop generates an interrupt", cpu_selftest_store_operand_non_existent_prop_internal_register_generates_interrupt },
+    { "Store operand to non-existent internal register in prop generates an interrupt", cpu_selftest_store_operand_non_existent_prop_internal_register_generates_interrupt },
     { "Store operand internal register 16", cpu_selftest_store_operand_internal_register_16 },
     { "Store operand internal register 17", cpu_selftest_store_operand_internal_register_17 },
     { "Store operand internal register 18", cpu_selftest_store_operand_internal_register_18 },
@@ -1114,8 +1132,8 @@ static UNITTEST tests[] =
     { "Store operand internal register 32", cpu_selftest_store_operand_internal_register_32 },
     { "Store operand internal register 33", cpu_selftest_store_operand_internal_register_33 },
     { "Store operand internal register 34", cpu_selftest_store_operand_internal_register_34 },
-	{ "Store operand internal register 48", cpu_selftest_store_operand_internal_register_48 },
-	{ "Store operand to non-existent internal register", cpu_selftest_store_operand_non_existent_internal_register },
+    { "Store operand internal register 48", cpu_selftest_store_operand_internal_register_48 },
+    { "Store operand to non-existent internal register", cpu_selftest_store_operand_non_existent_internal_register },
 
     { "Store operand 32-bit variable", cpu_selftest_store_operand_32_bit_variable },
     { "Store operand 64-bit variable", cpu_selftest_store_operand_64_bit_variable },
@@ -1406,117 +1424,130 @@ static UNITTEST tests[] =
     { "RETURN resets the link except privileged MS bits in user mode", cpu_selftest_org_return_resets_link_except_privileged_ms_bits_in_user_mode },
     { "RETURN does not pop stack if operand is not stack but does set SF to NB", cpu_selftest_org_return_does_not_pop_stack_if_operand_is_not_stack_but_sets_NB },
     { "XC0-6 orders stack operand and jump to offset n in segment 8193", cpu_selftest_org_XCn_stacks_operand_and_jumps_to_offset_n },
-	{ "XC0-6 orders set executive mode", cpu_selftest_org_XCn_sets_executive_mode },
-	{ "STACK LINK puts link on the stack and adds the operand to the stacked value of CO", cpu_selftest_org_stacklink_puts_link_on_stack_adding_operand_to_stacked_CO },
-	{ "STACK LINK treats operand as signed", cpu_selftest_org_stacklink_treats_operand_as_signed },
-	{ "STACK LINK generates an interrupt when adding the operand to CO overflows a segment boundary", cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_overflows_segment_boundary },
-	{ "STACK LINK generates an interrupt when adding the operand to CO underlows a segment boundary", cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_underflows_segment_boundary },
-	{ "STACK LINK generates an illegal order interrupt when segment overflow occurs in user mode", cpu_selftest_org_stacklink_generates_illegal_order_interrupt_if_segment_overflow_in_user_mode },
-	{ "STACK LINK generates a system error interrupt when when segment overflow occurs in level 0 mode", cpu_selftest_org_stacklink_generates_system_error_interrupt_if_segment_overflow_in_level0_mode },
-	{ "STACK LINK generates a system error interrupt when when segment overflow occurs in level 1 mode", cpu_selftest_org_stacklink_generates_system_error_interrupt_if_segment_overflow_in_level1_mode },
-	{ "STACK LINK generates a system error interrupt when when segment overflow occurs in executive mode", cpu_selftest_org_stacklink_generates_system_error_interrupt_if_segment_overflow_in_executive_mode },
-	{ "MS= sets unmasked bits only when in executive mode", cpu_selftest_org_ms_load_sets_unmasked_bits_only_in_executive_mode },
-	{ "MS= does not set masked bits in executive mode", cpu_selftest_org_ms_load_does_not_set_masked_bits_in_executive_mode },
-	{ "MS= does not set privileged bits even if unmasked when in user mode", cpu_selftest_org_ms_load_does_not_set_privileged_unmasked_bits_in_user_mode },
-	{ "DL= loads pseudo register for the display lamps", cpu_selftest_org_dl_load_sets_dl_pseudo_register },
-	{ "SPM dummy order", cpu_selftest_org_spm_dummy },
-	{ "SETLINK stores the link", cpu_selftest_org_setlink_stores_link },
-	{ "XNB= loads XNB", cpu_selftest_org_xnb_load_loads_XNB },
-	{ "SN= does not load SN in user mode", cpu_selftest_org_sn_load_in_user_mode_does_not_load_SN },
-	{ "SN= loads SN in executive mode", cpu_selftest_org_sn_load_in_executive_mode_loads_SN },
-	{ "XNB+ adds operand to XNB", cpu_selftest_org_xnb_plus_adds_operand_to_XNB },
-	{ "XNB+ generates an interrupt if there is a segment overflow", cpu_selftest_org_xnb_plus_generates_interrupt_if_segment_overflow },
-	{ "XNB+ generates an interrupt if there is a segment underflow", cpu_selftest_org_xnb_plus_generates_interrupt_if_segment_underflow },
-	{ "XNB+ generates an illegal order interrupt if there is a segment overflow in user mode", cpu_selftest_org_xnb_plus_generates_illegal_order_interrupt_if_segment_overflow_in_user_mode },
-	{ "XNB+ generates a system error interrupt if there is a segment overflow in level 0 mode", cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_level0_mode },
-	{ "XNB+ generates a system error interrupt if there is a segment overflow in level 1 mode", cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_level1_mode },
-	{ "XNB+ generates a system error interrupt if there is a segment overflow in executive mode", cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_executive_mode },
-	{ "XNB=> stores XNB", cpu_selftest_org_xnb_store_stores_XNB },
-	{ "XNB=> to secondary operand generates interrupt", cpu_selftest_org_xnb_store_to_secondary_operand_generates_interrupt },
-	{ "SF= loads SF", cpu_selftest_org_sf_load_loads_SF },
-	{ "SF+ adds operand to SF", cpu_selftest_org_sf_plus_adds_operand_to_SF },
-	{ "SF+ ", cpu_selftest_org_sf_plus_generates_interrupt_on_segment_overflow },
-	{ "SF+ ", cpu_selftest_org_sf_plus_generates_interrupt_on_segment_underflow },
-	{ "SF=NB+ adds NB to signed operand and stores result to SF", cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF },
-	{ "SF=NB+ generates interrupt on segment overflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow },
-	{ "SF=NB+ generates interrupt on segment underflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow },
-	{ "SF=> stores SF", cpu_selftest_org_sf_store_stores_SF },
-	{ "SF=> to secondary operand generates interrupt", cpu_selftest_org_sf_store_to_secondary_operand_generates_interrupt },
-	{ "NB= loads NB", cpu_selftest_org_nb_load_loads_NB },
-	{ "NB=SF+ adds SF to signed operand and stores result to NB", cpu_selftest_org_nb_load_sf_plus_adds_SF_to_signed_operand_and_stores_to_NB },
-	{ "NB=SF+ generates interrupt on segment overflow", cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_overflow },
-	{ "NB=SF+ generates interrupt on segment underflow", cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_underflow },
-	{ "NB+ adds signed operand to NB", cpu_selftest_org_nb_plus_adds_signed_operand_to_NB },
-	{ "NB+ generates interrupt on segment overflow", cpu_selftest_org_nb_plus_generates_interrupt_on_segment_overflow },
-	{ "NB+ generates interrupt on segment underflow", cpu_selftest_org_nb_plus_generates_interrupt_on_segment_underflow },
-	{ "NB=> stores SN and NB", cpu_selftest_org_nb_store_stores_SN_and_NB },
-	{ "NB=> to secondary operand generates interrupt", cpu_selftest_org_nb_store_to_secondary_operand_generates_interrupt },
-	{ "Branch on eq does not branch on false", cpu_selftest_org_br_eq_does_not_branch_on_false },
-	{ "Branch on eq branches on true", cpu_selftest_org_br_eq_does_branch_on_true },
-	{ "Branch on ne does not branch on false", cpu_selftest_org_br_ne_does_not_branch_on_false },
-	{ "Branch on ne branches on true", cpu_selftest_org_br_ne_does_branch_on_true },
-	{ "Branch on ge does not branch on false", cpu_selftest_org_br_ge_does_not_branch_on_false },
-	{ "Branch on ge branches on true", cpu_selftest_org_br_ge_does_branch_on_true },
-	{ "Branch on lt does not branch on false", cpu_selftest_org_br_lt_does_not_branch_on_false },
-	{ "Branch on lt branches on true", cpu_selftest_org_br_lt_does_branch_on_true },
-	{ "Branch on le does not branch on false", cpu_selftest_org_br_le_does_not_branch_on_false },
-	{ "Branch on le branches on true", cpu_selftest_org_br_le_does_branch_on_true },
-	{ "Branch on gt does not branch on false", cpu_selftest_org_br_gt_does_not_branch_on_false },
-	{ "Branch on gt branches on true", cpu_selftest_org_br_gt_does_branch_on_true },
-	{ "Branch on ovf does not branch on false", cpu_selftest_org_br_ovf_does_not_branch_on_false },
-	{ "Branch on ovf branches on true", cpu_selftest_org_br_ovf_does_branch_on_true },
-	{ "Branch on bn does not branch on false", cpu_selftest_org_br_bn_does_not_branch_on_false },
-	{ "Branch on bn branches on true", cpu_selftest_org_br_bn_does_branch_on_true },
-	{ "Boolean order with function from operand, tests all function combinations", cpu_selftest_org_bn_function_tests },
-	{ "Boolean order with function from operand on eq test is false", cpu_selftest_org_bn_eq_on_false },
-	{ "Boolean order with function from operand on eq test is true", cpu_selftest_org_bn_eq_on_true },
-	{ "Boolean order with function from operand on ne test is false", cpu_selftest_org_bn_ne_on_false },
-	{ "Boolean order with function from operand on ne test is true", cpu_selftest_org_bn_ne_on_true },
-	{ "Boolean order with function from operand on ge test is false", cpu_selftest_org_bn_ge_on_false },
-	{ "Boolean order with function from operand on ge test is true", cpu_selftest_org_bn_ge_on_true },
-	{ "Boolean order with function from operand on lt test is false", cpu_selftest_org_bn_lt_on_false },
-	{ "Boolean order with function from operand on lt test is true", cpu_selftest_org_bn_lt_on_true },
-	{ "Boolean order with function from operand on le test is false", cpu_selftest_org_bn_le_on_false },
-	{ "Boolean order with function from operand on le test is true", cpu_selftest_org_bn_le_on_true },
-	{ "Boolean order with function from operand on gt test is false", cpu_selftest_org_bn_gt_on_false },
-	{ "Boolean order with function from operand on gt test is true", cpu_selftest_org_bn_gt_on_true },
-	{ "Boolean order with function from operand on ovf test is false", cpu_selftest_org_bn_ovf_on_false },
-	{ "Boolean order with function from operand on ovf test is true", cpu_selftest_org_bn_ovf_on_true },
-	{ "Boolean order with function from operand on bn test is false", cpu_selftest_org_bn_bn_on_false },
-	{ "Boolean order with function from operand on bn test is ", cpu_selftest_org_bn_bn_on_true },
-	{ "Boolean order with function from order, tests all functions", cpu_selftest_org_bn_order_tests },
+    { "XC0-6 orders set executive mode", cpu_selftest_org_XCn_sets_executive_mode },
+    { "STACK LINK puts link on the stack and adds the operand to the stacked value of CO", cpu_selftest_org_stacklink_puts_link_on_stack_adding_operand_to_stacked_CO },
+    { "STACK LINK treats operand as signed", cpu_selftest_org_stacklink_treats_operand_as_signed },
+    { "STACK LINK generates an interrupt when adding the operand to CO overflows a segment boundary", cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_overflows_segment_boundary },
+    { "STACK LINK generates an interrupt when adding the operand to CO underlows a segment boundary", cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_underflows_segment_boundary },
+    { "STACK LINK generates an illegal order interrupt when segment overflow occurs in user mode", cpu_selftest_org_stacklink_generates_illegal_order_interrupt_if_segment_overflow_in_user_mode },
+    { "STACK LINK generates a system error interrupt when when segment overflow occurs in level 0 mode", cpu_selftest_org_stacklink_generates_system_error_interrupt_if_segment_overflow_in_level0_mode },
+    { "STACK LINK generates a system error interrupt when when segment overflow occurs in level 1 mode", cpu_selftest_org_stacklink_generates_system_error_interrupt_if_segment_overflow_in_level1_mode },
+    { "STACK LINK generates a system error interrupt when when segment overflow occurs in executive mode", cpu_selftest_org_stacklink_generates_system_error_interrupt_if_segment_overflow_in_executive_mode },
+    { "MS= sets unmasked bits only when in executive mode", cpu_selftest_org_ms_load_sets_unmasked_bits_only_in_executive_mode },
+    { "MS= does not set masked bits in executive mode", cpu_selftest_org_ms_load_does_not_set_masked_bits_in_executive_mode },
+    { "MS= does not set privileged bits even if unmasked when in user mode", cpu_selftest_org_ms_load_does_not_set_privileged_unmasked_bits_in_user_mode },
+    { "DL= loads pseudo register for the display lamps", cpu_selftest_org_dl_load_sets_dl_pseudo_register },
+    { "SPM dummy order", cpu_selftest_org_spm_dummy },
+    { "SETLINK stores the link", cpu_selftest_org_setlink_stores_link },
+    { "XNB= loads XNB", cpu_selftest_org_xnb_load_loads_XNB },
+    { "SN= does not load SN in user mode", cpu_selftest_org_sn_load_in_user_mode_does_not_load_SN },
+    { "SN= loads SN in executive mode", cpu_selftest_org_sn_load_in_executive_mode_loads_SN },
+    { "XNB+ adds operand to XNB", cpu_selftest_org_xnb_plus_adds_operand_to_XNB },
+    { "XNB+ generates an interrupt if there is a segment overflow", cpu_selftest_org_xnb_plus_generates_interrupt_if_segment_overflow },
+    { "XNB+ generates an interrupt if there is a segment underflow", cpu_selftest_org_xnb_plus_generates_interrupt_if_segment_underflow },
+    { "XNB+ generates an illegal order interrupt if there is a segment overflow in user mode", cpu_selftest_org_xnb_plus_generates_illegal_order_interrupt_if_segment_overflow_in_user_mode },
+    { "XNB+ generates a system error interrupt if there is a segment overflow in level 0 mode", cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_level0_mode },
+    { "XNB+ generates a system error interrupt if there is a segment overflow in level 1 mode", cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_level1_mode },
+    { "XNB+ generates a system error interrupt if there is a segment overflow in executive mode", cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segment_overflow_in_executive_mode },
+    { "XNB=> stores XNB", cpu_selftest_org_xnb_store_stores_XNB },
+    { "XNB=> to secondary operand generates interrupt", cpu_selftest_org_xnb_store_to_secondary_operand_generates_interrupt },
+    { "SF= loads SF", cpu_selftest_org_sf_load_loads_SF },
+    { "SF+ adds operand to SF", cpu_selftest_org_sf_plus_adds_operand_to_SF },
+    { "SF+ ", cpu_selftest_org_sf_plus_generates_interrupt_on_segment_overflow },
+    { "SF+ ", cpu_selftest_org_sf_plus_generates_interrupt_on_segment_underflow },
+    { "SF=NB+ adds NB to signed operand and stores result to SF", cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF },
+    { "SF=NB+ generates interrupt on segment overflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow },
+    { "SF=NB+ generates interrupt on segment underflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow },
+    { "SF=> stores SF", cpu_selftest_org_sf_store_stores_SF },
+    { "SF=> to secondary operand generates interrupt", cpu_selftest_org_sf_store_to_secondary_operand_generates_interrupt },
+    { "NB= loads NB", cpu_selftest_org_nb_load_loads_NB },
+    { "NB=SF+ adds SF to signed operand and stores result to NB", cpu_selftest_org_nb_load_sf_plus_adds_SF_to_signed_operand_and_stores_to_NB },
+    { "NB=SF+ generates interrupt on segment overflow", cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_overflow },
+    { "NB=SF+ generates interrupt on segment underflow", cpu_selftest_org_nb_load_sf_plus_generates_interrupt_on_segment_underflow },
+    { "NB+ adds signed operand to NB", cpu_selftest_org_nb_plus_adds_signed_operand_to_NB },
+    { "NB+ generates interrupt on segment overflow", cpu_selftest_org_nb_plus_generates_interrupt_on_segment_overflow },
+    { "NB+ generates interrupt on segment underflow", cpu_selftest_org_nb_plus_generates_interrupt_on_segment_underflow },
+    { "NB=> stores SN and NB", cpu_selftest_org_nb_store_stores_SN_and_NB },
+    { "NB=> to secondary operand generates interrupt", cpu_selftest_org_nb_store_to_secondary_operand_generates_interrupt },
+    { "Branch on eq does not branch on false", cpu_selftest_org_br_eq_does_not_branch_on_false },
+    { "Branch on eq branches on true", cpu_selftest_org_br_eq_does_branch_on_true },
+    { "Branch on ne does not branch on false", cpu_selftest_org_br_ne_does_not_branch_on_false },
+    { "Branch on ne branches on true", cpu_selftest_org_br_ne_does_branch_on_true },
+    { "Branch on ge does not branch on false", cpu_selftest_org_br_ge_does_not_branch_on_false },
+    { "Branch on ge branches on true", cpu_selftest_org_br_ge_does_branch_on_true },
+    { "Branch on lt does not branch on false", cpu_selftest_org_br_lt_does_not_branch_on_false },
+    { "Branch on lt branches on true", cpu_selftest_org_br_lt_does_branch_on_true },
+    { "Branch on le does not branch on false", cpu_selftest_org_br_le_does_not_branch_on_false },
+    { "Branch on le branches on true", cpu_selftest_org_br_le_does_branch_on_true },
+    { "Branch on gt does not branch on false", cpu_selftest_org_br_gt_does_not_branch_on_false },
+    { "Branch on gt branches on true", cpu_selftest_org_br_gt_does_branch_on_true },
+    { "Branch on ovf does not branch on false", cpu_selftest_org_br_ovf_does_not_branch_on_false },
+    { "Branch on ovf branches on true", cpu_selftest_org_br_ovf_does_branch_on_true },
+    { "Branch on bn does not branch on false", cpu_selftest_org_br_bn_does_not_branch_on_false },
+    { "Branch on bn branches on true", cpu_selftest_org_br_bn_does_branch_on_true },
+    { "Boolean order with function from operand, tests all function combinations", cpu_selftest_org_bn_function_tests },
+    { "Boolean order with function from operand on eq test is false", cpu_selftest_org_bn_eq_on_false },
+    { "Boolean order with function from operand on eq test is true", cpu_selftest_org_bn_eq_on_true },
+    { "Boolean order with function from operand on ne test is false", cpu_selftest_org_bn_ne_on_false },
+    { "Boolean order with function from operand on ne test is true", cpu_selftest_org_bn_ne_on_true },
+    { "Boolean order with function from operand on ge test is false", cpu_selftest_org_bn_ge_on_false },
+    { "Boolean order with function from operand on ge test is true", cpu_selftest_org_bn_ge_on_true },
+    { "Boolean order with function from operand on lt test is false", cpu_selftest_org_bn_lt_on_false },
+    { "Boolean order with function from operand on lt test is true", cpu_selftest_org_bn_lt_on_true },
+    { "Boolean order with function from operand on le test is false", cpu_selftest_org_bn_le_on_false },
+    { "Boolean order with function from operand on le test is true", cpu_selftest_org_bn_le_on_true },
+    { "Boolean order with function from operand on gt test is false", cpu_selftest_org_bn_gt_on_false },
+    { "Boolean order with function from operand on gt test is true", cpu_selftest_org_bn_gt_on_true },
+    { "Boolean order with function from operand on ovf test is false", cpu_selftest_org_bn_ovf_on_false },
+    { "Boolean order with function from operand on ovf test is true", cpu_selftest_org_bn_ovf_on_true },
+    { "Boolean order with function from operand on bn test is false", cpu_selftest_org_bn_bn_on_false },
+    { "Boolean order with function from operand on bn test is ", cpu_selftest_org_bn_bn_on_true },
+    { "Boolean order with function from order, tests all functions", cpu_selftest_org_bn_order_tests },
 
-	{ "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
-	{ "No Acc zero divide interrupt if Acc zero divide is inhibited", cpu_selftest_no_acc_zero_divide_interrupt_if_acc_zero_divide_is_inhibited },
-	{ "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
-	{ "No SSS interrupt if SSS interrupt is inhibited", cpu_selftest_no_sss_interrupt_if_sss_is_inhibited },
-	{ "D interrupt as system error in executive mode", cpu_selftest_D_interrupt_as_system_error_in_executive_mode },
-	{ "No D interrupt if inhibited in executive mode", cpu_selftest_no_D_interrupt_if_inhibited_in_executive_mode },
-	{ "D interrupt as program fault in user mode", cpu_selftest_D_interrupt_as_program_fault_in_user_mode },
-	{ "No D interrupt if inhibited in user mode", cpu_selftest_no_D_interrupt_if_inhibited_in_user_mode },
-	{ "B interrupt as system error in executive mode", cpu_selftest_B_interrupt_as_system_error_in_executive_mode },
-	{ "No B interrupt if inhibited in executive mode", cpu_selftest_no_B_interrupt_if_inhibited_in_executive_mode },
-	{ "B interrupt as program fault in user mode", cpu_selftest_B_interrupt_as_program_fault_in_user_mode },
-	{ "No B interrupt if inhibited in user mode", cpu_selftest_no_B_interrupt_if_inhibited_in_user_mode },
-	{ "Acc interrupt as system error in executive mode", cpu_selftest_acc_interrupt_as_system_error_in_executive_mode },
-	{ "No Acc interrupt if inhibited in executive mode", cpu_selftest_no_acc_interrupt_if_inhibited_in_executive_mode },
-	{ "Acc interrupt as program fault in user mode", cpu_selftest_acc_interrupt_as_program_fault_in_user_mode },
-	{ "No Acc interrupt if inhibited in user mode", cpu_selftest_no_acc_interrupt_if_inhibited_in_user_mode },
+    { "Program fault sets V-line but does not generate interrupt if program faults are inhibited", cpu_selftest_program_fault_sets_v_line_but_does_not_generate_interrupt_if_program_faults_are_inhibited },
+    { "Setting BOD B overflow in executive mode generates B or D system error interrupt", cpu_selftest_setting_bod_b_overflow_in_executive_mode_generates_b_or_d_system_error_interrupt },
+    { "Setting BOD B overflow in executive mode does not generate an interrupt if inhibited", cpu_selftest_setting_bod_b_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited },
+    { "Setting BOD B overflow in user mode generates B program fault interrupt", cpu_selftest_setting_bod_b_overflow_in_user_mode_generates_b_program_fault_interrupt },
+    { "Setting BOD B overflow in user mode does not generate an interrupt if inhibited", cpu_selftest_setting_bod_b_overflow_in_user_mode_does_not_generate_interrupt_if_inhibited },
+    { "Clearing BOD B overflow in executive mode clears interrupt", cpu_selftest_clearing_bod_b_overflow_in_executive_mode_clears_interrupt },
+    { "Clearing BOD B overflow in user mode clears interrupt", cpu_selftest_clearing_bod_b_overflow_in_user_mode_clears_interrupt },
 
-	{ "Interrupt stacks link in System V-Store", cpu_selftest_interrupt_stacks_link_in_system_v_store },
-	{ "Interrupt calls handler using link in System V-Store", cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store },
-	{ "Interrupt sets executive mode", cpu_selftest_interrupt_sets_executive_mode },
-	{ "Interrupt sequence clears interrupt so it is not called again", cpu_selftest_interrupt_sequence_clears_interrupt },
+    { "Switch to user mode when BOD B overflow is set resets system error V-line", cpu_selftest_switch_to_user_mode_when_bod_b_overflow_set_resets_system_error_v_line },
+    { "Switch to user mode when BOD B overflow is set resets system error interrupt", cpu_selftest_switch_to_user_mode_resets_system_error_interrupt },
+
+        // TODO: L0IF and L1IF inhibits.
+        // TODO: Combinations of AOD and BOD keep interrupt "alive"
+
+    { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
+    { "No Acc zero divide interrupt if Acc zero divide is inhibited", cpu_selftest_no_acc_zero_divide_interrupt_if_acc_zero_divide_is_inhibited },
+    { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
+    { "No SSS interrupt if SSS interrupt is inhibited", cpu_selftest_no_sss_interrupt_if_sss_is_inhibited },
+    { "D interrupt as system error in executive mode", cpu_selftest_D_interrupt_as_system_error_in_executive_mode },
+    { "No D interrupt if inhibited in executive mode", cpu_selftest_no_D_interrupt_if_inhibited_in_executive_mode },
+    { "D interrupt as program fault in user mode", cpu_selftest_D_interrupt_as_program_fault_in_user_mode },
+    { "No D interrupt if inhibited in user mode", cpu_selftest_no_D_interrupt_if_inhibited_in_user_mode },
+    { "B interrupt as system error in executive mode", cpu_selftest_B_interrupt_as_system_error_in_executive_mode },
+    { "No B interrupt if inhibited in executive mode", cpu_selftest_no_B_interrupt_if_inhibited_in_executive_mode },
+    { "B interrupt as program fault in user mode", cpu_selftest_B_interrupt_as_program_fault_in_user_mode },
+    { "Acc interrupt as system error in executive mode", cpu_selftest_acc_interrupt_as_system_error_in_executive_mode },
+    { "No Acc interrupt if inhibited in executive mode", cpu_selftest_no_acc_interrupt_if_inhibited_in_executive_mode },
+    { "Acc interrupt as program fault in user mode", cpu_selftest_acc_interrupt_as_program_fault_in_user_mode },
+    { "No Acc interrupt if inhibited in user mode", cpu_selftest_no_acc_interrupt_if_inhibited_in_user_mode },
+
+    { "Interrupt stacks link in System V-Store", cpu_selftest_interrupt_stacks_link_in_system_v_store },
+    { "Interrupt calls handler using link in System V-Store", cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store },
+    { "Interrupt sets executive mode", cpu_selftest_interrupt_sets_executive_mode },
+    { "Interrupt sequence clears interrupt so it is not called again", cpu_selftest_interrupt_sequence_clears_interrupt },
 
     { "Write to PROP PROGRAM FAULT STATUS V-Line resets it", cpu_selftest_write_to_prop_program_fault_status_resets_it },
     { "Write to PROP SYSTEM ERROR STATUS V-Line resets it", cpu_selftest_write_to_prop_system_error_status_resets_it },
 
-	{ "Read and write instruction counter ", cpu_selftest_read_and_write_instruction_counter },
-	{ "Executing instruction decrements instruction counter ", cpu_selftest_executing_instruction_decrements_instruction_counter },
-	{ "Instruction counter not decremented if inhibited", cpu_selftest_instruction_counter_not_decremented_if_inhibited },
-	{ "Instruction counter not decremented if already zero", cpu_selftest_instruction_counter_not_decremented_if_already_zero },
-	{ "Instruction counter zero generates interrupt", cpu_selftest_instruction_counter_zero_generates_interrupt },
-	{ "Instruction counter already zero does not generate new interrupt", cpu_selftest_instruction_counter_already_zero_does_not_generate_new_interrupt },
+    { "Read and write instruction counter ", cpu_selftest_read_and_write_instruction_counter },
+    { "Executing instruction decrements instruction counter ", cpu_selftest_executing_instruction_decrements_instruction_counter },
+    { "Instruction counter not decremented if inhibited", cpu_selftest_instruction_counter_not_decremented_if_inhibited },
+    { "Instruction counter not decremented if already zero", cpu_selftest_instruction_counter_not_decremented_if_already_zero },
+    { "Instruction counter zero generates interrupt", cpu_selftest_instruction_counter_zero_generates_interrupt },
+    { "Instruction counter already zero does not generate new interrupt", cpu_selftest_instruction_counter_already_zero_does_not_generate_new_interrupt },
 
 };
 
@@ -1763,8 +1794,8 @@ static void cpu_selftest_set_inhibit_program_fault_interrupts(void)
 
 static void cpu_selftest_set_inhibit_instruction_counter(void)
 {
-	uint16 ms = cpu_get_ms() | MS_MASK_INH_INS_COUNT;
-	mu5_selftest_set_register(localTestContext, &cpu_dev, REG_MS, ms);
+    uint16 ms = cpu_get_ms() | MS_MASK_INH_INS_COUNT;
+    mu5_selftest_set_register(localTestContext, &cpu_dev, REG_MS, ms);
 }
 
 static void cpu_selftest_set_bn(int8 bn)
@@ -1912,6 +1943,12 @@ static void cpu_selftest_assert_vector_content_1_bit(t_addr origin, uint32 offse
     }
 }
 
+static void cpu_selftest_assert_inhibited_program_fault_interrupt(uint16 expected_program_fault_status)
+{
+    cpu_selftest_assert_v_store_contents(PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, expected_program_fault_status);
+    cpu_selftest_assert_interrupt_inhibited();
+}
+
 static void cpu_selftest_assert_no_b_overflow(void)
 {
     t_uint64 bod = cpu_selftest_get_register(REG_BOD);
@@ -2012,6 +2049,11 @@ static void cpu_selftest_assert_interrupt(void)
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected interrupt to have occurred\n");
         cpu_selftest_set_failure();
     }
+}
+
+static void cpu_selftest_assert_interrupt_inhibited(void)
+{
+    mu5_selftest_assert_interrupt_inhibited(localTestContext);
 }
 
 static void cpu_selftest_assert_no_interrupt(void)
@@ -2208,32 +2250,32 @@ static void cpu_selftest_assert_illegal_v_store_access_interrupt()
 
 static void cpu_selftest_assert_illegal_function_as_system_error(void)
 {
-	if (cpu_get_interrupt_number() != INT_SYSTEM_ERROR)
-	{
-		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected illegal function interrupt to have occurred as System Error\n");
-		cpu_selftest_set_failure();
-	}
+    if (cpu_get_interrupt_number() != INT_SYSTEM_ERROR)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected illegal function interrupt to have occurred as System Error\n");
+        cpu_selftest_set_failure();
+    }
 
-	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0020);
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0020);
 }
 static void cpu_selftest_assert_illegal_function_as_illegal_order(void)
 {
-	if (cpu_get_interrupt_number() != INT_ILLEGAL_ORDERS)
-	{
-		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected illegal function interrupt to have occurred as Illegal Order\n");
-		cpu_selftest_set_failure();
-	}
+    if (cpu_get_interrupt_number() != INT_ILLEGAL_ORDERS)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected illegal function interrupt to have occurred as Illegal Order\n");
+        cpu_selftest_set_failure();
+    }
 
-	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x8000);
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x8000);
 }
 
 static void cpu_selftest_assert_instruction_counter_interrupt(void)
 {
-	if (cpu_get_interrupt_number() != INT_INSTRUCTION_COUNT_ZERO)
-	{
-		sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected instruction counter zero interrupt to have occurred\n");
-		cpu_selftest_set_failure();
-	}
+    if (cpu_get_interrupt_number() != INT_INSTRUCTION_COUNT_ZERO)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected instruction counter zero interrupt to have occurred\n");
+        cpu_selftest_set_failure();
+    }
 }
 
 static void cpu_selftest_assert_test_equals(void)
@@ -2340,6 +2382,15 @@ static void cpu_selftest_16_bit_instruction_generates_instruction_access_violati
     mu5_selftest_clear_bcpr(testContext, &cpu_dev);
     cpu_selftest_run_code_from_location(0x40000000); /* expressed as 16-bit word address */
     mu5_selftest_assert_instruction_access_violation_as_system_error(localTestContext);
+}
+
+static void cpu_selftest_instruction_not_obeyed_if_access_violation_when_fetching_instruction(TESTCONTEXT *testContext)
+{
+    mu5_selftest_setup_cpr(0, VA(0, 0x2000, 0), RA(SAC_READ_ACCESS, 0, 0xC));
+    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
+    mu5_selftest_clear_bcpr(testContext, &cpu_dev);
+    cpu_selftest_run_code_from_location(0x40000000); /* expressed as 16-bit word address */
+    cpu_selftest_assert_reg_equals(REG_A, 0);
 }
 
 static void cpu_selftest_instruction_fetches_extended_literal_using_obey_access(TESTCONTEXT *testContext)
@@ -2627,11 +2678,11 @@ static void cpu_selftest_load_operand_internal_register_48(TESTCONTEXT *testCont
 
 static void cpu_selftest_load_operand_non_existent_internal_register(TESTCONTEXT *testContext)
 {
-	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 49);
-	cpu_selftest_set_register(REG_AEX, 0xABABABABABABABAB);
-	cpu_selftest_run_code();
-	cpu_selftest_assert_reg_equals(REG_A, 0x0);
-	cpu_selftest_assert_no_interrupt();
+    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 49);
+    cpu_selftest_set_register(REG_AEX, 0xABABABABABABABAB);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0x0);
+    cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_load_operand_32_bit_variable(TESTCONTEXT *testContext)
@@ -2804,30 +2855,30 @@ static void cpu_selftest_load_operand_b_relative_descriptor_1_bit_value_at_6_bit
 
 static void cpu_selftest_load_operand_b_relative_descriptor_with_negative_modifier_generates_bounds_check(TESTCONTEXT *testContext)
 {
-	uint32 base = 0x00F0;
-	uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
-	uint32 vecoffset = -1;
-	int8 n = 0x1;
-	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_SB, n);
-	cpu_selftest_set_register(REG_NB, base);
-	cpu_selftest_set_register(REG_B, vecoffset);
-	sac_write_64_bit_word(base + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 2, vecorigin));
-	cpu_selftest_run_code();
-	cpu_selftest_assert_bound_check_interrupt_as_system_error();
+    uint32 base = 0x00F0;
+    uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
+    uint32 vecoffset = -1;
+    int8 n = 0x1;
+    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_SB, n);
+    cpu_selftest_set_register(REG_NB, base);
+    cpu_selftest_set_register(REG_B, vecoffset);
+    sac_write_64_bit_word(base + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 2, vecorigin));
+    cpu_selftest_run_code();
+    cpu_selftest_assert_bound_check_interrupt_as_system_error();
 }
 
 static void cpu_selftest_load_operand_b_relative_descriptor_modifier_greater_than_bound_generates_bounds_check(TESTCONTEXT *testContext)
 {
-	uint32 base = 0x00F0;
-	uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
-	uint32 vecoffset = 2;
-	int8 n = 0x1;
-	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_SB, n);
-	cpu_selftest_set_register(REG_NB, base);
-	cpu_selftest_set_register(REG_B, vecoffset);
-	sac_write_64_bit_word(base + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 2, vecorigin));
-	cpu_selftest_run_code();
-	cpu_selftest_assert_bound_check_interrupt_as_system_error();
+    uint32 base = 0x00F0;
+    uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x0F00);
+    uint32 vecoffset = 2;
+    int8 n = 0x1;
+    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_SB, n);
+    cpu_selftest_set_register(REG_NB, base);
+    cpu_selftest_set_register(REG_B, vecoffset);
+    sac_write_64_bit_word(base + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_1_BIT, 2, vecorigin));
+    cpu_selftest_run_code();
+    cpu_selftest_assert_bound_check_interrupt_as_system_error();
 }
 
 static void cpu_selftest_load_operand_zero_relative_descriptor_loads_D(TESTCONTEXT *testContext)
@@ -3626,38 +3677,38 @@ static void cpu_selftest_store_operand_internal_register_0_generates_interrupt(T
 
 static void cpu_selftest_store_operand_internal_register_0_generates_interrupt_as_illegal_order_in_user_mode(TESTCONTEXT *testContext)
 {
-	cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 1);
-	cpu_selftest_set_user_mode();
-	cpu_selftest_run_code();
-	cpu_selftest_assert_reg_equals(REG_XNB, 0);
-	cpu_selftest_assert_illegal_function_as_illegal_order();
+    cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 1);
+    cpu_selftest_set_user_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_XNB, 0);
+    cpu_selftest_assert_illegal_function_as_illegal_order();
 }
 
 static void cpu_selftest_store_operand_internal_register_0_generates_interrupt_as_system_error_in_executive_mode(TESTCONTEXT *testContext)
 {
-	cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 1);
-	cpu_selftest_set_executive_mode();
-	cpu_selftest_run_code();
-	cpu_selftest_assert_reg_equals(REG_XNB, 0);
-	cpu_selftest_assert_illegal_function_as_system_error();
+    cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 1);
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_XNB, 0);
+    cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_store_operand_internal_register_1_generates_interrupt(TESTCONTEXT *testContext)
 {
-	cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 1);
-	cpu_selftest_run_code();
-	cpu_selftest_assert_reg_equals(REG_SN, 0);
-	cpu_selftest_assert_reg_equals(REG_NB, 0);
-	cpu_selftest_assert_illegal_function_as_system_error();
+    cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 1);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_SN, 0);
+    cpu_selftest_assert_reg_equals(REG_NB, 0);
+    cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_store_operand_internal_register_2_generates_interrupt(TESTCONTEXT *testContext)
 {
-	cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 2);
-	cpu_selftest_run_code();
-	cpu_selftest_assert_reg_equals(REG_SN, 0);
-	cpu_selftest_assert_reg_equals(REG_NB, 0);
-	cpu_selftest_assert_illegal_function_as_system_error();
+    cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 2);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_SN, 0);
+    cpu_selftest_assert_reg_equals(REG_NB, 0);
+    cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_store_operand_internal_register_3_generates_interrupt(TESTCONTEXT *testContext)
@@ -3666,7 +3717,7 @@ static void cpu_selftest_store_operand_internal_register_3_generates_interrupt(T
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_SN, 0);
     cpu_selftest_assert_reg_equals(REG_SF, 0);
-	cpu_selftest_assert_illegal_function_as_system_error();
+    cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_store_operand_internal_register_4_generates_interrupt(TESTCONTEXT *testContext)
@@ -3675,16 +3726,16 @@ static void cpu_selftest_store_operand_internal_register_4_generates_interrupt(T
     uint16 initMs = (uint16)cpu_selftest_get_register(REG_MS);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_MS, initMs);
-	cpu_selftest_assert_illegal_function_as_system_error();
+    cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_store_operand_non_existent_prop_internal_register_generates_interrupt(TESTCONTEXT *testContext)
 {
-	cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 15);
-	uint16 initMs = (uint16)cpu_selftest_get_register(REG_MS);
-	cpu_selftest_run_code();
-	cpu_selftest_assert_reg_equals(REG_MS, initMs);
-	cpu_selftest_assert_illegal_function_as_system_error();
+    cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 15);
+    uint16 initMs = (uint16)cpu_selftest_get_register(REG_MS);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_MS, initMs);
+    cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_store_operand_internal_register_16(TESTCONTEXT *testContext)
@@ -3783,12 +3834,12 @@ static void cpu_selftest_store_operand_internal_register_48(TESTCONTEXT *testCon
 
 static void cpu_selftest_store_operand_non_existent_internal_register(TESTCONTEXT *testContext)
 {
-	cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 49);
-	cpu_selftest_set_aod_operand_64_bit();
-	cpu_selftest_set_register(REG_A, 0xABABABABABABABAB);
-	cpu_selftest_run_code();
-	cpu_selftest_assert_reg_equals(REG_AEX, 0x0);
-	cpu_selftest_assert_no_interrupt();
+    cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 49);
+    cpu_selftest_set_aod_operand_64_bit();
+    cpu_selftest_set_register(REG_A, 0xABABABABABABABAB);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_AEX, 0x0);
+    cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_store_operand_32_bit_variable(TESTCONTEXT *testContext)
@@ -3995,7 +4046,7 @@ static void cpu_selftest_store_operand_extended_literal_kp_1_generates_interrupt
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, KP_LITERAL_1, NP_64_BIT_LITERAL_6);
     cpu_selftest_load_64_bit_literal(0xAAAABBBBCCCCDDDD);
     cpu_selftest_run_code();
-	cpu_selftest_assert_illegal_function_as_system_error();
+    cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_sf(TESTCONTEXT *testContext)
@@ -7434,21 +7485,21 @@ static void cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segmen
 
 static void cpu_selftest_org_xnb_store_stores_XNB(TESTCONTEXT *testContext)
 {
-	uint32 base = 32;
-	cpu_selftest_load_organisational_order_extended(F_XNB_STORE, K_V64, NP_0);
-	cpu_selftest_load_16_bit_literal(base);
-	cpu_selftest_set_register(REG_XNB, 0xBBBBAAAA);
-	cpu_selftest_run_code();
-	cpu_selftest_assert_memory_contents_64_bit(base * 2, 0x00000000BBBBAAAA);
-	cpu_selftest_assert_no_interrupt();
+    uint32 base = 32;
+    cpu_selftest_load_organisational_order_extended(F_XNB_STORE, K_V64, NP_0);
+    cpu_selftest_load_16_bit_literal(base);
+    cpu_selftest_set_register(REG_XNB, 0xBBBBAAAA);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_64_bit(base * 2, 0x00000000BBBBAAAA);
+    cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_org_xnb_store_to_secondary_operand_generates_interrupt(TESTCONTEXT *testContext)
 {
-	uint32 base = 32;
-	cpu_selftest_load_organisational_order_extended(F_XNB_STORE, K_SB, 0);
-	cpu_selftest_run_code();
-	cpu_selftest_assert_illegal_function_as_system_error();
+    uint32 base = 32;
+    cpu_selftest_load_organisational_order_extended(F_XNB_STORE, K_SB, 0);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_org_sf_load_loads_SF(TESTCONTEXT *testContext)
@@ -7528,10 +7579,10 @@ static void cpu_selftest_org_sf_store_stores_SF(TESTCONTEXT *testContext)
 
 static void cpu_selftest_org_sf_store_to_secondary_operand_generates_interrupt(TESTCONTEXT *testContext)
 {
-	uint32 base = 32;
-	cpu_selftest_load_organisational_order_extended(F_SF_STORE, K_SB, 0);
-	cpu_selftest_run_code();
-	cpu_selftest_assert_illegal_function_as_system_error();
+    uint32 base = 32;
+    cpu_selftest_load_organisational_order_extended(F_SF_STORE, K_SB, 0);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_org_nb_load_loads_NB(TESTCONTEXT *testContext)
@@ -7616,10 +7667,10 @@ static void cpu_selftest_org_nb_store_stores_SN_and_NB(TESTCONTEXT *testContext)
 
 static void cpu_selftest_org_nb_store_to_secondary_operand_generates_interrupt(TESTCONTEXT *testContext)
 {
-	uint32 base = 32;
-	cpu_selftest_load_organisational_order_extended(F_NB_STORE, K_SB, 0);
-	cpu_selftest_run_code();
-	cpu_selftest_assert_illegal_function_as_system_error();
+    uint32 base = 32;
+    cpu_selftest_load_organisational_order_extended(F_NB_STORE, K_SB, 0);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static uint16 cpu_selftest_calculate_ms_from_t_bits(uint16 t0, uint16 t1, uint16 t2, uint16 bn)
@@ -7890,6 +7941,63 @@ static void cpu_selftest_org_bn_order_tests(TESTCONTEXT *testContext)
     }
 }
 
+static void cpu_selftest_program_fault_sets_v_line_but_does_not_generate_interrupt_if_program_faults_are_inhibited(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_user_mode();
+    cpu_selftest_set_inhibit_program_fault_interrupts();
+    cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
+    cpu_selftest_assert_inhibited_program_fault_interrupt(PFS_B_FAULT);
+}
+
+static void cpu_selftest_setting_bod_b_overflow_in_executive_mode_generates_b_or_d_system_error_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
+    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+}
+
+static void cpu_selftest_setting_bod_b_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK & BOD_IBOVF_MASK);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_setting_bod_b_overflow_in_user_mode_generates_b_program_fault_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_user_mode();
+    cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
+    cpu_selftest_assert_B_interrupt_as_program_fault();
+}
+
+static void cpu_selftest_setting_bod_b_overflow_in_user_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_user_mode();
+    cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK & BOD_IBOVF_MASK);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_clearing_bod_b_overflow_in_executive_mode_clears_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
+    cpu_selftest_set_register(REG_BOD, 0);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_clearing_bod_b_overflow_in_user_mode_clears_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_user_mode();
+    cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
+    cpu_selftest_set_register(REG_BOD, 0);
+    cpu_selftest_assert_no_interrupt();
+}
+
+// TODO: set inhibit clears interrupt, MS11
+
+static void cpu_selftest_switch_to_user_mode_when_bod_b_overflow_set_resets_system_error_v_line(TESTCONTEXT *testContext) {}
+static void cpu_selftest_switch_to_user_mode_resets_system_error_interrupt(TESTCONTEXT *testContext) {}
+
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(TESTCONTEXT *testContext)
 {
     cpu_selftest_set_register(REG_BOD, BOD_IBOVF_MASK);
@@ -7991,16 +8099,6 @@ static void cpu_selftest_B_interrupt_as_program_fault_in_user_mode(TESTCONTEXT *
     cpu_selftest_assert_B_interrupt_as_program_fault();
 }
 
-static void cpu_selftest_no_B_interrupt_if_inhibited_in_user_mode(TESTCONTEXT *testContext)
-{
-    cpu_selftest_load_order_extended(CR_B, F_LOAD_DEC_B, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
-    cpu_selftest_load_32_bit_literal(0x80000000);
-    cpu_selftest_set_user_mode();
-    cpu_selftest_set_inhibit_program_fault_interrupts();
-    cpu_selftest_run_code();
-    cpu_selftest_assert_no_interrupt();
-}
-
 static void cpu_selftest_acc_interrupt_as_system_error_in_executive_mode(TESTCONTEXT *testContext)
 {
     cpu_selftest_load_order_extended(CR_XS, F_ADD_X, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
@@ -8076,20 +8174,20 @@ static void cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store(TE
 
 static void cpu_selftest_interrupt_sets_executive_mode(TESTCONTEXT *testContext)
 {
-	cpu_selftest_set_register(REG_MS, 0);
-	cpu_selftest_set_user_mode();
-	sac_write_v_store(SYSTEM_V_STORE_BLOCK, 29, 0xBB84CCCC0000000B);
-	cpu_set_interrupt(INT_PROGRAM_FAULTS);
-	cpu_selftest_run_code();
-	cpu_selftest_assert_reg_equals(REG_MS, 0xBB84);
+    cpu_selftest_set_register(REG_MS, 0);
+    cpu_selftest_set_user_mode();
+    sac_write_v_store(SYSTEM_V_STORE_BLOCK, 29, 0xBB84CCCC0000000B);
+    cpu_set_interrupt(INT_PROGRAM_FAULTS);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_MS, 0xBB84);
 }
 
 static void cpu_selftest_interrupt_sequence_clears_interrupt(TESTCONTEXT *testContext)
 {
-	/* TODO: This whole area needs to be refactored to generate the interrupt as a result of setting the relevant bits, so that clearing the bits clears the interrupt */
-	cpu_set_interrupt(INT_PROGRAM_FAULTS);
-	cpu_selftest_run_code();
-	cpu_selftest_assert_no_interrupt();
+    /* TODO: This whole area needs to be refactored to generate the interrupt as a result of setting the relevant bits, so that clearing the bits clears the interrupt */
+    cpu_set_interrupt(INT_PROGRAM_FAULTS);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_write_to_prop_program_fault_status_resets_it(TESTCONTEXT *testContext)
@@ -8116,50 +8214,50 @@ static void cpu_selftest_write_to_prop_system_error_status_resets_it(TESTCONTEXT
 
 static void cpu_selftest_read_and_write_instruction_counter(TESTCONTEXT *testContext)
 {
-	sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFFAAAA);
-	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xAAAA);
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFFAAAA);
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xAAAA);
 }
 
 static void cpu_selftest_executing_instruction_decrements_instruction_counter(TESTCONTEXT *testContext)
 {
-	sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFF);
-	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
-	cpu_selftest_run_code();
-	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFE);
-	cpu_selftest_assert_no_interrupt();
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFF);
+    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
+    cpu_selftest_run_code();
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFE);
+    cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_instruction_counter_not_decremented_if_inhibited(TESTCONTEXT *testContext)
 {
-	cpu_selftest_set_inhibit_instruction_counter();
-	sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFF);
-	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
-	cpu_selftest_run_code();
-	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFF);
-	cpu_selftest_assert_no_interrupt();
+    cpu_selftest_set_inhibit_instruction_counter();
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFF);
+    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
+    cpu_selftest_run_code();
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFF);
+    cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_instruction_counter_not_decremented_if_already_zero(TESTCONTEXT *testContext)
 {
-	sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x00);
-	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
-	cpu_selftest_run_code();
-	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x00);
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x00);
+    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
+    cpu_selftest_run_code();
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x00);
 }
 
 static void cpu_selftest_instruction_counter_zero_generates_interrupt(TESTCONTEXT *testContext)
 {
-	sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x01);
-	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
-	cpu_selftest_run_code();
-	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x00);
-	cpu_selftest_assert_instruction_counter_interrupt();
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x01);
+    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
+    cpu_selftest_run_code();
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x00);
+    cpu_selftest_assert_instruction_counter_interrupt();
 }
 
 static void cpu_selftest_instruction_counter_already_zero_does_not_generate_new_interrupt(TESTCONTEXT *testContext)
 {
-	sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x00);
-	cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
-	cpu_selftest_run_code();
-	cpu_selftest_assert_no_interrupt();
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x00);
+    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_no_interrupt();
 }

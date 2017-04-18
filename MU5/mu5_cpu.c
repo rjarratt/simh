@@ -208,33 +208,32 @@ static uint32 mask_dod_bch  = 0x00000020;
 static uint32 mask_dod_sssi = 0x00000040;
 static uint32 mask_dod_bchi = 0x00000100;
 
-
 /* Register backing values */
-static uint32 reg_b_backing_value;     /* B register */
-static uint32 reg_bod_backing_value;   /* BOD register */
-static t_uint64 reg_a_backing_value;   /* A register */
-static t_uint64 reg_aod_backing_value; /* AOD register */
-static t_uint64 reg_aex_backing_value; /* AEX register */
-static uint32 reg_x_backing_value;     /* X register */
-static uint16 reg_ms_backing_value;    /* MS register */
-static uint16 reg_nb_backing_value;    /* NB register */
-static uint32 reg_xnb_backing_value;   /* XNB register */
-static uint16 reg_sn_backing_value;    /* SN register */
-static uint16 reg_sf_backing_value;    /* SF register */
-static uint32 reg_co_backing_value;    /* CO Register */
-static t_uint64 reg_d_backing_value;   /* D Register */
-static t_uint64 reg_xd_backing_value;  /* XD Register */
-static uint32 reg_dod_backing_value;   /* DOD Register */
-static uint32 reg_dt_backing_value;    /* DT Register */
-static uint32 reg_xdt_backing_value;   /* XDT Register */
-static uint32 reg_dl_backing_value;    /* Pseudo register for display lamps */
+static uint32                    reg_b_backing_value;     /* B register */
+static uint32_register_backing   reg_bod_backing_value;   /* BOD register */
+static t_uint64                  reg_a_backing_value;     /* A register */
+static t_uint64_register_backing reg_aod_backing_value;   /* AOD register */
+static t_uint64                  reg_aex_backing_value;   /* AEX register */
+static uint32                    reg_x_backing_value;     /* X register */
+static uint16                    reg_ms_backing_value;    /* MS register */
+static uint16                    reg_nb_backing_value;    /* NB register */
+static uint32                    reg_xnb_backing_value;   /* XNB register */
+static uint16                    reg_sn_backing_value;    /* SN register */
+static uint16                    reg_sf_backing_value;    /* SF register */
+static uint32                    reg_co_backing_value;    /* CO Register */
+static t_uint64                  reg_d_backing_value;     /* D Register */
+static t_uint64                  reg_xd_backing_value;    /* XD Register */
+static uint32_register_backing   reg_dod_backing_value;   /* DOD Register */
+static uint32                    reg_dt_backing_value;    /* DT Register */
+static uint32                    reg_xdt_backing_value;   /* XDT Register */
+static uint32                    reg_dl_backing_value;    /* Pseudo register for display lamps */
 
 static REG cpu_reg[] =
 {
     { HRDATAD(B,    reg_b_backing_value,       32,    "B register") },
-    { GRDATADF(BOD, reg_bod_backing_value, 16, 32, 0, "BOD register", bod_bits) },
+    { GRDATADF(BOD, reg_bod_backing_value, 16, 32, 0, "BOD register", bod_bits), REG_CALLBACK },
     { HRDATAD(A,    reg_a_backing_value,       64,    "Accumulator") },
-    { GRDATADF(AOD, reg_aod_backing_value, 16, 64, 0, "AOD register", aod_bits) },
+    { GRDATADF(AOD, reg_aod_backing_value, 16, 64, 0, "AOD register", aod_bits), REG_CALLBACK },
     { HRDATAD(AEX,  reg_aex_backing_value,     64,    "Accumulator extension") },
     { HRDATAD(X,    reg_x_backing_value,       32,    "X register") },
     { GRDATADF(MS,  reg_ms_backing_value, 16,  16, 0, "Machine status register", ms_bits) },
@@ -245,7 +244,7 @@ static REG cpu_reg[] =
     { HRDATAD(CO,   reg_co_backing_value,      32,    "Program counter") },
     { HRDATAD(D,    reg_d_backing_value,       64,    "Data descriptor register") },
     { HRDATAD(XD,   reg_xd_backing_value,      64,    "XD register") },
-    { GRDATADF(DOD, reg_dod_backing_value, 16, 32, 0, "DOD register", dod_bits) },
+    { GRDATADF(DOD, reg_dod_backing_value, 16, 32, 0, "DOD register", dod_bits), REG_CALLBACK },
     { HRDATAD(DT,   reg_dt_backing_value,      32,    "DT register") },
     { HRDATAD(XDT,  reg_xdt_backing_value,     32,    "XDT register") },
     { HRDATAD(DL,   reg_dl_backing_value,      32,    "Pseudo register for display lamps") },
@@ -325,6 +324,9 @@ static void cpu_set_xnb(uint32 value);
 static void cpu_set_sf(uint16 value);
 static void cpu_set_co(uint32 value);
 static void cpu_set_ms_bn(int value);
+static void cpu_aod_callback(t_uint64 old_value, t_uint64 new_value);
+static void cpu_bod_callback(uint32 old_value, uint32 new_value);
+static void cpu_dod_callback(uint32 old_value, uint32 new_value);
 static uint32 cpu_co_add(uint32 co, t_int64 operand);
 static t_uint64 cpu_get_link(void);
 static void cpu_set_link(t_uint64 link);
@@ -337,6 +339,8 @@ static int cpu_is_executive_mode(void);
 
 static void cpu_clear_interrupt(uint8 number);
 static void cpu_clear_all_interrupts(void);
+static int cpu_check_condition_with_inhibit(REG *reg, uint32 condition_mask, uint32 inhibit_mask);
+static void cpu_evaluate_interrupts(void);
 static void cpu_set_system_error_interrupt(uint16 reason);
 static void cpu_set_program_fault_interrupt(uint16 reason);
 static void cpu_set_illegal_order_interrupt(uint16 reason);
@@ -979,61 +983,121 @@ static t_stat cpu_dep(t_value val, t_addr addr, UNIT *uptr, int32 sw)
     return SCPE_AFAIL;
 }
 
+/* used for self test purposes only, so register setting includes calling the callbacks if appropriate, to make interrupt testing easier */
+void cpu_set_register(REG *reg, t_uint64 value)
+{
+    switch (reg->width)
+    {
+        case 16:
+        {
+            cpu_set_register_16(reg, value & 0xFFFF);
+            break;
+        }
+        case 32:
+        {
+            cpu_set_register_32(reg, value & 0xFFFFFFFF);
+            break;
+        }
+        case 64:
+        {
+            cpu_set_register_64(reg, value & 0xFFFFFFFFFFFFFFFF);
+            break;
+        }
+    }
+}
+
 static SIM_INLINE void cpu_set_register_16(REG *reg, uint16 value)
 {
-    assert(reg->width == 16);
-    *(uint16 *)(reg->loc) = value;
+	uint16 old_value;
+	uint16_register_backing *backing;
+	assert(reg->width == 16);
+	backing = reg->loc;
+	old_value = backing->backing_value;
+	backing->backing_value = value;
+	if (reg->flags & REG_CALLBACK)
+	{
+		backing->callback(old_value, backing->backing_value);
+	}
 }
 
 static SIM_INLINE void cpu_set_register_32(REG *reg, uint32 value)
 {
+	uint32 old_value;
+	uint32_register_backing *backing;
     assert(reg->width == 32);
-    *(uint32 *)(reg->loc) = value;
+	backing = reg->loc;
+	old_value = backing->backing_value;
+	backing->backing_value = value;
+    if (reg->flags & REG_CALLBACK)
+    {
+		backing->callback(old_value, backing->backing_value);
+	}
 }
 
 static SIM_INLINE void cpu_set_register_64(REG *reg, t_uint64 value)
 {
-    assert(reg->width == 64);
+	t_uint64 old_value;
+	t_uint64_register_backing *backing;
+	assert(reg->width == 64);
     *(t_uint64 *)(reg->loc) = value;
+	backing = reg->loc;
+	old_value = backing->backing_value;
+	backing->backing_value = value;
+    if (reg->flags & REG_CALLBACK)
+    {
+		backing->callback(old_value, backing->backing_value);
+	}
 }
 
 static SIM_INLINE void cpu_set_register_bit_16(REG *reg, uint16 mask, int value)
 {
-    assert(reg->width == 16);
-    if (value)
-    {
-        *(uint16 *)(reg->loc) = *(uint16 *)(reg->loc) | mask;
-    }
-    else
-    {
-        *(uint16 *)(reg->loc) = *(uint16 *)(reg->loc) & ~mask;
-    }
+	uint16 old_value;
+	uint16 new_value;
+	assert(reg->width == 16);
+	old_value = *(uint16 *)(reg->loc);
+	if (value)
+	{
+		new_value = old_value | mask;
+	}
+	else
+	{
+		new_value = old_value & ~mask;
+	}
+	cpu_set_register_16(reg, new_value);
 }
 
 static SIM_INLINE void cpu_set_register_bit_32(REG *reg, uint32 mask, int value)
 {
+	uint32 old_value;
+	uint32 new_value;
     assert(reg->width == 32);
+	old_value = *(uint32 *)(reg->loc);
     if (value)
     {
-        *(uint32 *)(reg->loc) = *(uint32 *)(reg->loc) | mask;
+        new_value = old_value | mask;
     }
     else
     {
-        *(uint32 *)(reg->loc) = *(uint32 *)(reg->loc) & ~mask;
+		new_value = old_value & ~mask;
     }
+	cpu_set_register_32(reg, new_value);
 }
 
 static SIM_INLINE void cpu_set_register_bit_64(REG *reg, t_uint64 mask, int value)
 {
-    assert(reg->width == 64);
-    if (value)
-    {
-        *(t_uint64 *)(reg->loc) = *(t_uint64 *)(reg->loc) | mask;
-    }
-    else
-    {
-        *(t_uint64 *)(reg->loc) = *(t_uint64 *)(reg->loc) & ~mask;
-    }
+	t_uint64 old_value;
+	t_uint64 new_value;
+	assert(reg->width == 64);
+	old_value = *(t_uint64 *)(reg->loc);
+	if (value)
+	{
+		new_value = old_value | mask;
+	}
+	else
+	{
+		new_value = old_value & ~mask;
+	}
+	cpu_set_register_64(reg, new_value);
 }
 
 static SIM_INLINE uint16 cpu_get_register_16(REG *reg)
@@ -1141,6 +1205,21 @@ static void cpu_set_ms_bn(int value)
     cpu_set_register_bit_16(reg_ms, mask_ms_bn, value);
 }
 
+static void cpu_aod_callback(t_uint64 old_value, t_uint64 new_value)
+{
+    cpu_evaluate_interrupts();
+}
+
+static void cpu_bod_callback(uint32 old_value, uint32 new_value)
+{
+    cpu_evaluate_interrupts();
+}
+
+static void cpu_dod_callback(uint32 old_value, uint32 new_value)
+{
+    cpu_evaluate_interrupts();
+}
+
 static uint32 cpu_co_add(uint32 co, t_int64 operand)
 {
     /* TODO: I think this is wrong because CO is the address of a 16-bit word and segments are 64K 32-bit words (I think) */
@@ -1217,6 +1296,13 @@ static int cpu_is_executive_mode(void)
 
 void cpu_reset_state(void)
 {
+    reg_aod_backing_value.callback = cpu_aod_callback;
+    reg_bod_backing_value.callback = cpu_bod_callback;
+    reg_dod_backing_value.callback = cpu_dod_callback;
+
+
+    PROPProcessNumber = 0;
+    PROPInstructionCounter = 0;
     cpu_clear_all_interrupts();
     cpu_set_register_32(reg_b, 0x0);
     cpu_set_register_32(reg_bod, 0x0);
@@ -1241,11 +1327,6 @@ void cpu_reset_state(void)
     sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, prop_read_program_fault_status_callback, prop_write_program_fault_status_callback);
 	sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, prop_read_system_error_status_callback, prop_write_system_error_status_callback);
 	sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, prop_read_instruction_counter, prop_write_instruction_counter);
-
-    PROPProcessNumber = 0;
-    PROPProgramFaultStatus = 0;
-    PROPSystemErrorStatus = 0;
-	PROPInstructionCounter = 0;
 }
 
 void cpu_set_interrupt(uint8 number)
@@ -1260,7 +1341,53 @@ static void cpu_clear_interrupt(uint8 number)
 
 static void cpu_clear_all_interrupts(void)
 {
+    PROPProgramFaultStatus = 0;
+    PROPSystemErrorStatus = 0;
     interrupt = 0;
+}
+
+static int cpu_check_condition_with_inhibit(REG *reg, uint32 condition_mask, uint32 inhibit_mask)
+{
+    int result;
+    uint32 value = cpu_get_register_32(reg);
+    result = (value & condition_mask) && !(value & inhibit_mask);
+    return result;
+}
+
+static void cpu_evaluate_interrupts(void)
+{
+    int b_overflow = cpu_check_condition_with_inhibit(reg_bod, mask_bod_bovf, mask_bod_ibovf);
+    int b_or_d_error = b_overflow;
+    /* OR in the bits until all conditions are processed */
+    if (cpu_ms_is_all(MS_MASK_EXEC))
+    {
+        if (cpu_ms_is_all(MS_MASK_B_D_SYS_ERR_EXEC))
+        {
+            PROPSystemErrorStatus = b_or_d_error << 7; /* TODO: check if really EXEC bit*/
+        }
+    }
+    else
+    {
+        PROPProgramFaultStatus = b_overflow << 7; /* TODO: make some masks */
+    }
+
+    if (PROPSystemErrorStatus != 0)
+    {
+        cpu_set_interrupt(INT_SYSTEM_ERROR);
+    }
+    else
+    {
+        cpu_clear_interrupt(INT_SYSTEM_ERROR);
+    }
+
+    if (PROPProgramFaultStatus != 0 && !cpu_ms_is_all(MS_MASK_INH_PROG_FLT))
+    {
+        cpu_set_interrupt(INT_PROGRAM_FAULTS);
+    }
+    else
+    {
+        cpu_clear_interrupt(INT_PROGRAM_FAULTS);
+    }
 }
 
 static void cpu_set_system_error_interrupt(uint16 reason)
@@ -2470,17 +2597,20 @@ void cpu_execute_next_order(void)
     if (interrupt == 0)
     {
         order = sac_read_16_bit_word_for_obey(cpu_get_register_32(reg_co));
-        cr = cpu_get_cr(order);
-		if ((cpu_get_ms() & MS_MASK_INH_INS_COUNT) == 0 && PROPInstructionCounter > 0)
-		{
-			PROPInstructionCounter--;
-			if (PROPInstructionCounter == 0)
-			{
-				cpu_set_interrupt(INT_INSTRUCTION_COUNT_ZERO);
-			}
-		}
+        if (interrupt == 0)
+        {
+            cr = cpu_get_cr(order);
+            if ((cpu_get_ms() & MS_MASK_INH_INS_COUNT) == 0 && PROPInstructionCounter > 0)
+            {
+                PROPInstructionCounter--;
+                if (PROPInstructionCounter == 0)
+                {
+                    cpu_set_interrupt(INT_INSTRUCTION_COUNT_ZERO);
+                }
+            }
 
-        crDispatchTable[cr].execute(order, crDispatchTable[cr].innerTable);
+            crDispatchTable[cr].execute(order, crDispatchTable[cr].innerTable);
+        }
     }
     else
     {
@@ -3076,7 +3206,6 @@ static int cpu_check_bound(t_uint64 descriptor, int32 modifier)
 	uint8 type = cpu_get_descriptor_type(descriptor);
 	uint8 subtype = cpu_get_descriptor_subtype(descriptor);
 	uint32 bound = cpu_get_descriptor_bound(descriptor);
-	cpu_set_register_bit_32(reg_dod, mask_dod_bch, 0);
 	if (!cpu_get_descriptor_bound_check_inhibit(descriptor) && (type == DESCRIPTOR_TYPE_GENERAL_VECTOR || type == DESCRIPTOR_TYPE_GENERAL_STRING || type == DESCRIPTOR_TYPE_ADDRESS_VECTOR || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 0) || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 1) || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 2)))
 	{
 		if (modifier < 0 || (uint32)modifier >= bound)
