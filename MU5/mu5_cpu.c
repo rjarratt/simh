@@ -1363,12 +1363,12 @@ static void cpu_evaluate_interrupts(void)
     {
         if (cpu_ms_is_all(MS_MASK_B_D_SYS_ERR_EXEC))
         {
-            PROPSystemErrorStatus = b_or_d_error << 7; /* TODO: check if really EXEC bit*/
+            PROPSystemErrorStatus = b_or_d_error << (SES_BIT_B_OR_D_FAULT - 1); /* TODO: check if really EXEC bit, or is it MS11? */
         }
     }
     else
     {
-        PROPProgramFaultStatus = b_overflow << 7; /* TODO: make some masks */
+        PROPProgramFaultStatus = b_overflow << (PFS_BIT_B_FAULT - 1);
     }
 
     if (PROPSystemErrorStatus != 0)

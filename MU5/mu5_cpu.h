@@ -34,9 +34,13 @@ in this Software without prior written authorization from Robert Jarratt.
 #define MS_MASK_BCPR 0x0080
 #define MS_MASK_INH_PROG_FLT 0x0400
 
-/* Program fault status register masks */
-#define PFS_B_FAULT 0x0080
+/* System Error Status register masks */
+#define SES_BIT_B_OR_D_FAULT 8
+#define SES_MASK_B_OR_D_FAULT 0x0080
 
+/* Program Fault Status register masks */
+#define PFS_BIT_B_FAULT 8
+#define PFS_MASK_B_FAULT 0x0080
 
 void cpu_reset_state(void);
 void cpu_execute_next_order(void);

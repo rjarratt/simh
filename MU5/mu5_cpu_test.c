@@ -7946,7 +7946,7 @@ static void cpu_selftest_program_fault_sets_v_line_but_does_not_generate_interru
     cpu_selftest_set_user_mode();
     cpu_selftest_set_inhibit_program_fault_interrupts();
     cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
-    cpu_selftest_assert_inhibited_program_fault_interrupt(PFS_B_FAULT);
+    cpu_selftest_assert_inhibited_program_fault_interrupt(PFS_MASK_B_FAULT);
 }
 
 static void cpu_selftest_setting_bod_b_overflow_in_executive_mode_generates_b_or_d_system_error_interrupt(TESTCONTEXT *testContext)
