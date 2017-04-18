@@ -314,6 +314,8 @@ static void cpu_selftest_assert_vector_content_4_bit(t_addr origin, uint32 offse
 static void cpu_selftest_assert_vector_content_1_bit(t_addr origin, uint32 offset, uint8 expectedValue);
 
 static void cpu_selftest_assert_inhibited_program_fault_interrupt(uint16 expected_program_fault_status);
+static void cpu_selftest_assert_no_system_error(void);
+static void cpu_selftest_assert_no_program_fault(void);
 
 // TODO: After interrupt design change check which of the following are really needed.
 static void cpu_selftest_assert_no_b_overflow(void);
@@ -880,10 +882,9 @@ static void cpu_selftest_setting_bod_b_overflow_in_user_mode_generates_b_program
 static void cpu_selftest_setting_bod_b_overflow_in_user_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_clearing_bod_b_overflow_in_executive_mode_clears_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_clearing_bod_b_overflow_in_user_mode_clears_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_switch_from_executive_mode_to_user_mode_when_bod_b_overflow_set_swaps_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_switch_from_user_mode_to_executive_mode_when_bod_b_overflow_set_swaps_interrupt(TESTCONTEXT *testContext);
 
-// TODO:
-static void cpu_selftest_switch_to_user_mode_when_bod_b_overflow_set_resets_system_error_v_line(TESTCONTEXT *testContext);
-static void cpu_selftest_switch_to_user_mode_resets_system_error_interrupt(TESTCONTEXT *testContext);
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_no_acc_zero_divide_interrupt_if_acc_zero_divide_is_inhibited(TESTCONTEXT *testContext);
@@ -1511,12 +1512,13 @@ static UNITTEST tests[] =
     { "Setting BOD B overflow in user mode does not generate an interrupt if inhibited", cpu_selftest_setting_bod_b_overflow_in_user_mode_does_not_generate_interrupt_if_inhibited },
     { "Clearing BOD B overflow in executive mode clears interrupt", cpu_selftest_clearing_bod_b_overflow_in_executive_mode_clears_interrupt },
     { "Clearing BOD B overflow in user mode clears interrupt", cpu_selftest_clearing_bod_b_overflow_in_user_mode_clears_interrupt },
-
-    { "Switch to user mode when BOD B overflow is set resets system error V-line", cpu_selftest_switch_to_user_mode_when_bod_b_overflow_set_resets_system_error_v_line },
-    { "Switch to user mode when BOD B overflow is set resets system error interrupt", cpu_selftest_switch_to_user_mode_resets_system_error_interrupt },
+    { "Switch from executive mode to user mode when BOD B overflow is set swaps interrupt", cpu_selftest_switch_from_executive_mode_to_user_mode_when_bod_b_overflow_set_swaps_interrupt },
+    { "Switch from user mode to executive mode when BOD B overflow is set swaps interrupt", cpu_selftest_switch_from_user_mode_to_executive_mode_when_bod_b_overflow_set_swaps_interrupt },
 
         // TODO: L0IF and L1IF inhibits.
         // TODO: Combinations of AOD and BOD keep interrupt "alive"
+        // TODO: set inhibit clears interrupt, MS11
+
 
     { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
     { "No Acc zero divide interrupt if Acc zero divide is inhibited", cpu_selftest_no_acc_zero_divide_interrupt_if_acc_zero_divide_is_inhibited },
@@ -1947,6 +1949,16 @@ static void cpu_selftest_assert_inhibited_program_fault_interrupt(uint16 expecte
 {
     cpu_selftest_assert_v_store_contents(PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, expected_program_fault_status);
     cpu_selftest_assert_interrupt_inhibited();
+}
+
+static void cpu_selftest_assert_no_system_error(void)
+{
+    mu5_selftest_assert_no_system_error(localTestContext);
+}
+
+static void cpu_selftest_assert_no_program_fault(void)
+{
+    mu5_selftest_assert_no_program_fault(localTestContext);
 }
 
 static void cpu_selftest_assert_no_b_overflow(void)
@@ -7993,10 +8005,23 @@ static void cpu_selftest_clearing_bod_b_overflow_in_user_mode_clears_interrupt(T
     cpu_selftest_assert_no_interrupt();
 }
 
-// TODO: set inhibit clears interrupt, MS11
+static void cpu_selftest_switch_from_executive_mode_to_user_mode_when_bod_b_overflow_set_swaps_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
+    cpu_selftest_set_user_mode();
+    cpu_selftest_assert_no_system_error();
+    cpu_selftest_assert_B_interrupt_as_program_fault();
+}
 
-static void cpu_selftest_switch_to_user_mode_when_bod_b_overflow_set_resets_system_error_v_line(TESTCONTEXT *testContext) {}
-static void cpu_selftest_switch_to_user_mode_resets_system_error_interrupt(TESTCONTEXT *testContext) {}
+static void cpu_selftest_switch_from_user_mode_to_executive_mode_when_bod_b_overflow_set_swaps_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_user_mode();
+    cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_assert_no_program_fault();
+    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+}
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(TESTCONTEXT *testContext)
 {

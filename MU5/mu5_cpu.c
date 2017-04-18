@@ -215,7 +215,7 @@ static t_uint64                  reg_a_backing_value;     /* A register */
 static t_uint64_register_backing reg_aod_backing_value;   /* AOD register */
 static t_uint64                  reg_aex_backing_value;   /* AEX register */
 static uint32                    reg_x_backing_value;     /* X register */
-static uint16                    reg_ms_backing_value;    /* MS register */
+static uint16_register_backing   reg_ms_backing_value;    /* MS register */
 static uint16                    reg_nb_backing_value;    /* NB register */
 static uint32                    reg_xnb_backing_value;   /* XNB register */
 static uint16                    reg_sn_backing_value;    /* SN register */
@@ -236,7 +236,7 @@ static REG cpu_reg[] =
     { GRDATADF(AOD, reg_aod_backing_value, 16, 64, 0, "AOD register", aod_bits), REG_CALLBACK },
     { HRDATAD(AEX,  reg_aex_backing_value,     64,    "Accumulator extension") },
     { HRDATAD(X,    reg_x_backing_value,       32,    "X register") },
-    { GRDATADF(MS,  reg_ms_backing_value, 16,  16, 0, "Machine status register", ms_bits) },
+    { GRDATADF(MS,  reg_ms_backing_value, 16,  16, 0, "Machine status register", ms_bits), REG_CALLBACK },
     { HRDATAD(NB,   reg_nb_backing_value,      16,    "Name Base register") },
     { HRDATAD(XNB,  reg_xnb_backing_value,     32,    "X register") },
     { HRDATAD(SN,   reg_sn_backing_value,      16,    "Name Segment Number register") },
@@ -324,6 +324,7 @@ static void cpu_set_xnb(uint32 value);
 static void cpu_set_sf(uint16 value);
 static void cpu_set_co(uint32 value);
 static void cpu_set_ms_bn(int value);
+static void cpu_ms_callback(uint16 old_value, uint16 new_value);
 static void cpu_aod_callback(t_uint64 old_value, t_uint64 new_value);
 static void cpu_bod_callback(uint32 old_value, uint32 new_value);
 static void cpu_dod_callback(uint32 old_value, uint32 new_value);
@@ -1205,6 +1206,11 @@ static void cpu_set_ms_bn(int value)
     cpu_set_register_bit_16(reg_ms, mask_ms_bn, value);
 }
 
+static void cpu_ms_callback(uint16 old_value, uint16 new_value)
+{
+    cpu_evaluate_interrupts();
+}
+
 static void cpu_aod_callback(t_uint64 old_value, t_uint64 new_value)
 {
     cpu_evaluate_interrupts();
@@ -1296,10 +1302,10 @@ static int cpu_is_executive_mode(void)
 
 void cpu_reset_state(void)
 {
+    reg_ms_backing_value.callback = cpu_ms_callback;
     reg_aod_backing_value.callback = cpu_aod_callback;
     reg_bod_backing_value.callback = cpu_bod_callback;
     reg_dod_backing_value.callback = cpu_dod_callback;
-
 
     PROPProcessNumber = 0;
     PROPInstructionCounter = 0;
@@ -1357,17 +1363,16 @@ static int cpu_check_condition_with_inhibit(REG *reg, uint32 condition_mask, uin
 static void cpu_evaluate_interrupts(void)
 {
     int b_overflow = cpu_check_condition_with_inhibit(reg_bod, mask_bod_bovf, mask_bod_ibovf);
-    int b_or_d_error = b_overflow;
+    int b_or_d_error = b_overflow && cpu_ms_is_all(MS_MASK_B_D_SYS_ERR_EXEC);
     /* OR in the bits until all conditions are processed */
     if (cpu_ms_is_all(MS_MASK_EXEC))
     {
-        if (cpu_ms_is_all(MS_MASK_B_D_SYS_ERR_EXEC))
-        {
-            PROPSystemErrorStatus = b_or_d_error << (SES_BIT_B_OR_D_FAULT - 1); /* TODO: check if really EXEC bit, or is it MS11? */
-        }
+        PROPSystemErrorStatus = b_or_d_error << (SES_BIT_B_OR_D_FAULT - 1); /* TODO: check if really EXEC bit, or is it MS11? */
+        PROPProgramFaultStatus = 0;
     }
     else
     {
+        PROPSystemErrorStatus = 0;
         PROPProgramFaultStatus = b_overflow << (PFS_BIT_B_FAULT - 1);
     }
 
