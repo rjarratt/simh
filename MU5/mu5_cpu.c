@@ -1367,7 +1367,7 @@ static void cpu_evaluate_interrupts(void)
     /* OR in the bits until all conditions are processed */
     if (cpu_ms_is_all(MS_MASK_EXEC))
     {
-        PROPSystemErrorStatus = b_or_d_error << (SES_BIT_B_OR_D_FAULT - 1); /* TODO: check if really EXEC bit, or is it MS11? */
+        PROPSystemErrorStatus = b_or_d_error << (SES_BIT_B_OR_D_FAULT - 1); 
         PROPProgramFaultStatus = 0;
     }
     else
@@ -1376,7 +1376,7 @@ static void cpu_evaluate_interrupts(void)
         PROPProgramFaultStatus = b_overflow << (PFS_BIT_B_FAULT - 1);
     }
 
-    if (PROPSystemErrorStatus != 0)
+    if (PROPSystemErrorStatus != 0 && !cpu_ms_is_all(MS_MASK_LEVEL0))
     {
         cpu_set_interrupt(INT_SYSTEM_ERROR);
     }
@@ -1385,7 +1385,7 @@ static void cpu_evaluate_interrupts(void)
         cpu_clear_interrupt(INT_SYSTEM_ERROR);
     }
 
-    if (PROPProgramFaultStatus != 0 && !cpu_ms_is_all(MS_MASK_INH_PROG_FLT))
+    if (PROPProgramFaultStatus != 0 && !cpu_ms_is_any(MS_MASK_INH_PROG_FLT | MS_MASK_LEVEL0 | MS_MASK_LEVEL1))
     {
         cpu_set_interrupt(INT_PROGRAM_FAULTS);
     }
@@ -2677,8 +2677,6 @@ static void cpu_start_interrupt_processing(void)
 	cpu_set_register_bit_16(reg_ms, MS_MASK_EXEC, 1);
     cpu_set_link(newLink);
     printf("Interrupt %hu detected\n", (unsigned short)interruptNumber);
-	cpu_clear_interrupt(interruptNumber); /* TODO: this is a hack for now until I do the cascaded logic and implement L0IF and L1IF to inhibit */
-    //cpu_stopped = 1; /* TODO: temporary halt CPU until implement interrupt processing */
 }
 
 static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable)

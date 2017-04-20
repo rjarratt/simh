@@ -350,7 +350,9 @@ static void cpu_selftest_assert_control_adder_overflow_interrupt_as_system_error
 static void cpu_selftest_assert_control_adder_overflow_interrupt_as_illegal_order(void);
 static void cpu_selftest_assert_acc_interrupt_as_system_error(void);
 static void cpu_selftest_assert_acc_interrupt_as_program_fault(void);
+static void cpu_selftest_assert_B_or_D_system_error(void);
 static void cpu_selftest_assert_B_or_D_interrupt_as_system_error(void);
+static void cpu_selftest_assert_B_program_fault(void);
 static void cpu_selftest_assert_B_interrupt_as_program_fault(void);
 static void cpu_selftest_assert_D_interrupt_as_program_fault(void);
 static void cpu_selftest_assert_illegal_v_store_access_interrupt();
@@ -884,6 +886,11 @@ static void cpu_selftest_clearing_bod_b_overflow_in_executive_mode_clears_interr
 static void cpu_selftest_clearing_bod_b_overflow_in_user_mode_clears_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_switch_from_executive_mode_to_user_mode_when_bod_b_overflow_set_swaps_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_switch_from_user_mode_to_executive_mode_when_bod_b_overflow_set_swaps_interrupt(TESTCONTEXT *testContext);
+
+static void cpu_selftest_level_0_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
+static void cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set(TESTCONTEXT *testContext);
+static void cpu_selftest_level_1_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
+static void cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set(TESTCONTEXT *testContext);
 
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(TESTCONTEXT *testContext);
@@ -1515,7 +1522,11 @@ static UNITTEST tests[] =
     { "Switch from executive mode to user mode when BOD B overflow is set swaps interrupt", cpu_selftest_switch_from_executive_mode_to_user_mode_when_bod_b_overflow_set_swaps_interrupt },
     { "Switch from user mode to executive mode when BOD B overflow is set swaps interrupt", cpu_selftest_switch_from_user_mode_to_executive_mode_when_bod_b_overflow_set_swaps_interrupt },
 
-        // TODO: L0IF and L1IF inhibits.
+	{ "Level 0 interrupt inhibited if L0IF is set", cpu_selftest_level_0_interrupt_inhibited_if_L0IF_is_set },
+	{ "Level 0 interrupt not inhibited if L1IF is set", cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set },
+	{ "Level 1 interrupt inhibited if L0IF is set", cpu_selftest_level_1_interrupt_inhibited_if_L0IF_is_set },
+	{ "Level 1 interrupt inhibited if L1IF is set", cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set },
+
         // TODO: Combinations of AOD and BOD keep interrupt "alive"
         // TODO: set inhibit clears interrupt, MS11
 
@@ -2216,6 +2227,11 @@ static void cpu_selftest_assert_acc_interrupt_as_program_fault(void)
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x0020);
 }
 
+static void cpu_selftest_assert_B_or_D_system_error(void)
+{
+	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, SES_MASK_B_OR_D_FAULT);
+}
+
 static void cpu_selftest_assert_B_or_D_interrupt_as_system_error(void)
 {
     if (cpu_get_interrupt_number() != INT_SYSTEM_ERROR)
@@ -2224,7 +2240,12 @@ static void cpu_selftest_assert_B_or_D_interrupt_as_system_error(void)
         cpu_selftest_set_failure();
     }
 
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0080);
+	cpu_selftest_assert_B_or_D_system_error();
+}
+
+static void cpu_selftest_assert_B_program_fault(void)
+{
+	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, PFS_MASK_B_FAULT);
 }
 
 static void cpu_selftest_assert_B_interrupt_as_program_fault(void)
@@ -2235,7 +2256,7 @@ static void cpu_selftest_assert_B_interrupt_as_program_fault(void)
         cpu_selftest_set_failure();
     }
 
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x0080);
+	cpu_selftest_assert_B_program_fault();
 }
 
 static void cpu_selftest_assert_D_interrupt_as_program_fault(void)
@@ -8021,6 +8042,41 @@ static void cpu_selftest_switch_from_user_mode_to_executive_mode_when_bod_b_over
     cpu_selftest_set_executive_mode();
     cpu_selftest_assert_no_program_fault();
     cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+}
+
+static void cpu_selftest_level_0_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext)
+{
+	cpu_selftest_set_register(REG_MS, MS_MASK_B_D_SYS_ERR_EXEC | MS_MASK_LEVEL0);
+	cpu_selftest_set_executive_mode();
+	cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
+	cpu_selftest_assert_B_or_D_system_error();
+	cpu_selftest_assert_interrupt_inhibited();
+}
+
+static void cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set(TESTCONTEXT *testContext)
+{
+	cpu_selftest_set_register(REG_MS, MS_MASK_B_D_SYS_ERR_EXEC | MS_MASK_LEVEL1);
+	cpu_selftest_set_executive_mode();
+	cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
+	cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+}
+
+static void cpu_selftest_level_1_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext)
+{
+	cpu_selftest_set_register(REG_MS, MS_MASK_LEVEL0);
+	cpu_selftest_set_user_mode();
+	cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
+	cpu_selftest_assert_B_program_fault();
+	cpu_selftest_assert_interrupt_inhibited();
+}
+
+static void cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set(TESTCONTEXT *testContext)
+{
+	cpu_selftest_set_register(REG_MS, MS_MASK_LEVEL1);
+	cpu_selftest_set_user_mode();
+	cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
+	cpu_selftest_assert_B_program_fault();
+	cpu_selftest_assert_interrupt_inhibited();
 }
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(TESTCONTEXT *testContext)
