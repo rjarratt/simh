@@ -878,6 +878,8 @@ static void cpu_selftest_org_bn_bn_on_true(TESTCONTEXT *testContext);
 static void cpu_selftest_org_bn_order_tests(TESTCONTEXT *testContext);
 
 static void cpu_selftest_program_fault_sets_v_line_but_does_not_generate_interrupt_if_program_faults_are_inhibited(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_b_or_d_fault_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_b_or_d_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_bod_b_overflow_in_executive_mode_generates_b_or_d_system_error_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_bod_b_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_bod_b_overflow_in_user_mode_generates_b_program_fault_interrupt(TESTCONTEXT *testContext);
@@ -886,6 +888,7 @@ static void cpu_selftest_clearing_bod_b_overflow_in_executive_mode_clears_interr
 static void cpu_selftest_clearing_bod_b_overflow_in_user_mode_clears_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_switch_from_executive_mode_to_user_mode_when_bod_b_overflow_set_swaps_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_switch_from_user_mode_to_executive_mode_when_bod_b_overflow_set_swaps_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_aod_floating_point_overflow_in_executive_mode_generates_b_or_d_system_error_interrupt(TESTCONTEXT *testContext);
 
 static void cpu_selftest_level_0_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set(TESTCONTEXT *testContext);
@@ -1056,8 +1059,8 @@ static UNITTEST tests[] =
     { "Load operand 8-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_8_bit_value_at_6_bit_offset },
     { "Load operand 4-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_4_bit_value_at_6_bit_offset },
     { "Load operand 1-bit via B-relative descriptor at 6-bit offset", cpu_selftest_load_operand_b_relative_descriptor_1_bit_value_at_6_bit_offset },
-    { "Load operend via B-relative descriptor with a negative modifier generates a bounds check", cpu_selftest_load_operand_b_relative_descriptor_with_negative_modifier_generates_bounds_check },
-    { "Load operend via B-relative descriptor with a modifier greater than the bound generates a bounds check", cpu_selftest_load_operand_b_relative_descriptor_modifier_greater_than_bound_generates_bounds_check },
+    { "Load operand via B-relative descriptor with a negative modifier generates a bounds check", cpu_selftest_load_operand_b_relative_descriptor_with_negative_modifier_generates_bounds_check },
+    { "Load operand via B-relative descriptor with a modifier greater than the bound generates a bounds check", cpu_selftest_load_operand_b_relative_descriptor_modifier_greater_than_bound_generates_bounds_check },
     { "Load operand via 0-relative descriptor loads D", cpu_selftest_load_operand_zero_relative_descriptor_loads_D },
     { "Load operand 64-bit via 0-relative descriptor at 6-bit offset", cpu_selftest_load_operand_zero_relative_descriptor_64_bit_value_at_6_bit_offset },
 
@@ -1513,6 +1516,8 @@ static UNITTEST tests[] =
     { "Boolean order with function from order, tests all functions", cpu_selftest_org_bn_order_tests },
 
     { "Program fault sets V-line but does not generate interrupt if program faults are inhibited", cpu_selftest_program_fault_sets_v_line_but_does_not_generate_interrupt_if_program_faults_are_inhibited },
+	{ "Setting a B or D fault in executive mode generates system error interrupt", cpu_selftest_setting_b_or_d_fault_in_executive_mode_generates_system_error_interrupt },
+	{ "Setting a B or D fault in executive mode does not generate system error interrupt if inhibited", cpu_selftest_setting_b_or_d_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited },
     { "Setting BOD B overflow in executive mode generates B or D system error interrupt", cpu_selftest_setting_bod_b_overflow_in_executive_mode_generates_b_or_d_system_error_interrupt },
     { "Setting BOD B overflow in executive mode does not generate an interrupt if inhibited", cpu_selftest_setting_bod_b_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited },
     { "Setting BOD B overflow in user mode generates B program fault interrupt", cpu_selftest_setting_bod_b_overflow_in_user_mode_generates_b_program_fault_interrupt },
@@ -1540,7 +1545,6 @@ static UNITTEST tests[] =
     { "D interrupt as program fault in user mode", cpu_selftest_D_interrupt_as_program_fault_in_user_mode },
     { "No D interrupt if inhibited in user mode", cpu_selftest_no_D_interrupt_if_inhibited_in_user_mode },
     { "B interrupt as system error in executive mode", cpu_selftest_B_interrupt_as_system_error_in_executive_mode },
-    { "No B interrupt if inhibited in executive mode", cpu_selftest_no_B_interrupt_if_inhibited_in_executive_mode },
     { "B interrupt as program fault in user mode", cpu_selftest_B_interrupt_as_program_fault_in_user_mode },
     { "Acc interrupt as system error in executive mode", cpu_selftest_acc_interrupt_as_system_error_in_executive_mode },
     { "No Acc interrupt if inhibited in executive mode", cpu_selftest_no_acc_interrupt_if_inhibited_in_executive_mode },
@@ -1571,8 +1575,8 @@ static void cpu_selftest_reset(UNITTEST *test)
     sac_reset_state(); /* reset SAC first because it clears the V-Store callbacks which may be set by other devices */
     cpu_reset_state();
     currentLoadLocation = 0;
-    cpu_selftest_set_acc_faults_to_system_error_in_exec_mode();
-    cpu_selftest_set_b_and_d_faults_to_system_error_in_exec_mode();
+    cpu_selftest_set_acc_faults_to_system_error_in_exec_mode(); // TODO: remove this line and test explicitly.
+    cpu_selftest_set_b_and_d_faults_to_system_error_in_exec_mode(); // TODO: remove this line and test explicitly.
 }
 
 static void cpu_selftest_set_load_location(uint32 location)
@@ -7982,6 +7986,22 @@ static void cpu_selftest_program_fault_sets_v_line_but_does_not_generate_interru
     cpu_selftest_assert_inhibited_program_fault_interrupt(PFS_MASK_B_FAULT);
 }
 
+static void cpu_selftest_setting_b_or_d_fault_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext)
+{
+	cpu_selftest_set_executive_mode();
+	cpu_selftest_set_b_and_d_faults_to_system_error_in_exec_mode();
+	cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
+	cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+}
+
+static void cpu_selftest_setting_b_or_d_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
+{
+	cpu_selftest_set_executive_mode();
+	cpu_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode();
+	cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
+	cpu_selftest_assert_no_interrupt();
+}
+
 static void cpu_selftest_setting_bod_b_overflow_in_executive_mode_generates_b_or_d_system_error_interrupt(TESTCONTEXT *testContext)
 {
     cpu_selftest_set_executive_mode();
@@ -8159,16 +8179,6 @@ static void cpu_selftest_B_interrupt_as_system_error_in_executive_mode(TESTCONTE
     cpu_selftest_set_executive_mode();
     cpu_selftest_run_code();
     cpu_selftest_assert_B_or_D_interrupt_as_system_error();
-}
-
-static void cpu_selftest_no_B_interrupt_if_inhibited_in_executive_mode(TESTCONTEXT *testContext)
-{
-    cpu_selftest_load_order_extended(CR_B, F_LOAD_DEC_B, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
-    cpu_selftest_load_32_bit_literal(0x80000000);
-    cpu_selftest_set_executive_mode();
-    cpu_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode();
-    cpu_selftest_run_code();
-    cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_B_interrupt_as_program_fault_in_user_mode(TESTCONTEXT *testContext)

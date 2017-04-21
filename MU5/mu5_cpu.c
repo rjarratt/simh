@@ -1363,7 +1363,7 @@ static int cpu_check_condition_with_inhibit(REG *reg, uint32 condition_mask, uin
 static void cpu_evaluate_interrupts(void)
 {
     int b_overflow = cpu_check_condition_with_inhibit(reg_bod, mask_bod_bovf, mask_bod_ibovf);
-    int b_or_d_error = b_overflow && cpu_ms_is_all(MS_MASK_B_D_SYS_ERR_EXEC);
+	int b_or_d_error = b_overflow && cpu_ms_is_all(MS_MASK_B_D_SYS_ERR_EXEC);
     /* OR in the bits until all conditions are processed */
     if (cpu_ms_is_all(MS_MASK_EXEC))
     {
