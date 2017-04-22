@@ -65,6 +65,7 @@ void mu5_selftest_clear_acc_faults_to_system_error_in_exec_mode(TESTCONTEXT *con
 void mu5_selftest_set_acc_faults_to_system_error_in_exec_mode(TESTCONTEXT *context, DEVICE *device);
 void mu5_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode(TESTCONTEXT *context, DEVICE *device);
 void mu5_selftest_set_b_and_d_faults_to_system_error_in_exec_mode(TESTCONTEXT *context, DEVICE *device);
+void mu5_selftest_clear_inhibit_program_fault_interrupts(TESTCONTEXT *context, DEVICE *device);
 void mu5_selftest_set_inhibit_program_fault_interrupts(TESTCONTEXT *context, DEVICE *device);
 void mu5_selftest_set_bcpr(TESTCONTEXT *context, DEVICE *device);
 void mu5_selftest_clear_bcpr(TESTCONTEXT *context, DEVICE *device);

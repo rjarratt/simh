@@ -297,6 +297,7 @@ static void cpu_selftest_clear_acc_faults_to_system_error_in_exec_mode(void);
 static void cpu_selftest_set_acc_faults_to_system_error_in_exec_mode(void);
 static void cpu_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode(void);
 static void cpu_selftest_set_b_and_d_faults_to_system_error_in_exec_mode(void);
+static void cpu_selftest_clear_inhibit_program_fault_interrupts(void);
 static void cpu_selftest_set_inhibit_program_fault_interrupts(void);
 static void cpu_selftest_set_inhibit_instruction_counter(void);
 static void cpu_selftest_set_bn(int8 bn);
@@ -887,6 +888,7 @@ static void cpu_selftest_program_fault_sets_v_line_but_does_not_generate_interru
 
 static void cpu_selftest_setting_b_or_d_fault_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_b_or_d_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
+/* user mode inhibited check in pf status reg */
 static void cpu_selftest_setting_bod_b_overflow_in_executive_mode_generates_b_or_d_system_error_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_bod_b_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_bod_b_overflow_in_user_mode_generates_b_program_fault_interrupt(TESTCONTEXT *testContext);
@@ -898,6 +900,7 @@ static void cpu_selftest_switch_from_user_mode_to_executive_mode_when_bod_b_over
 
 static void cpu_selftest_setting_acc_fault_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_acc_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
+/* user mode inhibited check in pf status reg */
 static void cpu_selftest_setting_aod_floating_point_overflow_in_executive_mode_generates_acc_system_error_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_aod_floating_point_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_aod_floating_point_underflow_in_executive_mode_generates_acc_system_error_interrupt(TESTCONTEXT *testContext);
@@ -910,6 +913,13 @@ static void cpu_selftest_setting_acc_fault_in_user_mode_generates_program_fault_
 static void cpu_selftest_setting_acc_fault_in_user_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_clearing_acc_fault_in_executive_mode_clears_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_clearing_acc_fault_in_user_mode_clears_interrupt(TESTCONTEXT *testContext);
+
+static void cpu_selftest_setting_d_fault_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_d_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_d_fault_in_user_mode_generates_program_fault_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_d_fault_in_user_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
+static void cpu_selftest_clearing_d_fault_in_executive_mode_clears_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_clearing_d_fault_in_user_mode_clears_interrupt(TESTCONTEXT *testContext);
 
 static void cpu_selftest_level_0_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set(TESTCONTEXT *testContext);
@@ -1564,6 +1574,13 @@ static UNITTEST tests[] =
     { "Clearing an A fault in executive mode clears interrupt", cpu_selftest_clearing_acc_fault_in_executive_mode_clears_interrupt },
     { "Clearing an A fault in user mode clears interrupt", cpu_selftest_clearing_acc_fault_in_user_mode_clears_interrupt },
 
+    { "Setting a D fault in executive mode generates system error interrupt", cpu_selftest_setting_d_fault_in_executive_mode_generates_system_error_interrupt },
+    { "Setting a D fault in executive mode does not generate system error interrupt if inhibited", cpu_selftest_setting_d_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited },
+    { "Setting a D fault in user mode generates program fault interrupt", cpu_selftest_setting_d_fault_in_user_mode_generates_program_fault_interrupt },
+    { "Setting a D fault in user mode does not generate program fault interrupt if inhibited", cpu_selftest_setting_d_fault_in_user_mode_does_not_generate_interrupt_if_inhibited },
+    { "Clearing a D fault in executive mode clears interrupt", cpu_selftest_clearing_d_fault_in_executive_mode_clears_interrupt },
+    { "Clearing a D fault in user mode clears interrupt", cpu_selftest_clearing_d_fault_in_user_mode_clears_interrupt },
+
 	{ "Level 0 interrupt inhibited if L0IF is set", cpu_selftest_level_0_interrupt_inhibited_if_L0IF_is_set },
 	{ "Level 0 interrupt not inhibited if L1IF is set", cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set },
 	{ "Level 1 interrupt inhibited if L0IF is set", cpu_selftest_level_1_interrupt_inhibited_if_L0IF_is_set },
@@ -1840,6 +1857,11 @@ static void cpu_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode(void)
 static void cpu_selftest_set_b_and_d_faults_to_system_error_in_exec_mode(void)
 {
     mu5_selftest_set_b_and_d_faults_to_system_error_in_exec_mode(localTestContext, &cpu_dev);
+}
+
+static void cpu_selftest_clear_inhibit_program_fault_interrupts(void)
+{
+    mu5_selftest_clear_inhibit_program_fault_interrupts(localTestContext, &cpu_dev);
 }
 
 static void cpu_selftest_set_inhibit_program_fault_interrupts(void)
@@ -8206,6 +8228,54 @@ static void cpu_selftest_clearing_acc_fault_in_user_mode_clears_interrupt(TESTCO
     cpu_selftest_set_user_mode();
     cpu_selftest_set_register(REG_AOD, AOD_FLPOVF_MASK);
     cpu_selftest_set_register(REG_AOD, 0);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_setting_d_fault_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_set_b_and_d_faults_to_system_error_in_exec_mode();
+    cpu_selftest_set_register(REG_DOD, DOD_BCH_MASK);
+    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+}
+
+static void cpu_selftest_setting_d_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode();
+    cpu_selftest_set_register(REG_DOD, DOD_BCH_MASK);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_setting_d_fault_in_user_mode_generates_program_fault_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_user_mode();
+    cpu_selftest_clear_inhibit_program_fault_interrupts();
+    cpu_selftest_set_register(REG_DOD, DOD_BCH_MASK);
+    cpu_selftest_assert_D_interrupt_as_program_fault();
+}
+
+static void cpu_selftest_setting_d_fault_in_user_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_user_mode();
+    cpu_selftest_set_inhibit_program_fault_interrupts();
+    cpu_selftest_set_register(REG_DOD, DOD_BCH_MASK);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_clearing_d_fault_in_executive_mode_clears_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_set_register(REG_DOD, DOD_BCH_MASK);
+    cpu_selftest_set_register(REG_DOD, 0);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_clearing_d_fault_in_user_mode_clears_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_user_mode();
+    cpu_selftest_set_register(REG_DOD, DOD_BCH_MASK);
+    cpu_selftest_set_register(REG_DOD, 0);
     cpu_selftest_assert_no_interrupt();
 }
 

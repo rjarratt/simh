@@ -1378,25 +1378,32 @@ static int cpu_check_condition_with_inhibit_64(REG *reg, t_uint64 condition_mask
 static void cpu_evaluate_interrupts(void)
 {
     int b_overflow = cpu_check_condition_with_inhibit_32(reg_bod, mask_bod_bovf, mask_bod_ibovf);
-    int b_or_d_error = b_overflow && cpu_ms_is_all(MS_MASK_B_D_SYS_ERR_EXEC);
-    int aod_error = cpu_check_condition_with_inhibit_64(reg_aod, mask_aod_flpovf, mask_aod_iflpovf)
-                    ||
-                    cpu_check_condition_with_inhibit_64(reg_aod, mask_aod_flpudf, mask_aod_iflpudf)
-                    ||
-                    cpu_check_condition_with_inhibit_64(reg_aod, mask_aod_decovf, mask_aod_idecovf)
-                    ||
-                    cpu_check_condition_with_inhibit_64(reg_aod, mask_aod_zdiv, mask_aod_izdiv);
-    int acc_error = aod_error && cpu_ms_is_all(MS_MASK_A_SYS_ERR_EXEC);
-    /* OR in the bits until all conditions are processed */
+    int d_error = cpu_check_condition_with_inhibit_32(reg_dod, mask_dod_bch, mask_dod_bchi);
+    int acc_error = cpu_check_condition_with_inhibit_64(reg_aod, mask_aod_flpovf, mask_aod_iflpovf)
+        ||
+        cpu_check_condition_with_inhibit_64(reg_aod, mask_aod_flpudf, mask_aod_iflpudf)
+        ||
+        cpu_check_condition_with_inhibit_64(reg_aod, mask_aod_decovf, mask_aod_idecovf)
+        ||
+        cpu_check_condition_with_inhibit_64(reg_aod, mask_aod_zdiv, mask_aod_izdiv);
+
+    int b_or_d_system_error = (b_overflow || d_error) && cpu_ms_is_all(MS_MASK_B_D_SYS_ERR_EXEC);
+    int acc_system_error = acc_error && cpu_ms_is_all(MS_MASK_A_SYS_ERR_EXEC);
+
+    int ms1 = cpu_ms_is_all(MS_MASK_INH_PROG_FLT);
+    int b_program_fault = b_overflow;
+    int d_program_fault = d_error && !ms1;
+    int acc_program_fault = acc_error;
+
     if (cpu_ms_is_all(MS_MASK_EXEC))
     {
-        PROPSystemErrorStatus = (b_or_d_error << (SES_BIT_B_OR_D_FAULT - 1)) | (acc_error << (SES_BIT_ACC_ERROR - 1)); 
+        PROPSystemErrorStatus = (b_or_d_system_error << (SES_BIT_B_OR_D_FAULT - 1)) | (acc_system_error << (SES_BIT_ACC_ERROR - 1)); 
         PROPProgramFaultStatus = 0;
     }
     else
     {
         PROPSystemErrorStatus = 0;
-        PROPProgramFaultStatus = (b_overflow << (PFS_BIT_B_FAULT - 1)) | (aod_error << (PFS_BIT_ACC_FAULT - 1));
+        PROPProgramFaultStatus = (b_program_fault << (PFS_BIT_B_FAULT - 1)) | (acc_program_fault << (PFS_BIT_ACC_FAULT - 1)) | (d_program_fault << (PFS_BIT_D_FAULT - 1));
     }
 
     if (PROPSystemErrorStatus != 0 && !cpu_ms_is_all(MS_MASK_LEVEL0))
