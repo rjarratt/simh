@@ -223,11 +223,17 @@ in this Software without prior written authorization from Robert Jarratt.
 #define DESCRIPTOR_US_MASK 0x0200000000000000
 #define DESCRIPTOR_BC_MASK 0x0100000000000000
 
-#define AOD_OPSIZ_MASK 0x00001000
-#define AOD_IOVF_MASK 0x00000200
-#define AOD_IZDIV_MASK 0x00000080
-#define AOD_OVF_MASK 0x00000010
-#define AOD_ZDIV_MASK 0x00000004
+#define AOD_OPSIZ_MASK   0x00001000
+#define AOD_IFLPOVF_MASK 0x00000800
+#define AOD_IFLPUDF_MASK 0x00000400
+#define AOD_IFXPOVF_MASK 0x00000200
+#define AOD_IDECOVF_MASK 0x00000100
+#define AOD_IZDIV_MASK   0x00000080
+#define AOD_FLPOVF_MASK  0x00000040
+#define AOD_FLPUDF_MASK  0x00000020
+#define AOD_FXPOVF_MASK  0x00000010
+#define AOD_DECOVF_MASK  0x00000008
+#define AOD_ZDIV_MASK    0x00000004
 
 #define BOD_IBOVF_MASK 0x80000000
 #define BOD_BOVF_MASK 0x04000000
@@ -324,8 +330,8 @@ static void cpu_selftest_assert_b_overflow(void);
 static void cpu_selftest_assert_b_overflow_interrupt_as_system_error(void);
 static void cpu_selftest_assert_no_acc_overflow(void);
 static void cpu_selftest_assert_no_acc_overflow_interrupt(void);
-static void cpu_selftest_assert_acc_overflow(void);
-static void cpu_selftest_assert_acc_overflow_interrupt_as_system_error(void);
+static void cpu_selftest_assert_acc_fixed_point_overflow(void);
+static void cpu_selftest_assert_acc_fixed_point_overflow_interrupt_as_system_error(void);
 static void cpu_selftest_assert_no_a_zero_divide(void);
 static void cpu_selftest_assert_no_a_zero_divide_interrupt(void);
 static void cpu_selftest_assert_a_zero_divide(void);
@@ -878,6 +884,7 @@ static void cpu_selftest_org_bn_bn_on_true(TESTCONTEXT *testContext);
 static void cpu_selftest_org_bn_order_tests(TESTCONTEXT *testContext);
 
 static void cpu_selftest_program_fault_sets_v_line_but_does_not_generate_interrupt_if_program_faults_are_inhibited(TESTCONTEXT *testContext);
+
 static void cpu_selftest_setting_b_or_d_fault_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_b_or_d_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_bod_b_overflow_in_executive_mode_generates_b_or_d_system_error_interrupt(TESTCONTEXT *testContext);
@@ -888,7 +895,17 @@ static void cpu_selftest_clearing_bod_b_overflow_in_executive_mode_clears_interr
 static void cpu_selftest_clearing_bod_b_overflow_in_user_mode_clears_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_switch_from_executive_mode_to_user_mode_when_bod_b_overflow_set_swaps_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_switch_from_user_mode_to_executive_mode_when_bod_b_overflow_set_swaps_interrupt(TESTCONTEXT *testContext);
-static void cpu_selftest_setting_aod_floating_point_overflow_in_executive_mode_generates_b_or_d_system_error_interrupt(TESTCONTEXT *testContext);
+
+static void cpu_selftest_setting_acc_fault_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_acc_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_aod_floating_point_overflow_in_executive_mode_generates_acc_system_error_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_aod_floating_point_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_aod_floating_point_underflow_in_executive_mode_generates_acc_system_error_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_aod_floating_point_underflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_aod_decimal_overflow_in_executive_mode_generates_acc_system_error_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_aod_decimal_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_aod_zero_divide_in_executive_mode_generates_acc_system_error_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_aod_zero_divide_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
 
 static void cpu_selftest_level_0_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set(TESTCONTEXT *testContext);
@@ -1410,7 +1427,7 @@ static UNITTEST tests[] =
     { "DEC Load loads AEX", cpu_selftest_dec_load_loads_AEX },
     { "DEC Stack and Load stacks AEX and loads it", cpu_selftest_dec_stack_and_load_stacks_AEX_and_loads_AEX },
     { "DEC Store stores AEX", cpu_selftest_dec_store_stores_AEX },
-    { "DEC COMP sets overlow when AND of AOD with operand is non-zero", cpu_selftest_dec_comp_sets_overflow_when_AOD_and_operand_non_zero },
+    { "DEC COMP sets overflow when AND of AOD with operand is non-zero", cpu_selftest_dec_comp_sets_overflow_when_AOD_and_operand_non_zero },
     { "DEC COMP clears overlow when AND of AOD with operand is zero", cpu_selftest_dec_comp_clears_overflow_when_AOD_and_operand_is_zero },
 
     { "FLT Load Single loads 32 bits into A", cpu_selftest_flt_load_single_loads_32_bits_into_A },
@@ -1516,6 +1533,7 @@ static UNITTEST tests[] =
     { "Boolean order with function from order, tests all functions", cpu_selftest_org_bn_order_tests },
 
     { "Program fault sets V-line but does not generate interrupt if program faults are inhibited", cpu_selftest_program_fault_sets_v_line_but_does_not_generate_interrupt_if_program_faults_are_inhibited },
+
 	{ "Setting a B or D fault in executive mode generates system error interrupt", cpu_selftest_setting_b_or_d_fault_in_executive_mode_generates_system_error_interrupt },
 	{ "Setting a B or D fault in executive mode does not generate system error interrupt if inhibited", cpu_selftest_setting_b_or_d_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited },
     { "Setting BOD B overflow in executive mode generates B or D system error interrupt", cpu_selftest_setting_bod_b_overflow_in_executive_mode_generates_b_or_d_system_error_interrupt },
@@ -1527,12 +1545,25 @@ static UNITTEST tests[] =
     { "Switch from executive mode to user mode when BOD B overflow is set swaps interrupt", cpu_selftest_switch_from_executive_mode_to_user_mode_when_bod_b_overflow_set_swaps_interrupt },
     { "Switch from user mode to executive mode when BOD B overflow is set swaps interrupt", cpu_selftest_switch_from_user_mode_to_executive_mode_when_bod_b_overflow_set_swaps_interrupt },
 
+	{ "Setting an A fault in executive mode generates system error interrupt", cpu_selftest_setting_acc_fault_in_executive_mode_generates_system_error_interrupt },
+	{ "Setting an A fault in executive mode does not generate system error interrupt if inhibited", cpu_selftest_setting_acc_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited },
+	{ "Setting AOD floating point overflow in executive mode generates acc error interrupt", cpu_selftest_setting_aod_floating_point_overflow_in_executive_mode_generates_acc_system_error_interrupt },
+	{ "Setting AOD floating point overflow in executive mode does not generate an interrupt if inhibited", cpu_selftest_setting_aod_floating_point_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited },
+	{ "Setting AOD floating point underflow in executive mode generates acc error interrupt", cpu_selftest_setting_aod_floating_point_underflow_in_executive_mode_generates_acc_system_error_interrupt },
+	{ "Setting AOD floating point underflow in executive mode does not generate an interrupt if inhibited", cpu_selftest_setting_aod_floating_point_underflow_in_executive_mode_does_not_generate_interrupt_if_inhibited },
+	{ "Setting AOD decimal overflow in executive mode generates acc error interrupt", cpu_selftest_setting_aod_decimal_overflow_in_executive_mode_generates_acc_system_error_interrupt },
+	{ "Setting AOD decimal overflow in executive mode does not generate an interrupt if inhibited", cpu_selftest_setting_aod_decimal_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited },
+	{ "Setting AOD zero divide in executive mode generates acc error interrupt", cpu_selftest_setting_aod_zero_divide_in_executive_mode_generates_acc_system_error_interrupt },
+	{ "Setting AOD zero divide in executive mode does not generate an interrupt if inhibited", cpu_selftest_setting_aod_zero_divide_in_executive_mode_does_not_generate_interrupt_if_inhibited },
+		/* TODO: program fault versions */
+
 	{ "Level 0 interrupt inhibited if L0IF is set", cpu_selftest_level_0_interrupt_inhibited_if_L0IF_is_set },
 	{ "Level 0 interrupt not inhibited if L1IF is set", cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set },
 	{ "Level 1 interrupt inhibited if L0IF is set", cpu_selftest_level_1_interrupt_inhibited_if_L0IF_is_set },
 	{ "Level 1 interrupt inhibited if L1IF is set", cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set },
 
-        // TODO: Combinations of AOD and BOD keep interrupt "alive"
+
+		// TODO: Combinations of AOD and BOD keep interrupt "alive"
         // TODO: set inhibit clears interrupt, MS11
 
 
@@ -2010,7 +2041,7 @@ static void cpu_selftest_assert_b_overflow_interrupt_as_system_error(void)
 static void cpu_selftest_assert_no_acc_overflow(void)
 {
     t_uint64 aod = cpu_selftest_get_register(REG_AOD);
-    if (aod &AOD_OVF_MASK)
+    if (aod &AOD_FLPOVF_MASK)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected A overflow\n");
         cpu_selftest_set_failure();
@@ -2022,20 +2053,20 @@ static void cpu_selftest_assert_no_acc_overflow_interrupt(void)
     cpu_selftest_assert_no_acc_overflow();
 }
 
-static void cpu_selftest_assert_acc_overflow(void)
+static void cpu_selftest_assert_acc_fixed_point_overflow(void)
 {
     t_uint64 aod = cpu_selftest_get_register(REG_AOD);
-    if (!(aod & AOD_OVF_MASK))
+    if (!(aod & AOD_FXPOVF_MASK))
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected A overflow\n");
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected A fixed point overflow\n");
         cpu_selftest_set_failure();
     }
 }
 
-static void cpu_selftest_assert_acc_overflow_interrupt_as_system_error(void)
+static void cpu_selftest_assert_acc_fixed_point_overflow_interrupt_as_system_error(void)
 {
     cpu_selftest_assert_acc_interrupt_as_system_error();
-    cpu_selftest_assert_acc_overflow();
+    cpu_selftest_assert_acc_fixed_point_overflow();
 }
 
 static void cpu_selftest_assert_no_a_zero_divide(void)
@@ -6602,7 +6633,7 @@ static void cpu_selftest_x_add_flags_overflow(TESTCONTEXT *testContext)
     cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
     cpu_selftest_set_register(REG_X, 0x80000000);
     cpu_selftest_run_code();
-    cpu_selftest_assert_acc_overflow_interrupt_as_system_error();
+    cpu_selftest_assert_acc_fixed_point_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_x_sub_subtracts_operand_from_X(TESTCONTEXT *testContext)
@@ -6621,7 +6652,7 @@ static void cpu_selftest_x_sub_flags_overflow(TESTCONTEXT *testContext)
     cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
     cpu_selftest_set_register(REG_X, 0x7FFFFFFF);
     cpu_selftest_run_code();
-    cpu_selftest_assert_acc_overflow_interrupt_as_system_error();
+    cpu_selftest_assert_acc_fixed_point_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_x_mul_multiplies_operand_by_X(TESTCONTEXT *testContext)
@@ -6640,7 +6671,7 @@ static void cpu_selftest_x_mul_flags_overflow(TESTCONTEXT *testContext)
     cpu_selftest_load_32_bit_literal(0x7FFFFFFF);
     cpu_selftest_set_register(REG_X, 0x7FFFFFFF);
     cpu_selftest_run_code();
-    cpu_selftest_assert_acc_overflow_interrupt_as_system_error();
+    cpu_selftest_assert_acc_fixed_point_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_x_div_divides_X_by_operand(TESTCONTEXT *testContext)
@@ -6705,7 +6736,7 @@ static void cpu_selftest_x_shift_flags_overflow(TESTCONTEXT *testContext)
     cpu_selftest_load_order(CR_XS, F_SHIFT_L_X, K_LITERAL, 0x01);
     cpu_selftest_set_register(REG_X, 0x80000000);
     cpu_selftest_run_code();
-    cpu_selftest_assert_acc_overflow_interrupt_as_system_error();
+    cpu_selftest_assert_acc_fixed_point_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_x_rdiv_divides_operand_by_X(TESTCONTEXT *testContext)
@@ -6753,7 +6784,7 @@ static void cpu_selftest_x_rsub_flags_overflow(TESTCONTEXT *testContext)
     cpu_selftest_load_32_bit_literal(0x7FFFFFFF);
     cpu_selftest_set_register(REG_X, 0xFFFFFFFF);
     cpu_selftest_run_code();
-    cpu_selftest_assert_acc_overflow_interrupt_as_system_error();
+    cpu_selftest_assert_acc_fixed_point_overflow_interrupt_as_system_error();
 }
 
 static void cpu_selftest_x_comp_sets_less_than_when_X_less_than_operand(TESTCONTEXT *testContext)
@@ -6797,12 +6828,13 @@ static void cpu_selftest_x_comp_sets_overflow(TESTCONTEXT *testContext)
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_X, 0x80000000);
     cpu_selftest_assert_test_overflow();
-    cpu_selftest_assert_acc_overflow();
+    cpu_selftest_assert_acc_fixed_point_overflow();
 }
 
 static void cpu_selftest_a_load_loads_AOD(TESTCONTEXT *testContext)
 {
     cpu_selftest_load_order_extended(CR_AU, F_LOAD_AOD, K_LITERAL, NP_64_BIT_LITERAL);
+    cpu_selftest_clear_acc_faults_to_system_error_in_exec_mode();
     cpu_selftest_load_64_bit_literal(0xBBBBBBBBFFFFFEDC);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_AOD, 0x0000000000001EDC);
@@ -6816,6 +6848,7 @@ static void cpu_selftest_a_stack_and_load_stacks_AOD_and_loads_AOD(TESTCONTEXT *
     cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
     cpu_selftest_set_register(REG_SF, base);
     cpu_selftest_set_register(REG_AOD, 0xBBBBBBBBFFFFFEDC);
+    cpu_selftest_clear_acc_faults_to_system_error_in_exec_mode();
     cpu_selftest_run_code();
     cpu_selftest_assert_memory_contents_64_bit(base + 2, 0x0000000000001EDC);
     cpu_selftest_assert_reg_equals(REG_SF, base + 2);
@@ -6998,7 +7031,8 @@ static void cpu_selftest_dec_comp_sets_overflow_when_AOD_and_operand_non_zero(TE
     cpu_selftest_load_order_extended(CR_ADC, F_COMP_AOD, K_LITERAL, NP_64_BIT_LITERAL);
     cpu_selftest_load_64_bit_literal(0xFFFFFFFFFFFFFFFF);
     cpu_selftest_set_register(REG_AOD, 0x00000000000011F1);
-    cpu_selftest_run_code();
+	cpu_selftest_clear_acc_faults_to_system_error_in_exec_mode();
+	cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_AOD, 0x00000000000011F1);
     cpu_selftest_assert_test_overflow();
 }
@@ -8062,6 +8096,78 @@ static void cpu_selftest_switch_from_user_mode_to_executive_mode_when_bod_b_over
     cpu_selftest_set_executive_mode();
     cpu_selftest_assert_no_program_fault();
     cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+}
+
+static void cpu_selftest_setting_acc_fault_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext)
+{
+	cpu_selftest_set_executive_mode();
+	cpu_selftest_set_acc_faults_to_system_error_in_exec_mode();
+	cpu_selftest_set_register(REG_AOD, AOD_FLPOVF_MASK);
+	cpu_selftest_assert_acc_interrupt_as_system_error();
+}
+
+static void cpu_selftest_setting_acc_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
+{
+	cpu_selftest_set_executive_mode();
+	cpu_selftest_clear_acc_faults_to_system_error_in_exec_mode();
+	cpu_selftest_set_register(REG_AOD, AOD_FLPOVF_MASK);
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_setting_aod_floating_point_overflow_in_executive_mode_generates_acc_system_error_interrupt(TESTCONTEXT *testContext)
+{
+	cpu_selftest_set_executive_mode();
+	cpu_selftest_set_register(REG_AOD, AOD_FLPOVF_MASK);
+	cpu_selftest_assert_acc_interrupt_as_system_error();
+}
+
+static void cpu_selftest_setting_aod_floating_point_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
+{
+	cpu_selftest_set_executive_mode();
+	cpu_selftest_set_register(REG_AOD, AOD_FLPOVF_MASK & AOD_IFLPOVF_MASK);
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_setting_aod_floating_point_underflow_in_executive_mode_generates_acc_system_error_interrupt(TESTCONTEXT *testContext)
+{
+	cpu_selftest_set_executive_mode();
+	cpu_selftest_set_register(REG_AOD, AOD_FLPUDF_MASK);
+	cpu_selftest_assert_acc_interrupt_as_system_error();
+}
+
+static void cpu_selftest_setting_aod_floating_point_underflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
+{
+	cpu_selftest_set_executive_mode();
+	cpu_selftest_set_register(REG_AOD, AOD_FLPUDF_MASK & AOD_IFLPUDF_MASK);
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_setting_aod_decimal_overflow_in_executive_mode_generates_acc_system_error_interrupt(TESTCONTEXT *testContext)
+{
+	cpu_selftest_set_executive_mode();
+	cpu_selftest_set_register(REG_AOD, AOD_DECOVF_MASK);
+	cpu_selftest_assert_acc_interrupt_as_system_error();
+}
+
+static void cpu_selftest_setting_aod_decimal_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
+{
+	cpu_selftest_set_executive_mode();
+	cpu_selftest_set_register(REG_AOD, AOD_DECOVF_MASK & AOD_IDECOVF_MASK);
+	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_setting_aod_zero_divide_in_executive_mode_generates_acc_system_error_interrupt(TESTCONTEXT *testContext)
+{
+	cpu_selftest_set_executive_mode();
+	cpu_selftest_set_register(REG_AOD, AOD_ZDIV_MASK);
+	cpu_selftest_assert_acc_interrupt_as_system_error();
+}
+
+static void cpu_selftest_setting_aod_zero_divide_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
+{
+	cpu_selftest_set_executive_mode();
+	cpu_selftest_set_register(REG_AOD, AOD_ZDIV_MASK & AOD_IZDIV_MASK);
+	cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_level_0_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext)

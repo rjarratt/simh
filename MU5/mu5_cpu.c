@@ -872,9 +872,9 @@ t_stat sim_instr(void)
 t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
 {
     t_stat r = SCPE_OK;
-	uint16 i;
-	uint32 segment;
-	uint16 segment_length;
+    uint16 i;
+    uint32 segment;
+    uint16 segment_length;
     int b;
     t_addr origin, limit;
 
@@ -898,39 +898,39 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
 
     if (r == SCPE_OK)
     {
-		if (sim_switches & SWMASK('O'))
-		{
-			while ((b = Fgetc(ptr)) != EOF)
-			{
-				if (origin >= limit)
-				{
-					r = SCPE_NXM;
-					break;
-				}
+        if (sim_switches & SWMASK('O'))
+        {
+            while ((b = Fgetc(ptr)) != EOF)
+            {
+                if (origin >= limit)
+                {
+                    r = SCPE_NXM;
+                    break;
+                }
 
-				sac_write_8_bit_word_real_address(origin++, b & 0xFF);
-			}
-		}
-		else
-		{
-			do
-			{
-				segment = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
-				segment_length = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
-				if (feof(ptr))
-				{
-					break;
-				}
+                sac_write_8_bit_word_real_address(origin++, b & 0xFF);
+            }
+        }
+        else
+        {
+            do
+            {
+                segment = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
+                segment_length = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
+                if (feof(ptr))
+                {
+                    break;
+                }
 
-				origin = segment << 18;
-				printf("Loading segment %u of length %hu at virtual address %08X\n", segment, segment_length, origin);
-				for (i = 0; i < 2 * segment_length; i++)
-				{
-					b = Fgetc(ptr);
-					sac_write_8_bit_word(origin++, b);
-				}
-			} while (!feof(ptr));
-		}
+                origin = segment << 18;
+                printf("Loading segment %u of length %hu at virtual address %08X\n", segment, segment_length, origin);
+                for (i = 0; i < 2 * segment_length; i++)
+                {
+                    b = Fgetc(ptr);
+                    sac_write_8_bit_word(origin++, b);
+                }
+            } while (!feof(ptr));
+        }
     }
 
     return r;
@@ -1016,96 +1016,96 @@ void cpu_set_register(REG *reg, t_uint64 value)
 
 static SIM_INLINE void cpu_set_register_16(REG *reg, uint16 value)
 {
-	uint16 old_value;
-	uint16_register_backing *backing;
-	assert(reg->width == 16);
-	backing = reg->loc;
-	old_value = backing->backing_value;
-	backing->backing_value = value;
-	if (reg->flags & REG_CALLBACK)
-	{
-		backing->callback(old_value, backing->backing_value);
-	}
+    uint16 old_value;
+    uint16_register_backing *backing;
+    assert(reg->width == 16);
+    backing = reg->loc;
+    old_value = backing->backing_value;
+    backing->backing_value = value;
+    if (reg->flags & REG_CALLBACK)
+    {
+        backing->callback(old_value, backing->backing_value);
+    }
 }
 
 static SIM_INLINE void cpu_set_register_32(REG *reg, uint32 value)
 {
-	uint32 old_value;
-	uint32_register_backing *backing;
+    uint32 old_value;
+    uint32_register_backing *backing;
     assert(reg->width == 32);
-	backing = reg->loc;
-	old_value = backing->backing_value;
-	backing->backing_value = value;
+    backing = reg->loc;
+    old_value = backing->backing_value;
+    backing->backing_value = value;
     if (reg->flags & REG_CALLBACK)
     {
-		backing->callback(old_value, backing->backing_value);
-	}
+        backing->callback(old_value, backing->backing_value);
+    }
 }
 
 static SIM_INLINE void cpu_set_register_64(REG *reg, t_uint64 value)
 {
-	t_uint64 old_value;
-	t_uint64_register_backing *backing;
-	assert(reg->width == 64);
+    t_uint64 old_value;
+    t_uint64_register_backing *backing;
+    assert(reg->width == 64);
     *(t_uint64 *)(reg->loc) = value;
-	backing = reg->loc;
-	old_value = backing->backing_value;
-	backing->backing_value = value;
+    backing = reg->loc;
+    old_value = backing->backing_value;
+    backing->backing_value = value;
     if (reg->flags & REG_CALLBACK)
     {
-		backing->callback(old_value, backing->backing_value);
-	}
+        backing->callback(old_value, backing->backing_value);
+    }
 }
 
 static SIM_INLINE void cpu_set_register_bit_16(REG *reg, uint16 mask, int value)
 {
-	uint16 old_value;
-	uint16 new_value;
-	assert(reg->width == 16);
-	old_value = *(uint16 *)(reg->loc);
-	if (value)
-	{
-		new_value = old_value | mask;
-	}
-	else
-	{
-		new_value = old_value & ~mask;
-	}
-	cpu_set_register_16(reg, new_value);
-}
-
-static SIM_INLINE void cpu_set_register_bit_32(REG *reg, uint32 mask, int value)
-{
-	uint32 old_value;
-	uint32 new_value;
-    assert(reg->width == 32);
-	old_value = *(uint32 *)(reg->loc);
+    uint16 old_value;
+    uint16 new_value;
+    assert(reg->width == 16);
+    old_value = *(uint16 *)(reg->loc);
     if (value)
     {
         new_value = old_value | mask;
     }
     else
     {
-		new_value = old_value & ~mask;
+        new_value = old_value & ~mask;
     }
-	cpu_set_register_32(reg, new_value);
+    cpu_set_register_16(reg, new_value);
+}
+
+static SIM_INLINE void cpu_set_register_bit_32(REG *reg, uint32 mask, int value)
+{
+    uint32 old_value;
+    uint32 new_value;
+    assert(reg->width == 32);
+    old_value = *(uint32 *)(reg->loc);
+    if (value)
+    {
+        new_value = old_value | mask;
+    }
+    else
+    {
+        new_value = old_value & ~mask;
+    }
+    cpu_set_register_32(reg, new_value);
 }
 
 static SIM_INLINE void cpu_set_register_bit_64(REG *reg, t_uint64 mask, int value)
 {
-	t_uint64 old_value;
-	t_uint64 new_value;
-	assert(reg->width == 64);
-	old_value = *(t_uint64 *)(reg->loc);
-	if (value)
-	{
-		new_value = old_value | mask;
-	}
-	else
-	{
-		new_value = old_value & ~mask;
-	}
-	cpu_set_register_64(reg, new_value);
+    t_uint64 old_value;
+    t_uint64 new_value;
+    assert(reg->width == 64);
+    old_value = *(t_uint64 *)(reg->loc);
+    if (value)
+    {
+        new_value = old_value | mask;
+    }
+    else
+    {
+        new_value = old_value & ~mask;
+    }
+    cpu_set_register_64(reg, new_value);
 }
 
 static SIM_INLINE uint16 cpu_get_register_16(REG *reg)
@@ -1338,8 +1338,8 @@ void cpu_reset_state(void)
 
     sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, prop_read_process_number_callback, prop_write_process_number_callback);
     sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, prop_read_program_fault_status_callback, prop_write_program_fault_status_callback);
-	sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, prop_read_system_error_status_callback, prop_write_system_error_status_callback);
-	sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, prop_read_instruction_counter, prop_write_instruction_counter);
+    sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, prop_read_system_error_status_callback, prop_write_system_error_status_callback);
+    sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, prop_read_instruction_counter, prop_write_instruction_counter);
 }
 
 void cpu_set_interrupt(uint8 number)
@@ -1369,19 +1369,25 @@ static int cpu_check_condition_with_inhibit_32(REG *reg, uint32 condition_mask, 
 
 static int cpu_check_condition_with_inhibit_64(REG *reg, t_uint64 condition_mask, t_uint64 inhibit_mask)
 {
-	int result;
-	t_uint64 value = cpu_get_register_64(reg);
-	result = (value & condition_mask) && !(value & inhibit_mask);
-	return result;
+    int result;
+    t_uint64 value = cpu_get_register_64(reg);
+    result = (value & condition_mask) && !(value & inhibit_mask);
+    return result;
 }
 
 static void cpu_evaluate_interrupts(void)
 {
     int b_overflow = cpu_check_condition_with_inhibit_32(reg_bod, mask_bod_bovf, mask_bod_ibovf);
-	int b_or_d_error = b_overflow && cpu_ms_is_all(MS_MASK_B_D_SYS_ERR_EXEC);
-	int aod_error = cpu_check_condition_with_inhibit_64(reg_aod, mask_aod_flpovf, mask_aod_iflpovf);
-	int acc_error = aod_error && cpu_ms_is_all(MS_MASK_A_SYS_ERR_EXEC);
-	/* OR in the bits until all conditions are processed */
+    int b_or_d_error = b_overflow && cpu_ms_is_all(MS_MASK_B_D_SYS_ERR_EXEC);
+    int aod_error = cpu_check_condition_with_inhibit_64(reg_aod, mask_aod_flpovf, mask_aod_iflpovf)
+                    ||
+                    cpu_check_condition_with_inhibit_64(reg_aod, mask_aod_flpudf, mask_aod_iflpudf)
+                    ||
+                    cpu_check_condition_with_inhibit_64(reg_aod, mask_aod_decovf, mask_aod_idecovf)
+                    ||
+                    cpu_check_condition_with_inhibit_64(reg_aod, mask_aod_zdiv, mask_aod_izdiv);
+    int acc_error = aod_error && cpu_ms_is_all(MS_MASK_A_SYS_ERR_EXEC);
+    /* OR in the bits until all conditions are processed */
     if (cpu_ms_is_all(MS_MASK_EXEC))
     {
         PROPSystemErrorStatus = (b_or_d_error << (SES_BIT_B_OR_D_FAULT - 1)) | (acc_error << (SES_BIT_ACC_ERROR - 1)); 
@@ -1530,14 +1536,14 @@ static void cpu_set_control_adder_overflow_interrupt()
 
 static void cpu_set_illegal_function_interrupt(void)
 {
-	if (cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1 | MS_MASK_EXEC))
-	{
-		cpu_set_system_error_interrupt(SYSTEM_ERROR_STATUS_MASK_ILLEGAL_FUNCTION_ERROR);
-	}
-	else
-	{
-		cpu_set_illegal_order_interrupt(PROGRAM_FAULT_STATUS_MASK_ILLEGAL_FUNCTION_ERROR);
-	}
+    if (cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1 | MS_MASK_EXEC))
+    {
+        cpu_set_system_error_interrupt(SYSTEM_ERROR_STATUS_MASK_ILLEGAL_FUNCTION_ERROR);
+    }
+    else
+    {
+        cpu_set_illegal_order_interrupt(PROGRAM_FAULT_STATUS_MASK_ILLEGAL_FUNCTION_ERROR);
+    }
 }
 
 void cpu_set_access_violation_interrupt()
@@ -1890,54 +1896,54 @@ static t_uint64 cpu_get_operand_by_descriptor_vector(t_uint64 descriptor, uint32
     t_addr addr;
     t_uint64 result = 0;
 
-	if (cpu_check_bound(descriptor, modifier))
-	{
-		addr = cpu_get_operand_byte_address_by_descriptor_vector_access(descriptor, modifier);
+    if (cpu_check_bound(descriptor, modifier))
+    {
+        addr = cpu_get_operand_byte_address_by_descriptor_vector_access(descriptor, modifier);
 
-		switch (cpu_get_descriptor_size(descriptor))
-		{
-			case DESCRIPTOR_SIZE_1_BIT:
-			{
-				int bit = 7 - (modifier & 7);
-				result = sac_read_8_bit_word(addr);
-				result = (result >> bit) & 1;
-				break;
-			}
-			case DESCRIPTOR_SIZE_4_BIT:
-			{
-				int nibble = 1 - (modifier & 1);
-				result = sac_read_8_bit_word(addr);
-				result = (result >> (4 * nibble)) & 0xF;
-				break;
-			}
-			case DESCRIPTOR_SIZE_8_BIT:
-			{
-				result = sac_read_8_bit_word(addr);
-				break;
-			}
-			case DESCRIPTOR_SIZE_16_BIT:
-			{
-				result = sac_read_16_bit_word(addr >> 1); /* TODO: 16-bit word routine takes a 16-bit word address, not a byte address. Need to make memory access consistent */
-				break;
-			}
-			case DESCRIPTOR_SIZE_32_BIT:
-			{
-				result = sac_read_32_bit_word(addr >> 2); /* TODO: 32-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
-				break;
-			}
-			case DESCRIPTOR_SIZE_64_BIT:
-			{
-				result = sac_read_64_bit_word(addr >> 2); /* TODO: 64-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
-				break;
-			}
-			default:
-			{
-				result = 0;
-				cpu_set_its_interrupt();
-				break;
-			}
-		}
-	}
+        switch (cpu_get_descriptor_size(descriptor))
+        {
+            case DESCRIPTOR_SIZE_1_BIT:
+            {
+                int bit = 7 - (modifier & 7);
+                result = sac_read_8_bit_word(addr);
+                result = (result >> bit) & 1;
+                break;
+            }
+            case DESCRIPTOR_SIZE_4_BIT:
+            {
+                int nibble = 1 - (modifier & 1);
+                result = sac_read_8_bit_word(addr);
+                result = (result >> (4 * nibble)) & 0xF;
+                break;
+            }
+            case DESCRIPTOR_SIZE_8_BIT:
+            {
+                result = sac_read_8_bit_word(addr);
+                break;
+            }
+            case DESCRIPTOR_SIZE_16_BIT:
+            {
+                result = sac_read_16_bit_word(addr >> 1); /* TODO: 16-bit word routine takes a 16-bit word address, not a byte address. Need to make memory access consistent */
+                break;
+            }
+            case DESCRIPTOR_SIZE_32_BIT:
+            {
+                result = sac_read_32_bit_word(addr >> 2); /* TODO: 32-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
+                break;
+            }
+            case DESCRIPTOR_SIZE_64_BIT:
+            {
+                result = sac_read_64_bit_word(addr >> 2); /* TODO: 64-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
+                break;
+            }
+            default:
+            {
+                result = 0;
+                cpu_set_its_interrupt();
+                break;
+            }
+        }
+    }
 
     return result;
 }
@@ -1946,59 +1952,59 @@ static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 mod
 {
     t_addr addr;
 
-	if (cpu_check_bound(descriptor, modifier))
-	{
-		addr = cpu_get_operand_byte_address_by_descriptor_vector_access(descriptor, modifier);
+    if (cpu_check_bound(descriptor, modifier))
+    {
+        addr = cpu_get_operand_byte_address_by_descriptor_vector_access(descriptor, modifier);
 
-		switch (cpu_get_descriptor_size(descriptor))
-		{
-			case DESCRIPTOR_SIZE_1_BIT:
-			{
-				uint8 byte = sac_read_8_bit_word(addr);
-				uint8 shift = 7 - (modifier & 0x7);
-				uint8 bitMask = (uint8)0x1 << shift;
-				uint8 bit = (value & 0x1) << shift;
-				byte = (byte & ~bitMask) | bit;
-				sac_write_8_bit_word(addr, byte);
-				break;
-			}
-			case DESCRIPTOR_SIZE_4_BIT:
-			{
-				uint8 byte = sac_read_8_bit_word(addr);
-				uint8 shift = 4 * (1 - (modifier & 0x1));
-				uint8 nibbleMask = (uint8)0xF << shift;
-				uint8 nibble = (value & 0xF) << shift;
-				byte = (byte & ~nibbleMask) | nibble;
-				sac_write_8_bit_word(addr, byte);
-				break;
-			}
-			case DESCRIPTOR_SIZE_8_BIT:
-			{
-				sac_write_8_bit_word(addr, value & 0xFF);
-				break;
-			}
-			case DESCRIPTOR_SIZE_16_BIT:
-			{
-				sac_write_16_bit_word(addr >> 1, value & 0xFFFF);  /* TODO: 16-bit word routine takes a 16-bit word address, not a byte address. Need to make memory access consistent */
-				break;
-			}
-			case DESCRIPTOR_SIZE_32_BIT:
-			{
-				sac_write_32_bit_word(addr >> 2, value & MASK_32); /* TODO: 32-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
-				break;
-			}
-			case DESCRIPTOR_SIZE_64_BIT:
-			{
-				sac_write_64_bit_word(addr >> 2, value); /* TODO: 64-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
-				break;
-			}
-			default:
-			{
-				cpu_set_its_interrupt();
-				break;
-			}
-		}
-	}
+        switch (cpu_get_descriptor_size(descriptor))
+        {
+            case DESCRIPTOR_SIZE_1_BIT:
+            {
+                uint8 byte = sac_read_8_bit_word(addr);
+                uint8 shift = 7 - (modifier & 0x7);
+                uint8 bitMask = (uint8)0x1 << shift;
+                uint8 bit = (value & 0x1) << shift;
+                byte = (byte & ~bitMask) | bit;
+                sac_write_8_bit_word(addr, byte);
+                break;
+            }
+            case DESCRIPTOR_SIZE_4_BIT:
+            {
+                uint8 byte = sac_read_8_bit_word(addr);
+                uint8 shift = 4 * (1 - (modifier & 0x1));
+                uint8 nibbleMask = (uint8)0xF << shift;
+                uint8 nibble = (value & 0xF) << shift;
+                byte = (byte & ~nibbleMask) | nibble;
+                sac_write_8_bit_word(addr, byte);
+                break;
+            }
+            case DESCRIPTOR_SIZE_8_BIT:
+            {
+                sac_write_8_bit_word(addr, value & 0xFF);
+                break;
+            }
+            case DESCRIPTOR_SIZE_16_BIT:
+            {
+                sac_write_16_bit_word(addr >> 1, value & 0xFFFF);  /* TODO: 16-bit word routine takes a 16-bit word address, not a byte address. Need to make memory access consistent */
+                break;
+            }
+            case DESCRIPTOR_SIZE_32_BIT:
+            {
+                sac_write_32_bit_word(addr >> 2, value & MASK_32); /* TODO: 32-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
+                break;
+            }
+            case DESCRIPTOR_SIZE_64_BIT:
+            {
+                sac_write_64_bit_word(addr >> 2, value); /* TODO: 64-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
+                break;
+            }
+            default:
+            {
+                cpu_set_its_interrupt();
+                break;
+            }
+        }
+    }
 }
 
 static void cpu_process_source_to_destination_descriptor_vector(t_uint64 operand, t_uint64(*func)(t_uint64 source, t_uint64 destination, t_uint64 operand))
@@ -2161,10 +2167,10 @@ static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructi
         }
         case 32:
         {
-			/* RNI comment April 2017 in relation to BOD for IR 32: The 1978 manual shows IR32 as just B, so either the 1972 version was wrong or the hardware
-			was altered - I have a vague memory that this did happen. The book agrees with the 1978 version, so I'm sure it's
-			correct and I've listed the B IR's this way in my reconstruction.
-			*/
+            /* RNI comment April 2017 in relation to BOD for IR 32: The 1978 manual shows IR32 as just B, so either the 1972 version was wrong or the hardware
+            was altered - I have a vague memory that this did happen. The book agrees with the 1978 version, so I'm sure it's
+            correct and I've listed the B IR's this way in my reconstruction.
+            */
             result = cpu_get_register_32(reg_b);
             break;
         }
@@ -2208,26 +2214,26 @@ static t_uint64 cpu_set_operand_internal_register(uint16 order, t_uint64 value)
 
     switch (n)
     {
-		case 0:
-		case 1:
-		case 2:
-		case 3:
-		case 4:
-		case 5:
-		case 6:
-		case 7:
-		case 8:
-		case 9:
-		case 10:
-		case 11:
-		case 12:
-		case 13:
-		case 14:
-		case 15:
-		{
-			cpu_set_illegal_function_interrupt();
-			break;
-		}
+        case 0:
+        case 1:
+        case 2:
+        case 3:
+        case 4:
+        case 5:
+        case 6:
+        case 7:
+        case 8:
+        case 9:
+        case 10:
+        case 11:
+        case 12:
+        case 13:
+        case 14:
+        case 15:
+        {
+            cpu_set_illegal_function_interrupt();
+            break;
+        }
         case 16:
         {
             cpu_set_register_64(reg_d, value);
@@ -2255,10 +2261,10 @@ static t_uint64 cpu_set_operand_internal_register(uint16 order, t_uint64 value)
         }
         case 32:
         {
-			/* RNI comment April 2017 in relation to BOD for IR 32: The 1978 manual shows IR32 as just B, so either the 1972 version was wrong or the hardware
-			was altered - I have a vague memory that this did happen. The book agrees with the 1978 version, so I'm sure it's
-			correct and I've listed the B IR's this way in my reconstruction.
-			*/
+            /* RNI comment April 2017 in relation to BOD for IR 32: The 1978 manual shows IR32 as just B, so either the 1972 version was wrong or the hardware
+            was altered - I have a vague memory that this did happen. The book agrees with the 1978 version, so I'm sure it's
+            correct and I've listed the B IR's this way in my reconstruction.
+            */
             cpu_set_register_32(reg_b, value & MASK_32);
             break;
         }
@@ -2546,7 +2552,7 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
                 }
                 default:
                 {
-					cpu_set_illegal_function_interrupt();
+                    cpu_set_illegal_function_interrupt();
                     break;
                 }
             }
@@ -2555,7 +2561,7 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
         }
         default:
         {
-			cpu_set_illegal_function_interrupt();
+            cpu_set_illegal_function_interrupt();
         }
     }
 
@@ -2667,12 +2673,12 @@ static t_uint64 prop_read_system_error_status_callback(uint8 line)
 
 static t_uint64 prop_read_instruction_counter(uint8 line)
 {
-	return PROPInstructionCounter;
+    return PROPInstructionCounter;
 }
 
 static void prop_write_instruction_counter(uint8 line, t_uint64 value)
 {
-	PROPInstructionCounter = value & 0xFFFF;
+    PROPInstructionCounter = value & 0xFFFF;
 }
 
 static void prop_write_system_error_status_callback(uint8 line, t_uint64 value)
@@ -2691,7 +2697,7 @@ static void cpu_start_interrupt_processing(void)
     t_uint64 link = cpu_get_link();
     t_uint64 newLink = sac_read_v_store(SYSTEM_V_STORE_BLOCK, 16 + (interruptNumber * 2) + 1);
     sac_write_v_store(SYSTEM_V_STORE_BLOCK, 16 + (interruptNumber * 2), link);
-	cpu_set_register_bit_16(reg_ms, MS_MASK_EXEC, 1);
+    cpu_set_register_bit_16(reg_ms, MS_MASK_EXEC, 1);
     cpu_set_link(newLink);
     printf("Interrupt %hu detected\n", (unsigned short)interruptNumber);
 }
@@ -3003,15 +3009,15 @@ static void cpu_execute_organisational_XNB_plus(uint16 order, DISPATCH_ENTRY *in
 static void cpu_execute_organisational_XNB_store(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "XNB=> ");
-	if (!cpu_operand_is_secondary(order))
-	{
-		t_uint64 xnb = cpu_get_register_32(reg_xnb);
-		cpu_set_operand(order, xnb);
-	}
-	else
-	{
-		cpu_set_illegal_function_interrupt();
-	}
+    if (!cpu_operand_is_secondary(order))
+    {
+        t_uint64 xnb = cpu_get_register_32(reg_xnb);
+        cpu_set_operand(order, xnb);
+    }
+    else
+    {
+        cpu_set_illegal_function_interrupt();
+    }
 }
 
 static void cpu_execute_organisational_SF_load(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -3039,15 +3045,15 @@ static void cpu_execute_organisational_SF_load_NB_plus(uint16 order, DISPATCH_EN
 static void cpu_execute_organisational_SF_store(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "SF=> ");
-	if (!cpu_operand_is_secondary(order))
-	{
-		t_uint64 sf = cpu_get_register_16(reg_sf);
+    if (!cpu_operand_is_secondary(order))
+    {
+        t_uint64 sf = cpu_get_register_16(reg_sf);
         cpu_set_operand(order, sf);
-	}
-	else
-	{
-		cpu_set_illegal_function_interrupt();
-	}
+    }
+    else
+    {
+        cpu_set_illegal_function_interrupt();
+    }
 }
 
 static void cpu_execute_organisational_NB_load(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -3075,15 +3081,15 @@ static void cpu_execute_organisational_NB_plus(uint16 order, DISPATCH_ENTRY *inn
 static void cpu_execute_organisational_NB_store(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB=> ");
-	if (!cpu_operand_is_secondary(order))
-	{
-		t_uint64 nb = ((t_uint64)cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg_nb);
-		cpu_set_operand(order, nb);
-	}
-	else
-	{
-		cpu_set_illegal_function_interrupt();
-	}
+    if (!cpu_operand_is_secondary(order))
+    {
+        t_uint64 nb = ((t_uint64)cpu_get_register_16(reg_sn) << 16) | cpu_get_register_16(reg_nb);
+        cpu_set_operand(order, nb);
+    }
+    else
+    {
+        cpu_set_illegal_function_interrupt();
+    }
 }
 
 static void cpu_execute_organisational_branch_eq(uint16 order, DISPATCH_ENTRY *innerTable)
@@ -3222,30 +3228,30 @@ static void cpu_descriptor_modify(REG *descriptorReg, int32 modifier, int origin
 
 static int cpu_check_bound(t_uint64 descriptor, int32 modifier)
 {
-	int result = 1;
-	uint8 type = cpu_get_descriptor_type(descriptor);
-	uint8 subtype = cpu_get_descriptor_subtype(descriptor);
-	uint32 bound = cpu_get_descriptor_bound(descriptor);
-	if (!cpu_get_descriptor_bound_check_inhibit(descriptor) && (type == DESCRIPTOR_TYPE_GENERAL_VECTOR || type == DESCRIPTOR_TYPE_GENERAL_STRING || type == DESCRIPTOR_TYPE_ADDRESS_VECTOR || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 0) || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 1) || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 2)))
-	{
-		if (modifier < 0 || (uint32)modifier >= bound)
-		{
-			cpu_set_bounds_check_interrupt();
-			result = 0;
-		}
-	}
+    int result = 1;
+    uint8 type = cpu_get_descriptor_type(descriptor);
+    uint8 subtype = cpu_get_descriptor_subtype(descriptor);
+    uint32 bound = cpu_get_descriptor_bound(descriptor);
+    if (!cpu_get_descriptor_bound_check_inhibit(descriptor) && (type == DESCRIPTOR_TYPE_GENERAL_VECTOR || type == DESCRIPTOR_TYPE_GENERAL_STRING || type == DESCRIPTOR_TYPE_ADDRESS_VECTOR || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 0) || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 1) || (type == DESCRIPTOR_TYPE_MISCELLANEOUS && subtype == 2)))
+    {
+        if (modifier < 0 || (uint32)modifier >= bound)
+        {
+            cpu_set_bounds_check_interrupt();
+            result = 0;
+        }
+    }
 
-	return result;
+    return result;
 }
 
 static void cpu_execute_descriptor_modify(uint16 order, REG *descriptorReg)
 {
     t_uint64 d = cpu_get_register_64(descriptorReg);
     int32 modifier = cpu_get_operand(order) & MASK_32;
-	if (cpu_check_bound(d, modifier))
-	{
-		cpu_descriptor_modify(descriptorReg, modifier, FALSE);
-	}
+    if (cpu_check_bound(d, modifier))
+    {
+        cpu_descriptor_modify(descriptorReg, modifier, FALSE);
+    }
 }
 
 static void cpu_parse_sts_string_to_string_operand(t_uint64 operand, uint8 *mask, uint8 *filler)
@@ -3361,7 +3367,7 @@ static void cpu_execute_sts1_xd_store(uint16 order, DISPATCH_ENTRY *innerTable)
     }
     else
     {
-		cpu_set_illegal_function_interrupt();
+        cpu_set_illegal_function_interrupt();
     }
 }
 
@@ -3620,8 +3626,8 @@ static void cpu_execute_sts2_d_store(uint16 order, DISPATCH_ENTRY *innerTable)
     }
     else
     {
-		cpu_set_illegal_function_interrupt();
-	}
+        cpu_set_illegal_function_interrupt();
+    }
 }
 
 static void cpu_execute_sts2_db_load(uint16 order, DISPATCH_ENTRY *innerTable)
