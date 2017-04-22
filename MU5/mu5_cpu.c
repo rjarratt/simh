@@ -1396,7 +1396,7 @@ static void cpu_evaluate_interrupts(void)
     else
     {
         PROPSystemErrorStatus = 0;
-        PROPProgramFaultStatus = b_overflow << (PFS_BIT_B_FAULT - 1);
+        PROPProgramFaultStatus = (b_overflow << (PFS_BIT_B_FAULT - 1)) | (aod_error << (PFS_BIT_ACC_FAULT - 1));
     }
 
     if (PROPSystemErrorStatus != 0 && !cpu_ms_is_all(MS_MASK_LEVEL0))
