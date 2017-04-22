@@ -209,10 +209,14 @@ BITFIELD dod_bits[] = {
 
 static uint32 mask_dod_xch  = 0x00000001;
 static uint32 mask_dod_its  = 0x00000002;
+static uint32 mask_dod_ems  = 0x00000004;
 static uint32 mask_dod_sss  = 0x00000008;
+static uint32 mask_dod_nzt  = 0x00000010;
 static uint32 mask_dod_bch  = 0x00000020;
 static uint32 mask_dod_sssi = 0x00000040;
+static uint32 mask_dod_nzti = 0x00000080;
 static uint32 mask_dod_bchi = 0x00000100;
+static uint32 mask_dod_wro  = 0x00000200;
 
 /* Register backing values */
 static uint32                    reg_b_backing_value;     /* B register */
@@ -1378,7 +1382,19 @@ static int cpu_check_condition_with_inhibit_64(REG *reg, t_uint64 condition_mask
 static void cpu_evaluate_interrupts(void)
 {
     int b_overflow = cpu_check_condition_with_inhibit_32(reg_bod, mask_bod_bovf, mask_bod_ibovf);
-    int d_error = cpu_check_condition_with_inhibit_32(reg_dod, mask_dod_bch, mask_dod_bchi);
+    int d_error = cpu_get_register_bit_32(reg_dod, mask_dod_xch)
+                  ||
+                  cpu_get_register_bit_32(reg_dod, mask_dod_its)
+                  ||
+                  cpu_get_register_bit_32(reg_dod, mask_dod_ems)
+                  ||
+                  cpu_check_condition_with_inhibit_32(reg_dod, mask_dod_sss, mask_dod_sssi)
+                  ||
+                  cpu_check_condition_with_inhibit_32(reg_dod, mask_dod_nzt, mask_dod_nzti)
+                  ||
+                  cpu_check_condition_with_inhibit_32(reg_dod, mask_dod_bch, mask_dod_bchi)
+                  ||
+                  cpu_get_register_bit_32(reg_dod, mask_dod_wro);
     int acc_error = cpu_check_condition_with_inhibit_64(reg_aod, mask_aod_flpovf, mask_aod_iflpovf)
         ||
         cpu_check_condition_with_inhibit_64(reg_aod, mask_aod_flpudf, mask_aod_iflpudf)

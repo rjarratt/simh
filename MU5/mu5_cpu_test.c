@@ -238,11 +238,16 @@ in this Software without prior written authorization from Robert Jarratt.
 #define BOD_IBOVF_MASK 0x80000000
 #define BOD_BOVF_MASK 0x04000000
 
-#define DOD_ITS_MASK 0x00000002
-#define DOD_SSS_MASK 0x00000008
-#define DOD_BCH_MASK 0x00000020
+#define DOD_XCHK_MASK 0x00000001
+#define DOD_ITS_MASK  0x00000002
+#define DOD_EMS_MASK  0x00000004
+#define DOD_SSS_MASK  0x00000008
+#define DOD_NZT_MASK  0x00000010
+#define DOD_BCH_MASK  0x00000020
 #define DOD_SSSI_MASK 0x00000040
+#define DOD_NZTI_MASK 0x00000080
 #define DOD_BCHI_MASK 0x00000100
+#define DOD_WRO_MASK  0x00000200
 
 #define MS_TEST_MASK 0x0F00
 #define MS_OVERFLOW_MASK 0x0800
@@ -916,6 +921,16 @@ static void cpu_selftest_setting_d_fault_in_executive_mode_generates_system_erro
 static void cpu_selftest_setting_d_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_d_fault_in_user_mode_generates_program_fault_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_d_fault_in_user_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_dod_xchk_in_executive_mode_generates_d_system_error_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_dod_illegal_type_size_in_executive_mode_generates_d_system_error_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_dod_executive_mode_subtype_in_executive_mode_generates_d_system_error_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_dod_short_source_string_in_executive_mode_generates_d_system_error_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_dod_short_source_string_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_dod_non_zero_truncation_in_executive_mode_generates_d_system_error_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_dod_non_zero_truncation_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_dod_bounds_check_in_executive_mode_generates_d_system_error_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_dod_bounds_check_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_dod_write_to_read_only_in_executive_mode_generates_d_system_error_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_clearing_d_fault_in_executive_mode_clears_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_clearing_d_fault_in_user_mode_clears_interrupt(TESTCONTEXT *testContext);
 
@@ -1576,6 +1591,16 @@ static UNITTEST tests[] =
     { "Setting a D fault in executive mode does not generate system error interrupt if inhibited", cpu_selftest_setting_d_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited },
     { "Setting a D fault in user mode generates program fault interrupt", cpu_selftest_setting_d_fault_in_user_mode_generates_program_fault_interrupt },
     { "Setting a D fault in user mode does not generate program fault interrupt if inhibited", cpu_selftest_setting_d_fault_in_user_mode_does_not_generate_interrupt_if_inhibited },
+    { "Setting DOD XCHK in executive mode generates an interrupt", cpu_selftest_setting_dod_xchk_in_executive_mode_generates_d_system_error_interrupt },
+    { "Setting DOD ITS in executive mode generates an interrupt", cpu_selftest_setting_dod_illegal_type_size_in_executive_mode_generates_d_system_error_interrupt },
+    { "Setting DOD EMS in executive mode generates an interrupt", cpu_selftest_setting_dod_executive_mode_subtype_in_executive_mode_generates_d_system_error_interrupt },
+    { "Setting DOD SSS in executive mode generates an interrupt", cpu_selftest_setting_dod_short_source_string_in_executive_mode_generates_d_system_error_interrupt },
+    { "Setting DOD SSS in executive mode does not generate an interrupt if inhibited", cpu_selftest_setting_dod_short_source_string_in_executive_mode_does_not_generate_interrupt_if_inhibited },
+    { "Setting DOD NZT in executive mode generates an interrupt", cpu_selftest_setting_dod_non_zero_truncation_in_executive_mode_generates_d_system_error_interrupt },
+    { "Setting DOD NZT in executive mode does not generate an interrupt if inhibited", cpu_selftest_setting_dod_non_zero_truncation_in_executive_mode_does_not_generate_interrupt_if_inhibited },
+    { "Setting DOD BCH in executive mode generates an interrupt", cpu_selftest_setting_dod_bounds_check_in_executive_mode_generates_d_system_error_interrupt },
+    { "Setting DOD BCH in executive mode does not generate an interrupt if inhibited", cpu_selftest_setting_dod_bounds_check_in_executive_mode_does_not_generate_interrupt_if_inhibited },
+    { "Setting DOD write to read only in executive mode generates an interrupt", cpu_selftest_setting_dod_write_to_read_only_in_executive_mode_generates_d_system_error_interrupt },
     { "Clearing a D fault in executive mode clears interrupt", cpu_selftest_clearing_d_fault_in_executive_mode_clears_interrupt },
     { "Clearing a D fault in user mode clears interrupt", cpu_selftest_clearing_d_fault_in_user_mode_clears_interrupt },
 
@@ -2725,6 +2750,7 @@ static void cpu_selftest_load_operand_internal_register_19(TESTCONTEXT *testCont
 static void cpu_selftest_load_operand_internal_register_20(TESTCONTEXT *testContext)
 {
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_IR, 20);
+    cpu_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode();
     cpu_selftest_set_register(REG_DOD, 0xABABABAB);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0x00000000ABABABAB);
@@ -3877,6 +3903,7 @@ static void cpu_selftest_store_operand_internal_register_20(TESTCONTEXT *testCon
 {
     cpu_selftest_load_order(CR_FLOAT, F_STORE, K_IR, 20);
     cpu_selftest_set_aod_operand_64_bit();
+    cpu_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode();
     cpu_selftest_set_register(REG_A, 0x00000000ABABABAB);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_DOD, 0xABABABAB);
@@ -4919,6 +4946,7 @@ static void cpu_selftest_sts1_xchk_operand_negative_clears_DOD_XCH_bit(TESTCONTE
 {
     cpu_selftest_load_order_extended(CR_STS1, F_XCHK, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
+    cpu_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode();
     cpu_selftest_set_register(REG_XD, 0xAAAAAAAABBBBBBBB);
     cpu_selftest_set_register(REG_DOD, 0x00000001);
     cpu_selftest_run_code();
@@ -4930,6 +4958,7 @@ static void cpu_selftest_sts1_xchk_operand_ge_XDB_clears_DOD_XCH_bit(TESTCONTEXT
 {
     cpu_selftest_load_order_extended(CR_STS1, F_XCHK, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0x00000002);
+    cpu_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode();
     cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, 0));
     cpu_selftest_set_register(REG_DOD, 0x00000001);
     cpu_selftest_run_code();
@@ -4941,6 +4970,7 @@ static void cpu_selftest_sts1_xchk_operand_within_XDB_sets_DOD_XCH_bit(TESTCONTE
 {
     cpu_selftest_load_order_extended(CR_STS1, F_XCHK, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0x00000001);
+    cpu_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode();
     cpu_selftest_set_register(REG_XD, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, 0));
     cpu_selftest_set_register(REG_DOD, 0x00000000);
     cpu_selftest_run_code();
@@ -8267,6 +8297,76 @@ static void cpu_selftest_setting_d_fault_in_user_mode_does_not_generate_interrup
     cpu_selftest_set_inhibit_program_fault_interrupts();
     cpu_selftest_set_register(REG_DOD, DOD_BCH_MASK);
     cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_setting_dod_xchk_in_executive_mode_generates_d_system_error_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_set_register(REG_DOD, DOD_XCHK_MASK);
+    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+}
+
+static void cpu_selftest_setting_dod_illegal_type_size_in_executive_mode_generates_d_system_error_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_set_register(REG_DOD, DOD_ITS_MASK);
+    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+}
+
+static void cpu_selftest_setting_dod_executive_mode_subtype_in_executive_mode_generates_d_system_error_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_set_register(REG_DOD, DOD_EMS_MASK);
+    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+}
+
+static void cpu_selftest_setting_dod_short_source_string_in_executive_mode_generates_d_system_error_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_set_register(REG_DOD, DOD_SSS_MASK);
+    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+}
+
+static void cpu_selftest_setting_dod_short_source_string_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_set_register(REG_DOD, DOD_SSS_MASK | DOD_SSSI_MASK);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_setting_dod_non_zero_truncation_in_executive_mode_generates_d_system_error_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_set_register(REG_DOD, DOD_NZT_MASK);
+    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+}
+
+static void cpu_selftest_setting_dod_non_zero_truncation_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_set_register(REG_DOD, DOD_NZT_MASK | DOD_NZTI_MASK);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_setting_dod_bounds_check_in_executive_mode_generates_d_system_error_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_set_register(REG_DOD, DOD_BCH_MASK);
+    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+}
+
+static void cpu_selftest_setting_dod_bounds_check_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_set_register(REG_DOD, DOD_BCH_MASK | DOD_BCHI_MASK);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_setting_dod_write_to_read_only_in_executive_mode_generates_d_system_error_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_set_register(REG_DOD, DOD_WRO_MASK);
+    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
 }
 
 static void cpu_selftest_clearing_d_fault_in_executive_mode_clears_interrupt(TESTCONTEXT *testContext)
