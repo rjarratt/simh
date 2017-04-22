@@ -908,6 +908,8 @@ static void cpu_selftest_setting_aod_zero_divide_in_executive_mode_generates_acc
 static void cpu_selftest_setting_aod_zero_divide_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_acc_fault_in_user_mode_generates_program_fault_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_acc_fault_in_user_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
+static void cpu_selftest_clearing_acc_fault_in_executive_mode_clears_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_clearing_acc_fault_in_user_mode_clears_interrupt(TESTCONTEXT *testContext);
 
 static void cpu_selftest_level_0_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set(TESTCONTEXT *testContext);
@@ -1559,8 +1561,8 @@ static UNITTEST tests[] =
 	{ "Setting AOD zero divide in executive mode does not generate an interrupt if inhibited", cpu_selftest_setting_aod_zero_divide_in_executive_mode_does_not_generate_interrupt_if_inhibited },
     { "Setting an A fault in user mode generates program fault interrupt", cpu_selftest_setting_acc_fault_in_user_mode_generates_program_fault_interrupt },
     { "Setting an A fault in user mode does not generate program fault interrupt if inhibited", cpu_selftest_setting_acc_fault_in_user_mode_does_not_generate_interrupt_if_inhibited },
-//    { "Clearing BOD B overflow in executive mode clears interrupt", cpu_selftest_clearing_bod_b_overflow_in_executive_mode_clears_interrupt },
-//    { "Clearing BOD B overflow in user mode clears interrupt", cpu_selftest_clearing_bod_b_overflow_in_user_mode_clears_interrupt },
+    { "Clearing an A fault in executive mode clears interrupt", cpu_selftest_clearing_acc_fault_in_executive_mode_clears_interrupt },
+    { "Clearing an A fault in user mode clears interrupt", cpu_selftest_clearing_acc_fault_in_user_mode_clears_interrupt },
 
 	{ "Level 0 interrupt inhibited if L0IF is set", cpu_selftest_level_0_interrupt_inhibited_if_L0IF_is_set },
 	{ "Level 0 interrupt not inhibited if L1IF is set", cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set },
@@ -8188,6 +8190,22 @@ static void cpu_selftest_setting_acc_fault_in_user_mode_does_not_generate_interr
 {
     cpu_selftest_set_user_mode();
     cpu_selftest_set_register(REG_AOD, AOD_FLPOVF_MASK | AOD_IFLPOVF_MASK);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_clearing_acc_fault_in_executive_mode_clears_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_set_register(REG_AOD, AOD_FLPOVF_MASK);
+    cpu_selftest_set_register(REG_AOD, 0);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_clearing_acc_fault_in_user_mode_clears_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_user_mode();
+    cpu_selftest_set_register(REG_AOD, AOD_FLPOVF_MASK);
+    cpu_selftest_set_register(REG_AOD, 0);
     cpu_selftest_assert_no_interrupt();
 }
 
