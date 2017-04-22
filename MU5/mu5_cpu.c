@@ -1391,9 +1391,9 @@ static void cpu_evaluate_interrupts(void)
     int acc_system_error = acc_error && cpu_ms_is_all(MS_MASK_A_SYS_ERR_EXEC);
 
     int ms1 = cpu_ms_is_all(MS_MASK_INH_PROG_FLT);
-    int b_program_fault = b_overflow;
+    int b_program_fault = b_overflow && !ms1;
     int d_program_fault = d_error && !ms1;
-    int acc_program_fault = acc_error;
+    int acc_program_fault = acc_error && !ms1;
 
     if (cpu_ms_is_all(MS_MASK_EXEC))
     {
@@ -1415,7 +1415,7 @@ static void cpu_evaluate_interrupts(void)
         cpu_clear_interrupt(INT_SYSTEM_ERROR);
     }
 
-    if (PROPProgramFaultStatus != 0 && !cpu_ms_is_any(MS_MASK_INH_PROG_FLT | MS_MASK_LEVEL0 | MS_MASK_LEVEL1))
+    if (PROPProgramFaultStatus != 0 && !cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1))
     {
         cpu_set_interrupt(INT_PROGRAM_FAULTS);
     }
