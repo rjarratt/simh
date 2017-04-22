@@ -142,9 +142,15 @@ BITFIELD aod_bits[] = {
 
 static t_uint64 mask_aod         = 0x0000000000001FFF;
 static t_uint64 mask_aod_zdiv    = 0x0000000000000004;
+static t_uint64 mask_aod_decovf  = 0x0000000000000008;
 static t_uint64 mask_aod_fxpovf  = 0x0000000000000010;
+static t_uint64 mask_aod_flpudf  = 0x0000000000000020;
+static t_uint64 mask_aod_flpovf  = 0x0000000000000040;
 static t_uint64 mask_aod_izdiv   = 0x0000000000000080;
+static t_uint64 mask_aod_idecovf = 0x0000000000000100;
 static t_uint64 mask_aod_ifxpovf = 0x0000000000000200;
+static t_uint64 mask_aod_iflpudf = 0x0000000000000400;
+static t_uint64 mask_aod_iflpovf = 0x0000000000000800;
 static t_uint64 mask_aod_opsiz64 = 0x0000000000001000;
 
 BITFIELD bod_bits[] = {
@@ -340,7 +346,8 @@ static int cpu_is_executive_mode(void);
 
 static void cpu_clear_interrupt(uint8 number);
 static void cpu_clear_all_interrupts(void);
-static int cpu_check_condition_with_inhibit(REG *reg, uint32 condition_mask, uint32 inhibit_mask);
+static int cpu_check_condition_with_inhibit_32(REG *reg, uint32 condition_mask, uint32 inhibit_mask);
+static int cpu_check_condition_with_inhibit_64(REG *reg, t_uint64 condition_mask, t_uint64 inhibit_mask);
 static void cpu_evaluate_interrupts(void);
 static void cpu_set_system_error_interrupt(uint16 reason);
 static void cpu_set_program_fault_interrupt(uint16 reason);
@@ -1352,7 +1359,7 @@ static void cpu_clear_all_interrupts(void)
     interrupt = 0;
 }
 
-static int cpu_check_condition_with_inhibit(REG *reg, uint32 condition_mask, uint32 inhibit_mask)
+static int cpu_check_condition_with_inhibit_32(REG *reg, uint32 condition_mask, uint32 inhibit_mask)
 {
     int result;
     uint32 value = cpu_get_register_32(reg);
@@ -1360,14 +1367,24 @@ static int cpu_check_condition_with_inhibit(REG *reg, uint32 condition_mask, uin
     return result;
 }
 
+static int cpu_check_condition_with_inhibit_64(REG *reg, t_uint64 condition_mask, t_uint64 inhibit_mask)
+{
+	int result;
+	t_uint64 value = cpu_get_register_64(reg);
+	result = (value & condition_mask) && !(value & inhibit_mask);
+	return result;
+}
+
 static void cpu_evaluate_interrupts(void)
 {
-    int b_overflow = cpu_check_condition_with_inhibit(reg_bod, mask_bod_bovf, mask_bod_ibovf);
+    int b_overflow = cpu_check_condition_with_inhibit_32(reg_bod, mask_bod_bovf, mask_bod_ibovf);
 	int b_or_d_error = b_overflow && cpu_ms_is_all(MS_MASK_B_D_SYS_ERR_EXEC);
-    /* OR in the bits until all conditions are processed */
+	int aod_error = cpu_check_condition_with_inhibit_64(reg_aod, mask_aod_flpovf, mask_aod_iflpovf);
+	int acc_error = aod_error && cpu_ms_is_all(MS_MASK_A_SYS_ERR_EXEC);
+	/* OR in the bits until all conditions are processed */
     if (cpu_ms_is_all(MS_MASK_EXEC))
     {
-        PROPSystemErrorStatus = b_or_d_error << (SES_BIT_B_OR_D_FAULT - 1); 
+        PROPSystemErrorStatus = (b_or_d_error << (SES_BIT_B_OR_D_FAULT - 1)) | (acc_error << (SES_BIT_ACC_ERROR - 1)); 
         PROPProgramFaultStatus = 0;
     }
     else

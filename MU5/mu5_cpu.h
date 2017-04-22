@@ -36,7 +36,9 @@ in this Software without prior written authorization from Robert Jarratt.
 
 /* System Error Status register masks */
 #define SES_BIT_B_OR_D_FAULT 8
+#define SES_BIT_ACC_ERROR 7
 #define SES_MASK_B_OR_D_FAULT 0x0080
+#define SES_MASK_ACC_ERROR 0x0040
 
 /* Program Fault Status register masks */
 #define PFS_BIT_B_FAULT 8
