@@ -2719,6 +2719,11 @@ static void cpu_start_interrupt_processing(void)
     uint8 interruptNumber = cpu_get_interrupt_number();
     t_uint64 link = cpu_get_link();
     t_uint64 newLink = sac_read_v_store(SYSTEM_V_STORE_BLOCK, 16 + (interruptNumber * 2) + 1);
+    if (interruptNumber == INT_CPR_NOT_EQUIVALENCE)
+    {
+        cpu_clear_interrupt(INT_CPR_NOT_EQUIVALENCE);
+    }
+
     sac_write_v_store(SYSTEM_V_STORE_BLOCK, 16 + (interruptNumber * 2), link);
     cpu_set_register_bit_16(reg_ms, MS_MASK_EXEC, 1);
     cpu_set_link(newLink);

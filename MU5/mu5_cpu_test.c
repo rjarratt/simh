@@ -939,6 +939,9 @@ static void cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set(TESTCONT
 static void cpu_selftest_level_1_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set(TESTCONTEXT *testContext);
 
+static void cpu_selftest_cpr_not_equivalance_interrupt_not_reset_after_next_instruction_if_not_handling_cpr_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_cpr_not_equivalance_interrupt_reset_after_next_instruction(TESTCONTEXT *testContext);
+static void cpu_selftest_cpr_not_equivalance_interrupt_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext);
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_no_acc_zero_divide_interrupt_if_acc_zero_divide_is_inhibited(TESTCONTEXT *testContext);
@@ -1613,6 +1616,9 @@ static UNITTEST tests[] =
 		// TODO: Combinations of AOD and BOD keep interrupt "alive"
         // TODO: set inhibit clears interrupt, MS11
 
+    { "CPR Not Equivalence interrupt is not reset after next instruction if not handling CPR interrupt", cpu_selftest_cpr_not_equivalance_interrupt_not_reset_after_next_instruction_if_not_handling_cpr_interrupt },
+    { "CPR Not Equivalence interrupt is reset after next instruction", cpu_selftest_cpr_not_equivalance_interrupt_reset_after_next_instruction },
+    { "CPR Not Equivalence interrupt stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_stores_link_that_re_executes_failed_order },
 
     { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
     { "No Acc zero divide interrupt if Acc zero divide is inhibited", cpu_selftest_no_acc_zero_divide_interrupt_if_acc_zero_divide_is_inhibited },
@@ -8419,6 +8425,28 @@ static void cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set(TESTCONTEXT 
 	cpu_selftest_assert_B_program_fault();
 	cpu_selftest_assert_interrupt_inhibited();
 }
+
+static void cpu_selftest_cpr_not_equivalance_interrupt_not_reset_after_next_instruction_if_not_handling_cpr_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_set_interrupt(INT_CPR_NOT_EQUIVALENCE);
+    cpu_set_interrupt(INT_SYSTEM_ERROR);
+    cpu_selftest_run_code();
+    cpu_selftest_set_register(REG_BOD, 0); /* should clear the system error */
+    mu5_selftest_assert_interrupt_number(localTestContext, INT_CPR_NOT_EQUIVALENCE);
+}
+
+static void cpu_selftest_cpr_not_equivalance_interrupt_reset_after_next_instruction(TESTCONTEXT *testContext)
+{
+    cpu_set_interrupt(INT_CPR_NOT_EQUIVALENCE);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_cpr_not_equivalance_interrupt_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext)
+{
+}
+
+// TODO one where order itself generates interrupt, one where primary operand does it, one with secondary.
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(TESTCONTEXT *testContext)
 {
