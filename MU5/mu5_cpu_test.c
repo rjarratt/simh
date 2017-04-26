@@ -298,6 +298,7 @@ static void cpu_selftest_set_level0_mode(void);
 static void cpu_selftest_set_level1_mode(void);
 static void cpu_selftest_set_executive_mode(void);
 static void cpu_selftest_set_user_mode(void);
+static void cpu_selftest_clear_bcpr(void);
 static void cpu_selftest_clear_acc_faults_to_system_error_in_exec_mode(void);
 static void cpu_selftest_set_acc_faults_to_system_error_in_exec_mode(void);
 static void cpu_selftest_clear_b_and_d_faults_to_system_error_in_exec_mode(void);
@@ -325,6 +326,7 @@ static void cpu_selftest_assert_vector_content_8_bit(t_addr origin, uint32 offse
 static void cpu_selftest_assert_vector_content_4_bit(t_addr origin, uint32 offset, uint8 expectedValue);
 static void cpu_selftest_assert_vector_content_1_bit(t_addr origin, uint32 offset, uint8 expectedValue);
 
+static void cpu_selftest_assert_interrupt_return_address(int interruptNumber, uint32 expectedAddress);
 static void cpu_selftest_assert_inhibited_program_fault_interrupt(uint16 expected_program_fault_status);
 static void cpu_selftest_assert_no_system_error(void);
 static void cpu_selftest_assert_no_program_fault(void);
@@ -941,7 +943,9 @@ static void cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set(TESTCONTEXT 
 
 static void cpu_selftest_cpr_not_equivalance_interrupt_not_reset_after_next_instruction_if_not_handling_cpr_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_cpr_not_equivalance_interrupt_reset_after_next_instruction(TESTCONTEXT *testContext);
-static void cpu_selftest_cpr_not_equivalance_interrupt_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext);
+static void cpu_selftest_cpr_not_equivalance_interrupt_on_order_fetch_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext);
+static void cpu_selftest_cpr_not_equivalance_interrupt_on_primary_operand_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext);
+static void cpu_selftest_cpr_not_equivalance_interrupt_on_secondary_operand_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext);
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_no_acc_zero_divide_interrupt_if_acc_zero_divide_is_inhibited(TESTCONTEXT *testContext);
@@ -1618,7 +1622,9 @@ static UNITTEST tests[] =
 
     { "CPR Not Equivalence interrupt is not reset after next instruction if not handling CPR interrupt", cpu_selftest_cpr_not_equivalance_interrupt_not_reset_after_next_instruction_if_not_handling_cpr_interrupt },
     { "CPR Not Equivalence interrupt is reset after next instruction", cpu_selftest_cpr_not_equivalance_interrupt_reset_after_next_instruction },
-    { "CPR Not Equivalence interrupt stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_stores_link_that_re_executes_failed_order },
+    { "CPR Not Equivalence interrupt on order fetch stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_on_order_fetch_stores_link_that_re_executes_failed_order },
+    { "CPR Not Equivalence interrupt on primary operand stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_on_primary_operand_stores_link_that_re_executes_failed_order },
+    { "CPR Not Equivalence interrupt on secondary operand stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_on_secondary_operand_stores_link_that_re_executes_failed_order },
 
     { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
     { "No Acc zero divide interrupt if Acc zero divide is inhibited", cpu_selftest_no_acc_zero_divide_interrupt_if_acc_zero_divide_is_inhibited },
@@ -1868,6 +1874,11 @@ static void cpu_selftest_set_user_mode(void)
     mu5_selftest_set_user_mode(localTestContext, &cpu_dev);
 }
 
+static void cpu_selftest_clear_bcpr(void)
+{
+    mu5_selftest_clear_bcpr(localTestContext, &cpu_dev);
+}
+
 static void cpu_selftest_clear_acc_faults_to_system_error_in_exec_mode(void)
 {
     mu5_selftest_clear_acc_faults_to_system_error_in_exec_mode(localTestContext, &cpu_dev);
@@ -2046,6 +2057,17 @@ static void cpu_selftest_assert_vector_content_1_bit(t_addr origin, uint32 offse
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %01X, but was %01X\n", offset, origin, expectedValue, actualBit);
         cpu_selftest_set_failure();
+    }
+}
+
+static void cpu_selftest_assert_interrupt_return_address(int interruptNumber, uint32 expectedAddress)
+{
+    t_uint64 stored_link = sac_read_v_store(SYSTEM_V_STORE_BLOCK, 16 + (interruptNumber * 2));
+    uint32 actual = stored_link & 0x00000000FFFFFFFF;
+    if (actual != expectedAddress)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, localTestContext->dev, "Interrupt return address was %08X, expected %08X\n", actual, expectedAddress);
+        mu5_selftest_set_failure(localTestContext);
     }
 }
 
@@ -2496,7 +2518,7 @@ static void cpu_selftest_16_bit_instruction_fetches_using_obey_access(TESTCONTEX
 {
     mu5_selftest_setup_cpr(0, VA(0, 0x2000, 0), RA(SAC_OBEY_ACCESS, 0, 0xC));
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
-    mu5_selftest_clear_bcpr(testContext, &cpu_dev);
+    cpu_selftest_clear_bcpr();
     cpu_selftest_run_code_from_location(0x40000000); /* expressed as 16-bit word address */
     cpu_selftest_assert_no_interrupt();
 }
@@ -2505,7 +2527,7 @@ static void cpu_selftest_16_bit_instruction_generates_instruction_access_violati
 {
     mu5_selftest_setup_cpr(0, VA(0, 0x2000, 0), RA(SAC_READ_ACCESS, 0, 0xC));
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
-    mu5_selftest_clear_bcpr(testContext, &cpu_dev);
+    cpu_selftest_clear_bcpr();
     cpu_selftest_run_code_from_location(0x40000000); /* expressed as 16-bit word address */
     mu5_selftest_assert_instruction_access_violation_as_system_error(localTestContext);
 }
@@ -2514,7 +2536,7 @@ static void cpu_selftest_instruction_not_obeyed_if_access_violation_when_fetchin
 {
     mu5_selftest_setup_cpr(0, VA(0, 0x2000, 0), RA(SAC_READ_ACCESS, 0, 0xC));
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
-    mu5_selftest_clear_bcpr(testContext, &cpu_dev);
+    cpu_selftest_clear_bcpr();
     cpu_selftest_run_code_from_location(0x40000000); /* expressed as 16-bit word address */
     cpu_selftest_assert_reg_equals(REG_A, 0);
 }
@@ -2524,7 +2546,7 @@ static void cpu_selftest_instruction_fetches_extended_literal_using_obey_access(
     mu5_selftest_setup_cpr(0, VA(0, 0x2000, 0), RA(SAC_OBEY_ACCESS, 0, 0xC));
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, KP_LITERAL, NP_16_BIT_SIGNED_LITERAL);
     cpu_selftest_load_16_bit_literal(0xFFFF);
-    mu5_selftest_clear_bcpr(testContext, &cpu_dev);
+    cpu_selftest_clear_bcpr();
     cpu_selftest_run_code_from_location(0x40000000); /* expressed as 16-bit word address */
     cpu_selftest_assert_no_interrupt();
 }
@@ -2538,7 +2560,7 @@ static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_fro
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_SF);
     cpu_selftest_load_16_bit_literal(n);
     cpu_selftest_set_register(REG_SF, base);
-    mu5_selftest_clear_bcpr(testContext, &cpu_dev);
+    cpu_selftest_clear_bcpr();
     cpu_selftest_run_code_from_location(0x40000000); /* expressed as 16-bit word address */
     cpu_selftest_assert_no_interrupt();
 }
@@ -2550,7 +2572,7 @@ static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_fro
     mu5_selftest_setup_cpr(1, VA(0, 0x2000, 0), RA(SAC_OBEY_ACCESS, 0, 0xC));
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_0);
     cpu_selftest_load_16_bit_literal(n);
-    mu5_selftest_clear_bcpr(testContext, &cpu_dev);
+    cpu_selftest_clear_bcpr();
     cpu_selftest_run_code_from_location(0x40000000); /* expressed as 16-bit word address */
     cpu_selftest_assert_no_interrupt();
 }
@@ -2564,7 +2586,7 @@ static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_fro
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_NB);
     cpu_selftest_load_16_bit_literal(n);
     cpu_selftest_set_register(REG_NB, base);
-    mu5_selftest_clear_bcpr(testContext, &cpu_dev);
+    cpu_selftest_clear_bcpr();
     cpu_selftest_run_code_from_location(0x40000000); /* expressed as 16-bit word address */
     cpu_selftest_assert_no_interrupt();
 }
@@ -2578,7 +2600,7 @@ static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_fro
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_XNB);
     cpu_selftest_load_16_bit_literal(n);
     cpu_selftest_set_register(REG_XNB, base);
-    mu5_selftest_clear_bcpr(testContext, &cpu_dev);
+    cpu_selftest_clear_bcpr();
     cpu_selftest_run_code_from_location(0x40000000); /* expressed as 16-bit word address */
     cpu_selftest_assert_no_interrupt();
 }
@@ -2592,7 +2614,7 @@ static void cpu_selftest_instruction_access_violation_when_fetching_extended_lit
     cpu_selftest_set_load_location(0x1F);
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, KP_LITERAL, NP_16_BIT_SIGNED_LITERAL);
     cpu_selftest_load_16_bit_literal(0xFFFF);
-    mu5_selftest_clear_bcpr(testContext, &cpu_dev);
+    cpu_selftest_clear_bcpr();
     cpu_selftest_run_code_from_location(0x4000001F); /* expressed as 16-bit word virtual address */
     mu5_selftest_assert_instruction_access_violation_as_system_error(localTestContext);
 }
@@ -7793,7 +7815,7 @@ static void cpu_selftest_org_nb_store_stores_SN_and_NB(TESTCONTEXT *testContext)
     cpu_selftest_load_16_bit_literal(base);
     cpu_selftest_set_register(REG_SN, 0x0001);
     cpu_selftest_set_register(REG_NB, 0xBBBA);
-    mu5_selftest_clear_bcpr(testContext, &cpu_dev);
+    cpu_selftest_clear_bcpr();
     cpu_selftest_run_code();
     cpu_selftest_assert_memory_contents_64_bit(0x10000 + (base * 2), 0x000000000001BBBA);
     cpu_selftest_assert_no_interrupt();
@@ -8442,8 +8464,22 @@ static void cpu_selftest_cpr_not_equivalance_interrupt_reset_after_next_instruct
     cpu_selftest_assert_no_interrupt();
 }
 
-static void cpu_selftest_cpr_not_equivalance_interrupt_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext)
+static void cpu_selftest_cpr_not_equivalance_interrupt_on_order_fetch_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext)
 {
+    //cpu_selftest_set_load_location(1);
+    //cpu_selftest_load_order(CR_B, F_LOAD_B, K_LITERAL, 0);
+    cpu_selftest_clear_bcpr();
+    cpu_selftest_run_code_from_location(0xFF);
+    cpu_selftest_assert_interrupt_return_address(INT_CPR_NOT_EQUIVALENCE, 0xFF);
+}
+
+static void cpu_selftest_cpr_not_equivalance_interrupt_on_primary_operand_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext)
+{
+
+}
+static void cpu_selftest_cpr_not_equivalance_interrupt_on_secondary_operand_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext)
+{
+
 }
 
 // TODO one where order itself generates interrupt, one where primary operand does it, one with secondary.
