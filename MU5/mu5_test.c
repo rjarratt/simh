@@ -58,16 +58,25 @@ void mu5_selftest_run_suite(TESTCONTEXT *context, UNITTEST *unitTests, uint32 nu
     {
         UNITTEST *test = &unitTests[i];
         mu5_reset_test(context, test, reset);
-        test->runner(context);
-        if (context->result == SCPE_OK)
+        if (test->runner != NULL)
         {
-            sim_debug(LOG_CPU_SELFTEST_DETAIL, context->dev, "%s [OK]\n", test->name);
-            context->countSuccessful++;
+            test->runner(context);
+            if (context->result == SCPE_OK)
+            {
+                sim_debug(LOG_CPU_SELFTEST_DETAIL, context->dev, "%s [OK]\n", test->name);
+                context->countSuccessful++;
+            }
+            else
+            {
+                context->overallResult = SCPE_AFAIL;
+                sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "%s [FAIL]\n", test->name);
+                context->countFailed++;
+            }
         }
         else
         {
             context->overallResult = SCPE_AFAIL;
-            sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "%s [FAIL]\n", test->name);
+            sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "%s [UNDEFINED]\n", test->name);
             context->countFailed++;
         }
     }
