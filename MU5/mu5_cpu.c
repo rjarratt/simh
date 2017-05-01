@@ -1472,6 +1472,7 @@ static void cpu_evaluate_interrupts(void)
 
 static void cpu_set_system_error_interrupt(uint16 reason)
 {
+// TODO:    cpu_update_system_error_status_and_interrupt(reason);
     if ((cpu_ms_is_all(MS_MASK_B_D_SYS_ERR_EXEC) && (reason == SYSTEM_ERROR_STATUS_MASK_B_OR_D_ERROR))
         ||
         (cpu_ms_is_all(MS_MASK_A_SYS_ERR_EXEC) && (reason == SYSTEM_ERROR_STATUS_MASK_ACC_ERROR))
@@ -1489,6 +1490,7 @@ static void cpu_set_system_error_interrupt(uint16 reason)
 
 static void cpu_set_program_fault_interrupt(uint16 reason)
 {
+// TODO:    cpu_update_program_fault_status_and_interrupt(reason);
     if (!cpu_ms_is_all(MS_MASK_INH_PROG_FLT))
     {
         cpu_set_interrupt(INT_PROGRAM_FAULTS);
@@ -2673,10 +2675,12 @@ void cpu_execute_next_order(void)
 {
     uint16 order;
     uint16 cr;
+    uint32 start_co;
 
     if (interrupt == 0)
     {
-        order = sac_read_16_bit_word_for_obey(cpu_get_register_32(reg_co));
+        start_co = cpu_get_register_32(reg_co);
+        order = sac_read_16_bit_word_for_obey(start_co);
         if (interrupt == 0)
         {
             cr = cpu_get_cr(order);
@@ -2690,6 +2694,11 @@ void cpu_execute_next_order(void)
             }
 
             crDispatchTable[cr].execute(order, crDispatchTable[cr].innerTable);
+        }
+
+        if (cpu_get_interrupt_number() == INT_CPR_NOT_EQUIVALENCE)
+        {
+            cpu_set_co(start_co);
         }
     }
     else
@@ -2754,7 +2763,7 @@ static void cpu_start_interrupt_processing(void)
     sac_write_v_store(SYSTEM_V_STORE_BLOCK, 16 + (interruptNumber * 2), link);
     cpu_set_register_bit_16(reg_ms, MS_MASK_EXEC, 1);
     cpu_set_link(newLink);
-    printf("Interrupt %hu detected\n", (unsigned short)interruptNumber);
+//    printf("Interrupt %hu detected\n", (unsigned short)interruptNumber);
 }
 
 static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable)

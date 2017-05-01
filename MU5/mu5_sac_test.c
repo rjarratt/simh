@@ -264,7 +264,7 @@ static void sac_selftest_assert_operand_access_violation_as_illegal_order(void)
 
 static void sac_selftest_assert_instruction_access_violation_as_system_error(void)
 {
-    mu5_selftest_assert_instruction_access_violation_as_system_error(localTestContext);
+    mu5_selftest_assert_instruction_access_violation_as_system_error_interrupt(localTestContext);
 }
 
 static void sac_selftest_assert_instruction_access_violation_as_program_fault(void)

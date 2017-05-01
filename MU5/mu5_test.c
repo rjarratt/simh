@@ -223,9 +223,10 @@ void mu5_selftest_assert_no_interrupt(TESTCONTEXT *context)
 
 void mu5_selftest_assert_interrupt_number(TESTCONTEXT *context, int expectedInterruptNumber)
 {
-    if (cpu_get_interrupt_number() != expectedInterruptNumber)
+    int interruptNumber = cpu_get_interrupt_number();
+    if (interruptNumber != expectedInterruptNumber)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Expected interrupt %d to have occurred\n", expectedInterruptNumber);
+        sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Found interrupt %d when expected interrupt %d to have occurred\n", interruptNumber, expectedInterruptNumber);
         mu5_selftest_set_failure(context);
     }
 }
@@ -256,8 +257,13 @@ void mu5_selftest_assert_operand_access_violation_as_illegal_order(TESTCONTEXT *
 
 void mu5_selftest_assert_instruction_access_violation_as_system_error(TESTCONTEXT *context)
 {
-    mu5_selftest_assert_access_violation_as_system_error(context);
     mu5_selftest_assert_vstore_contents(context, SAC_V_STORE_BLOCK, SAC_V_STORE_ACCESS_VIOLATION, 0x6);
+}
+
+void mu5_selftest_assert_instruction_access_violation_as_system_error_interrupt(TESTCONTEXT *context)
+{
+    mu5_selftest_assert_access_violation_as_system_error(context);
+    mu5_selftest_assert_instruction_access_violation_as_system_error(context);
 }
 
 void mu5_selftest_assert_instruction_access_violation_as_program_fault(TESTCONTEXT *context)
