@@ -314,6 +314,7 @@ static REG *cpu_selftest_find_register(char *name);
 static t_uint64 cpu_selftest_get_register(char *name);
 static void cpu_selftest_set_register(char *name, t_uint64 value);
 static void cpu_selftest_setup_vstore_test_location(void);
+static void cpu_selftest_setup_interrupt_vector(int interruptNumber, uint16 ms, uint16 nb, uint32 co);
 
 static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 static void cpu_selftest_assert_reg_equals_mask(char *name, t_uint64 expectedValue, t_uint64 mask);
@@ -899,10 +900,8 @@ static void cpu_selftest_setting_bod_b_overflow_in_executive_mode_generates_b_or
 static void cpu_selftest_setting_bod_b_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_bod_b_overflow_in_user_mode_generates_b_program_fault_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_bod_b_overflow_in_user_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
-static void cpu_selftest_clearing_bod_b_overflow_in_executive_mode_clears_interrupt(TESTCONTEXT *testContext);
-static void cpu_selftest_clearing_bod_b_overflow_in_user_mode_clears_interrupt(TESTCONTEXT *testContext);
-static void cpu_selftest_switch_from_executive_mode_to_user_mode_when_bod_b_overflow_set_swaps_interrupt(TESTCONTEXT *testContext);
-static void cpu_selftest_switch_from_user_mode_to_executive_mode_when_bod_b_overflow_set_swaps_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_clearing_bod_b_overflow_in_executive_mode_does_not_clear_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_clearing_bod_b_overflow_in_user_mode_does_not_clear_interrupt(TESTCONTEXT *testContext);
 
 static void cpu_selftest_setting_acc_fault_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_acc_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
@@ -916,8 +915,8 @@ static void cpu_selftest_setting_aod_decimal_overflow_in_executive_mode_generate
 static void cpu_selftest_setting_aod_decimal_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_aod_zero_divide_in_executive_mode_generates_acc_system_error_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_aod_zero_divide_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
-static void cpu_selftest_clearing_acc_fault_in_executive_mode_clears_interrupt(TESTCONTEXT *testContext);
-static void cpu_selftest_clearing_acc_fault_in_user_mode_clears_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_clearing_acc_fault_in_executive_mode_does_not_clear_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_clearing_acc_fault_in_user_mode_does_not_clear_interrupt(TESTCONTEXT *testContext);
 
 static void cpu_selftest_setting_d_fault_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_d_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
@@ -933,16 +932,17 @@ static void cpu_selftest_setting_dod_non_zero_truncation_in_executive_mode_does_
 static void cpu_selftest_setting_dod_bounds_check_in_executive_mode_generates_d_system_error_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_dod_bounds_check_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_dod_write_to_read_only_in_executive_mode_generates_d_system_error_interrupt(TESTCONTEXT *testContext);
-static void cpu_selftest_clearing_d_fault_in_executive_mode_clears_interrupt(TESTCONTEXT *testContext);
-static void cpu_selftest_clearing_d_fault_in_user_mode_clears_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_clearing_d_fault_in_executive_mode_does_not_clear_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_clearing_d_fault_in_user_mode_does_not_clear_interrupt(TESTCONTEXT *testContext);
 
+static void cpu_selftest_switch_from_executive_mode_to_user_mode_when_system_error_does_not_create_program_fault(TESTCONTEXT *testContext);
+static void cpu_selftest_switch_from_user_mode_to_executive_mode_program_fault_does_not_create_system_error(TESTCONTEXT *testContext);
+static void cpu_selftest_return_from_interrupt_handler_without_clearing_system_error_status_v_line_masks_system_error_interrupts(TESTCONTEXT *testContext);
 static void cpu_selftest_level_0_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_level_1_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set(TESTCONTEXT *testContext);
 
-static void cpu_selftest_cpr_not_equivalance_interrupt_not_reset_after_next_instruction_if_not_handling_cpr_interrupt(TESTCONTEXT *testContext);
-static void cpu_selftest_cpr_not_equivalance_interrupt_reset_after_next_instruction(TESTCONTEXT *testContext);
 static void cpu_selftest_cpr_not_equivalance_interrupt_on_order_fetch_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext);
 static void cpu_selftest_cpr_not_equivalance_interrupt_on_primary_operand_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext);
 static void cpu_selftest_cpr_not_equivalance_interrupt_on_secondary_operand_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext);
@@ -967,6 +967,7 @@ static void cpu_selftest_interrupt_stacks_link_in_system_v_store(TESTCONTEXT *te
 static void cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store(TESTCONTEXT *testContext);
 static void cpu_selftest_interrupt_sets_executive_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_interrupt_sequence_clears_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_interrupt_sequence_does_not_clear_interrupt_when_handling_another_interrupt(TESTCONTEXT *testContext);
 
 static void cpu_selftest_write_to_prop_program_fault_status_resets_it(TESTCONTEXT *testContext);
 static void cpu_selftest_write_to_prop_system_error_status_resets_it(TESTCONTEXT *testContext);
@@ -1574,10 +1575,8 @@ static UNITTEST tests[] =
     { "Setting BOD B overflow in executive mode does not generate an interrupt if inhibited", cpu_selftest_setting_bod_b_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited },
     { "Setting BOD B overflow in user mode generates B program fault interrupt", cpu_selftest_setting_bod_b_overflow_in_user_mode_generates_b_program_fault_interrupt },
     { "Setting BOD B overflow in user mode does not generate an interrupt if inhibited", cpu_selftest_setting_bod_b_overflow_in_user_mode_does_not_generate_interrupt_if_inhibited },
-    { "Clearing BOD B overflow in executive mode clears interrupt", cpu_selftest_clearing_bod_b_overflow_in_executive_mode_clears_interrupt },
-    { "Clearing BOD B overflow in user mode clears interrupt", cpu_selftest_clearing_bod_b_overflow_in_user_mode_clears_interrupt },
-    { "Switch from executive mode to user mode when BOD B overflow is set swaps interrupt", cpu_selftest_switch_from_executive_mode_to_user_mode_when_bod_b_overflow_set_swaps_interrupt },
-    { "Switch from user mode to executive mode when BOD B overflow is set swaps interrupt", cpu_selftest_switch_from_user_mode_to_executive_mode_when_bod_b_overflow_set_swaps_interrupt },
+    { "Clearing BOD B overflow in executive mode does not clear interrupt", cpu_selftest_clearing_bod_b_overflow_in_executive_mode_does_not_clear_interrupt },
+    { "Clearing BOD B overflow in user mode does not clear interrupt", cpu_selftest_clearing_bod_b_overflow_in_user_mode_does_not_clear_interrupt },
 
 	{ "Setting an A fault in executive mode generates system error interrupt", cpu_selftest_setting_acc_fault_in_executive_mode_generates_system_error_interrupt },
 	{ "Setting an A fault in executive mode does not generate system error interrupt if inhibited", cpu_selftest_setting_acc_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited },
@@ -1591,8 +1590,8 @@ static UNITTEST tests[] =
 	{ "Setting AOD decimal overflow in executive mode does not generate an interrupt if inhibited", cpu_selftest_setting_aod_decimal_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited },
 	{ "Setting AOD zero divide in executive mode generates acc error interrupt", cpu_selftest_setting_aod_zero_divide_in_executive_mode_generates_acc_system_error_interrupt },
 	{ "Setting AOD zero divide in executive mode does not generate an interrupt if inhibited", cpu_selftest_setting_aod_zero_divide_in_executive_mode_does_not_generate_interrupt_if_inhibited },
-    { "Clearing an A fault in executive mode clears interrupt", cpu_selftest_clearing_acc_fault_in_executive_mode_clears_interrupt },
-    { "Clearing an A fault in user mode clears interrupt", cpu_selftest_clearing_acc_fault_in_user_mode_clears_interrupt },
+    { "Clearing an A fault in executive mode does not clear interrupt", cpu_selftest_clearing_acc_fault_in_executive_mode_does_not_clear_interrupt },
+    { "Clearing an A fault in user mode does not clear interrupt", cpu_selftest_clearing_acc_fault_in_user_mode_does_not_clear_interrupt },
 
     { "Setting a D fault in executive mode generates system error interrupt", cpu_selftest_setting_d_fault_in_executive_mode_generates_system_error_interrupt },
     { "Setting a D fault in executive mode does not generate system error interrupt if inhibited", cpu_selftest_setting_d_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited },
@@ -1608,10 +1607,14 @@ static UNITTEST tests[] =
     { "Setting DOD BCH in executive mode generates an interrupt", cpu_selftest_setting_dod_bounds_check_in_executive_mode_generates_d_system_error_interrupt },
     { "Setting DOD BCH in executive mode does not generate an interrupt if inhibited", cpu_selftest_setting_dod_bounds_check_in_executive_mode_does_not_generate_interrupt_if_inhibited },
     { "Setting DOD write to read only in executive mode generates an interrupt", cpu_selftest_setting_dod_write_to_read_only_in_executive_mode_generates_d_system_error_interrupt },
-    { "Clearing a D fault in executive mode clears interrupt", cpu_selftest_clearing_d_fault_in_executive_mode_clears_interrupt },
-    { "Clearing a D fault in user mode clears interrupt", cpu_selftest_clearing_d_fault_in_user_mode_clears_interrupt },
+    { "Clearing a D fault in executive mode does not clear interrupt", cpu_selftest_clearing_d_fault_in_executive_mode_does_not_clear_interrupt },
+    { "Clearing a D fault in user mode does not clear interrupt", cpu_selftest_clearing_d_fault_in_user_mode_does_not_clear_interrupt },
 
-	{ "Level 0 interrupt inhibited if L0IF is set", cpu_selftest_level_0_interrupt_inhibited_if_L0IF_is_set },
+    { "Switch from executive mode to user mode when there is a system error does not create a program fault", cpu_selftest_switch_from_executive_mode_to_user_mode_when_system_error_does_not_create_program_fault },
+    { "Switch from user mode to executive mode when there is a program fault does not create a system error", cpu_selftest_switch_from_user_mode_to_executive_mode_program_fault_does_not_create_system_error },
+    { "Return from interrupt handler without clearing System Error Status V-line masks System Error interrupts", cpu_selftest_return_from_interrupt_handler_without_clearing_system_error_status_v_line_masks_system_error_interrupts },
+
+    { "Level 0 interrupt inhibited if L0IF is set", cpu_selftest_level_0_interrupt_inhibited_if_L0IF_is_set },
 	{ "Level 0 interrupt not inhibited if L1IF is set", cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set },
 	{ "Level 1 interrupt inhibited if L0IF is set", cpu_selftest_level_1_interrupt_inhibited_if_L0IF_is_set },
 	{ "Level 1 interrupt inhibited if L1IF is set", cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set },
@@ -1620,11 +1623,9 @@ static UNITTEST tests[] =
 		// TODO: Combinations of AOD and BOD keep interrupt "alive"
         // TODO: set inhibit clears interrupt, MS11
 
-    { "CPR Not Equivalence interrupt is not reset after next instruction if not handling CPR interrupt", cpu_selftest_cpr_not_equivalance_interrupt_not_reset_after_next_instruction_if_not_handling_cpr_interrupt },
-    { "CPR Not Equivalence interrupt is reset after next instruction", cpu_selftest_cpr_not_equivalance_interrupt_reset_after_next_instruction },
-    { "CPR Not Equivalence interrupt on order fetch stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_on_order_fetch_stores_link_that_re_executes_failed_order },
-    { "CPR Not Equivalence interrupt on primary operand stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_on_primary_operand_stores_link_that_re_executes_failed_order },
-    { "CPR Not Equivalence interrupt on secondary operand stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_on_secondary_operand_stores_link_that_re_executes_failed_order },
+    { "CPR Not Equivalence interrupt on order fetch stores link that re-executes failed order"/*, cpu_selftest_cpr_not_equivalance_interrupt_on_order_fetch_stores_link_that_re_executes_failed_order*/ },
+    { "CPR Not Equivalence interrupt on primary operand stores link that re-executes failed order"/*, cpu_selftest_cpr_not_equivalance_interrupt_on_primary_operand_stores_link_that_re_executes_failed_order*/ },
+    { "CPR Not Equivalence interrupt on secondary operand stores link that re-executes failed order"/*, cpu_selftest_cpr_not_equivalance_interrupt_on_secondary_operand_stores_link_that_re_executes_failed_order*/ },
 
     { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
     { "No Acc zero divide interrupt if Acc zero divide is inhibited", cpu_selftest_no_acc_zero_divide_interrupt_if_acc_zero_divide_is_inhibited },
@@ -1645,6 +1646,7 @@ static UNITTEST tests[] =
     { "Interrupt calls handler using link in System V-Store", cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store },
     { "Interrupt sets executive mode", cpu_selftest_interrupt_sets_executive_mode },
     { "Interrupt sequence clears interrupt so it is not called again", cpu_selftest_interrupt_sequence_clears_interrupt },
+    { "Interrupt sequence does not clear interrupt when handling a different interrupt", cpu_selftest_interrupt_sequence_does_not_clear_interrupt_when_handling_another_interrupt },
 
     { "Write to PROP PROGRAM FAULT STATUS V-Line resets it", cpu_selftest_write_to_prop_program_fault_status_resets_it },
     { "Write to PROP SYSTEM ERROR STATUS V-Line resets it", cpu_selftest_write_to_prop_system_error_status_resets_it },
@@ -1958,6 +1960,12 @@ static void cpu_selftest_set_register(char *name, t_uint64 value)
 static void cpu_selftest_setup_vstore_test_location(void)
 {
     sac_setup_v_store_location(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, mu5_selftest_read_callback_for_static_64_bit_location, mu5_selftest_write_callback_for_static_64_bit_location);
+}
+
+static void cpu_selftest_setup_interrupt_vector(int interruptNumber, uint16 ms, uint16 nb, uint32 co)
+{
+    t_uint64 link = ((t_uint64)ms << 48) | ((t_uint64)nb << 32) | co;
+    sac_write_v_store(SYSTEM_V_STORE_BLOCK, 16 + (interruptNumber * 2) + 1, link);
 }
 
 static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue)
@@ -6919,8 +6927,8 @@ static void cpu_selftest_x_comp_sets_overflow(TESTCONTEXT *testContext)
 static void cpu_selftest_a_load_loads_AOD(TESTCONTEXT *testContext)
 {
     cpu_selftest_load_order_extended(CR_AU, F_LOAD_AOD, K_LITERAL, NP_64_BIT_LITERAL);
-    cpu_selftest_clear_acc_faults_to_system_error_in_exec_mode();
     cpu_selftest_load_64_bit_literal(0xBBBBBBBBFFFFFEDC);
+    cpu_selftest_clear_acc_faults_to_system_error_in_exec_mode();
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_AOD, 0x0000000000001EDC);
     cpu_selftest_assert_no_interrupt();
@@ -6931,9 +6939,9 @@ static void cpu_selftest_a_stack_and_load_stacks_AOD_and_loads_AOD(TESTCONTEXT *
     uint32 base = 0x00F0;
     cpu_selftest_load_order_extended(CR_AU, F_STACK_LOAD_AOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
+    cpu_selftest_clear_acc_faults_to_system_error_in_exec_mode();
     cpu_selftest_set_register(REG_SF, base);
     cpu_selftest_set_register(REG_AOD, 0xBBBBBBBBFFFFFEDC);
-    cpu_selftest_clear_acc_faults_to_system_error_in_exec_mode();
     cpu_selftest_run_code();
     cpu_selftest_assert_memory_contents_64_bit(base + 2, 0x0000000000001EDC);
     cpu_selftest_assert_reg_equals(REG_SF, base + 2);
@@ -7115,8 +7123,8 @@ static void cpu_selftest_dec_comp_sets_overflow_when_AOD_and_operand_non_zero(TE
 {
     cpu_selftest_load_order_extended(CR_ADC, F_COMP_AOD, K_LITERAL, NP_64_BIT_LITERAL);
     cpu_selftest_load_64_bit_literal(0xFFFFFFFFFFFFFFFF);
-    cpu_selftest_set_register(REG_AOD, 0x00000000000011F1);
 	cpu_selftest_clear_acc_faults_to_system_error_in_exec_mode();
+    cpu_selftest_set_register(REG_AOD, 0x00000000000011F1);
 	cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_AOD, 0x00000000000011F1);
     cpu_selftest_assert_test_overflow();
@@ -8157,38 +8165,49 @@ static void cpu_selftest_setting_bod_b_overflow_in_user_mode_does_not_generate_i
     cpu_selftest_assert_no_interrupt();
 }
 
-static void cpu_selftest_clearing_bod_b_overflow_in_executive_mode_clears_interrupt(TESTCONTEXT *testContext)
+static void cpu_selftest_clearing_bod_b_overflow_in_executive_mode_does_not_clear_interrupt(TESTCONTEXT *testContext)
 {
     cpu_selftest_set_executive_mode();
     cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
     cpu_selftest_set_register(REG_BOD, 0);
-    cpu_selftest_assert_no_interrupt();
+    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
 }
 
-static void cpu_selftest_clearing_bod_b_overflow_in_user_mode_clears_interrupt(TESTCONTEXT *testContext)
+static void cpu_selftest_clearing_bod_b_overflow_in_user_mode_does_not_clear_interrupt(TESTCONTEXT *testContext)
 {
     cpu_selftest_set_user_mode();
     cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
     cpu_selftest_set_register(REG_BOD, 0);
-    cpu_selftest_assert_no_interrupt();
+    cpu_selftest_assert_B_interrupt_as_program_fault();
 }
 
-static void cpu_selftest_switch_from_executive_mode_to_user_mode_when_bod_b_overflow_set_swaps_interrupt(TESTCONTEXT *testContext)
+static void cpu_selftest_switch_from_executive_mode_to_user_mode_when_system_error_does_not_create_program_fault(TESTCONTEXT *testContext)
 {
     cpu_selftest_set_executive_mode();
     cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
     cpu_selftest_set_user_mode();
+    cpu_selftest_assert_no_program_fault();
+    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+}
+
+static void cpu_selftest_switch_from_user_mode_to_executive_mode_program_fault_does_not_create_system_error(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_user_mode();
+    cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
+    cpu_selftest_set_executive_mode();
     cpu_selftest_assert_no_system_error();
     cpu_selftest_assert_B_interrupt_as_program_fault();
 }
 
-static void cpu_selftest_switch_from_user_mode_to_executive_mode_when_bod_b_overflow_set_swaps_interrupt(TESTCONTEXT *testContext)
+static void cpu_selftest_return_from_interrupt_handler_without_clearing_system_error_status_v_line_masks_system_error_interrupts(TESTCONTEXT *testContext)
 {
-    cpu_selftest_set_user_mode();
-    cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
+    cpu_selftest_setup_interrupt_vector(INT_SYSTEM_ERROR, MS_MASK_EXEC | MS_MASK_LEVEL0 | MS_MASK_LEVEL1, 0, 0);
     cpu_selftest_set_executive_mode();
-    cpu_selftest_assert_no_program_fault();
-    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
+    cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
+    cpu_selftest_run_code();
+    cpu_selftest_set_register(REG_BOD, 0);
+    cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
+    cpu_selftest_assert_interrupt_inhibited();
 }
 
 static void cpu_selftest_setting_acc_fault_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext)
@@ -8279,20 +8298,20 @@ static void cpu_selftest_setting_aod_zero_divide_in_executive_mode_does_not_gene
 	cpu_selftest_assert_no_interrupt();
 }
 
-static void cpu_selftest_clearing_acc_fault_in_executive_mode_clears_interrupt(TESTCONTEXT *testContext)
+static void cpu_selftest_clearing_acc_fault_in_executive_mode_does_not_clear_interrupt(TESTCONTEXT *testContext)
 {
     cpu_selftest_set_executive_mode();
     cpu_selftest_set_register(REG_AOD, AOD_FLPOVF_MASK);
     cpu_selftest_set_register(REG_AOD, 0);
-    cpu_selftest_assert_no_interrupt();
+    cpu_selftest_assert_acc_interrupt_as_system_error();
 }
 
-static void cpu_selftest_clearing_acc_fault_in_user_mode_clears_interrupt(TESTCONTEXT *testContext)
+static void cpu_selftest_clearing_acc_fault_in_user_mode_does_not_clear_interrupt(TESTCONTEXT *testContext)
 {
     cpu_selftest_set_user_mode();
     cpu_selftest_set_register(REG_AOD, AOD_FLPOVF_MASK);
     cpu_selftest_set_register(REG_AOD, 0);
-    cpu_selftest_assert_no_interrupt();
+    cpu_selftest_assert_acc_interrupt_as_program_fault();
 }
 
 static void cpu_selftest_setting_d_fault_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext)
@@ -8397,20 +8416,20 @@ static void cpu_selftest_setting_dod_write_to_read_only_in_executive_mode_genera
     cpu_selftest_assert_B_or_D_interrupt_as_system_error();
 }
 
-static void cpu_selftest_clearing_d_fault_in_executive_mode_clears_interrupt(TESTCONTEXT *testContext)
+static void cpu_selftest_clearing_d_fault_in_executive_mode_does_not_clear_interrupt(TESTCONTEXT *testContext)
 {
     cpu_selftest_set_executive_mode();
     cpu_selftest_set_register(REG_DOD, DOD_BCH_MASK);
     cpu_selftest_set_register(REG_DOD, 0);
-    cpu_selftest_assert_no_interrupt();
+    cpu_selftest_assert_B_or_D_interrupt_as_system_error();
 }
 
-static void cpu_selftest_clearing_d_fault_in_user_mode_clears_interrupt(TESTCONTEXT *testContext)
+static void cpu_selftest_clearing_d_fault_in_user_mode_does_not_clear_interrupt(TESTCONTEXT *testContext)
 {
     cpu_selftest_set_user_mode();
     cpu_selftest_set_register(REG_DOD, DOD_BCH_MASK);
     cpu_selftest_set_register(REG_DOD, 0);
-    cpu_selftest_assert_no_interrupt();
+    cpu_selftest_assert_D_interrupt_as_program_fault();
 }
 
 static void cpu_selftest_level_0_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext)
@@ -8448,22 +8467,6 @@ static void cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set(TESTCONTEXT 
 	cpu_selftest_assert_interrupt_inhibited();
 }
 
-static void cpu_selftest_cpr_not_equivalance_interrupt_not_reset_after_next_instruction_if_not_handling_cpr_interrupt(TESTCONTEXT *testContext)
-{
-    cpu_set_interrupt(INT_CPR_NOT_EQUIVALENCE);
-    cpu_set_interrupt(INT_SYSTEM_ERROR);
-    cpu_selftest_run_code();
-    cpu_selftest_set_register(REG_BOD, 0); /* should clear the system error */
-    mu5_selftest_assert_interrupt_number(localTestContext, INT_CPR_NOT_EQUIVALENCE);
-}
-
-static void cpu_selftest_cpr_not_equivalance_interrupt_reset_after_next_instruction(TESTCONTEXT *testContext)
-{
-    cpu_set_interrupt(INT_CPR_NOT_EQUIVALENCE);
-    cpu_selftest_run_code();
-    cpu_selftest_assert_no_interrupt();
-}
-
 static void cpu_selftest_cpr_not_equivalance_interrupt_on_order_fetch_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext)
 {
     //cpu_selftest_set_load_location(1);
@@ -8475,11 +8478,12 @@ static void cpu_selftest_cpr_not_equivalance_interrupt_on_order_fetch_stores_lin
 
 static void cpu_selftest_cpr_not_equivalance_interrupt_on_primary_operand_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext)
 {
-
+    cpu_selftest_assert_fail();
 }
+
 static void cpu_selftest_cpr_not_equivalance_interrupt_on_secondary_operand_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext)
 {
-
+    cpu_selftest_assert_fail();
 }
 
 // TODO one where order itself generates interrupt, one where primary operand does it, one with secondary.
@@ -8589,9 +8593,9 @@ static void cpu_selftest_no_acc_interrupt_if_inhibited_in_executive_mode(TESTCON
 {
     cpu_selftest_load_order_extended(CR_XS, F_ADD_X, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
+    cpu_selftest_clear_acc_faults_to_system_error_in_exec_mode();
     cpu_selftest_set_register(REG_X, 0x80000000);
     cpu_selftest_set_executive_mode();
-    cpu_selftest_clear_acc_faults_to_system_error_in_exec_mode();
     cpu_selftest_run_code();
     cpu_selftest_assert_no_interrupt();
 }
@@ -8660,10 +8664,17 @@ static void cpu_selftest_interrupt_sets_executive_mode(TESTCONTEXT *testContext)
 
 static void cpu_selftest_interrupt_sequence_clears_interrupt(TESTCONTEXT *testContext)
 {
-    /* TODO: This whole area needs to be refactored to generate the interrupt as a result of setting the relevant bits, so that clearing the bits clears the interrupt */
     cpu_set_interrupt(INT_PROGRAM_FAULTS);
     cpu_selftest_run_code();
     cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_interrupt_sequence_does_not_clear_interrupt_when_handling_another_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_set_interrupt(INT_PROGRAM_FAULTS);
+    cpu_set_interrupt(INT_SYSTEM_ERROR);
+    cpu_selftest_run_code();
+    mu5_selftest_assert_interrupt_number(localTestContext, INT_PROGRAM_FAULTS);
 }
 
 static void cpu_selftest_write_to_prop_program_fault_status_resets_it(TESTCONTEXT *testContext)
