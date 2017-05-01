@@ -361,8 +361,7 @@ static void cpu_evaluate_interrupts(void);
 static void cpu_set_system_error_interrupt(uint16 reason);
 static void cpu_set_program_fault_interrupt(uint16 reason);
 static void cpu_set_illegal_order_interrupt(uint16 reason);
-static void cpu_set_A_interrupt(void);
-static void cpu_set_B_interrupt(void);
+static void cpu_set_B_interrupt(void); //TODO: removed A version of this, check if B and D versions still needed
 static void cpu_set_D_interrupt(void);
 static void cpu_set_its_interrupt(void);
 static void cpu_set_sss_interrupt(void);
@@ -1448,6 +1447,8 @@ static void cpu_evaluate_interrupts(void)
         ||
         cpu_check_condition_with_inhibit_64(reg_aod, mask_aod_flpudf, mask_aod_iflpudf)
         ||
+        cpu_check_condition_with_inhibit_64(reg_aod, mask_aod_fxpovf, mask_aod_ifxpovf)
+        ||
         cpu_check_condition_with_inhibit_64(reg_aod, mask_aod_decovf, mask_aod_idecovf)
         ||
         cpu_check_condition_with_inhibit_64(reg_aod, mask_aod_zdiv, mask_aod_izdiv);
@@ -1504,18 +1505,6 @@ static void cpu_set_illegal_order_interrupt(uint16 reason)
     PROPProgramFaultStatus |= reason;
 }
 
-static void cpu_set_A_interrupt(void)
-{
-    if (cpu_ms_is_all(MS_MASK_EXEC))
-    {
-        cpu_set_system_error_interrupt(SYSTEM_ERROR_STATUS_MASK_ACC_ERROR);
-    }
-    else
-    {
-        cpu_set_program_fault_interrupt(PROGRAM_FAULT_STATUS_MASK_ACC_ERROR);
-    }
-}
-
 static void cpu_set_B_interrupt(void)
 {
     if (cpu_ms_is_all(MS_MASK_EXEC))
@@ -1558,10 +1547,10 @@ static void cpu_set_sss_interrupt(void)
 static void cpu_set_bounds_check_interrupt(void)
 {
     cpu_set_register_bit_32(reg_dod, mask_dod_bch, 1);
-    if (!cpu_get_register_bit_32(reg_dod, mask_dod_bchi))
-    {
-        cpu_set_D_interrupt();
-    }
+    //if (!cpu_get_register_bit_32(reg_dod, mask_dod_bchi))
+    //{
+    //    cpu_set_D_interrupt();
+    //}
 }
 
 static void cpu_set_name_adder_overflow_interrupt()
@@ -4093,10 +4082,6 @@ static void cpu_execute_b_compare_and_increment(uint16 order, DISPATCH_ENTRY *in
 static void cpu_set_divide_by_zero(void)
 {
     cpu_set_register_bit_64(reg_aod, mask_aod_zdiv, 1);
-    if (!cpu_get_register_bit_64(reg_aod, mask_aod_izdiv))
-    {
-        cpu_set_A_interrupt();
-    }
 }
 
 static void cpu_check_x_overflow(t_uint64 result)
@@ -4106,10 +4091,6 @@ static void cpu_check_x_overflow(t_uint64 result)
     if (!(sign == 0 && ms == 0) && !(sign == 1 && ms == ~0))
     {
         cpu_set_register_bit_64(reg_aod, mask_aod_fxpovf, 1);
-        if (!cpu_get_register_bit_64(reg_aod, mask_aod_ifxpovf))
-        {
-            cpu_set_A_interrupt();
-        }
     }
     else
     {

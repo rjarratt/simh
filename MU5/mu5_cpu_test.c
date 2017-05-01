@@ -913,6 +913,8 @@ static void cpu_selftest_setting_aod_floating_point_overflow_in_executive_mode_d
 static void cpu_selftest_setting_aod_floating_point_underflow_in_executive_mode_generates_acc_system_error_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_aod_floating_point_underflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_aod_decimal_overflow_in_executive_mode_generates_acc_system_error_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_aod_fixed_point_overflow_in_executive_generates_acc_system_error_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_aod_fixed_point_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_aod_decimal_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_aod_zero_divide_in_executive_mode_generates_acc_system_error_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_aod_zero_divide_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
@@ -1587,7 +1589,9 @@ static UNITTEST tests[] =
 	{ "Setting AOD floating point overflow in executive mode does not generate an interrupt if inhibited", cpu_selftest_setting_aod_floating_point_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited },
 	{ "Setting AOD floating point underflow in executive mode generates acc error interrupt", cpu_selftest_setting_aod_floating_point_underflow_in_executive_mode_generates_acc_system_error_interrupt },
 	{ "Setting AOD floating point underflow in executive mode does not generate an interrupt if inhibited", cpu_selftest_setting_aod_floating_point_underflow_in_executive_mode_does_not_generate_interrupt_if_inhibited },
-	{ "Setting AOD decimal overflow in executive mode generates acc error interrupt", cpu_selftest_setting_aod_decimal_overflow_in_executive_mode_generates_acc_system_error_interrupt },
+    { "Setting AOD fixed point overflow in executive mode generates acc error interrupt", cpu_selftest_setting_aod_fixed_point_overflow_in_executive_generates_acc_system_error_interrupt },
+    { "Setting AOD fixed point overflow in executive mode does not generate an interrupt if inhibited", cpu_selftest_setting_aod_fixed_point_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited },
+    { "Setting AOD decimal overflow in executive mode generates acc error interrupt", cpu_selftest_setting_aod_decimal_overflow_in_executive_mode_generates_acc_system_error_interrupt },
 	{ "Setting AOD decimal overflow in executive mode does not generate an interrupt if inhibited", cpu_selftest_setting_aod_decimal_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited },
 	{ "Setting AOD zero divide in executive mode generates acc error interrupt", cpu_selftest_setting_aod_zero_divide_in_executive_mode_generates_acc_system_error_interrupt },
 	{ "Setting AOD zero divide in executive mode does not generate an interrupt if inhibited", cpu_selftest_setting_aod_zero_divide_in_executive_mode_does_not_generate_interrupt_if_inhibited },
@@ -8274,6 +8278,20 @@ static void cpu_selftest_setting_aod_floating_point_underflow_in_executive_mode_
 	cpu_selftest_set_executive_mode();
 	cpu_selftest_set_register(REG_AOD, AOD_FLPUDF_MASK & AOD_IFLPUDF_MASK);
 	cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_setting_aod_fixed_point_overflow_in_executive_generates_acc_system_error_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_set_register(REG_AOD, AOD_FXPOVF_MASK);
+    cpu_selftest_assert_acc_interrupt_as_system_error();
+}
+
+static void cpu_selftest_setting_aod_fixed_point_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_set_register(REG_AOD, AOD_FXPOVF_MASK & AOD_IFXPOVF_MASK);
+    cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_setting_aod_decimal_overflow_in_executive_mode_generates_acc_system_error_interrupt(TESTCONTEXT *testContext)
