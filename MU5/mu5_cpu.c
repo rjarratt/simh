@@ -361,8 +361,7 @@ static void cpu_evaluate_interrupts(void);
 static void cpu_set_system_error_interrupt(uint16 reason);
 static void cpu_set_program_fault_interrupt(uint16 reason);
 static void cpu_set_illegal_order_interrupt(uint16 reason);
-static void cpu_set_B_interrupt(void); //TODO: removed A version of this, check if B and D versions still needed
-static void cpu_set_D_interrupt(void);
+static void cpu_set_B_interrupt(void);
 static void cpu_set_its_interrupt(void);
 static void cpu_set_sss_interrupt(void);
 static void cpu_set_bounds_check_interrupt(void);
@@ -1517,40 +1516,19 @@ static void cpu_set_B_interrupt(void)
     }
 }
 
-static void cpu_set_D_interrupt(void)
-{
-    if (cpu_ms_is_all(MS_MASK_EXEC))
-    {
-        cpu_set_system_error_interrupt(SYSTEM_ERROR_STATUS_MASK_B_OR_D_ERROR);
-    }
-    else
-    {
-        cpu_set_program_fault_interrupt(PROGRAM_FAULT_STATUS_MASK_D_ERROR);
-    }
-}
-
 static void cpu_set_its_interrupt(void)
 {
     cpu_set_register_bit_32(reg_dod, mask_dod_its, 1);
-    cpu_set_D_interrupt();
 }
 
 static void cpu_set_sss_interrupt(void)
 {
     cpu_set_register_bit_32(reg_dod, mask_dod_sss, 1);
-    if (!cpu_get_register_bit_32(reg_dod, mask_dod_sssi))
-    {
-        cpu_set_D_interrupt();
-    }
 }
 
 static void cpu_set_bounds_check_interrupt(void)
 {
     cpu_set_register_bit_32(reg_dod, mask_dod_bch, 1);
-    //if (!cpu_get_register_bit_32(reg_dod, mask_dod_bchi))
-    //{
-    //    cpu_set_D_interrupt();
-    //}
 }
 
 static void cpu_set_name_adder_overflow_interrupt()
@@ -3896,11 +3874,6 @@ static void cpu_check_b_overflow(t_uint64 value)
     if (cpu_test_b_overflow(value))
     {
         cpu_set_register_bit_32(reg_bod, mask_bod_bovf, 1);
-
-        if (!cpu_get_register_bit_32(reg_bod, mask_bod_ibovf))
-        {
-            cpu_set_B_interrupt();
-        }
     }
 }
 
