@@ -356,6 +356,7 @@ static void cpu_clear_all_interrupts(void);
 static int cpu_check_condition_with_inhibit_32(REG *reg, uint32 condition_mask, uint32 inhibit_mask);
 static int cpu_check_condition_with_inhibit_64(REG *reg, t_uint64 condition_mask, t_uint64 inhibit_mask);
 static void cpu_update_system_error_status_and_interrupt(uint16 updates);
+static void cpu_update_program_fault_status_and_interrupt(uint16 updates);
 static void cpu_evaluate_interrupts(void);
 static void cpu_set_system_error_interrupt(uint16 reason);
 static void cpu_set_program_fault_interrupt(uint16 reason);
@@ -1417,6 +1418,16 @@ static void cpu_update_system_error_status_and_interrupt(uint16 updates)
     }
 }
 
+static void cpu_update_program_fault_status_and_interrupt(uint16 updates)
+{
+    int was_zero = PROPProgramFaultStatus == 0;
+    PROPProgramFaultStatus |= updates;
+    if (PROPProgramFaultStatus != 0 && !cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1))
+    {
+        cpu_set_interrupt(INT_PROGRAM_FAULTS);
+    }
+}
+
 static void cpu_evaluate_interrupts(void)
 {
     int b_overflow = cpu_check_condition_with_inhibit_32(reg_bod, mask_bod_bovf, mask_bod_ibovf);
@@ -1455,16 +1466,7 @@ static void cpu_evaluate_interrupts(void)
     }
     else
     {
-        PROPProgramFaultStatus |= (b_program_fault << (PFS_BIT_B_FAULT - 1)) | (acc_program_fault << (PFS_BIT_ACC_FAULT - 1)) | (d_program_fault << (PFS_BIT_D_FAULT - 1));
-    }
-
-    if (PROPProgramFaultStatus != 0 && !cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1))
-    {
-        cpu_set_interrupt(INT_PROGRAM_FAULTS);
-    }
-    else
-    {
-        cpu_clear_interrupt(INT_PROGRAM_FAULTS);
+        cpu_update_program_fault_status_and_interrupt((b_program_fault << (PFS_BIT_B_FAULT - 1)) | (acc_program_fault << (PFS_BIT_ACC_FAULT - 1)) | (d_program_fault << (PFS_BIT_D_FAULT - 1)));
     }
 }
 
