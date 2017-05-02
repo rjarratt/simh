@@ -1377,7 +1377,15 @@ void cpu_reset_state(void)
 
 void cpu_set_interrupt(uint8 number)
 {
-    interrupt |= 1u << number;
+    if (number == INT_SYSTEM_ERROR
+        ||
+        (number <= INT_PERIPHERAL_WINDOW && !cpu_ms_is_any(MS_MASK_LEVEL0))
+        ||
+        !cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1)
+       )
+    {
+        interrupt |= 1u << number;
+    }
 }
 
 static void cpu_clear_interrupt(uint8 number)
@@ -1410,7 +1418,7 @@ static void cpu_update_system_error_status_and_interrupt(uint16 updates)
 {
     int was_zero = PROPSystemErrorStatus == 0;
     PROPSystemErrorStatus |= updates;
-    if (was_zero && PROPSystemErrorStatus != 0 && !cpu_ms_is_all(MS_MASK_LEVEL0))
+    if (was_zero && PROPSystemErrorStatus != 0)
     {
         cpu_set_interrupt(INT_SYSTEM_ERROR);
     }
@@ -1472,30 +1480,12 @@ static void cpu_evaluate_interrupts(void)
 
 static void cpu_set_system_error_interrupt(uint16 reason)
 {
-// TODO:    cpu_update_system_error_status_and_interrupt(reason);
-    if ((cpu_ms_is_all(MS_MASK_B_D_SYS_ERR_EXEC) && (reason == SYSTEM_ERROR_STATUS_MASK_B_OR_D_ERROR))
-        ||
-        (cpu_ms_is_all(MS_MASK_A_SYS_ERR_EXEC) && (reason == SYSTEM_ERROR_STATUS_MASK_ACC_ERROR))
-        ||
-        (reason != SYSTEM_ERROR_STATUS_MASK_B_OR_D_ERROR
-         &&
-         reason != SYSTEM_ERROR_STATUS_MASK_ACC_ERROR
-        )
-       )
-    {
-        cpu_set_interrupt(INT_SYSTEM_ERROR);
-        PROPSystemErrorStatus |= reason;
-    }
+    cpu_update_system_error_status_and_interrupt(reason); // TODO: one-liner to call this function seems redundant
 }
 
 static void cpu_set_program_fault_interrupt(uint16 reason)
 {
-// TODO:    cpu_update_program_fault_status_and_interrupt(reason);
-    if (!cpu_ms_is_all(MS_MASK_INH_PROG_FLT))
-    {
-        cpu_set_interrupt(INT_PROGRAM_FAULTS);
-        PROPProgramFaultStatus |= reason;
-    }
+    cpu_update_program_fault_status_and_interrupt(reason); // TODO: one-liner to call this function seems redundant
 }
 
 static void cpu_set_illegal_order_interrupt(uint16 reason)

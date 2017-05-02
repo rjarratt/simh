@@ -346,7 +346,7 @@ static void cpu_selftest_assert_no_a_zero_divide(void);
 static void cpu_selftest_assert_no_a_zero_divide_interrupt(void);
 static void cpu_selftest_assert_a_zero_divide(void);
 static void cpu_selftest_assert_a_zero_divide_interrupt(void);
-static void cpu_selftest_assert_interrupt(void);
+static void cpu_selftest_assert_interrupt(int interruptNumber);
 static void cpu_selftest_assert_interrupt_inhibited(void);
 static void cpu_selftest_assert_no_interrupt(void);
 static void cpu_selftest_assert_dod_interrupt_as_system_error(char *name, uint32 mask);
@@ -941,7 +941,10 @@ static void cpu_selftest_clearing_d_fault_in_user_mode_does_not_clear_interrupt(
 static void cpu_selftest_switch_from_executive_mode_to_user_mode_when_system_error_does_not_create_program_fault(TESTCONTEXT *testContext);
 static void cpu_selftest_switch_from_user_mode_to_executive_mode_program_fault_does_not_create_system_error(TESTCONTEXT *testContext);
 static void cpu_selftest_return_from_interrupt_handler_without_clearing_system_error_status_v_line_masks_system_error_interrupts(TESTCONTEXT *testContext);
-static void cpu_selftest_level_0_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
+static void cpu_selftest_system_error_interrupt_not_inhibited_even_if_L0IF_or_L1IF_is_set(TESTCONTEXT *testContext);
+static void cpu_selftest_cpr_not_equivalence_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
+static void cpu_selftest_exchange_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
+static void cpu_selftest_peripheral_window_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_level_1_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set(TESTCONTEXT *testContext);
@@ -1619,14 +1622,17 @@ static UNITTEST tests[] =
     { "Switch from user mode to executive mode when there is a program fault does not create a system error", cpu_selftest_switch_from_user_mode_to_executive_mode_program_fault_does_not_create_system_error },
     { "Return from interrupt handler without clearing System Error Status V-line masks System Error interrupts", cpu_selftest_return_from_interrupt_handler_without_clearing_system_error_status_v_line_masks_system_error_interrupts },
 
-    { "Level 0 interrupt inhibited if L0IF is set", cpu_selftest_level_0_interrupt_inhibited_if_L0IF_is_set },
-	{ "Level 0 interrupt not inhibited if L1IF is set", cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set },
+    { "System Error interrupt is not inhibited even if L0IF or L1IF is set", cpu_selftest_system_error_interrupt_not_inhibited_even_if_L0IF_or_L1IF_is_set },
+    { "CPR Not Equivalence (Level 0) interrupt inhibited if L0IF is set", cpu_selftest_cpr_not_equivalence_interrupt_inhibited_if_L0IF_is_set },
+    { "Exchange interrupt (Level 0) interrupt inhibited if L0IF is set",  cpu_selftest_exchange_interrupt_inhibited_if_L0IF_is_set },
+    { "Peripheral Window (Level 0) interrupt inhibited if L0IF is set", cpu_selftest_peripheral_window_interrupt_inhibited_if_L0IF_is_set },
+    { "Level 0 interrupt not inhibited if L1IF is set", cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set },
 	{ "Level 1 interrupt inhibited if L0IF is set", cpu_selftest_level_1_interrupt_inhibited_if_L0IF_is_set },
 	{ "Level 1 interrupt inhibited if L1IF is set", cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set },
 
+        // TODO: check all other system error status interrupts now.
 
 		// TODO: Combinations of AOD and BOD keep interrupt "alive"
-        // TODO: set inhibit clears interrupt, MS11
 
     { "CPR Not Equivalence interrupt on order fetch stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_on_order_fetch_stores_link_that_re_executes_failed_order },
     { "CPR Not Equivalence interrupt on primary operand stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_on_primary_operand_stores_link_that_re_executes_failed_order },
@@ -2198,11 +2204,11 @@ static void cpu_selftest_assert_a_zero_divide_interrupt(void)
     cpu_selftest_assert_a_zero_divide();
 }
 
-static void cpu_selftest_assert_interrupt(void)
+static void cpu_selftest_assert_interrupt(int interruptNumber)
 {
-    if (cpu_get_interrupt_number() == 255)
+    if (cpu_get_interrupt_number() != interruptNumber)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected interrupt to have occurred\n");
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected interrupt %d to have occurred\n", interruptNumber);
         cpu_selftest_set_failure();
     }
 }
@@ -3839,7 +3845,7 @@ static void cpu_selftest_store_operand_internal_register_0_generates_interrupt(T
     cpu_selftest_assert_reg_equals(REG_MS, initMs);
     cpu_selftest_assert_reg_equals(REG_NB, 0);
     cpu_selftest_assert_reg_equals(REG_CO, 1);
-    cpu_selftest_assert_interrupt();
+    cpu_selftest_assert_interrupt(INT_SYSTEM_ERROR);
 }
 
 static void cpu_selftest_store_operand_internal_register_0_generates_interrupt_as_illegal_order_in_user_mode(TESTCONTEXT *testContext)
@@ -8456,13 +8462,36 @@ static void cpu_selftest_clearing_d_fault_in_user_mode_does_not_clear_interrupt(
     cpu_selftest_assert_D_interrupt_as_program_fault();
 }
 
-static void cpu_selftest_level_0_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext)
+static void cpu_selftest_system_error_interrupt_not_inhibited_even_if_L0IF_or_L1IF_is_set(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_register(REG_MS, MS_MASK_B_D_SYS_ERR_EXEC | MS_MASK_LEVEL0);
+    cpu_selftest_set_executive_mode();
+    cpu_set_interrupt(INT_SYSTEM_ERROR);
+    cpu_selftest_assert_interrupt(INT_SYSTEM_ERROR);
+}
+
+static void cpu_selftest_cpr_not_equivalence_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext)
 {
 	cpu_selftest_set_register(REG_MS, MS_MASK_B_D_SYS_ERR_EXEC | MS_MASK_LEVEL0);
 	cpu_selftest_set_executive_mode();
-	cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
-	cpu_selftest_assert_B_or_D_system_error();
+    cpu_set_interrupt(INT_CPR_NOT_EQUIVALENCE);
 	cpu_selftest_assert_interrupt_inhibited();
+}
+
+static void cpu_selftest_exchange_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_register(REG_MS, MS_MASK_B_D_SYS_ERR_EXEC | MS_MASK_LEVEL0);
+    cpu_selftest_set_executive_mode();
+    cpu_set_interrupt(INT_EXCHANGE);
+    cpu_selftest_assert_interrupt_inhibited();
+}
+
+static void cpu_selftest_peripheral_window_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_register(REG_MS, MS_MASK_B_D_SYS_ERR_EXEC | MS_MASK_LEVEL0);
+    cpu_selftest_set_executive_mode();
+    cpu_set_interrupt(INT_PERIPHERAL_WINDOW);
+    cpu_selftest_assert_interrupt_inhibited();
 }
 
 static void cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set(TESTCONTEXT *testContext)
