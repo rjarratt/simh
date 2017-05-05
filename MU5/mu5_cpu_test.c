@@ -7319,11 +7319,11 @@ static void cpu_selftest_org_exit_resets_link_except_privileged_ms_bits_in_user_
 {
     uint16 initMs;
     cpu_selftest_load_organisational_order_extended(F_EXIT, KP_LITERAL, NP_64_BIT_LITERAL);
-    cpu_selftest_load_64_bit_literal(0xAAFFBBBBFFFFFFFF);
+    cpu_selftest_load_64_bit_literal(0xBAFFBBBBFFFFFFFF);
     cpu_selftest_set_user_mode();
     initMs = cpu_get_ms();
     cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_MS, 0xAA00 | (initMs & 0xFF));
+    cpu_selftest_assert_reg_equals(REG_MS, 0x8A00 | (initMs & 0x30FF));
     cpu_selftest_assert_reg_equals(REG_NB, 0xBBBA);
     cpu_selftest_assert_reg_equals(REG_CO, 0x7FFFFFFF);
     cpu_selftest_assert_no_interrupt();
@@ -7363,7 +7363,7 @@ static void cpu_selftest_org_return_resets_link_except_privileged_ms_bits_in_use
     cpu_selftest_set_user_mode();
     initMs = cpu_get_ms();
     cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_MS, 0xFF00 | (initMs & 0xFF));
+    cpu_selftest_assert_reg_equals(REG_MS, 0xCF00 | (initMs & 0x30FF));
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -7527,10 +7527,10 @@ static void cpu_selftest_org_ms_load_does_not_set_masked_bits_in_executive_mode(
 static void cpu_selftest_org_ms_load_does_not_set_privileged_unmasked_bits_in_user_mode(TESTCONTEXT *testContext)
 {
     cpu_selftest_load_organisational_order_extended(F_MS_LOAD, KP_LITERAL, NP_32_BIT_UNSIGNED_LITERAL);
-    cpu_selftest_load_32_bit_literal(0xAAFFBBFF);
-    cpu_selftest_set_register(REG_MS, 0x00C8);
+    cpu_selftest_load_32_bit_literal(0xBAFFBBFF);
+    cpu_selftest_set_register(REG_MS, 0x10C8);
     cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_MS, 0xAAC8);
+    cpu_selftest_assert_reg_equals(REG_MS, 0x9AC8);
     cpu_selftest_assert_no_interrupt();
 }
 

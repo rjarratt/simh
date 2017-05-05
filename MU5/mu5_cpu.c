@@ -1214,7 +1214,7 @@ static SIM_INLINE int cpu_get_register_bit_64(REG *reg, t_uint64 mask)
 
 static void cpu_set_ms(uint16 value)
 {
-    uint16 msMask = (cpu_is_executive_mode()) ? 0xFFFF : 0xFF00;
+    uint16 msMask = (cpu_is_executive_mode()) ? 0xFFFF : 0xCF00;
     uint16 ms = cpu_get_register_16(reg_ms);
     uint16 newMs = (value & msMask) | (ms & ~msMask);
     cpu_set_register_16(reg_ms, newMs);
