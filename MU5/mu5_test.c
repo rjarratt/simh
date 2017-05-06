@@ -266,7 +266,7 @@ void mu5_selftest_assert_instruction_access_violation_as_system_error_interrupt(
     mu5_selftest_assert_instruction_access_violation_as_system_error(context);
 }
 
-void mu5_selftest_assert_instruction_access_violation_as_program_fault(TESTCONTEXT *context)
+void mu5_selftest_assert_instruction_access_violation_as_illegal_order(TESTCONTEXT *context)
 {
     mu5_selftest_assert_access_violation_as_illegal_order(context);
     mu5_selftest_assert_vstore_contents(context, SAC_V_STORE_BLOCK, SAC_V_STORE_ACCESS_VIOLATION, 0x0006);

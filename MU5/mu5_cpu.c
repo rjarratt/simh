@@ -1535,7 +1535,7 @@ void cpu_set_access_violation_interrupt()
     }
     else
     {
-       cpu_set_program_fault_interrupt_status_and_generate_interrupt(PROGRAM_FAULT_STATUS_MASK_CPR_ILLEGAL_ACCESS_ERROR);
+        cpu_set_program_fault_interrupt_status_and_generate_interrupt(PROGRAM_FAULT_STATUS_MASK_CPR_ILLEGAL_ACCESS_ERROR);
     }
 }
 
