@@ -97,22 +97,6 @@ to set the MS register to some appropriate setting.
 #define SCALE_32 1
 #define SCALE_64 2
 
-#define SYSTEM_ERROR_STATUS_MASK_B_OR_D_ERROR            0x0080
-#define SYSTEM_ERROR_STATUS_MASK_ACC_ERROR               0x0040
-#define SYSTEM_ERROR_STATUS_MASK_ILLEGAL_FUNCTION_ERROR  0x0020
-#define SYSTEM_ERROR_STATUS_MASK_NAME_ADDER_OVF_ERROR    0x0010
-#define SYSTEM_ERROR_STATUS_MASK_CONTROL_ADDER_OVF_ERROR 0x0008
-#define SYSTEM_ERROR_STATUS_MASK_CPR_ERROR               0x0004
-
-#define PROGRAM_FAULT_STATUS_MASK_ILLEGAL_FUNCTION_ERROR  0x8000
-#define PROGRAM_FAULT_STATUS_MASK_NAME_ADDER_OVF_ERROR    0x4000
-#define PROGRAM_FAULT_STATUS_MASK_CONTROL_ADDER_OVF_ERROR 0x2000
-#define PROGRAM_FAULT_STATUS_ILLEGAL_V_STORE_ACCESS_ERROR 0x1000
-#define PROGRAM_FAULT_STATUS_MASK_CPR_ERROR               0x0800
-#define PROGRAM_FAULT_STATUS_MASK_B_ERROR                 0x0080
-#define PROGRAM_FAULT_STATUS_MASK_D_ERROR                 0x0040
-#define PROGRAM_FAULT_STATUS_MASK_ACC_ERROR               0x0020
-
 static int cpu_stopped = 0;
 
 int32 sim_emax;
@@ -1442,11 +1426,11 @@ static void cpu_evaluate_interrupts(void)
 
     if (cpu_ms_is_all(MS_MASK_EXEC))
     {
-        cpu_set_system_error_interrupt((b_or_d_system_error << (SES_BIT_B_OR_D_FAULT - 1)) | (acc_system_error << (SES_BIT_ACC_ERROR - 1)));
+        cpu_set_system_error_interrupt((b_or_d_system_error << SYSTEM_ERROR_STATUS_BIT_B_OR_D_ERROR) | (acc_system_error << SYSTEM_ERROR_STATUS_BIT_ACC_ERROR));
     }
     else
     {
-        cpu_set_program_fault_interrupt((b_program_fault << (PFS_BIT_B_FAULT - 1)) | (acc_program_fault << (PFS_BIT_ACC_FAULT - 1)) | (d_program_fault << (PFS_BIT_D_FAULT - 1)));
+        cpu_set_program_fault_interrupt((b_program_fault << PROGRAM_FAULT_STATUS_BIT_B_ERROR) | (acc_program_fault << PROGRAM_FAULT_STATUS_BIT_ACC_ERROR) | (d_program_fault << PROGRAM_FAULT_STATUS_BIT_D_ERROR));
     }
 }
 
@@ -1543,11 +1527,11 @@ void cpu_set_access_violation_interrupt()
 {
     if (cpu_ms_is_all(MS_MASK_EXEC))
     {
-        cpu_set_system_error_interrupt(SYSTEM_ERROR_STATUS_MASK_CPR_ERROR);
+        cpu_set_system_error_interrupt(SYSTEM_ERROR_STATUS_MASK_CPR_EXEC_ILLEGAL);
     }
     else
-    {
-        cpu_set_illegal_order_interrupt(PROGRAM_FAULT_STATUS_MASK_CPR_ERROR);
+    { // TODO: this is a program fault per bit 52 of program fault status register.
+        cpu_set_illegal_order_interrupt(PROGRAM_FAULT_STATUS_MASK_CPR_ILLEGAL_ACCESS_ERROR);
     }
 }
 
@@ -2414,7 +2398,7 @@ static t_uint64 cpu_get_operand(uint16 order)
                     }
                     else
                     {
-                        cpu_set_illegal_order_interrupt(PROGRAM_FAULT_STATUS_ILLEGAL_V_STORE_ACCESS_ERROR);
+                        cpu_set_illegal_order_interrupt(PROGRAM_FAULT_STATUS_MASK_ILLEGAL_V_STORE_ACCESS_ERROR);
                     }
                     break;
                 }
@@ -2538,7 +2522,7 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
                     }
                     else
                     {
-                        cpu_set_illegal_order_interrupt(PROGRAM_FAULT_STATUS_ILLEGAL_V_STORE_ACCESS_ERROR);
+                        cpu_set_illegal_order_interrupt(PROGRAM_FAULT_STATUS_MASK_ILLEGAL_V_STORE_ACCESS_ERROR);
                     }
                     break;
                 }

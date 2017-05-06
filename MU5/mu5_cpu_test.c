@@ -2368,7 +2368,7 @@ static void cpu_selftest_assert_acc_interrupt_as_program_fault(void)
 
 static void cpu_selftest_assert_B_or_D_system_error(void)
 {
-	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, SES_MASK_B_OR_D_FAULT);
+	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, SYSTEM_ERROR_STATUS_MASK_B_OR_D_ERROR);
 }
 
 static void cpu_selftest_assert_B_or_D_interrupt_as_system_error(void)
@@ -2384,7 +2384,7 @@ static void cpu_selftest_assert_B_or_D_interrupt_as_system_error(void)
 
 static void cpu_selftest_assert_B_program_fault(void)
 {
-	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, PFS_MASK_B_FAULT);
+	mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, PROGRAM_FAULT_STATUS_MASK_B_ERROR);
 }
 
 static void cpu_selftest_assert_B_interrupt_as_program_fault(void)
