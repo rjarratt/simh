@@ -77,6 +77,7 @@ void cpu_set_register(REG *reg, t_uint64 value); /* for selftest purposes only, 
 void cpu_set_interrupt(uint8 number);
 uint8 cpu_get_interrupt_number(void);
 void cpu_set_access_violation_interrupt(void);
+void cpu_set_cpr_non_equivalence_interrupt(void);
 uint16 cpu_get_ms(void);
 int cpu_ms_is_all(uint16 bits);
 int cpu_ms_is_any(uint16 bits);

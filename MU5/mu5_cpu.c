@@ -1539,6 +1539,11 @@ void cpu_set_access_violation_interrupt()
     }
 }
 
+void cpu_set_cpr_non_equivalence_interrupt(void)
+{
+    cpu_set_interrupt(INT_CPR_NOT_EQUIVALENCE);
+}
+
 uint8 cpu_get_interrupt_number(void)
 {
     uint8 i;

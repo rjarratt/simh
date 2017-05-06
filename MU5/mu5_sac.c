@@ -664,12 +664,12 @@ static t_addr sac_map_address(t_addr address, uint8 access)
         {
             CPRNotEquivalencePSX = va;
             CPRNotEquivalenceS = seg;
-            cpu_set_interrupt(INT_CPR_NOT_EQUIVALENCE);
+            cpu_set_cpr_non_equivalence_interrupt();
         }
         else
         {
-            cpu_set_interrupt(INT_SYSTEM_ERROR);
-            SystemErrorInterrupt |= 0x40;
+            cpu_set_interrupt(INT_SYSTEM_ERROR); // TODO: set system error via or-tree work
+            SystemErrorInterrupt |= 0x40; // TODO: check this in light of interrupt or-tree work.
         }
 
         if (access & (SAC_OBEY_ACCESS | SAC_READ_ACCESS))
