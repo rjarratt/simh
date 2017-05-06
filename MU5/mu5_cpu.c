@@ -337,7 +337,6 @@ static void cpu_set_xnb(uint32 value);
 static void cpu_set_sf(uint16 value);
 static void cpu_set_co(uint32 value);
 static void cpu_set_ms_bn(int value);
-static void cpu_ms_callback(uint16 old_value, uint16 new_value);
 static void cpu_aod_callback(t_uint64 old_value, t_uint64 new_value);
 static void cpu_bod_callback(uint32 old_value, uint32 new_value);
 static void cpu_dod_callback(uint32 old_value, uint32 new_value);
@@ -1241,11 +1240,6 @@ static void cpu_set_co(uint32 value)
 static void cpu_set_ms_bn(int value)
 {
     cpu_set_register_bit_16(reg_ms, mask_ms_bn, value);
-}
-
-static void cpu_ms_callback(uint16 old_value, uint16 new_value)
-{
-    cpu_evaluate_interrupts();
 }
 
 static void cpu_aod_callback(t_uint64 old_value, t_uint64 new_value)
