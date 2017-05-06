@@ -237,9 +237,9 @@ void mu5_selftest_assert_access_violation_as_system_error(TESTCONTEXT *context)
     mu5_selftest_assert_vstore_contents(context, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0004);
 }
 
-void mu5_selftest_assert_access_violation_as_program_fault(TESTCONTEXT *context)
+void mu5_selftest_assert_access_violation_as_illegal_order(TESTCONTEXT *context)
 {
-    mu5_selftest_assert_interrupt_number(context, INT_PROGRAM_FAULTS);
+    mu5_selftest_assert_interrupt_number(context, INT_ILLEGAL_ORDERS);
     mu5_selftest_assert_vstore_contents(context, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x0800);
 }
 
@@ -249,9 +249,9 @@ void mu5_selftest_assert_operand_access_violation_as_system_error(TESTCONTEXT *c
     mu5_selftest_assert_vstore_contents(context, SAC_V_STORE_BLOCK, SAC_V_STORE_ACCESS_VIOLATION, 0x2);
 }
 
-void mu5_selftest_assert_operand_access_violation_as_program_fault(TESTCONTEXT *context)
+void mu5_selftest_assert_operand_access_violation_as_illegal_order(TESTCONTEXT *context)
 {
-    mu5_selftest_assert_access_violation_as_program_fault(context);
+    mu5_selftest_assert_access_violation_as_illegal_order(context);
     mu5_selftest_assert_vstore_contents(context, SAC_V_STORE_BLOCK, SAC_V_STORE_ACCESS_VIOLATION, 0x2);
 }
 
@@ -268,7 +268,7 @@ void mu5_selftest_assert_instruction_access_violation_as_system_error_interrupt(
 
 void mu5_selftest_assert_instruction_access_violation_as_program_fault(TESTCONTEXT *context)
 {
-    mu5_selftest_assert_access_violation_as_program_fault(context);
+    mu5_selftest_assert_access_violation_as_illegal_order(context);
     mu5_selftest_assert_vstore_contents(context, SAC_V_STORE_BLOCK, SAC_V_STORE_ACCESS_VIOLATION, 0x0006);
 }
 

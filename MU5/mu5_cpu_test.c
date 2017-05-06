@@ -316,6 +316,7 @@ static t_uint64 cpu_selftest_get_register(char *name);
 static void cpu_selftest_set_register(char *name, t_uint64 value);
 static void cpu_selftest_setup_vstore_test_location(void);
 static void cpu_selftest_setup_interrupt_vector(int interruptNumber, uint16 ms, uint16 nb, uint32 co);
+static void cpu_selftest_setup_illegal_function_error(void);
 
 static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 static void cpu_selftest_assert_reg_equals_mask(char *name, t_uint64 expectedValue, t_uint64 mask);
@@ -941,6 +942,12 @@ static void cpu_selftest_clearing_d_fault_in_user_mode_does_not_clear_interrupt(
 static void cpu_selftest_switch_from_executive_mode_to_user_mode_when_system_error_does_not_create_program_fault(TESTCONTEXT *testContext);
 static void cpu_selftest_switch_from_user_mode_to_executive_mode_program_fault_does_not_create_system_error(TESTCONTEXT *testContext);
 static void cpu_selftest_return_from_interrupt_handler_without_clearing_system_error_status_v_line_masks_system_error_interrupts(TESTCONTEXT *testContext);
+
+static void cpu_selftest_illegal_function_generates_system_error_interrupt_in_executive_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_illegal_function_generates_system_error_interrupt_if_L1IF_is_set(TESTCONTEXT *testContext);
+static void cpu_selftest_illegal_function_generates_system_error_interrupt_if_L0IF_is_set(TESTCONTEXT *testContext);
+static void cpu_selftest_illegal_function_generates_illegal_order_interrupt_in_user_mode(TESTCONTEXT *testContext);
+
 static void cpu_selftest_system_error_interrupt_not_inhibited_even_if_L0IF_or_L1IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_cpr_not_equivalence_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_exchange_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
@@ -1622,6 +1629,11 @@ static UNITTEST tests[] =
     { "Switch from user mode to executive mode when there is a program fault does not create a system error", cpu_selftest_switch_from_user_mode_to_executive_mode_program_fault_does_not_create_system_error },
     { "Return from interrupt handler without clearing System Error Status V-line masks System Error interrupts", cpu_selftest_return_from_interrupt_handler_without_clearing_system_error_status_v_line_masks_system_error_interrupts },
 
+    { "Illegal function generates System Error interrupt in executive mode", cpu_selftest_illegal_function_generates_system_error_interrupt_in_executive_mode },
+    { "Illegal function generates System Error interrupt if L1IF is set", cpu_selftest_illegal_function_generates_system_error_interrupt_if_L1IF_is_set },
+    { "Illegal function generates System Error interrupt if L0IF is set", cpu_selftest_illegal_function_generates_system_error_interrupt_if_L0IF_is_set },
+    { "Illegal function generates Illegal Order interrupt in user mode", cpu_selftest_illegal_function_generates_illegal_order_interrupt_in_user_mode },
+
     { "System Error interrupt is not inhibited even if L0IF or L1IF is set", cpu_selftest_system_error_interrupt_not_inhibited_even_if_L0IF_or_L1IF_is_set },
     { "CPR Not Equivalence (Level 0) interrupt inhibited if L0IF is set", cpu_selftest_cpr_not_equivalence_interrupt_inhibited_if_L0IF_is_set },
     { "Exchange interrupt (Level 0) interrupt inhibited if L0IF is set",  cpu_selftest_exchange_interrupt_inhibited_if_L0IF_is_set },
@@ -1631,6 +1643,7 @@ static UNITTEST tests[] =
 	{ "Level 1 interrupt inhibited if L1IF is set", cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set },
 
         // TODO: check all other system error status interrupts now.
+        // TODO: check all other program fault status interrupts now.
 
 		// TODO: Combinations of AOD and BOD keep interrupt "alive"
 
@@ -1638,6 +1651,7 @@ static UNITTEST tests[] =
     { "CPR Not Equivalence interrupt on primary operand stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_on_primary_operand_stores_link_that_re_executes_failed_order },
     { "CPR Not Equivalence interrupt on secondary operand stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_on_secondary_operand_stores_link_that_re_executes_failed_order },
 
+    /* review all the next block of interrupt tests */
     { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
     { "No Acc zero divide interrupt if Acc zero divide is inhibited", cpu_selftest_no_acc_zero_divide_interrupt_if_acc_zero_divide_is_inhibited },
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
@@ -1982,6 +1996,11 @@ static void cpu_selftest_setup_interrupt_vector(int interruptNumber, uint16 ms, 
 {
     t_uint64 link = ((t_uint64)ms << 48) | ((t_uint64)nb << 32) | co;
     sac_write_v_store(SYSTEM_V_STORE_BLOCK, 16 + (interruptNumber * 2) + 1, link);
+}
+
+static void cpu_selftest_setup_illegal_function_error(void)
+{
+    cpu_selftest_load_order(CR_FLOAT, F_STORE, K_LITERAL, 0x1F);
 }
 
 static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue)
@@ -8460,6 +8479,38 @@ static void cpu_selftest_clearing_d_fault_in_user_mode_does_not_clear_interrupt(
     cpu_selftest_set_register(REG_DOD, DOD_BCH_MASK);
     cpu_selftest_set_register(REG_DOD, 0);
     cpu_selftest_assert_D_interrupt_as_program_fault();
+}
+
+static void cpu_selftest_illegal_function_generates_system_error_interrupt_in_executive_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_setup_illegal_function_error();
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_illegal_function_as_system_error();
+}
+
+static void cpu_selftest_illegal_function_generates_system_error_interrupt_if_L1IF_is_set(TESTCONTEXT *testContext)
+{
+    cpu_selftest_setup_illegal_function_error();
+    cpu_selftest_set_register(REG_MS, MS_MASK_BCPR | MS_MASK_LEVEL1);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_illegal_function_as_system_error();
+}
+
+static void cpu_selftest_illegal_function_generates_system_error_interrupt_if_L0IF_is_set(TESTCONTEXT *testContext)
+{
+    cpu_selftest_setup_illegal_function_error();
+    cpu_selftest_set_register(REG_MS, MS_MASK_BCPR | MS_MASK_LEVEL0);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_illegal_function_as_system_error();
+}
+
+static void cpu_selftest_illegal_function_generates_illegal_order_interrupt_in_user_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_setup_illegal_function_error();
+    cpu_selftest_set_user_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_illegal_function_as_illegal_order();
 }
 
 static void cpu_selftest_system_error_interrupt_not_inhibited_even_if_L0IF_or_L1IF_is_set(TESTCONTEXT *testContext)

@@ -339,8 +339,8 @@ static void cpu_clear_all_interrupts(void);
 static int cpu_check_condition_with_inhibit_32(REG *reg, uint32 condition_mask, uint32 inhibit_mask);
 static int cpu_check_condition_with_inhibit_64(REG *reg, t_uint64 condition_mask, t_uint64 inhibit_mask);
 static void cpu_evaluate_interrupts(void);
-static void cpu_set_system_error_interrupt(uint16 reason);
-static void cpu_set_program_fault_interrupt(uint16 reason);
+static void cpu_set_system_error_status_and_generate_interrupt(uint16 reason);
+static void cpu_set_program_fault_interrupt_status_and_generate_interrupt(uint16 reason);
 static void cpu_set_illegal_order_interrupt(uint16 reason);
 static void cpu_set_B_interrupt(void);
 static void cpu_set_its_interrupt(void);
@@ -1426,15 +1426,15 @@ static void cpu_evaluate_interrupts(void)
 
     if (cpu_ms_is_all(MS_MASK_EXEC))
     {
-        cpu_set_system_error_interrupt((b_or_d_system_error << SYSTEM_ERROR_STATUS_BIT_B_OR_D_ERROR) | (acc_system_error << SYSTEM_ERROR_STATUS_BIT_ACC_ERROR));
+        cpu_set_system_error_status_and_generate_interrupt((b_or_d_system_error << SYSTEM_ERROR_STATUS_BIT_B_OR_D_ERROR) | (acc_system_error << SYSTEM_ERROR_STATUS_BIT_ACC_ERROR));
     }
     else
     {
-        cpu_set_program_fault_interrupt((b_program_fault << PROGRAM_FAULT_STATUS_BIT_B_ERROR) | (acc_program_fault << PROGRAM_FAULT_STATUS_BIT_ACC_ERROR) | (d_program_fault << PROGRAM_FAULT_STATUS_BIT_D_ERROR));
+        cpu_set_program_fault_interrupt_status_and_generate_interrupt((b_program_fault << PROGRAM_FAULT_STATUS_BIT_B_ERROR) | (acc_program_fault << PROGRAM_FAULT_STATUS_BIT_ACC_ERROR) | (d_program_fault << PROGRAM_FAULT_STATUS_BIT_D_ERROR));
     }
 }
 
-static void cpu_set_system_error_interrupt(uint16 reason)
+static void cpu_set_system_error_status_and_generate_interrupt(uint16 reason)
 {
     int was_zero = PROPSystemErrorStatus == 0;
     PROPSystemErrorStatus |= reason;
@@ -1444,13 +1444,17 @@ static void cpu_set_system_error_interrupt(uint16 reason)
     }
 }
 
-static void cpu_set_program_fault_interrupt(uint16 reason)
+static void cpu_set_program_fault_interrupt_status_and_generate_interrupt(uint16 reason)
 {
-    int was_zero = PROPProgramFaultStatus == 0;
+    int was_zero = PROPProgramFaultStatus == 0; // TODO: was_zero not used
     PROPProgramFaultStatus |= reason;
-    if (PROPProgramFaultStatus != 0 && !cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1))
+    if ((PROPProgramFaultStatus & 0x03E0) != 0 && !cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1)) // TODO: levels checked in set_interrupt now
     {
         cpu_set_interrupt(INT_PROGRAM_FAULTS);
+    }
+    if ((PROPProgramFaultStatus & 0xFC00) != 0 && !cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1)) // TODO: levels checked in set_interrupt now
+    {
+        cpu_set_interrupt(INT_ILLEGAL_ORDERS);
     }
 }
 
@@ -1464,11 +1468,11 @@ static void cpu_set_B_interrupt(void)
 {
     if (cpu_ms_is_all(MS_MASK_EXEC))
     {
-        cpu_set_system_error_interrupt(SYSTEM_ERROR_STATUS_MASK_B_OR_D_ERROR);
+        cpu_set_system_error_status_and_generate_interrupt(SYSTEM_ERROR_STATUS_MASK_B_OR_D_ERROR);
     }
     else
     {
-        cpu_set_program_fault_interrupt(PROGRAM_FAULT_STATUS_MASK_B_ERROR);
+        cpu_set_program_fault_interrupt_status_and_generate_interrupt(PROGRAM_FAULT_STATUS_MASK_B_ERROR);
     }
 }
 
@@ -1491,7 +1495,7 @@ static void cpu_set_name_adder_overflow_interrupt()
 {
     if (cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1 | MS_MASK_EXEC))
     {
-        cpu_set_system_error_interrupt(SYSTEM_ERROR_STATUS_MASK_NAME_ADDER_OVF_ERROR);
+        cpu_set_system_error_status_and_generate_interrupt(SYSTEM_ERROR_STATUS_MASK_NAME_ADDER_OVF_ERROR);
     }
     else
     {
@@ -1503,7 +1507,7 @@ static void cpu_set_control_adder_overflow_interrupt()
 {
     if (cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1 | MS_MASK_EXEC))
     {
-        cpu_set_system_error_interrupt(SYSTEM_ERROR_STATUS_MASK_CONTROL_ADDER_OVF_ERROR);
+        cpu_set_system_error_status_and_generate_interrupt(SYSTEM_ERROR_STATUS_MASK_CONTROL_ADDER_OVF_ERROR);
     }
     else
     {
@@ -1515,11 +1519,11 @@ static void cpu_set_illegal_function_interrupt(void)
 {
     if (cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1 | MS_MASK_EXEC))
     {
-        cpu_set_system_error_interrupt(SYSTEM_ERROR_STATUS_MASK_ILLEGAL_FUNCTION_ERROR);
+        cpu_set_system_error_status_and_generate_interrupt(SYSTEM_ERROR_STATUS_MASK_ILLEGAL_FUNCTION_ERROR);
     }
     else
     {
-        cpu_set_illegal_order_interrupt(PROGRAM_FAULT_STATUS_MASK_ILLEGAL_FUNCTION_ERROR);
+        cpu_set_program_fault_interrupt_status_and_generate_interrupt(PROGRAM_FAULT_STATUS_MASK_ILLEGAL_FUNCTION_ERROR);
     }
 }
 
@@ -1527,11 +1531,11 @@ void cpu_set_access_violation_interrupt()
 {
     if (cpu_ms_is_all(MS_MASK_EXEC))
     {
-        cpu_set_system_error_interrupt(SYSTEM_ERROR_STATUS_MASK_CPR_EXEC_ILLEGAL);
+        cpu_set_system_error_status_and_generate_interrupt(SYSTEM_ERROR_STATUS_MASK_CPR_EXEC_ILLEGAL);
     }
     else
     {
-       cpu_set_program_fault_interrupt(PROGRAM_FAULT_STATUS_MASK_CPR_ILLEGAL_ACCESS_ERROR);
+       cpu_set_program_fault_interrupt_status_and_generate_interrupt(PROGRAM_FAULT_STATUS_MASK_CPR_ILLEGAL_ACCESS_ERROR);
     }
 }
 
