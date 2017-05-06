@@ -52,7 +52,7 @@ static void sac_selftest_assert_vstore_contents(uint8 block, uint8 line, t_uint6
 static void sac_selftest_assert_real_address_memory_contents(t_addr address, uint32 expectedValue);
 static void sac_selftest_assert_memory_contents(t_addr address, uint32 expectedValue);
 static void sac_selftest_assert_operand_access_violation_as_system_error(void);
-static void sac_selftest_assert_operand_access_violation_as_illegal_order(void);
+static void sac_selftest_assert_operand_access_violation_as_program_fault(void);
 static void sac_selftest_assert_instruction_access_violation_as_system_error(void);
 static void sac_selftest_assert_instruction_access_violation_as_program_fault(void);
 
@@ -77,7 +77,7 @@ static void sac_selftest_read_from_obey_only_page_generates_access_violation(TES
 static void sac_selftest_obey_from_read_only_page_generates_instruction_access_violation(TESTCONTEXT *testContext);
 static void sac_selftest_obey_from_write_only_page_generates_instruction_access_violation(TESTCONTEXT *testContext);
 static void sac_selftest_operand_access_violation_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext);
-static void sac_selftest_operand_access_violation_in_user_mode_generates_illegal_order_interrupt(TESTCONTEXT *testContext);
+static void sac_selftest_operand_access_violation_in_user_mode_generates_program_fault_interrupt(TESTCONTEXT *testContext);
 static void sac_selftest_instruction_access_violation_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext);
 static void sac_selftest_instruction_access_violation_in_user_mode_generates_program_fault_interrupt(TESTCONTEXT *testContext);
 static void sac_selftest_read_from_write_only_page_is_permitted(TESTCONTEXT *testContext);
@@ -141,7 +141,7 @@ static UNITTEST tests[] =
     { "Obey from Read only page generates access violation", sac_selftest_obey_from_read_only_page_generates_instruction_access_violation },
     { "Obey from Write only page generates access violation", sac_selftest_obey_from_write_only_page_generates_instruction_access_violation },
     { "Operand access violation in executive mode generates system error interrupt", sac_selftest_operand_access_violation_in_executive_mode_generates_system_error_interrupt },
-    { "Operand access violation in user mode generates illegal order interrupt", sac_selftest_operand_access_violation_in_user_mode_generates_illegal_order_interrupt },
+    { "Operand access violation in user mode generates program fault interrupt", sac_selftest_operand_access_violation_in_user_mode_generates_program_fault_interrupt },
     { "Instruction access violation in executive mode generates system error interrupt", sac_selftest_instruction_access_violation_in_executive_mode_generates_system_error_interrupt },
     { "Instruction access violation in user mode generates program fault interrupt", sac_selftest_instruction_access_violation_in_user_mode_generates_program_fault_interrupt },
     { "Read from Write only page is permitted", sac_selftest_read_from_write_only_page_is_permitted },
@@ -257,9 +257,9 @@ static void sac_selftest_assert_operand_access_violation_as_system_error(void)
     mu5_selftest_assert_operand_access_violation_as_system_error(localTestContext);
 }
 
-static void sac_selftest_assert_operand_access_violation_as_illegal_order(void)
+static void sac_selftest_assert_operand_access_violation_as_program_fault(void)
 {
-    mu5_selftest_assert_operand_access_violation_as_illegal_order(localTestContext);
+    mu5_selftest_assert_operand_access_violation_as_program_fault(localTestContext);
 }
 
 static void sac_selftest_assert_instruction_access_violation_as_system_error(void)
@@ -471,14 +471,14 @@ static void sac_selftest_operand_access_violation_in_executive_mode_generates_sy
     sac_selftest_assert_operand_access_violation_as_system_error();
 }
 
-static void sac_selftest_operand_access_violation_in_user_mode_generates_illegal_order_interrupt(TESTCONTEXT *testContext)
+static void sac_selftest_operand_access_violation_in_user_mode_generates_program_fault_interrupt(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
     mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_OBEY_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     mu5_selftest_set_user_mode(testContext, &cpu_dev);
     sac_read_32_bit_word(1);
-    sac_selftest_assert_operand_access_violation_as_illegal_order();
+    sac_selftest_assert_operand_access_violation_as_program_fault();
 }
 
 static void sac_selftest_instruction_access_violation_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext)
@@ -564,7 +564,7 @@ static void sac_selftest_user_mode_access_to_executive_mode_page_generates_acces
     mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_READ_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_read_32_bit_word(1);
-    sac_selftest_assert_operand_access_violation_as_illegal_order();
+    sac_selftest_assert_operand_access_violation_as_program_fault();
 }
 
 static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTEXT *testContext)

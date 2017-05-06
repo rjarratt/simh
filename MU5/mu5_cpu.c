@@ -1530,8 +1530,8 @@ void cpu_set_access_violation_interrupt()
         cpu_set_system_error_interrupt(SYSTEM_ERROR_STATUS_MASK_CPR_EXEC_ILLEGAL);
     }
     else
-    { // TODO: this is a program fault per bit 52 of program fault status register.
-        cpu_set_illegal_order_interrupt(PROGRAM_FAULT_STATUS_MASK_CPR_ILLEGAL_ACCESS_ERROR);
+    {
+       cpu_set_program_fault_interrupt(PROGRAM_FAULT_STATUS_MASK_CPR_ILLEGAL_ACCESS_ERROR);
     }
 }
 
