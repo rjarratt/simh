@@ -317,6 +317,7 @@ static void cpu_selftest_set_register(char *name, t_uint64 value);
 static void cpu_selftest_setup_vstore_test_location(void);
 static void cpu_selftest_setup_interrupt_vector(int interruptNumber, uint16 ms, uint16 nb, uint32 co);
 static void cpu_selftest_setup_illegal_function_error(void);
+static void cpu_selftest_setup_name_adder_overflow_error(void);
 
 static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 static void cpu_selftest_assert_reg_equals_mask(char *name, t_uint64 expectedValue, t_uint64 mask);
@@ -948,6 +949,11 @@ static void cpu_selftest_illegal_function_generates_system_error_interrupt_if_L1
 static void cpu_selftest_illegal_function_generates_system_error_interrupt_if_L0IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_illegal_function_generates_illegal_order_interrupt_in_user_mode(TESTCONTEXT *testContext);
 
+static void cpu_selftest_name_adder_overflow_generates_system_error_interrupt_in_executive_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_name_adder_overflow_generates_system_error_interrupt_if_L1IF_is_set(TESTCONTEXT *testContext);
+static void cpu_selftest_name_adder_overflow_generates_system_error_interrupt_if_L0IF_is_set(TESTCONTEXT *testContext);
+static void cpu_selftest_name_adder_overflow_generates_illegal_order_interrupt_in_user_mode(TESTCONTEXT *testContext);
+
 static void cpu_selftest_system_error_interrupt_not_inhibited_even_if_L0IF_or_L1IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_cpr_not_equivalence_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_exchange_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
@@ -1529,8 +1535,8 @@ static UNITTEST tests[] =
     { "XNB=> to secondary operand generates interrupt", cpu_selftest_org_xnb_store_to_secondary_operand_generates_interrupt },
     { "SF= loads SF", cpu_selftest_org_sf_load_loads_SF },
     { "SF+ adds operand to SF", cpu_selftest_org_sf_plus_adds_operand_to_SF },
-    { "SF+ ", cpu_selftest_org_sf_plus_generates_interrupt_on_segment_overflow },
-    { "SF+ ", cpu_selftest_org_sf_plus_generates_interrupt_on_segment_underflow },
+    { "SF+ generates interrupt on segment overflow", cpu_selftest_org_sf_plus_generates_interrupt_on_segment_overflow },
+    { "SF+ generates interrupt on segment underflow", cpu_selftest_org_sf_plus_generates_interrupt_on_segment_underflow },
     { "SF=NB+ adds NB to signed operand and stores result to SF", cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF },
     { "SF=NB+ generates interrupt on segment overflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow },
     { "SF=NB+ generates interrupt on segment underflow", cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_underflow },
@@ -1633,6 +1639,11 @@ static UNITTEST tests[] =
     { "Illegal function generates System Error interrupt if L1IF is set", cpu_selftest_illegal_function_generates_system_error_interrupt_if_L1IF_is_set },
     { "Illegal function generates System Error interrupt if L0IF is set", cpu_selftest_illegal_function_generates_system_error_interrupt_if_L0IF_is_set },
     { "Illegal function generates Illegal Order interrupt in user mode", cpu_selftest_illegal_function_generates_illegal_order_interrupt_in_user_mode },
+
+    { "Name adder overflow generates System Error interrupt in executive mode", cpu_selftest_name_adder_overflow_generates_system_error_interrupt_in_executive_mode },
+    { "Name adder overflow generates System Error interrupt if L1IF is set", cpu_selftest_name_adder_overflow_generates_system_error_interrupt_if_L1IF_is_set },
+    { "Name adder overflow generates System Error interrupt if L0IF is set", cpu_selftest_name_adder_overflow_generates_system_error_interrupt_if_L0IF_is_set },
+    { "Name adder overflow generates Illegal Order interrupt in user mode", cpu_selftest_name_adder_overflow_generates_illegal_order_interrupt_in_user_mode },
 
     { "System Error interrupt is not inhibited even if L0IF or L1IF is set", cpu_selftest_system_error_interrupt_not_inhibited_even_if_L0IF_or_L1IF_is_set },
     { "CPR Not Equivalence (Level 0) interrupt inhibited if L0IF is set", cpu_selftest_cpr_not_equivalence_interrupt_inhibited_if_L0IF_is_set },
@@ -2001,6 +2012,13 @@ static void cpu_selftest_setup_interrupt_vector(int interruptNumber, uint16 ms, 
 static void cpu_selftest_setup_illegal_function_error(void)
 {
     cpu_selftest_load_order(CR_FLOAT, F_STORE, K_LITERAL, 0x1F);
+}
+
+static void cpu_selftest_setup_name_adder_overflow_error(void)
+{
+    cpu_selftest_load_organisational_order_extended(F_SF_PLUS, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x00000002);
+    cpu_selftest_set_register(REG_SF, 0xFFFE);
 }
 
 static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue)
@@ -8511,6 +8529,38 @@ static void cpu_selftest_illegal_function_generates_illegal_order_interrupt_in_u
     cpu_selftest_set_user_mode();
     cpu_selftest_run_code();
     cpu_selftest_assert_illegal_function_as_illegal_order();
+}
+
+static void cpu_selftest_name_adder_overflow_generates_system_error_interrupt_in_executive_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_setup_name_adder_overflow_error();
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_name_adder_overflow_interrupt_as_system_error();
+}
+
+static void cpu_selftest_name_adder_overflow_generates_system_error_interrupt_if_L1IF_is_set(TESTCONTEXT *testContext)
+{
+    cpu_selftest_setup_name_adder_overflow_error();
+    cpu_selftest_set_register(REG_MS, MS_MASK_BCPR | MS_MASK_LEVEL1);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_name_adder_overflow_interrupt_as_system_error();
+}
+
+static void cpu_selftest_name_adder_overflow_generates_system_error_interrupt_if_L0IF_is_set(TESTCONTEXT *testContext)
+{
+    cpu_selftest_setup_name_adder_overflow_error();
+    cpu_selftest_set_register(REG_MS, MS_MASK_BCPR | MS_MASK_LEVEL0);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_name_adder_overflow_interrupt_as_system_error();
+}
+
+static void cpu_selftest_name_adder_overflow_generates_illegal_order_interrupt_in_user_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_setup_name_adder_overflow_error();
+    cpu_selftest_set_user_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_name_adder_overflow_interrupt_as_illegal_order();
 }
 
 static void cpu_selftest_system_error_interrupt_not_inhibited_even_if_L0IF_or_L1IF_is_set(TESTCONTEXT *testContext)
