@@ -1448,11 +1448,11 @@ static void cpu_set_program_fault_interrupt_status_and_generate_interrupt(uint16
 {
     int was_zero = PROPProgramFaultStatus == 0; // TODO: was_zero not used
     PROPProgramFaultStatus |= reason;
-    if ((PROPProgramFaultStatus & 0x03E0) != 0 && !cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1)) // TODO: levels checked in set_interrupt now
+    if ((PROPProgramFaultStatus & 0x03E0) != 0)
     {
         cpu_set_interrupt(INT_PROGRAM_FAULTS);
     }
-    if ((PROPProgramFaultStatus & 0xFC00) != 0 && !cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1)) // TODO: levels checked in set_interrupt now
+    if ((PROPProgramFaultStatus & 0xFC00) != 0)
     {
         cpu_set_interrupt(INT_ILLEGAL_ORDERS);
     }
