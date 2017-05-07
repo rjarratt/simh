@@ -44,6 +44,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define SYSTEM_ERROR_STATUS_MASK_NAME_ADDER_OVF_ERROR    0x0010
 #define SYSTEM_ERROR_STATUS_MASK_CONTROL_ADDER_OVF_ERROR 0x0008
 #define SYSTEM_ERROR_STATUS_MASK_CPR_EXEC_ILLEGAL        0x0004
+#define SYSTEM_ERROR_STATUS_MASK_CPR_NEQV                0x0002
 
 #define SYSTEM_ERROR_STATUS_BIT_B_OR_D_ERROR            (63 - 56)
 #define SYSTEM_ERROR_STATUS_BIT_ACC_ERROR               (63 - 57)
@@ -51,6 +52,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define SYSTEM_ERROR_STATUS_BIT_NAME_ADDER_OVF_ERROR    (63 - 59)
 #define SYSTEM_ERROR_STATUS_BIT_CONTROL_ADDER_OVF_ERROR (63 - 60)
 #define SYSTEM_ERROR_STATUS_BIT_CPR_EXEC_ILLEGAL        (63 - 61)
+#define SYSTEM_ERROR_STATUS_BIT_CPR_NEQV                (63 - 62)
 
 /* Program Fault Status register masks */
 #define PROGRAM_FAULT_STATUS_MASK_ILLEGAL_FUNCTION_ERROR       0x8000

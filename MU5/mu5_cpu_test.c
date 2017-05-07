@@ -378,6 +378,7 @@ static void cpu_selftest_assert_illegal_v_store_access_interrupt();
 static void cpu_selftest_assert_illegal_function_as_system_error(void);
 static void cpu_selftest_assert_illegal_function_as_illegal_order(void);
 static void cpu_selftest_assert_instruction_counter_interrupt(void);
+static void cpu_selftest_assert_cpr_not_equivalence_system_error_interrupt(void);
 static void cpu_selftest_assert_test_equals(void);
 static void cpu_selftest_assert_test_greater_than(void);
 static void cpu_selftest_assert_test_less_than(void);
@@ -959,6 +960,11 @@ static void cpu_selftest_control_adder_overflow_generates_system_error_interrupt
 static void cpu_selftest_control_adder_overflow_generates_system_error_interrupt_if_L1IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_control_adder_overflow_generates_system_error_interrupt_if_L0IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_control_adder_overflow_generates_illegal_order_interrupt_in_user_mode(TESTCONTEXT *testContext);
+
+static void cpu_selftest_cpr_not_equivalence_interrupt_in_executive_mode_if_L0IF_is_clear(TESTCONTEXT *testContext);
+static void cpu_selftest_cpr_not_equivalence_generates_system_error_interrupt_in_executive_mode_if_L0IF_is_set(TESTCONTEXT *testContext);
+static void cpu_selftest_cpr_not_equivalence_in_user_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_cpr_not_equivalence_generates_system_error_interrupt_in_user_mode_if_L0IF_is_set(TESTCONTEXT *testContext);
 
 static void cpu_selftest_system_error_interrupt_not_inhibited_even_if_L0IF_or_L1IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_cpr_not_equivalence_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
@@ -1655,6 +1661,11 @@ static UNITTEST tests[] =
     { "Control adder overflow generates System Error interrupt if L1IF is set", cpu_selftest_control_adder_overflow_generates_system_error_interrupt_if_L1IF_is_set },
     { "Control adder overflow generates System Error interrupt if L0IF is set", cpu_selftest_control_adder_overflow_generates_system_error_interrupt_if_L0IF_is_set },
     { "Control adder overflow generates Illegal Order interrupt in user mode", cpu_selftest_control_adder_overflow_generates_illegal_order_interrupt_in_user_mode },
+
+    { "CPR Not Equivalence generates CPR Not Equivalence interrupt in executive mode if L0IF is clear", cpu_selftest_cpr_not_equivalence_interrupt_in_executive_mode_if_L0IF_is_clear },
+    { "CPR Not Equivalence generates System Error interrupt if L0IF is set", cpu_selftest_cpr_not_equivalence_generates_system_error_interrupt_in_executive_mode_if_L0IF_is_set },
+    { "CPR Not Equivalence generates CPR Not Equivalence interrupt in user mode", cpu_selftest_cpr_not_equivalence_in_user_mode },
+    { "CPR Not Equivalence generates System Error interrupt in user mode if L0IF is set (unlikely scenario)", cpu_selftest_cpr_not_equivalence_generates_system_error_interrupt_in_user_mode_if_L0IF_is_set },
 
     { "System Error interrupt is not inhibited even if L0IF or L1IF is set", cpu_selftest_system_error_interrupt_not_inhibited_even_if_L0IF_or_L1IF_is_set },
     { "CPR Not Equivalence (Level 0) interrupt inhibited if L0IF is set", cpu_selftest_cpr_not_equivalence_interrupt_inhibited_if_L0IF_is_set },
@@ -2503,6 +2514,17 @@ static void cpu_selftest_assert_instruction_counter_interrupt(void)
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected instruction counter zero interrupt to have occurred\n");
         cpu_selftest_set_failure();
     }
+}
+
+static void cpu_selftest_assert_cpr_not_equivalence_system_error_interrupt(void)
+{
+    if (cpu_get_interrupt_number() != INT_SYSTEM_ERROR) // TODO: refactor these blocks
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected system error interrupt to have occurred\n");
+        cpu_selftest_set_failure();
+    }
+
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, SYSTEM_ERROR_STATUS_MASK_CPR_NEQV);
 }
 
 static void cpu_selftest_assert_test_equals(void)
@@ -8611,6 +8633,36 @@ static void cpu_selftest_control_adder_overflow_generates_illegal_order_interrup
     cpu_selftest_set_user_mode();
     cpu_selftest_run_code_from_location(0xFFFF);
     cpu_selftest_assert_control_adder_overflow_interrupt_as_illegal_order();
+}
+
+static void cpu_selftest_cpr_not_equivalence_interrupt_in_executive_mode_if_L0IF_is_clear(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_executive_mode();
+    cpu_set_cpr_non_equivalence_interrupt();
+    mu5_selftest_assert_interrupt_number(testContext, INT_CPR_NOT_EQUIVALENCE);
+}
+
+static void cpu_selftest_cpr_not_equivalence_generates_system_error_interrupt_in_executive_mode_if_L0IF_is_set(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_register(REG_MS, MS_MASK_LEVEL0);
+    cpu_selftest_set_executive_mode();
+    cpu_set_cpr_non_equivalence_interrupt();
+    cpu_selftest_assert_cpr_not_equivalence_system_error_interrupt();
+}
+
+static void cpu_selftest_cpr_not_equivalence_in_user_mode(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_user_mode();
+    cpu_set_cpr_non_equivalence_interrupt();
+    mu5_selftest_assert_interrupt_number(testContext, INT_CPR_NOT_EQUIVALENCE);
+}
+
+static void cpu_selftest_cpr_not_equivalence_generates_system_error_interrupt_in_user_mode_if_L0IF_is_set(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_register(REG_MS, MS_MASK_LEVEL0);
+    cpu_selftest_set_user_mode();
+    cpu_set_cpr_non_equivalence_interrupt();
+    cpu_selftest_assert_cpr_not_equivalence_system_error_interrupt();
 }
 
 static void cpu_selftest_system_error_interrupt_not_inhibited_even_if_L0IF_or_L1IF_is_set(TESTCONTEXT *testContext)

@@ -1541,7 +1541,14 @@ void cpu_set_access_violation_interrupt()
 
 void cpu_set_cpr_non_equivalence_interrupt(void)
 {
-    cpu_set_interrupt(INT_CPR_NOT_EQUIVALENCE);
+    if (!cpu_ms_is_all(MS_MASK_LEVEL0))
+    {
+        cpu_set_interrupt(INT_CPR_NOT_EQUIVALENCE);
+    }
+    else
+    {
+        cpu_set_system_error_status_and_generate_interrupt(SYSTEM_ERROR_STATUS_MASK_CPR_NEQV);
+    }
 }
 
 uint8 cpu_get_interrupt_number(void)
