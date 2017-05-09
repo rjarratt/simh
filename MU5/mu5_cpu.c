@@ -1527,6 +1527,11 @@ static void cpu_set_illegal_function_interrupt(void)
     }
 }
 
+void cpu_spm_interrupt(void)
+{
+    cpu_set_program_fault_interrupt_status_and_generate_interrupt(PROGRAM_FAULT_STATUS_MASK_SYSTEM_PERFORMANCE_MONITOR);
+}
+
 void cpu_set_access_violation_interrupt()
 {
     if (cpu_ms_is_all(MS_MASK_EXEC))

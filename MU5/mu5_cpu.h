@@ -60,6 +60,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define PROGRAM_FAULT_STATUS_MASK_CONTROL_ADDER_OVF_ERROR      0x2000
 #define PROGRAM_FAULT_STATUS_MASK_ILLEGAL_V_STORE_ACCESS_ERROR 0x1000
 #define PROGRAM_FAULT_STATUS_MASK_CPR_ILLEGAL_ACCESS_ERROR     0x0800
+#define PROGRAM_FAULT_STATUS_MASK_SYSTEM_PERFORMANCE_MONITOR   0x0200
 #define PROGRAM_FAULT_STATUS_MASK_B_ERROR                      0x0080
 #define PROGRAM_FAULT_STATUS_MASK_D_ERROR                      0x0040
 #define PROGRAM_FAULT_STATUS_MASK_ACC_ERROR                    0x0020
@@ -69,6 +70,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define PROGRAM_FAULT_STATUS_BIT_CONTROL_ADDER_OVF_ERROR      (63 - 50)
 #define PROGRAM_FAULT_STATUS_BIT_ILLEGAL_V_STORE_ACCESS_ERROR (63 - 51)
 #define PROGRAM_FAULT_STATUS_BIT_CPR_ILLEGAL_ACCESS_ERROR     (63 - 52)
+#define PROGRAM_FAULT_STATUS_BIT_SYSTEM_PERFORMANCE_MONITOR   (63 - 54)
 #define PROGRAM_FAULT_STATUS_BIT_B_ERROR                      (63 - 56)
 #define PROGRAM_FAULT_STATUS_BIT_D_ERROR                      (63 - 57)
 #define PROGRAM_FAULT_STATUS_BIT_ACC_ERROR                    (63 - 58)
@@ -78,6 +80,7 @@ void cpu_execute_next_order(void);
 void cpu_set_register(REG *reg, t_uint64 value); /* for selftest purposes only, so register setting includes calling the callbacks if appropriate, to make interrupt testing easier */
 void cpu_set_interrupt(uint8 number);
 uint8 cpu_get_interrupt_number(void);
+void cpu_spm_interrupt(void);
 void cpu_set_access_violation_interrupt(void);
 void cpu_set_cpr_non_equivalence_interrupt(void);
 uint16 cpu_get_ms(void);

@@ -367,6 +367,7 @@ static void cpu_selftest_assert_name_adder_overflow_interrupt_as_system_error(vo
 static void cpu_selftest_assert_name_adder_overflow_interrupt_as_illegal_order(void);
 static void cpu_selftest_assert_control_adder_overflow_interrupt_as_system_error(void);
 static void cpu_selftest_assert_control_adder_overflow_interrupt_as_illegal_order(void);
+static void cpu_selftest_assert_spm_program_fault_interrupt(void);
 static void cpu_selftest_assert_acc_interrupt_as_system_error(void);
 static void cpu_selftest_assert_acc_interrupt_as_program_fault(void);
 static void cpu_selftest_assert_B_or_D_system_error(void);
@@ -965,6 +966,8 @@ static void cpu_selftest_cpr_not_equivalence_interrupt_in_executive_mode_if_L0IF
 static void cpu_selftest_cpr_not_equivalence_generates_system_error_interrupt_in_executive_mode_if_L0IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_cpr_not_equivalence_in_user_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_cpr_not_equivalence_generates_system_error_interrupt_in_user_mode_if_L0IF_is_set(TESTCONTEXT *testContext);
+
+static void cpu_selftest_spm_bit_in_program_fault_interrupt_status_causes_program_fault_interrupt(TESTCONTEXT *testContext);
 
 static void cpu_selftest_system_error_interrupt_not_inhibited_even_if_L0IF_or_L1IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_cpr_not_equivalence_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
@@ -1666,6 +1669,8 @@ static UNITTEST tests[] =
     { "CPR Not Equivalence generates System Error interrupt if L0IF is set", cpu_selftest_cpr_not_equivalence_generates_system_error_interrupt_in_executive_mode_if_L0IF_is_set },
     { "CPR Not Equivalence generates CPR Not Equivalence interrupt in user mode", cpu_selftest_cpr_not_equivalence_in_user_mode },
     { "CPR Not Equivalence generates System Error interrupt in user mode if L0IF is set (unlikely scenario)", cpu_selftest_cpr_not_equivalence_generates_system_error_interrupt_in_user_mode_if_L0IF_is_set },
+
+    { "SPM bit in Program Fault Interrupt Status V-Line Causes a Program Fault Interrupt", cpu_selftest_spm_bit_in_program_fault_interrupt_status_causes_program_fault_interrupt },
 
     { "System Error interrupt is not inhibited even if L0IF or L1IF is set", cpu_selftest_system_error_interrupt_not_inhibited_even_if_L0IF_or_L1IF_is_set },
     { "CPR Not Equivalence (Level 0) interrupt inhibited if L0IF is set", cpu_selftest_cpr_not_equivalence_interrupt_inhibited_if_L0IF_is_set },
@@ -2408,6 +2413,17 @@ static void cpu_selftest_assert_control_adder_overflow_interrupt_as_illegal_orde
     }
 
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x2000);
+}
+
+static void cpu_selftest_assert_spm_program_fault_interrupt(void)
+{
+    if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
+    {
+        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected SPM interrupt to have occurred as Program Fault\n");
+        cpu_selftest_set_failure();
+    }
+
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x0200);
 }
 
 static void cpu_selftest_assert_acc_interrupt_as_system_error(void)
@@ -8663,6 +8679,12 @@ static void cpu_selftest_cpr_not_equivalence_generates_system_error_interrupt_in
     cpu_selftest_set_user_mode();
     cpu_set_cpr_non_equivalence_interrupt();
     cpu_selftest_assert_cpr_not_equivalence_system_error_interrupt();
+}
+
+static void cpu_selftest_spm_bit_in_program_fault_interrupt_status_causes_program_fault_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_spm_interrupt();
+    cpu_selftest_assert_spm_program_fault_interrupt();
 }
 
 static void cpu_selftest_system_error_interrupt_not_inhibited_even_if_L0IF_or_L1IF_is_set(TESTCONTEXT *testContext)
