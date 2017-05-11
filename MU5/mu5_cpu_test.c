@@ -1680,16 +1680,13 @@ static UNITTEST tests[] =
 	{ "Level 1 interrupt inhibited if L0IF is set", cpu_selftest_level_1_interrupt_inhibited_if_L0IF_is_set },
 	{ "Level 1 interrupt inhibited if L1IF is set", cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set },
 
-        // TODO: check all other system error status interrupts now.
-        // TODO: check all other program fault status interrupts now.
-
 		// TODO: Combinations of AOD and BOD keep interrupt "alive"
 
     { "CPR Not Equivalence interrupt on order fetch stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_on_order_fetch_stores_link_that_re_executes_failed_order },
     { "CPR Not Equivalence interrupt on primary operand stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_on_primary_operand_stores_link_that_re_executes_failed_order },
     { "CPR Not Equivalence interrupt on secondary operand stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_on_secondary_operand_stores_link_that_re_executes_failed_order },
 
-    /* review all the next block of interrupt tests */
+    /* TODO: review all the next block of interrupt tests */
     { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
     { "No Acc zero divide interrupt if Acc zero divide is inhibited", cpu_selftest_no_acc_zero_divide_interrupt_if_acc_zero_divide_is_inhibited },
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
