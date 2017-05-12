@@ -1680,13 +1680,11 @@ static UNITTEST tests[] =
 	{ "Level 1 interrupt inhibited if L0IF is set", cpu_selftest_level_1_interrupt_inhibited_if_L0IF_is_set },
 	{ "Level 1 interrupt inhibited if L1IF is set", cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set },
 
-		// TODO: Combinations of AOD and BOD keep interrupt "alive"
-
     { "CPR Not Equivalence interrupt on order fetch stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_on_order_fetch_stores_link_that_re_executes_failed_order },
     { "CPR Not Equivalence interrupt on primary operand stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_on_primary_operand_stores_link_that_re_executes_failed_order },
     { "CPR Not Equivalence interrupt on secondary operand stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_on_secondary_operand_stores_link_that_re_executes_failed_order },
 
-    /* TODO: review all the next block of interrupt tests */
+    /* The next block of tests overlaps with previous tests but they run by actually executing orders and setting inhibit flags beforehand */
     { "No B overflow interrupt if B overflow is inhibited", cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited },
     { "No Acc zero divide interrupt if Acc zero divide is inhibited", cpu_selftest_no_acc_zero_divide_interrupt_if_acc_zero_divide_is_inhibited },
     { "No bounds check interrupt if bounds check is inhibited", cpu_selftest_no_bounds_check_interrupt_if_bounds_check_is_inhibited },
@@ -8253,7 +8251,7 @@ static void cpu_selftest_setting_bod_b_overflow_in_executive_mode_generates_b_or
 static void cpu_selftest_setting_bod_b_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
 {
     cpu_selftest_set_executive_mode();
-    cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK & BOD_IBOVF_MASK);
+    cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK | BOD_IBOVF_MASK);
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -8267,7 +8265,7 @@ static void cpu_selftest_setting_bod_b_overflow_in_user_mode_generates_b_program
 static void cpu_selftest_setting_bod_b_overflow_in_user_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
 {
     cpu_selftest_set_user_mode();
-    cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK & BOD_IBOVF_MASK);
+    cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK | BOD_IBOVF_MASK);
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -8358,7 +8356,7 @@ static void cpu_selftest_setting_aod_floating_point_overflow_in_executive_mode_g
 static void cpu_selftest_setting_aod_floating_point_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
 {
 	cpu_selftest_set_executive_mode();
-	cpu_selftest_set_register(REG_AOD, AOD_FLPOVF_MASK & AOD_IFLPOVF_MASK);
+	cpu_selftest_set_register(REG_AOD, AOD_FLPOVF_MASK | AOD_IFLPOVF_MASK);
 	cpu_selftest_assert_no_interrupt();
 }
 
@@ -8372,7 +8370,7 @@ static void cpu_selftest_setting_aod_floating_point_underflow_in_executive_mode_
 static void cpu_selftest_setting_aod_floating_point_underflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
 {
 	cpu_selftest_set_executive_mode();
-	cpu_selftest_set_register(REG_AOD, AOD_FLPUDF_MASK & AOD_IFLPUDF_MASK);
+	cpu_selftest_set_register(REG_AOD, AOD_FLPUDF_MASK | AOD_IFLPUDF_MASK);
 	cpu_selftest_assert_no_interrupt();
 }
 
@@ -8386,7 +8384,7 @@ static void cpu_selftest_setting_aod_fixed_point_overflow_in_executive_generates
 static void cpu_selftest_setting_aod_fixed_point_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
 {
     cpu_selftest_set_executive_mode();
-    cpu_selftest_set_register(REG_AOD, AOD_FXPOVF_MASK & AOD_IFXPOVF_MASK);
+    cpu_selftest_set_register(REG_AOD, AOD_FXPOVF_MASK | AOD_IFXPOVF_MASK);
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -8400,7 +8398,7 @@ static void cpu_selftest_setting_aod_decimal_overflow_in_executive_mode_generate
 static void cpu_selftest_setting_aod_decimal_overflow_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
 {
 	cpu_selftest_set_executive_mode();
-	cpu_selftest_set_register(REG_AOD, AOD_DECOVF_MASK & AOD_IDECOVF_MASK);
+	cpu_selftest_set_register(REG_AOD, AOD_DECOVF_MASK | AOD_IDECOVF_MASK);
 	cpu_selftest_assert_no_interrupt();
 }
 
@@ -8414,7 +8412,7 @@ static void cpu_selftest_setting_aod_zero_divide_in_executive_mode_generates_acc
 static void cpu_selftest_setting_aod_zero_divide_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext)
 {
 	cpu_selftest_set_executive_mode();
-	cpu_selftest_set_register(REG_AOD, AOD_ZDIV_MASK & AOD_IZDIV_MASK);
+	cpu_selftest_set_register(REG_AOD, AOD_ZDIV_MASK | AOD_IZDIV_MASK);
 	cpu_selftest_assert_no_interrupt();
 }
 
