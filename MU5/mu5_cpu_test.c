@@ -336,7 +336,6 @@ static void cpu_selftest_assert_inhibited_program_fault_interrupt(uint16 expecte
 static void cpu_selftest_assert_no_system_error(void);
 static void cpu_selftest_assert_no_program_fault(void);
 
-// TODO: After interrupt design change check which of the following are really needed.
 static void cpu_selftest_assert_no_b_overflow(void);
 static void cpu_selftest_assert_no_b_overflow_interrupt(void);
 static void cpu_selftest_assert_b_overflow(void);
@@ -766,6 +765,7 @@ static void cpu_selftest_x_comp_sets_less_than_when_X_less_than_operand(TESTCONT
 static void cpu_selftest_x_comp_sets_equals_when_X_equals_operand(TESTCONTEXT *testContext);
 static void cpu_selftest_x_comp_sets_greater_than_when_X_greater_than_operand(TESTCONTEXT *testContext);
 static void cpu_selftest_x_comp_sets_overflow(TESTCONTEXT *testContext);
+static void cpu_selftest_x_comp_overflow_does_not_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_x_rdiv_divides_operand_by_X(TESTCONTEXT *testContext);
 static void cpu_selftest_x_rdiv_flags_divide_by_zero(TESTCONTEXT *testContext);
 
@@ -1474,6 +1474,7 @@ static UNITTEST tests[] =
     { "X COMP sets = when X equals operand", cpu_selftest_x_comp_sets_equals_when_X_equals_operand },
     { "X COMP sets > when X is greater than operand", cpu_selftest_x_comp_sets_greater_than_when_X_greater_than_operand },
     { "X COMP sets overflow", cpu_selftest_x_comp_sets_overflow },
+    { "X COMP overflow does not interrupt", cpu_selftest_x_comp_overflow_does_not_interrupt },
     { "X Reverse DIV divides the operand by X", cpu_selftest_x_rdiv_divides_operand_by_X },
     { "X Reverse DIV flags divide by zero", cpu_selftest_x_rdiv_flags_divide_by_zero },
 
@@ -2211,7 +2212,7 @@ static void cpu_selftest_assert_b_overflow_interrupt_as_system_error(void)
 static void cpu_selftest_assert_no_acc_overflow(void)
 {
     t_uint64 aod = cpu_selftest_get_register(REG_AOD);
-    if (aod &AOD_FLPOVF_MASK)
+    if (aod & AOD_FLPOVF_MASK)
     {
         sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected A overflow\n");
         cpu_selftest_set_failure();
@@ -7025,7 +7026,17 @@ static void cpu_selftest_x_comp_sets_overflow(TESTCONTEXT *testContext)
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_X, 0x80000000);
     cpu_selftest_assert_test_overflow();
-    cpu_selftest_assert_acc_fixed_point_overflow();
+}
+
+static void cpu_selftest_x_comp_overflow_does_not_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_XS, F_COMP_X, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
+    cpu_selftest_load_32_bit_literal(0x00000001);
+    cpu_selftest_set_register(REG_X, 0x80000000);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_X, 0x80000000);
+    cpu_selftest_assert_no_acc_overflow();
+    cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_a_load_loads_AOD(TESTCONTEXT *testContext)

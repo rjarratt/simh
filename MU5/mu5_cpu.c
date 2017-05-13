@@ -512,6 +512,7 @@ static void cpu_execute_b_compare_and_increment(uint16 order, DISPATCH_ENTRY *in
 
 /* fixed point signed order functions */
 static void cpu_set_divide_by_zero(void);
+static int cpu_is_x_overflow(t_uint64 result);
 static void cpu_check_x_overflow(t_uint64 result);
 static void cpu_execute_fp_signed_load_single(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_fp_signed_stack_and_load(uint16 order, DISPATCH_ENTRY *innerTable);
@@ -4034,11 +4035,18 @@ static void cpu_set_divide_by_zero(void)
     cpu_set_register_bit_64(reg_aod, mask_aod_zdiv, 1);
 }
 
-static void cpu_check_x_overflow(t_uint64 result)
+static int cpu_is_x_overflow(t_uint64 result)
 {
+    int is_overflow;
     uint32 ms = result >> 32;
     uint8 sign = result >> 31 & 1;
-    if (!(sign == 0 && ms == 0) && !(sign == 1 && ms == ~0))
+    is_overflow = !(sign == 0 && ms == 0) && !(sign == 1 && ms == ~0);
+    return is_overflow;
+}
+
+static void cpu_check_x_overflow(t_uint64 result)
+{
+    if (cpu_is_x_overflow(result))
     {
         cpu_set_register_bit_64(reg_aod, mask_aod_fxpovf, 1);
     }
@@ -4168,9 +4176,7 @@ static void cpu_execute_fp_signed_compare(uint16 order, DISPATCH_ENTRY *innerTab
     t_int64 comparand = cpu_sign_extend_32_bit(cpu_get_operand(order) & MASK_32);
     t_int64 result = x - comparand;
     cpu_test_value(result);
-    cpu_check_x_overflow(result);
-    cpu_clear_interrupt(INT_PROGRAM_FAULTS); /* TODO: supposed to ignore A overflow interrupts, just copy the overflow bit, is there a better way to do this now? */
-    t0 = cpu_get_register_bit_64(reg_aod, mask_aod_fxpovf) || cpu_get_register_bit_64(reg_aod, mask_aod_zdiv);
+    t0 = cpu_is_x_overflow(result); // TODO: check how zdiv affected this? previously had: check_x_overflow and then set cpu_get_register_bit_64(reg_aod, mask_aod_fxpovf) || cpu_get_register_bit_64(reg_aod, mask_aod_zdiv);
     cpu_set_register_bit_16(reg_ms, mask_ms_t0, t0);
 }
 
