@@ -4168,6 +4168,16 @@ static void cpu_execute_fp_signed_reverse_sub(uint16 order, DISPATCH_ENTRY *inne
     cpu_check_x_overflow(result);
 }
 
+/* It is not entirely clear how this order is intended to work. The manual talks about ORing the AOD overflow and zero divide bits. However it is believed that this order should not
+   generate an interrupt, so actually setting the AOD bits would seem to be wrong and it is more likely that the AOD inputs were ORed but storing them in the AOD register was probably
+   inhibited in this case. The purpose of including the zero divide in the OR operation is unclear too because this order can't cause a zero divide. When I asked RNI I got the following
+   answer:
+
+       "Good question but I can only guess at the answer. These bits are OR'ed together in hardware to form a signal to PROP, so this is a permanent feature, not specific to any one order,
+       and it's only under X COMP that it gets mentioned. I've no way of contacting anyone who was involved in the design of the A-unit, especially as most of them died years ago."
+
+   For now I just check the overflow result, but don't set it in AOD, and I ignore the zero divide bit in AOD.
+*/
 static void cpu_execute_fp_signed_compare(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     int t0;
@@ -4176,7 +4186,7 @@ static void cpu_execute_fp_signed_compare(uint16 order, DISPATCH_ENTRY *innerTab
     t_int64 comparand = cpu_sign_extend_32_bit(cpu_get_operand(order) & MASK_32);
     t_int64 result = x - comparand;
     cpu_test_value(result);
-    t0 = cpu_is_x_overflow(result); // TODO: check how zdiv affected this? previously had: check_x_overflow and then set cpu_get_register_bit_64(reg_aod, mask_aod_fxpovf) || cpu_get_register_bit_64(reg_aod, mask_aod_zdiv);
+    t0 = cpu_is_x_overflow(result);
     cpu_set_register_bit_16(reg_ms, mask_ms_t0, t0);
 }
 
