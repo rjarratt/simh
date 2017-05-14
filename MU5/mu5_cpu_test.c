@@ -3934,7 +3934,7 @@ static void cpu_selftest_store_operand_internal_register_0_generates_interrupt(T
     cpu_selftest_assert_reg_equals(REG_MS, initMs);
     cpu_selftest_assert_reg_equals(REG_NB, 0);
     cpu_selftest_assert_reg_equals(REG_CO, 1);
-    cpu_selftest_assert_interrupt(INT_SYSTEM_ERROR);
+    cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_store_operand_internal_register_0_generates_interrupt_as_illegal_order_in_user_mode(TESTCONTEXT *testContext)
