@@ -1447,7 +1447,6 @@ static void cpu_set_system_error_status_and_generate_interrupt(uint16 reason)
 
 static void cpu_set_program_fault_interrupt_status_and_generate_interrupt(uint16 reason)
 {
-    int was_zero = PROPProgramFaultStatus == 0; // TODO: was_zero not used
     PROPProgramFaultStatus |= reason;
     if ((PROPProgramFaultStatus & 0x03E0) != 0)
     {
