@@ -377,7 +377,6 @@ static void cpu_selftest_assert_D_interrupt_as_program_fault(void);
 static void cpu_selftest_assert_illegal_v_store_access_interrupt();
 static void cpu_selftest_assert_illegal_function_as_system_error(void);
 static void cpu_selftest_assert_illegal_function_as_illegal_order(void);
-static void cpu_selftest_assert_instruction_counter_interrupt(void);
 static void cpu_selftest_assert_cpr_not_equivalence_system_error_interrupt(void);
 static void cpu_selftest_assert_test_equals(void);
 static void cpu_selftest_assert_test_greater_than(void);
@@ -2275,7 +2274,54 @@ static void cpu_selftest_assert_interrupt(int interruptNumber)
 {
     if (cpu_get_interrupt_number() != interruptNumber)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected interrupt %d to have occurred\n", interruptNumber);
+        switch (interruptNumber)
+        {
+            case INT_SYSTEM_ERROR:
+            {
+                sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected System Error interrupt to have occurred\n");
+                break;
+            }
+            case INT_CPR_NOT_EQUIVALENCE:
+            {
+                sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected CPR Not Equivalence interrupt to have occurred\n");
+                break;
+            }
+            case INT_EXCHANGE:
+            {
+                sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected Exchange interrupt to have occurred\n");
+                break;
+            }
+            case INT_PERIPHERAL_WINDOW:
+            {
+                sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected Peripheral Window interrupt to have occurred\n");
+                break;
+            }
+            case INT_INSTRUCTION_COUNT_ZERO:
+            {
+                sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected Instruction Count Zero interrupt to have occurred\n");
+                break;
+            }
+            case INT_ILLEGAL_ORDERS:
+            {
+                sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected Illegal Orders interrupt to have occurred\n");
+                break;
+            }
+            case INT_PROGRAM_FAULTS:
+            {
+                sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected Program Faults interrupt to have occurred\n");
+                break;
+            }
+            case INT_SOFTWARE_INTERRUPT:
+            {
+                sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected Software interrupt to have occurred\n");
+                break;
+            }
+            default:
+            {
+                sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Error in test, expecting invalid interrupt number %d\n", interruptNumber);
+                break;
+            }
+        }
         cpu_selftest_set_failure();
     }
 }
@@ -2369,78 +2415,43 @@ static void cpu_selftest_assert_no_sss_interrupt(void)
 
 static void cpu_selftest_assert_name_adder_overflow_interrupt_as_system_error(void)
 {
-    if (cpu_get_interrupt_number() != INT_SYSTEM_ERROR)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected name adder overflow interrupt to have occurred as System Error\n");
-        cpu_selftest_set_failure();
-    }
-
+    cpu_selftest_assert_interrupt(INT_SYSTEM_ERROR);
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0010);
 }
 
 static void cpu_selftest_assert_name_adder_overflow_interrupt_as_illegal_order(void)
 {
-    if (cpu_get_interrupt_number() != INT_ILLEGAL_ORDERS)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected name adder overflow interrupt to have occurred as Illegal Order\n");
-        cpu_selftest_set_failure();
-    }
-
+    cpu_selftest_assert_interrupt(INT_ILLEGAL_ORDERS);
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x4000);
 }
 
 static void cpu_selftest_assert_control_adder_overflow_interrupt_as_system_error(void)
 {
-    if (cpu_get_interrupt_number() != INT_SYSTEM_ERROR)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected control adder overflow interrupt to have occurred as System Error\n");
-        cpu_selftest_set_failure();
-    }
-
+    cpu_selftest_assert_interrupt(INT_SYSTEM_ERROR);
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0008);
 }
 
 static void cpu_selftest_assert_control_adder_overflow_interrupt_as_illegal_order(void)
 {
-    if (cpu_get_interrupt_number() != INT_ILLEGAL_ORDERS)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected control adder overflow interrupt to have occurred as Illegal Order\n");
-        cpu_selftest_set_failure();
-    }
-
+    cpu_selftest_assert_interrupt(INT_ILLEGAL_ORDERS);
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x2000);
 }
 
 static void cpu_selftest_assert_spm_program_fault_interrupt(void)
 {
-    if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected SPM interrupt to have occurred as Program Fault\n");
-        cpu_selftest_set_failure();
-    }
-
+    cpu_selftest_assert_interrupt(INT_PROGRAM_FAULTS);
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x0200);
 }
 
 static void cpu_selftest_assert_acc_interrupt_as_system_error(void)
 {
-    if (cpu_get_interrupt_number() != INT_SYSTEM_ERROR)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected Acc interrupt to have occurred as System Error\n");
-        cpu_selftest_set_failure();
-    }
-
+    cpu_selftest_assert_interrupt(INT_SYSTEM_ERROR);
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0040);
 }
 
 static void cpu_selftest_assert_acc_interrupt_as_program_fault(void)
 {
-    if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected Acc interrupt to have occurred as Program Fault\n");
-        cpu_selftest_set_failure();
-    }
-
+    cpu_selftest_assert_interrupt(INT_PROGRAM_FAULTS);
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x0020);
 }
 
@@ -2451,13 +2462,8 @@ static void cpu_selftest_assert_B_or_D_system_error(void)
 
 static void cpu_selftest_assert_B_or_D_interrupt_as_system_error(void)
 {
-    if (cpu_get_interrupt_number() != INT_SYSTEM_ERROR)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected B or D interrupt to have occurred as System Error\n");
-        cpu_selftest_set_failure();
-    }
-
-	cpu_selftest_assert_B_or_D_system_error();
+    cpu_selftest_assert_interrupt(INT_SYSTEM_ERROR);
+    cpu_selftest_assert_B_or_D_system_error();
 }
 
 static void cpu_selftest_assert_B_program_fault(void)
@@ -2467,75 +2473,36 @@ static void cpu_selftest_assert_B_program_fault(void)
 
 static void cpu_selftest_assert_B_interrupt_as_program_fault(void)
 {
-    if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected B interrupt to have occurred as Program Fault\n");
-        cpu_selftest_set_failure();
-    }
-
-	cpu_selftest_assert_B_program_fault();
+    cpu_selftest_assert_interrupt(INT_PROGRAM_FAULTS);
+    cpu_selftest_assert_B_program_fault();
 }
 
 static void cpu_selftest_assert_D_interrupt_as_program_fault(void)
 {
-    if (cpu_get_interrupt_number() != INT_PROGRAM_FAULTS)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected D interrupt to have occurred as Program Fault\n");
-        cpu_selftest_set_failure();
-    }
-
+    cpu_selftest_assert_interrupt(INT_PROGRAM_FAULTS);
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x0040);
 }
 
 static void cpu_selftest_assert_illegal_v_store_access_interrupt()
 {
-    if (cpu_get_interrupt_number() != INT_ILLEGAL_ORDERS)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected illegal V-store access interrupt to have occurred as Illegal Order\n");
-        cpu_selftest_set_failure();
-    }
-
+    cpu_selftest_assert_interrupt(INT_ILLEGAL_ORDERS);
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x1000);
 }
 
 static void cpu_selftest_assert_illegal_function_as_system_error(void)
 {
-    if (cpu_get_interrupt_number() != INT_SYSTEM_ERROR)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected illegal function interrupt to have occurred as System Error\n");
-        cpu_selftest_set_failure();
-    }
-
+    cpu_selftest_assert_interrupt(INT_SYSTEM_ERROR);
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0020);
 }
 static void cpu_selftest_assert_illegal_function_as_illegal_order(void)
 {
-    if (cpu_get_interrupt_number() != INT_ILLEGAL_ORDERS)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected illegal function interrupt to have occurred as Illegal Order\n");
-        cpu_selftest_set_failure();
-    }
-
+    cpu_selftest_assert_interrupt(INT_ILLEGAL_ORDERS);
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x8000);
-}
-
-static void cpu_selftest_assert_instruction_counter_interrupt(void)
-{
-    if (cpu_get_interrupt_number() != INT_INSTRUCTION_COUNT_ZERO)
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected instruction counter zero interrupt to have occurred\n");
-        cpu_selftest_set_failure();
-    }
 }
 
 static void cpu_selftest_assert_cpr_not_equivalence_system_error_interrupt(void)
 {
-    if (cpu_get_interrupt_number() != INT_SYSTEM_ERROR) // TODO: refactor these blocks
-    {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected system error interrupt to have occurred\n");
-        cpu_selftest_set_failure();
-    }
-
+    cpu_selftest_assert_interrupt(INT_SYSTEM_ERROR);
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, SYSTEM_ERROR_STATUS_MASK_CPR_NEQV);
 }
 
@@ -9036,7 +9003,7 @@ static void cpu_selftest_instruction_counter_zero_generates_interrupt(TESTCONTEX
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
     cpu_selftest_run_code();
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x00);
-    cpu_selftest_assert_instruction_counter_interrupt();
+    cpu_selftest_assert_interrupt(INT_INSTRUCTION_COUNT_ZERO);
 }
 
 static void cpu_selftest_instruction_counter_already_zero_does_not_generate_new_interrupt(TESTCONTEXT *testContext)
