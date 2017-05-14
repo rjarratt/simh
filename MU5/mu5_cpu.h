@@ -38,6 +38,7 @@ in this Software without prior written authorization from Robert Jarratt.
 
 /* System Error Status register masks */
 
+#define SYSTEM_ERROR_STATUS_MASK_CPR_MULTI_EQV           0x0400
 #define SYSTEM_ERROR_STATUS_MASK_B_OR_D_ERROR            0x0080
 #define SYSTEM_ERROR_STATUS_MASK_ACC_ERROR               0x0040
 #define SYSTEM_ERROR_STATUS_MASK_ILLEGAL_FUNCTION_ERROR  0x0020
@@ -46,6 +47,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define SYSTEM_ERROR_STATUS_MASK_CPR_EXEC_ILLEGAL        0x0004
 #define SYSTEM_ERROR_STATUS_MASK_CPR_NEQV                0x0002
 
+#define SYSTEM_ERROR_STATUS_BIT_CPR_MULTI_EQV           (63 - 53)
 #define SYSTEM_ERROR_STATUS_BIT_B_OR_D_ERROR            (63 - 56)
 #define SYSTEM_ERROR_STATUS_BIT_ACC_ERROR               (63 - 57)
 #define SYSTEM_ERROR_STATUS_BIT_ILLEGAL_FUNCTION_ERROR  (63 - 58)
@@ -83,6 +85,7 @@ uint8 cpu_get_interrupt_number(void);
 void cpu_spm_interrupt(void);
 void cpu_set_access_violation_interrupt(void);
 void cpu_set_cpr_non_equivalence_interrupt(void);
+void cpu_set_cpr_multiple_equivalence_interrupt(void);
 uint16 cpu_get_ms(void);
 int cpu_ms_is_all(uint16 bits);
 int cpu_ms_is_any(uint16 bits);

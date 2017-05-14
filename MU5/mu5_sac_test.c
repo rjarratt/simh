@@ -414,6 +414,7 @@ static void sac_selftest_cpr_multiple_equivalence_generates_system_error_interru
     sac_read_32_bit_word(1);
     mu5_selftest_assert_interrupt_number(testContext, INT_SYSTEM_ERROR);
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_SYSTEM_ERROR_INTERRUPTS, 0x40);
+    sac_selftest_assert_vstore_contents(PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x400); // TODO: Other tests to test for SES as well.
 }
 
 static void sac_selftest_write_to_obey_only_page_generates_access_violation(TESTCONTEXT *testContext)

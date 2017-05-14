@@ -1557,6 +1557,11 @@ void cpu_set_cpr_non_equivalence_interrupt(void)
     }
 }
 
+void cpu_set_cpr_multiple_equivalence_interrupt(void)
+{
+    cpu_set_system_error_status_and_generate_interrupt(SYSTEM_ERROR_STATUS_MASK_CPR_MULTI_EQV);
+}
+
 uint8 cpu_get_interrupt_number(void)
 {
     uint8 i;

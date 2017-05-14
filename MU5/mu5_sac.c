@@ -668,7 +668,7 @@ static t_addr sac_map_address(t_addr address, uint8 access)
         }
         else
         {
-            cpu_set_interrupt(INT_SYSTEM_ERROR); // TODO: set system error via or-tree work
+            cpu_set_cpr_multiple_equivalence_interrupt();
             SystemErrorInterrupt |= 0x40; // TODO: check this in light of interrupt or-tree work.
         }
 
