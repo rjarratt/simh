@@ -210,6 +210,13 @@ void sac_reset_state(void)
 	cpr[30] = 0x0200000078000005;
 	cpr[31] = 0x0200000078000005; /* Maps V-Store to segment 8192, exec mode only access */
 
+    /* Notes from AEK thesis: The 4 fixed CPRs appear to have the following purposes
+       1. Locked down code for the supervisor-supervisor.
+       2. Locked down data for the supervisor-supervisor.
+       3. Data block referencing the currently running process and its page tables.
+       4. Mass Store access (CPR31)
+    */
+
     for (i = 0; i < V_STORE_BLOCK_SIZE; i++)
     {
         sac_setup_v_store_location(SYSTEM_V_STORE_BLOCK, i & 0xFF, system_read_callback, system_write_callback);
