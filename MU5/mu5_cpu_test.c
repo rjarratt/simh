@@ -547,6 +547,7 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_zero
 static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_nb(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_xnb(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_32_bit_variable_from_stack(TESTCONTEXT *testContext);
+static void cpu_selftest_store_operand_extended_32_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_xnb_ref(TESTCONTEXT *testContext);
 
@@ -555,6 +556,7 @@ static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_zero
 static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_nb(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_xnb(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_64_bit_variable_from_stack(TESTCONTEXT *testContext);
+static void cpu_selftest_store_operand_extended_64_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_xnb_ref(TESTCONTEXT *testContext);
 
@@ -1256,6 +1258,7 @@ static UNITTEST tests[] =
     { "Store operand 32-bit variable extended offset from NB", cpu_selftest_store_operand_extended_32_bit_variable_offset_from_nb },
     { "Store operand 32-bit variable extended offset from XNB", cpu_selftest_store_operand_extended_32_bit_variable_offset_from_xnb },
     { "Store operand 32-bit variable extended from stack", cpu_selftest_store_operand_extended_32_bit_variable_from_stack },
+    { "Store operand 32-bit variable extended from D generates interrupt", cpu_selftest_store_operand_extended_32_bit_variable_from_d_generates_interrupt },
     { "Store operand 32-bit variable extended from (NB)", cpu_selftest_store_operand_extended_32_bit_variable_offset_from_nb_ref },
     { "Store operand 32-bit variable extended from (XNB)", cpu_selftest_store_operand_extended_32_bit_variable_offset_from_xnb_ref },
 
@@ -1264,6 +1267,7 @@ static UNITTEST tests[] =
     { "Store operand 64-bit variable extended offset from NB", cpu_selftest_store_operand_extended_64_bit_variable_offset_from_nb },
     { "Store operand 64-bit variable extended offset from XNB", cpu_selftest_store_operand_extended_64_bit_variable_offset_from_xnb },
     { "Store operand 64-bit variable extended from stack", cpu_selftest_store_operand_extended_64_bit_variable_from_stack },
+    { "Store operand 64-bit variable extended from D generates interrupt", cpu_selftest_store_operand_extended_64_bit_variable_from_d_generates_interrupt },
     { "Store operand 64-bit variable extended from (NB)", cpu_selftest_store_operand_extended_64_bit_variable_offset_from_nb_ref },
     { "Store operand 64-bit variable extended from (XNB)", cpu_selftest_store_operand_extended_64_bit_variable_offset_from_xnb_ref },
 
@@ -1721,8 +1725,6 @@ static UNITTEST tests[] =
     { "Instruction counter already zero does not generate new interrupt", cpu_selftest_instruction_counter_already_zero_does_not_generate_new_interrupt },
 
 };
-
-// TODO: test for illegal combinations, e.g. store to V32 or V64 (k=2/3) with DR (n'=5).
 
 static void cpu_selftest_reset(UNITTEST *test)
 {
@@ -4366,6 +4368,14 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_from_stack(TESTC
     cpu_selftest_assert_no_interrupt();
 }
 
+static void cpu_selftest_store_operand_extended_32_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext)
+{
+    uint32 base = 0x00F0;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V32, NP_DR);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_illegal_function_as_system_error();
+}
+
 static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext)
 {
     uint32 base = 0x00F0;
@@ -4454,6 +4464,14 @@ static void cpu_selftest_store_operand_extended_64_bit_variable_from_stack(TESTC
     cpu_selftest_assert_memory_contents_64_bit(base, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_assert_reg_equals(REG_SF, base - 2);
     cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_operand_extended_64_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext)
+{
+    uint32 base = 0x00F0;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V64, NP_DR);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext)
