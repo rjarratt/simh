@@ -460,6 +460,7 @@ static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_zero(
 static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_nb(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_xnb(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_32_bit_variable_from_stack(TESTCONTEXT *testContext);
+static void cpu_selftest_load_operand_extended_32_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_xnb_ref(TESTCONTEXT *testContext);
 
@@ -468,6 +469,7 @@ static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_zero(
 static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_nb(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_xnb(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_64_bit_variable_from_stack(TESTCONTEXT *testContext);
+static void cpu_selftest_load_operand_extended_64_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_xnb_ref(TESTCONTEXT *testContext);
 
@@ -1166,6 +1168,7 @@ static UNITTEST tests[] =
     { "Load operand 32-bit variable extended offset from NB", cpu_selftest_load_operand_extended_32_bit_variable_offset_from_nb },
     { "Load operand 32-bit variable extended offset from XNB", cpu_selftest_load_operand_extended_32_bit_variable_offset_from_xnb },
     { "Load operand 32-bit variable extended from stack", cpu_selftest_load_operand_extended_32_bit_variable_from_stack },
+    { "Load operand 32-bit variable extended from D generates interrupt", cpu_selftest_load_operand_extended_32_bit_variable_from_d_generates_interrupt },
     { "Load operand 32-bit variable extended from (NB)", cpu_selftest_load_operand_extended_32_bit_variable_offset_from_nb_ref },
     { "Load operand 32-bit variable extended from (XNB)", cpu_selftest_load_operand_extended_32_bit_variable_offset_from_xnb_ref },
 
@@ -1174,6 +1177,7 @@ static UNITTEST tests[] =
     { "Load operand 64-bit variable extended offset from NB", cpu_selftest_load_operand_extended_64_bit_variable_offset_from_nb },
     { "Load operand 64-bit variable extended offset from XNB", cpu_selftest_load_operand_extended_64_bit_variable_offset_from_xnb },
     { "Load operand 64-bit variable extended from stack", cpu_selftest_load_operand_extended_64_bit_variable_from_stack },
+    { "Load operand 64-bit variable extended from D generates interrupt", cpu_selftest_load_operand_extended_64_bit_variable_from_d_generates_interrupt },
     { "Load operand 64-bit variable extended from (NB)", cpu_selftest_load_operand_extended_64_bit_variable_offset_from_nb_ref },
     { "Load operand 64-bit variable extended from (XNB)", cpu_selftest_load_operand_extended_64_bit_variable_offset_from_xnb_ref },
 
@@ -1718,7 +1722,7 @@ static UNITTEST tests[] =
 
 };
 
-// TODO: test for illegal combinations, e.g. store to literal, V32 or V64 (k=2/3) with DR (n'=5).
+// TODO: test for illegal combinations, e.g. store to V32 or V64 (k=2/3) with DR (n'=5).
 
 static void cpu_selftest_reset(UNITTEST *test)
 {
@@ -3299,6 +3303,14 @@ static void cpu_selftest_load_operand_extended_32_bit_variable_from_stack(TESTCO
     cpu_selftest_assert_no_interrupt();
 }
 
+static void cpu_selftest_load_operand_extended_32_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext)
+{
+    uint32 base = 0x00F0;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_DR);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_illegal_function_as_system_error();
+}
+
 static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext)
 {
     uint32 base = 0x00F0;
@@ -3381,6 +3393,14 @@ static void cpu_selftest_load_operand_extended_64_bit_variable_from_stack(TESTCO
     cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_assert_reg_equals(REG_SF, base - 2);
     cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_load_operand_extended_64_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext)
+{
+    uint32 base = 0x00F0;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V64, NP_DR);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_illegal_function_as_system_error();
 }
 
 static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext)

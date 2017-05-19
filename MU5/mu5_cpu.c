@@ -1770,6 +1770,7 @@ static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 ins
         {
             result = 0;
             sim_debug(LOG_CPU_DECODE, &cpu_dev, "DR\n");
+            cpu_set_illegal_function_interrupt();
             break;
         }
         case 6:
@@ -2382,14 +2383,15 @@ static t_uint64 cpu_get_operand(uint16 order)
                 case 5:
                 {
                     t_uint64 d;
+                    uint16 np = cpu_get_extended_n(order);
                     sim_debug(LOG_CPU_DECODE, &cpu_dev, "S[B] ");
-                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64, &is64bit);
-                    if (addr == 0)
+                    if (np == 5)
                     {
                         d = cpu_get_register_64(reg_d);
                     }
                     else
                     {
+                        addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64, &is64bit);
                         d = sac_read_64_bit_word(addr);
                     }
                     result = cpu_get_operand_by_descriptor_vector(d, cpu_get_register_32(reg_b));
@@ -2398,14 +2400,15 @@ static t_uint64 cpu_get_operand(uint16 order)
                 case 6:
                 {
                     t_uint64 d;
+                    uint16 np = cpu_get_extended_n(order);
                     sim_debug(LOG_CPU_DECODE, &cpu_dev, "S[0] ");
-                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64, &is64bit);
-                    if (addr == 0)
+                    if (np == 5)
                     {
                         d = cpu_get_register_64(reg_d);
                     }
                     else
                     {
+                        addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64, &is64bit);
                         d = sac_read_64_bit_word(addr);
                     }
                     result = cpu_get_operand_by_descriptor_vector(d, 0);
@@ -2505,14 +2508,15 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
                 case 5:
                 {
                     t_uint64 d;
+                    uint16 np = cpu_get_extended_n(order);
                     sim_debug(LOG_CPU_DECODE, &cpu_dev, "S[B] ");
-                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64, &is64bit);
-                    if (addr == 0)
+                    if (np == 5)
                     {
                         d = cpu_get_register_64(reg_d);
                     }
                     else
                     {
+                        addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64, &is64bit);
                         d = sac_read_64_bit_word(addr);
                     }
                     cpu_set_operand_by_descriptor_vector(d, cpu_get_register_32(reg_b), value);
@@ -2521,14 +2525,15 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
                 case 6:
                 {
                     t_uint64 d;
+                    uint16 np = cpu_get_extended_n(order);
                     sim_debug(LOG_CPU_DECODE, &cpu_dev, "S[0] ");
-                    addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64, &is64bit);
-                    if (addr == 0)
+                    if (np == 5)
                     {
                         d = cpu_get_register_64(reg_d);
                     }
                     else
                     {
+                        addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64, &is64bit);
                         d = sac_read_64_bit_word(addr);
                     }
                     cpu_set_operand_by_descriptor_vector(d, 0, value);
