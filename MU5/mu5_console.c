@@ -60,7 +60,7 @@ static int TeletypeOperationInProgress;
 
 static UNIT console_unit =
 {
-    UDATA(console_svc, UNIT_FIX | UNIT_BINK, MAXMEMORY)
+    UDATA(console_svc, UNIT_FIX | UNIT_BINK, 0)
 };
 
 static REG console_reg[] =

@@ -103,7 +103,7 @@ int32 sim_emax;
 
 static UNIT cpu_unit =
 {
-    UDATA(NULL, UNIT_FIX | UNIT_BINK, MAXMEMORY)
+    UDATA(NULL, UNIT_FIX | UNIT_BINK, MAX_LOCAL_MEMORY)
 };
 
 BITFIELD aod_bits[] = {
@@ -962,7 +962,7 @@ static t_stat cpu_ex(t_value *vptr, t_addr addr, UNIT *uptr, int32 sw)
     {
         result = SCPE_ARG;
     }
-    else if (addr < MAXMEMORY)
+    else if (addr < MAX_LOCAL_MEMORY)
     {
         *vptr = sac_read_32_bit_word(addr);
     }

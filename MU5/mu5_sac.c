@@ -63,13 +63,14 @@ typedef struct VSTORE_LINE
     void(*WriteCallback)(uint8 line, t_uint64 value);
 } VSTORE_LINE;
 
-static uint32 LocalStore[MAXMEMORY];
+static uint32 LocalStore[MAX_LOCAL_MEMORY];
+static uint32 MassStore[MAX_MASS_MEMORY];
 static VSTORE_LINE VStore[V_STORE_BLOCKS][V_STORE_BLOCK_SIZE];
 static t_uint64 SystemVStore[V_STORE_BLOCK_SIZE];
 
 static UNIT sac_unit =
 {
-    UDATA(NULL, UNIT_FIX | UNIT_BINK, MAXMEMORY)
+    UDATA(NULL, UNIT_FIX | UNIT_BINK, MAX_LOCAL_MEMORY)
 };
 
 extern uint8 PROPProcessNumber;
@@ -197,7 +198,7 @@ static t_stat sac_reset(DEVICE *dptr)
 void sac_reset_state(void)
 {
     uint16 i;
-	memset(LocalStore, 0, sizeof(uint32) * MAXMEMORY);
+	memset(LocalStore, 0, sizeof(uint32) * MAX_LOCAL_MEMORY);
     memset(VStore, 0, sizeof(VStore));
     memset(SystemVStore, 0, sizeof(SystemVStore));
     memset(cpr, 0, sizeof(cpr));
@@ -328,7 +329,7 @@ uint32 sac_read_32_bit_word_real_address(t_addr address)
     }
     else
     {
-        assert(addr24 < MAXMEMORY);
+        assert(addr24 < MAX_LOCAL_MEMORY);
         result = LocalStore[addr24];
     }
 
@@ -353,7 +354,7 @@ void sac_write_32_bit_word_real_address(t_addr address, uint32 value)
     }
     else
     {
-        assert(addr24 < MAXMEMORY);
+        assert(addr24 < MAX_LOCAL_MEMORY);
         LocalStore[addr24] = value;
     }
 }
