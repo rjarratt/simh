@@ -55,7 +55,7 @@ The following V Store lines are not implemented: CPR X FIELD, SAC PARITY, SAC MO
 #define CPR_FIND_MASK_X_MASK 0x0000001
 
 #define RA_MASK 0xFFFFFF
-#define RA_V_MASK 0x800000
+#define RA_V_MASK 0x080000
 
 typedef struct VSTORE_LINE
 {
@@ -205,10 +205,10 @@ void sac_reset_state(void)
 	/* set up the reserved CPRs. These are made-up values, don't know the originals. Size 5 = 512 words */
 	/* at the moment these are all the same value as I don't know what they should be, just make sure the 
 	   CPR IGNORE ignores all but one of them to avoid a multiple equivalence error */
-	cpr[28] = 0x0200000078000005;
-	cpr[29] = 0x0200000078000005;
-	cpr[30] = 0x0200000078000005;
-	cpr[31] = 0x0200000078000005; /* Maps V-Store to segment 8192, exec mode only access */
+	cpr[28] = 0x0200000070800005;
+	cpr[29] = 0x0200000070800005;
+	cpr[30] = 0x0200000070800005;
+	cpr[31] = 0x0200000070800005; /* Maps V-Store to segment 8192, exec mode only access */
 
     /* Notes from AEK thesis: The 4 fixed CPRs appear to have the following purposes
        1. Locked down code for the supervisor-supervisor.

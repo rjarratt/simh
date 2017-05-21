@@ -605,7 +605,7 @@ static void sac_selftest_writing_real_address_to_reserved_cpr_has_no_effect(TEST
 {
 	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
 	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, 0xAAAAAAAAFFFFFFFF);
-	sac_selftest_assert_reg_instance_equals(REG_CPR, 31, 0x0200000078000005);
+	sac_selftest_assert_reg_instance_equals(REG_CPR, 31, 0x0200000070800005);
 }
 
 static void sac_selftest_can_read_real_address_from_cpr(TESTCONTEXT *testContext)
@@ -626,7 +626,7 @@ static void sac_selftest_writing_virtual_address_to_reserved_cpr_has_no_effect(T
 {
 	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 28);
 	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0xAAAAAAAAFFFFFFFF);
-	sac_selftest_assert_reg_instance_equals(REG_CPR, 28, 0x0200000078000005);
+	sac_selftest_assert_reg_instance_equals(REG_CPR, 28, 0x0200000070800005);
 }
 
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_ignore_bit(TESTCONTEXT *testContext)
@@ -820,7 +820,7 @@ static void sac_selftest_write_to_cpr_not_equivalence_psx_not_equivalance_lines_
 static void sac_selftest_write_v_real_address_writes_to_system_v_store(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0x0, 0, 0), RA(SAC_ALL_ACCESS,0x800000, 0xC));
+    mu5_selftest_setup_cpr(0, VA(0x0, 0, 0), RA(SAC_ALL_ACCESS,0x080000, 0xC));
 
     sac_write_64_bit_word(0x000, 0xABCDDCBA01233210);
     sac_write_64_bit_word(0x1FE, 0xBCDDCBA012332105);
@@ -831,7 +831,7 @@ static void sac_selftest_write_v_real_address_writes_to_system_v_store(TESTCONTE
 static void sac_selftest_read_v_real_address_reads_system_v_store(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0x0, 0, 0), RA(SAC_ALL_ACCESS, 0x800000, 0xC));
+    mu5_selftest_setup_cpr(0, VA(0x0, 0, 0), RA(SAC_ALL_ACCESS, 0x080000, 0xC));
 
     sac_write_v_store(SYSTEM_V_STORE_BLOCK, 0xFF, 0xABCDDCBA01233210);
     sac_write_v_store(SYSTEM_V_STORE_BLOCK, 0x00, 0xBCDDCBA012332105);
