@@ -342,7 +342,6 @@ static void cpu_evaluate_interrupts(void);
 static void cpu_set_system_error_status_and_generate_interrupt(uint16 reason);
 static void cpu_set_program_fault_interrupt_status_and_generate_interrupt(uint16 reason);
 static void cpu_set_illegal_order_interrupt(uint16 reason);
-static void cpu_set_B_interrupt(void);
 static void cpu_set_its_interrupt(void);
 static void cpu_set_sss_interrupt(void);
 static void cpu_set_bounds_check_interrupt(void);
@@ -500,13 +499,11 @@ static void cpu_execute_b_store(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_add(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_sub(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_mul(uint16 order, DISPATCH_ENTRY *innerTable);
-static void cpu_execute_b_div(uint16 order, DISPATCH_ENTRY *innerTable); /* did not exist in real MU5, for HASE simulator comparison */
 static void cpu_execute_b_xor(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_or(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_shift_left(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_and(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_reverse_sub(uint16 order, DISPATCH_ENTRY *innerTable);
-static void cpu_execute_b_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable); /* did not exist in real MU5, for HASE simulator comparison */
 static void cpu_execute_b_compare(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_b_compare_and_increment(uint16 order, DISPATCH_ENTRY *innerTable);
 
@@ -710,7 +707,7 @@ static DISPATCH_ENTRY bDispatchTable[] =
     { cpu_execute_b_add,                   NULL },   /* 4 */
     { cpu_execute_b_sub,                   NULL },   /* 5 */
     { cpu_execute_b_mul,                   NULL },   /* 6 */
-    { cpu_execute_b_div,                   NULL },   /* 7 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
+    { cpu_execute_dummy_order,             NULL },   /* 7 */
     { cpu_execute_b_xor,                   NULL },   /* 8 */
     { cpu_execute_b_or,                    NULL },   /* 9 */
     { cpu_execute_b_shift_left,            NULL },   /* 10 */
@@ -718,7 +715,7 @@ static DISPATCH_ENTRY bDispatchTable[] =
     { cpu_execute_b_reverse_sub,           NULL },   /* 12 */
     { cpu_execute_b_compare,               NULL },   /* 13 */
     { cpu_execute_b_compare_and_increment, NULL },   /* 14 */
-    { cpu_execute_b_reverse_div,           NULL },   /* 15 */ /* Remove when don't need to compare to HASE simulator, was added there by mistake, never implemented in MU5 */
+    { cpu_execute_dummy_order,             NULL },   /* 15 */
 };
 
 static DISPATCH_ENTRY accFPSignedDispatchTable[] =
@@ -1462,18 +1459,6 @@ static void cpu_set_illegal_order_interrupt(uint16 reason)
 {
     cpu_set_interrupt(INT_ILLEGAL_ORDERS);
     PROPProgramFaultStatus |= reason;
-}
-
-static void cpu_set_B_interrupt(void)
-{
-    if (cpu_ms_is_all(MS_MASK_EXEC))
-    {
-        cpu_set_system_error_status_and_generate_interrupt(SYSTEM_ERROR_STATUS_MASK_B_OR_D_ERROR);
-    }
-    else
-    {
-        cpu_set_program_fault_interrupt_status_and_generate_interrupt(PROGRAM_FAULT_STATUS_MASK_B_ERROR);
-    }
 }
 
 static void cpu_set_its_interrupt(void)
@@ -3930,26 +3915,6 @@ static void cpu_execute_b_mul(uint16 order, DISPATCH_ENTRY *innerTable)
     cpu_check_b_overflow(result);
 }
 
-/* MU5 Basic Programming Manual lists this as a dummy order so implementation is a guess */
-static void cpu_execute_b_div(uint16 order, DISPATCH_ENTRY *innerTable)
-{
-    sim_debug(LOG_CPU_DECODE, &cpu_dev, "B DIV ");
-    t_int64 dividend = cpu_sign_extend_32_bit(cpu_get_register_32(reg_b));
-    t_int64 divisor = cpu_sign_extend_32_bit(cpu_get_operand(order) & MASK_32);
-    if (divisor == 0)
-    {
-        /* Since this order is not in the programming manual, there are no BOD status bits that can be used to report divide by zero, so just set a B interrupt. It is likely
-           to confuse any interrupt handler though, but real software would never execute this instruction in any case.
-        */
-        cpu_set_B_interrupt();
-    }
-    else
-    {
-        t_int64 result = dividend / divisor;
-        cpu_set_register_32(reg_b, (uint32)(result & MASK_32));
-    }
-}
-
 static void cpu_execute_b_xor(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B XOR ");
@@ -3995,26 +3960,6 @@ static void cpu_execute_b_reverse_sub(uint16 order, DISPATCH_ENTRY *innerTable)
     t_int64 result = minuend - subtrahend;
     cpu_set_register_32(reg_b, (uint32)(result & MASK_32));
     cpu_check_b_overflow(result);
-}
-
-/* MU5 Basic Programming Manual lists this as a dummy order so implementation is a guess */
-static void cpu_execute_b_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)
-{
-    sim_debug(LOG_CPU_DECODE, &cpu_dev, "B RDIV ");
-    t_int64 divisor = cpu_sign_extend_32_bit(cpu_get_register_32(reg_b));
-    t_int64 dividend = cpu_sign_extend_32_bit(cpu_get_operand(order) & MASK_32);
-    if (divisor == 0)
-    {
-        /* Since this order is not in the programming manual, there are no BOD status bits that can be used to report divide by zero, so just set a B interrupt. It is likely
-           to confuse any interrupt handler though, but real software would never execute this instruction in any case.
-        */
-        cpu_set_B_interrupt();
-    }
-    else
-    {
-        t_int64 result = dividend / divisor;
-        cpu_set_register_32(reg_b, (uint32)(result & MASK_32));
-    }
 }
 
 /* The programming manual says "no overflow may occur", the interpretation from RNI of this statement is "COMP won't generate an overflow interrupt if overflow occurs because
