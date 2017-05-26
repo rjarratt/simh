@@ -68,6 +68,7 @@ static void sac_selftest_virtual_write_updates_cpr_altered_bit(TESTCONTEXT *test
 static void sac_selftest_virtual_access_of_smallest_page_size(TESTCONTEXT *testContext);
 static void sac_selftest_virtual_access_of_largest_page_size(TESTCONTEXT *testContext);
 static void sac_selftest_virtual_access_of_mixed_page_size(TESTCONTEXT *testContext);
+static void sac_selftest_virtual_access_via_cpr_31_covers_1Mb_page_size(TESTCONTEXT *testContext);
 static void sac_selftest_cpr_not_equivalence_generates_not_equivalence_interrupt(TESTCONTEXT *testContext);
 static void sac_selftest_cpr_not_equivalence_sets_cpr_not_equivalence_v_lines(TESTCONTEXT *testContext);
 static void sac_selftest_cpr_multiple_equivalence_generates_system_error_interrupt(TESTCONTEXT *testContext);
@@ -132,6 +133,7 @@ static UNITTEST tests[] =
     { "Virtual access to smallest page size", sac_selftest_virtual_access_of_smallest_page_size },
     { "Virtual access to largest page size", sac_selftest_virtual_access_of_largest_page_size },
     { "Virtual access to mixed page size", sac_selftest_virtual_access_of_mixed_page_size },
+    { "Virtual access via CPR 31 covers 1Mbyte page size", sac_selftest_virtual_access_via_cpr_31_covers_1Mb_page_size },
     { "CPR not-equivalence generates a not-equivalence interrupt", sac_selftest_cpr_not_equivalence_generates_not_equivalence_interrupt },
     { "CPR not-equivalence sets not-equivalence V lines", sac_selftest_cpr_not_equivalence_sets_cpr_not_equivalence_v_lines },
     { "CPR multiple-equivalence error generates a system error interrupt", sac_selftest_cpr_multiple_equivalence_generates_system_error_interrupt },
@@ -387,6 +389,15 @@ static void sac_selftest_virtual_access_of_mixed_page_size(TESTCONTEXT *testCont
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_write_32_bit_word_real_address(0x23FF, 0xAAAAAAAA);
     sac_selftest_assert_memory_contents(0x107FF, 0xAAAAAAAA);
+}
+
+static void sac_selftest_virtual_access_via_cpr_31_covers_1Mb_page_size(TESTCONTEXT *testContext)
+{
+    sac_selftest_clear_bcpr();
+    mu5_selftest_setup_cpr(31, VA(0xF, 0x10, 0), RA(SAC_ALL_ACCESS, 0x0000, 0xC));
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
+    sac_write_32_bit_word_real_address(0x77FFF, 0xAAAAAAAA);
+    sac_selftest_assert_memory_contents(0x177FFF, 0xAAAAAAAA);
 }
 
 static void sac_selftest_cpr_not_equivalence_generates_not_equivalence_interrupt(TESTCONTEXT *testContext)

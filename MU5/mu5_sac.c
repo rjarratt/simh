@@ -441,10 +441,10 @@ static t_uint64 sac_read_cpr_ra_callback(uint8 line)
 
 static void sac_write_cpr_ra_callback(uint8 line, t_uint64 value)
 {
-	if (CPRNumber < 28)
-	{
+	//if (CPRNumber < 28)
+	//{
 		cpr[CPRNumber] = (cpr[CPRNumber] & 0xFFFFFFFF00000000) | (value & CPR_RA_MASK);
-	}
+	//}
 }
 
 static t_uint64 sac_read_cpr_va_callback(uint8 line)
@@ -454,11 +454,11 @@ static t_uint64 sac_read_cpr_va_callback(uint8 line)
 
 static void sac_write_cpr_va_callback(uint8 line, t_uint64 value)
 {
-	if (CPRNumber < 28)
-	{
+	//if (CPRNumber < 28)
+	//{
 		cpr[CPRNumber] = ((value & CPR_VA_MASK) << 32) | (cpr[CPRNumber] & CPR_RA_MASK);
 		sac_reset_cpr(CPRNumber);
-	}
+	//}
 }
 
 static t_uint64 sac_read_cpr_ignore_callback(uint8 line)
@@ -588,6 +588,11 @@ static uint32 sac_match_cprs(uint32 va, int *numMatches, int *firstMatchIndex, u
         {
             maskLen = cpr[i] & 0xF;
             mask = ~((0xFFF << maskLen)) & 0xFFF;
+            if (i == 31)
+            {
+                mask |= 0xF000; /* Allow CPR 31 to map 1MB segment as per AEK thesis */
+            }
+
             if ((va & ~mask) == ((cpr[i] >> 32) & ~mask))
             {
                 numMatchesResult++;
