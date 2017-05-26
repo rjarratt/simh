@@ -58,7 +58,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define LOG_CPU_SELFTEST_FAIL   (1 << 4)
 
 #define MAX_LOCAL_MEMORY  (32768)    /* RNI told me Local Store consisted of four 4096-word memory units, each word containing 64 data bits + 8 parity bits. This is the size in 32-bit words */
-#define MAX_MASS_MEMORY  (262144)    /* RNI told me Local Store consisted of four 4096-word memory units, each word containing 64 data bits + 8 parity bits. This is the size in 32-bit words */
+#define MAX_MASS_MEMORY  (262144)    /* Mass Store consisted of 256K 4-byte words. This is the size in 32-bit words */
 
 #define INT_SYSTEM_ERROR 0
 #define INT_CPR_NOT_EQUIVALENCE 1
