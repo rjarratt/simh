@@ -7446,7 +7446,7 @@ static void cpu_selftest_org_absolute_jump(TESTCONTEXT *testContext)
 
 static void cpu_selftest_org_return_sets_SF_and_unstacks_link(TESTCONTEXT *testContext)
 {
-    uint32 base = 32;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_organisational_order_extended(F_RETURN, K_V64, NP_STACK);
     sac_write_64_bit_word(base, 0xFFFFBBBBAAAAAAAA);
     cpu_selftest_set_register(REG_NB, base);
@@ -7462,7 +7462,7 @@ static void cpu_selftest_org_return_sets_SF_and_unstacks_link(TESTCONTEXT *testC
 static void cpu_selftest_org_return_resets_link_except_privileged_ms_bits_in_user_mode(TESTCONTEXT *testContext)
 {
     uint16 initMs;
-    uint32 base = 32;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_organisational_order_extended(F_RETURN, K_V64, NP_STACK);
     sac_write_64_bit_word(base, 0xFFFFBBBBAAAAAAAA);
     cpu_selftest_set_register(REG_NB, base);
@@ -7475,7 +7475,7 @@ static void cpu_selftest_org_return_resets_link_except_privileged_ms_bits_in_use
 
 static void cpu_selftest_org_return_does_not_pop_stack_if_operand_is_not_stack_but_sets_NB(TESTCONTEXT *testContext)
 {
-    uint32 base = 32;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_organisational_order_extended(F_RETURN, KP_LITERAL, NP_64_BIT_LITERAL);
     cpu_selftest_load_64_bit_literal(0xFFFFBBBBAAAAAAAA);
     cpu_selftest_set_register(REG_NB, base);
@@ -7490,7 +7490,7 @@ static void cpu_selftest_org_return_does_not_pop_stack_if_operand_is_not_stack_b
 
 static void cpu_selftest_org_XCn_stacks_operand_and_jumps_to_offset_n(TESTCONTEXT *testContext)
 {
-    uint32 base = 32;
+    uint32 base = NB_DEFAULT;
     for (int i = 0; i < 7; i++)
     {
         cpu_selftest_set_load_location(0);
@@ -7520,7 +7520,7 @@ static void cpu_selftest_org_XCn_sets_executive_mode(TESTCONTEXT *testContext)
 
 static void cpu_selftest_org_stacklink_puts_link_on_stack_adding_operand_to_stacked_CO(TESTCONTEXT *testContext)
 {
-    uint32 base = 32;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_set_load_location(10);
     cpu_selftest_load_organisational_order_extended(F_STACKLINK, KP_LITERAL, NP_64_BIT_LITERAL);
     cpu_selftest_load_64_bit_literal(0x000000000000000A);
@@ -7542,7 +7542,7 @@ static void cpu_selftest_org_stacklink_treats_operand_as_signed(TESTCONTEXT *tes
     in the example on page 62.
     */
     t_uint64 initMs = cpu_selftest_get_register(REG_MS);
-    uint32 base = 32;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_set_load_location(10);
     cpu_selftest_load_organisational_order_extended(F_STACKLINK, KP_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0xFFFFFFFE);
@@ -7554,7 +7554,7 @@ static void cpu_selftest_org_stacklink_treats_operand_as_signed(TESTCONTEXT *tes
 
 static void cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_overflows_segment_boundary(TESTCONTEXT *testContext)
 {
-    uint32 base = 32;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_organisational_order_extended(F_STACKLINK, KP_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0x7FFFFFFF);
     cpu_selftest_run_code();
@@ -7563,7 +7563,7 @@ static void cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_t
 
 static void cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_to_CO_underflows_segment_boundary(TESTCONTEXT *testContext)
 {
-    uint32 base = 32;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_organisational_order_extended(F_STACKLINK, KP_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0x80000000);
     cpu_selftest_run_code();
@@ -7572,7 +7572,7 @@ static void cpu_selftest_org_stacklink_generates_interrupt_when_adding_operand_t
 
 static void cpu_selftest_org_stacklink_generates_illegal_order_interrupt_if_segment_overflow_in_user_mode(TESTCONTEXT *testContext)
 {
-    uint32 base = 32;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_organisational_order_extended(F_STACKLINK, KP_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0x7FFFFFFF);
     cpu_selftest_set_user_mode();
@@ -7582,7 +7582,7 @@ static void cpu_selftest_org_stacklink_generates_illegal_order_interrupt_if_segm
 
 static void cpu_selftest_org_stacklink_generates_system_error_interrupt_if_segment_overflow_in_level0_mode(TESTCONTEXT *testContext)
 {
-    uint32 base = 32;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_organisational_order_extended(F_STACKLINK, KP_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0x7FFFFFFF);
     cpu_selftest_set_level0_mode();
@@ -7592,7 +7592,7 @@ static void cpu_selftest_org_stacklink_generates_system_error_interrupt_if_segme
 
 static void cpu_selftest_org_stacklink_generates_system_error_interrupt_if_segment_overflow_in_level1_mode(TESTCONTEXT *testContext)
 {
-    uint32 base = 32;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_organisational_order_extended(F_STACKLINK, KP_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0x7FFFFFFF);
     cpu_selftest_set_level1_mode();
@@ -7602,7 +7602,7 @@ static void cpu_selftest_org_stacklink_generates_system_error_interrupt_if_segme
 
 static void cpu_selftest_org_stacklink_generates_system_error_interrupt_if_segment_overflow_in_executive_mode(TESTCONTEXT *testContext)
 {
-    uint32 base = 32;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_organisational_order_extended(F_STACKLINK, KP_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0x7FFFFFFF);
     cpu_selftest_set_executive_mode();
@@ -7660,7 +7660,7 @@ static void cpu_selftest_org_spm_dummy(TESTCONTEXT *testContext)
 
 static void cpu_selftest_org_setlink_stores_link(TESTCONTEXT *testContext)
 {
-    uint32 base = 32;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_set_load_location(10);
     cpu_selftest_load_organisational_order_extended(F_SETLINK, K_V64, NP_0);
     cpu_selftest_load_16_bit_literal(base);
@@ -7771,7 +7771,7 @@ static void cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segmen
 
 static void cpu_selftest_org_xnb_store_stores_XNB(TESTCONTEXT *testContext)
 {
-    uint32 base = 32;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_organisational_order_extended(F_XNB_STORE, K_V64, NP_0);
     cpu_selftest_load_16_bit_literal(base);
     cpu_selftest_set_register(REG_XNB, 0xBBBBAAAA);
@@ -7782,7 +7782,7 @@ static void cpu_selftest_org_xnb_store_stores_XNB(TESTCONTEXT *testContext)
 
 static void cpu_selftest_org_xnb_store_to_secondary_operand_generates_interrupt(TESTCONTEXT *testContext)
 {
-    uint32 base = 32;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_organisational_order_extended(F_XNB_STORE, K_SB, 0);
     cpu_selftest_run_code();
     cpu_selftest_assert_illegal_function_as_system_error();
@@ -7854,7 +7854,7 @@ static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_unde
 
 static void cpu_selftest_org_sf_store_stores_SF(TESTCONTEXT *testContext)
 {
-    uint32 base = 32;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_organisational_order_extended(F_SF_STORE, K_V64, NP_0);
     cpu_selftest_load_16_bit_literal(base);
     cpu_selftest_set_register(REG_SF, 0xAAAA);
@@ -7865,7 +7865,7 @@ static void cpu_selftest_org_sf_store_stores_SF(TESTCONTEXT *testContext)
 
 static void cpu_selftest_org_sf_store_to_secondary_operand_generates_interrupt(TESTCONTEXT *testContext)
 {
-    uint32 base = 32;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_organisational_order_extended(F_SF_STORE, K_SB, 0);
     cpu_selftest_run_code();
     cpu_selftest_assert_illegal_function_as_system_error();
@@ -7938,7 +7938,7 @@ static void cpu_selftest_org_nb_plus_generates_interrupt_on_segment_underflow(TE
 static void cpu_selftest_org_nb_store_stores_SN_and_NB(TESTCONTEXT *testContext)
 {
     /* because this test wants to use a non-zero value in SN we need to use virtual memory as the physical address would be too big for the Local Store */
-    uint32 base = 32;
+    uint32 base = 32; /* can't use default because we are using very small pages */
     cpu_selftest_load_organisational_order_extended(F_NB_STORE, K_V64, NP_0);
     cpu_selftest_load_16_bit_literal(base);
     cpu_selftest_set_register(REG_SN, 0x0001);
@@ -7952,7 +7952,7 @@ static void cpu_selftest_org_nb_store_stores_SN_and_NB(TESTCONTEXT *testContext)
 
 static void cpu_selftest_org_nb_store_to_secondary_operand_generates_interrupt(TESTCONTEXT *testContext)
 {
-    uint32 base = 32;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_organisational_order_extended(F_NB_STORE, K_SB, 0);
     cpu_selftest_run_code();
     cpu_selftest_assert_illegal_function_as_system_error();
