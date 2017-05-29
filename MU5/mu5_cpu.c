@@ -851,7 +851,7 @@ t_stat sim_instr(void)
     return reason;
 }
 
-/* Loads two formats of file. Both formats are sequences of 16-bit words. If the -o option is specified then an absolute binary file loaded starting at the specified physical origin. If the
+/* Loads two formats of file. Both formats are sequences of 16-bit words. If the -o option is specified then an absolute binary file loaded starting at the specified physical origin of the local store. If the
  -o option is not specified then the file is a multi-segment binary file loaded into virtual addresses as specified in the file. The multi-segement file uses a format that has been made-up, as I
  don't know how this was done in MU5 itself. Each segment in the file starts with a 16-bit segment number and a 16-bit length (in 16-bit words), followed by the binary. This format allows files
  produced by my XPL cross-compiler to be loaded. */
@@ -894,7 +894,8 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
                     break;
                 }
 
-                sac_write_8_bit_word_real_address(origin++, b & 0xFF);
+                sac_write_8_bit_word_real_address(RA_LOCAL_BYTE(origin), b & 0xFF);
+				origin++;
             }
         }
         else

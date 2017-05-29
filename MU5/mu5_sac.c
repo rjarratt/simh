@@ -36,6 +36,9 @@ Known Limitations
 -----------------
 The following V Store lines are not implemented: CPR X FIELD, SAC PARITY, SAC MODE, UNIT STATUS, 1905E INTERRUPT.
 
+TODO: CPR 31 1Mbyte
+TODO: Real address line bits concatenated
+
 */
 
 #include <assert.h>
@@ -49,12 +52,12 @@ The following V Store lines are not implemented: CPR X FIELD, SAC PARITY, SAC MO
 #define CPR_VA_MASK 0x3FFFFFFF
 #define CPR_VA_P_MASK (0xF << 26)
 #define CPR_VA_X_MASK (0xFFF)
-#define CPR_RA_MASK 0x7FFFFFFF
+#define CPR_RA_MASK 0xFFFFFFFF
 #define CPR_FIND_MASK_P_MASK 0x4000000
 #define CPR_FIND_MASK_S_MASK 0x3FFF000
 #define CPR_FIND_MASK_X_MASK 0x0000001
 
-#define RA_MASK 0xFFFFFF
+#define RA_MASK 0xFFFFF
 #define RA_V_MASK 0x080000
 
 typedef struct VSTORE_LINE
@@ -116,7 +119,9 @@ static DEBTAB sac_debtab[] =
     { "EVENT",          SIM_DBG_EVENT,     "event dispatch activities" },
     { "SELFTESTDETAIL", LOG_CPU_SELFTEST_DETAIL,  "self test detailed output" },
     { "SELFTESTFAIL",   LOG_CPU_SELFTEST_FAIL,  "self test failure output" },
-    { NULL,           0 }
+	{ "ERROR",          LOG_SAC_ERROR, "significant errors" },
+	{ "REAL",           LOG_SAC_REAL_ACCESSES, "real address accesses" },
+	{ NULL,           0 }
 };
 
 static const char* sac_description(DEVICE *dptr) {
@@ -155,7 +160,12 @@ static void sac_reset_cpr(uint8 n);
 static uint32 sac_search_cprs(uint32 mask, uint32 va);
 static uint32 sac_match_cprs(uint32 va, int *numMatches, int *firstMatchIndex, uint32 *segmentMask);
 static int sac_check_access(uint8 requestedAccess, uint8 permittedAccess);
-static t_addr sac_map_address(t_addr address, uint8 access);
+static int sac_map_address(t_addr address, uint8 access, t_addr *mappedAddress);
+static uint8 sac_get_real_address_unit(t_addr address);
+static uint32 sac_read_local_store(t_addr address);
+static void sac_write_local_store(t_addr address, uint32 value);
+static uint32 sac_read_mass_store(t_addr address);
+static void sac_write_mass_store(t_addr address, uint32 value);
 
 DEVICE sac_dev = {
     "SAC",            /* name */
@@ -205,10 +215,10 @@ void sac_reset_state(void)
 	/* set up the reserved CPRs. These are made-up values, don't know the originals. Size 5 = 512 words */
 	/* at the moment these are all the same value as I don't know what they should be, just make sure the 
 	   CPR IGNORE ignores all but one of them to avoid a multiple equivalence error */
-	cpr[28] = 0x0200000070800005;
-	cpr[29] = 0x0200000070800005;
-	cpr[30] = 0x0200000070800005;
-	cpr[31] = 0x0200000070800005; /* Maps V-Store to segment 8192, exec mode only access */
+	cpr[28] = 0x0200000073800005;
+	cpr[29] = 0x0200000073800005;
+	cpr[30] = 0x0200000073800005;
+	cpr[31] = 0x0200000073800005; /* Maps V-Store to segment 8192, exec mode only access */
 
     /* Notes from AEK thesis: The 4 fixed CPRs appear to have the following purposes
        1. Locked down code for the supervisor-supervisor.
@@ -261,22 +271,35 @@ void sac_write_64_bit_word(t_addr address, t_uint64 value)
 
 uint32 sac_read_32_bit_word(t_addr address)
 {
-    t_addr mappedAddress = sac_map_address(address, SAC_READ_ACCESS);
-    uint32 result = sac_read_32_bit_word_real_address(mappedAddress);
+	t_addr mappedAddress;
+	uint32 result = 0;
+	if (sac_map_address(address, SAC_READ_ACCESS, &mappedAddress))
+	{
+		result = sac_read_32_bit_word_real_address(mappedAddress);
+	}
+
     return result;
 }
 
 uint32 sac_read_32_bit_word_for_obey(t_addr address)
 {
-    t_addr mappedAddress = sac_map_address(address, SAC_OBEY_ACCESS);
-    uint32 result = sac_read_32_bit_word_real_address(mappedAddress);
-    return result;
+	t_addr mappedAddress;
+	uint32 result = 0;
+	if (sac_map_address(address, SAC_OBEY_ACCESS, &mappedAddress))
+	{
+		result = sac_read_32_bit_word_real_address(mappedAddress);
+	}
+
+	return result;
 }
 
 void sac_write_32_bit_word(t_addr address, uint32 value)
 {
-    t_addr mappedAddress = sac_map_address(address, SAC_WRITE_ACCESS);
-    sac_write_32_bit_word_real_address(mappedAddress, value);
+	t_addr mappedAddress;
+	if (sac_map_address(address, SAC_WRITE_ACCESS, &mappedAddress))
+	{
+		sac_write_32_bit_word_real_address(mappedAddress, value);
+	}
 }
 
 uint16 sac_read_16_bit_word(t_addr address)
@@ -328,16 +351,30 @@ void sac_write_8_bit_word(t_addr address, uint8 value)
 uint32 sac_read_32_bit_word_real_address(t_addr address)
 {
     uint32 result;
-    t_addr addr24 = address & RA_MASK;
-    if (addr24 & RA_V_MASK)
+    t_addr addr20 = address & RA_MASK;
+    uint8 unit = sac_get_real_address_unit(address);
+    switch (unit)
     {
-        t_uint64 fullWord = sac_read_v_store(SYSTEM_V_STORE_BLOCK, (addr24 & ~RA_V_MASK) >> 1);
-        result = (address & 1) ? fullWord & 0xFFFFFFFF : fullWord >> 32;
-    }
-    else
-    {
-        assert(addr24 < MAX_LOCAL_MEMORY);
-        result = LocalStore[addr24];
+        case UNIT_LOCAL_STORE:
+        {
+            result = sac_read_local_store(addr20);
+            sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Read local store real address %08X, result=%08X\n", address, result);
+            break;
+        }
+
+        case UNIT_MASS_STORE:
+        {
+            result = sac_read_mass_store(addr20);
+            sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Read mass store real address %08X, result=%08X\n", address, result);
+            break;
+        }
+
+        default:
+        {
+            result = 0;
+            sim_debug(LOG_SAC_ERROR, &sac_dev, "Read unknown (%hu) store real address %08X, result=%08X\n", unit, address, result);
+            break;
+        }
     }
 
     return result;
@@ -345,24 +382,29 @@ uint32 sac_read_32_bit_word_real_address(t_addr address)
 
 void sac_write_32_bit_word_real_address(t_addr address, uint32 value)
 {
-    t_addr addr24 = address & RA_MASK;
-    if (addr24 & RA_V_MASK)
+    t_addr addr20 = address & RA_MASK;
+    uint8 unit = sac_get_real_address_unit(address);
+    switch (unit)
     {
-        t_uint64 fullWord = sac_read_v_store(SYSTEM_V_STORE_BLOCK, (addr24 & ~RA_V_MASK) >> 1);
-        if (address & 1)
+        case UNIT_LOCAL_STORE:
         {
-            fullWord = (fullWord & 0xFFFFFFFF00000000) | value;
+            sac_write_local_store(addr20, value);
+            sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Write local store real address %08X, value=%08X\n", address, value);
+            break;
         }
-        else
+
+        case UNIT_MASS_STORE:
         {
-            fullWord = ((t_uint64)value << 32) | (fullWord & 0xFFFFFFFF);
+            sac_write_mass_store(addr20, value);
+            sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Write mass store real address %08X, value=%08X\n", address, value);
+            break;
         }
-        sac_write_v_store(SYSTEM_V_STORE_BLOCK, (addr24 & ~RA_V_MASK) >> 1, fullWord);
-    }
-    else
-    {
-        assert(addr24 < MAX_LOCAL_MEMORY);
-        LocalStore[addr24] = value;
+
+        default:
+        {
+            sim_debug(LOG_SAC_ERROR, &sac_dev, "Write unknown (%hu) store real address %08X, value=%08X\n", unit, address, value);
+            break;
+        }
     }
 }
 
@@ -628,12 +670,14 @@ static int sac_check_access(uint8 requestedAccess, uint8 permittedAccess)
     return augmentedRequestedAccess == (augmentedRequestedAccess & augmentedPermittedAccess & 0xF);
 }
 
-static t_addr sac_map_address(t_addr address, uint8 access)
+static int sac_map_address(t_addr address, uint8 access, t_addr *mappedAddress)
 {
-    t_addr result = 0;
+	int result = 0;
+    *mappedAddress = 0;
     if (cpu_get_ms() & MS_MASK_BCPR)
     {
-        result = address;
+        *mappedAddress = address;
+		result = 1;
     }
     else
     {
@@ -651,8 +695,8 @@ static t_addr sac_map_address(t_addr address, uint8 access)
         matchMask = sac_match_cprs(va, &numMatches, &firstMatchIndex, &segmentMask);
         if (numMatches == 1)
         {
-            result = (cpr[firstMatchIndex] >> 4) & 0xFFFFFF;
-            result += address & ((segmentMask << 4) | 0xF);
+            *mappedAddress = (cpr[firstMatchIndex] >> 4) & 0xFFFFFF;
+            *mappedAddress += address & ((segmentMask << 4) | 0xF);
 
             if (!sac_check_access(access, (cpr[firstMatchIndex] >> 28) & 0xF))
             {
@@ -667,6 +711,10 @@ static t_addr sac_map_address(t_addr address, uint8 access)
 
                 cpu_set_access_violation_interrupt();
             }
+			else
+			{
+				result = 1;
+			}
         }
         else if (numMatches == 0)
         {
@@ -691,4 +739,78 @@ static t_addr sac_map_address(t_addr address, uint8 access)
     }
 
     return result;
+}
+
+static uint8 sac_get_real_address_unit(t_addr address)
+{
+    uint8 unit = (address >> 20) & 0xF;
+    return unit;
+}
+
+static uint32 sac_read_local_store(t_addr address)
+{
+    uint32 result;
+    if (address & RA_V_MASK)
+    {
+        t_uint64 fullWord = sac_read_v_store(SYSTEM_V_STORE_BLOCK, (address & ~RA_V_MASK) >> 1);
+        result = (address & 1) ? fullWord & 0xFFFFFFFF : fullWord >> 32;
+    }
+    else
+    {
+        assert(address < MAX_LOCAL_MEMORY);
+        result = LocalStore[address];
+    }
+
+    return result;
+}
+
+static void sac_write_local_store(t_addr address, uint32 value)
+{
+    if (address & RA_V_MASK)
+    {
+        t_uint64 fullWord = sac_read_v_store(SYSTEM_V_STORE_BLOCK, (address & ~RA_V_MASK) >> 1);
+        if (address & 1)
+        {
+            fullWord = (fullWord & 0xFFFFFFFF00000000) | value;
+        }
+        else
+        {
+            fullWord = ((t_uint64)value << 32) | (fullWord & 0xFFFFFFFF);
+        }
+        sac_write_v_store(SYSTEM_V_STORE_BLOCK, (address & ~RA_V_MASK) >> 1, fullWord);
+    }
+    else
+    {
+        assert(address < MAX_LOCAL_MEMORY);
+        LocalStore[address] = value;
+    }
+}
+
+static uint32 sac_read_mass_store(t_addr address)
+{
+    uint32 result;
+    if (address & RA_V_MASK)
+    {
+        assert(0);
+    }
+    else
+    {
+        assert(address < MAX_MASS_MEMORY);
+        result = MassStore[address];
+    }
+
+    return result;
+}
+
+static void sac_write_mass_store(t_addr address, uint32 value)
+{
+    if (address & RA_V_MASK)
+    {
+        assert(0);
+    }
+    else
+    {
+        assert(address < MAX_MASS_MEMORY);
+        MassStore[address] = value;
+    }
 }

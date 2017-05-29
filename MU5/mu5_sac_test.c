@@ -73,6 +73,7 @@ static void sac_selftest_cpr_not_equivalence_sets_cpr_not_equivalence_v_lines(TE
 static void sac_selftest_cpr_multiple_equivalence_generates_system_error_interrupt(TESTCONTEXT *testContext);
 static void sac_selftest_write_to_obey_only_page_generates_access_violation(TESTCONTEXT *testContext);
 static void sac_selftest_write_to_read_only_page_generates_access_violation(TESTCONTEXT *testContext);
+static void sac_selftest_write_that_generates_access_violation_does_not_modify_memory(TESTCONTEXT *testContext);
 static void sac_selftest_read_from_obey_only_page_generates_access_violation(TESTCONTEXT *testContext);
 static void sac_selftest_obey_from_read_only_page_generates_instruction_access_violation(TESTCONTEXT *testContext);
 static void sac_selftest_obey_from_write_only_page_generates_instruction_access_violation(TESTCONTEXT *testContext);
@@ -136,8 +137,9 @@ static UNITTEST tests[] =
     { "CPR not-equivalence sets not-equivalence V lines", sac_selftest_cpr_not_equivalence_sets_cpr_not_equivalence_v_lines },
     { "CPR multiple-equivalence error generates a system error interrupt", sac_selftest_cpr_multiple_equivalence_generates_system_error_interrupt },
     { "Write to Obey only page generates access violation", sac_selftest_write_to_obey_only_page_generates_access_violation },
-    { "Write to Read only page generates access violation", sac_selftest_write_to_read_only_page_generates_access_violation },
-    { "Read from Obey only page generates access violation", sac_selftest_read_from_obey_only_page_generates_access_violation },
+	{ "Write to Read only page generates access violation", sac_selftest_write_to_read_only_page_generates_access_violation },
+	{ "Write that generates access violation does not modify memory", sac_selftest_write_that_generates_access_violation_does_not_modify_memory },
+	{ "Read from Obey only page generates access violation", sac_selftest_read_from_obey_only_page_generates_access_violation },
     { "Obey from Read only page generates access violation", sac_selftest_obey_from_read_only_page_generates_instruction_access_violation },
     { "Obey from Write only page generates access violation", sac_selftest_obey_from_write_only_page_generates_instruction_access_violation },
     { "Operand access violation in executive mode generates system error interrupt", sac_selftest_operand_access_violation_in_executive_mode_generates_system_error_interrupt },
@@ -275,56 +277,56 @@ static void sac_selftest_assert_instruction_access_violation_as_illegal_order(vo
 static void sac_selftest_write_word_with_bcpr_set_writes_real_address(TESTCONTEXT *testContext)
 {
     sac_selftest_set_bcpr();
-    sac_write_32_bit_word(1234, 0xFFFFFFFF);
-    sac_selftest_assert_real_address_memory_contents(1234, 0xFFFFFFFF);
+    sac_write_32_bit_word(RA_LOCAL(1234), 0xFFFFFFFF);
+    sac_selftest_assert_real_address_memory_contents(RA_LOCAL(1234), 0xFFFFFFFF);
 }
 
 static void sac_selftest_read_word_with_bcpr_set_reads_real_address(TESTCONTEXT *testContext)
 {
     sac_selftest_set_bcpr();
-    sac_write_32_bit_word_real_address(1234, 0xAAAAAAAA);
-    sac_selftest_assert_memory_contents(1234, 0xAAAAAAAA);
+    sac_write_32_bit_word_real_address(RA_LOCAL(1234), 0xAAAAAAAA);
+    sac_selftest_assert_memory_contents(RA_LOCAL(1234), 0xAAAAAAAA);
 }
 
 static void sac_selftest_write_word_with_bcpr_clear_writes_virtual_address(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0, 0, 0), RA(SAC_ALL_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0, 0, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x10, 0));
     sac_write_32_bit_word(1, 0xFFFFFFFF);
-    sac_selftest_assert_real_address_memory_contents(0x11, 0xFFFFFFFF);
+    sac_selftest_assert_real_address_memory_contents(RA_LOCAL(0x11), 0xFFFFFFFF);
 }
 
 static void sac_selftest_read_word_with_bcpr_clear_reads_virtual_address(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0, 0, 0), RA(SAC_ALL_ACCESS, 0x10, 0));
-    sac_write_32_bit_word_real_address(0x11, 0xAAAAAAAA);
+    mu5_selftest_setup_cpr(0, VA(0, 0, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x10, 0));
+    sac_write_32_bit_word_real_address(RA_LOCAL(0x11), 0xAAAAAAAA);
     sac_selftest_assert_memory_contents(1, 0xAAAAAAAA);
 }
 
 static void sac_selftest_virtual_access_uses_PN_if_segment_less_than_8192(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_ALL_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
-    sac_write_32_bit_word_real_address(0x11, 0xAAAAAAAA);
+    sac_write_32_bit_word_real_address(RA_LOCAL(0x11), 0xAAAAAAAA);
     sac_selftest_assert_memory_contents(1, 0xAAAAAAAA);
 }
 
 static void sac_selftest_virtual_access_ignores_PN_if_segment_is_8192_or_greater(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0, 0x2000, 0), RA(SAC_ALL_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0, 0x2000, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
-    sac_write_32_bit_word_real_address(0x11, 0xAAAAAAAA);
+    sac_write_32_bit_word_real_address(RA_LOCAL(0x11), 0xAAAAAAAA);
     sac_selftest_assert_memory_contents(0x20000001, 0xAAAAAAAA);
 }
 
 static void sac_selftest_virtual_read_updates_cpr_referenced_bit(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0x0, 0), RA(SAC_ALL_ACCESS, 0x10, 0));
-    mu5_selftest_setup_cpr(1, VA(0xF, 0x2000, 0), RA(SAC_ALL_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0x0, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(1, VA(0xF, 0x2000, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_read_32_bit_word(1);
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_REFERENCED, 0x00000001);
@@ -334,8 +336,8 @@ static void sac_selftest_virtual_read_updates_cpr_referenced_bit(TESTCONTEXT *te
 static void sac_selftest_virtual_read_for_obey_updates_cpr_referenced_bit(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0x0, 0), RA(SAC_ALL_ACCESS, 0x10, 0));
-    mu5_selftest_setup_cpr(1, VA(0xF, 0x2000, 0), RA(SAC_ALL_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0x0, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(1, VA(0xF, 0x2000, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_read_32_bit_word_for_obey(1);
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_REFERENCED, 0x00000001);
@@ -345,8 +347,8 @@ static void sac_selftest_virtual_read_for_obey_updates_cpr_referenced_bit(TESTCO
 static void sac_selftest_virtual_write_updates_cpr_altered_bit(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0, 0x0, 0), RA(SAC_ALL_ACCESS, 0x10, 0));
-    mu5_selftest_setup_cpr(1, VA(1, 0x2000, 0), RA(SAC_ALL_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0, 0x0, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(1, VA(1, 0x2000, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_write_32_bit_word(1, 0);
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_ALTERED, 0x00000001);
@@ -356,11 +358,11 @@ static void sac_selftest_virtual_write_updates_cpr_altered_bit(TESTCONTEXT *test
 static void sac_selftest_virtual_access_of_smallest_page_size(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_ALL_ACCESS, 0x00, 0));
-    mu5_selftest_setup_cpr(1, VA(0xF, 0, 1), RA(SAC_ALL_ACCESS, 0x40, 0));
-    mu5_selftest_setup_cpr(2, VA(0xF, 0, 2), RA(SAC_ALL_ACCESS, 0x80, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x00, 0));
+    mu5_selftest_setup_cpr(1, VA(0xF, 0, 1), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x40, 0));
+    mu5_selftest_setup_cpr(2, VA(0xF, 0, 2), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x80, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
-    sac_write_32_bit_word_real_address(0x4F, 0xAAAAAAAA);
+    sac_write_32_bit_word_real_address(RA_LOCAL(0x4F), 0xAAAAAAAA);
     sac_selftest_assert_memory_contents(0x1F, 0xAAAAAAAA);
 }
 
@@ -369,23 +371,23 @@ static void sac_selftest_virtual_access_of_largest_page_size(TESTCONTEXT *testCo
     /* with only 32K 32-bit words of local store the segments have to be made to have the segments overlap in the local
        store for this test to work. Furthermore the local store is not big enough to house a full 64K-word segment, so the highest address we can use is 32K */
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_ALL_ACCESS, 0x20000, 0xC));
-    mu5_selftest_setup_cpr(1, VA(0xF, 1, 0), RA(SAC_ALL_ACCESS, 0x00000, 0xC));
-    mu5_selftest_setup_cpr(2, VA(0xF, 2, 0), RA(SAC_ALL_ACCESS, 0x40000, 0xC));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x20000, 0xC));
+    mu5_selftest_setup_cpr(1, VA(0xF, 1, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x00000, 0xC));
+    mu5_selftest_setup_cpr(2, VA(0xF, 2, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x40000, 0xC));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
-    sac_write_32_bit_word_real_address(0x7FFF, 0xAAAAAAAA); /* 7FFF is not full size because of local store limit */
+    sac_write_32_bit_word_real_address(RA_LOCAL(0x7FFF), 0xAAAAAAAA); /* 7FFF is not full size because of local store limit */ /* TODO: change to Mass store to test the limit? */
     sac_selftest_assert_memory_contents(0x17FFF, 0xAAAAAAAA);
 }
 
 static void sac_selftest_virtual_access_of_mixed_page_size(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_ALL_ACCESS, 0x0000, 0xC));
-    mu5_selftest_setup_cpr(1, VA(0xF, 1, 0), RA(SAC_ALL_ACCESS, 0x1000, 0x6));
-    mu5_selftest_setup_cpr(2, VA(0xF, 1, 0x40), RA(SAC_ALL_ACCESS, 0x2000, 0x6));
-    mu5_selftest_setup_cpr(3, VA(0xF, 2, 0), RA(SAC_ALL_ACCESS, 0x4000, 0xC));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x0000, 0xC));
+    mu5_selftest_setup_cpr(1, VA(0xF, 1, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x1000, 0x6));
+    mu5_selftest_setup_cpr(2, VA(0xF, 1, 0x40), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x2000, 0x6));
+    mu5_selftest_setup_cpr(3, VA(0xF, 2, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x4000, 0xC));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
-    sac_write_32_bit_word_real_address(0x23FF, 0xAAAAAAAA);
+    sac_write_32_bit_word_real_address(RA_LOCAL(0x23FF), 0xAAAAAAAA);
     sac_selftest_assert_memory_contents(0x107FF, 0xAAAAAAAA);
 }
 
@@ -408,8 +410,8 @@ static void sac_selftest_cpr_not_equivalence_sets_cpr_not_equivalence_v_lines(TE
 static void sac_selftest_cpr_multiple_equivalence_generates_system_error_interrupt(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_ALL_ACCESS, 0x10, 0));
-    mu5_selftest_setup_cpr(1, VA(0xF, 0, 0), RA(SAC_ALL_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(1, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_read_32_bit_word(1);
     mu5_selftest_assert_interrupt_number(testContext, INT_SYSTEM_ERROR);
@@ -420,7 +422,7 @@ static void sac_selftest_cpr_multiple_equivalence_generates_system_error_interru
 static void sac_selftest_write_to_obey_only_page_generates_access_violation(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_OBEY_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_write_32_bit_word(1, 0);
     sac_selftest_assert_operand_access_violation_as_system_error();
@@ -429,16 +431,25 @@ static void sac_selftest_write_to_obey_only_page_generates_access_violation(TEST
 static void sac_selftest_write_to_read_only_page_generates_access_violation(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_READ_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_write_32_bit_word(1, 0);
     sac_selftest_assert_operand_access_violation_as_system_error();
 }
 
+static void sac_selftest_write_that_generates_access_violation_does_not_modify_memory(TESTCONTEXT *testContext)
+{
+	sac_selftest_clear_bcpr();
+	mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x10, 0));
+	sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
+	sac_write_32_bit_word(1, 0xFFFFFFFF);
+	sac_selftest_assert_real_address_memory_contents(RA_LOCAL(0x11), 0);
+}
+
 static void sac_selftest_read_from_obey_only_page_generates_access_violation(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_OBEY_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_read_32_bit_word(1);
     sac_selftest_assert_operand_access_violation_as_system_error();
@@ -447,7 +458,7 @@ static void sac_selftest_read_from_obey_only_page_generates_access_violation(TES
 static void sac_selftest_obey_from_read_only_page_generates_instruction_access_violation(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_READ_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_read_32_bit_word_for_obey(1);
     sac_selftest_assert_instruction_access_violation_as_system_error();
@@ -456,7 +467,7 @@ static void sac_selftest_obey_from_read_only_page_generates_instruction_access_v
 static void sac_selftest_obey_from_write_only_page_generates_instruction_access_violation(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_WRITE_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_WRITE_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_read_32_bit_word_for_obey(1);
     sac_selftest_assert_instruction_access_violation_as_system_error();
@@ -465,7 +476,7 @@ static void sac_selftest_obey_from_write_only_page_generates_instruction_access_
 static void sac_selftest_operand_access_violation_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_OBEY_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     mu5_selftest_set_executive_mode(testContext, &cpu_dev);
     sac_read_32_bit_word(1);
@@ -475,7 +486,7 @@ static void sac_selftest_operand_access_violation_in_executive_mode_generates_sy
 static void sac_selftest_operand_access_violation_in_user_mode_generates_illegal_order_interrupt(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_OBEY_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     mu5_selftest_set_user_mode(testContext, &cpu_dev);
     sac_read_32_bit_word(1);
@@ -485,7 +496,7 @@ static void sac_selftest_operand_access_violation_in_user_mode_generates_illegal
 static void sac_selftest_instruction_access_violation_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_WRITE_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_WRITE_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     mu5_selftest_set_executive_mode(testContext, &cpu_dev);
     sac_read_32_bit_word_for_obey(1);
@@ -495,7 +506,7 @@ static void sac_selftest_instruction_access_violation_in_executive_mode_generate
 static void sac_selftest_instruction_access_violation_in_user_mode_generates_illegal_order_interrupt(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_WRITE_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_WRITE_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     mu5_selftest_set_user_mode(testContext, &cpu_dev);
     sac_read_32_bit_word_for_obey(1);
@@ -505,7 +516,7 @@ static void sac_selftest_instruction_access_violation_in_user_mode_generates_ill
 static void sac_selftest_read_from_write_only_page_is_permitted(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_WRITE_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_WRITE_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_read_32_bit_word(1);
     mu5_selftest_assert_no_interrupt(localTestContext);
@@ -514,7 +525,7 @@ static void sac_selftest_read_from_write_only_page_is_permitted(TESTCONTEXT *tes
 static void sac_selftest_obey_from_obey_only_page_is_permitted(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_OBEY_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_read_32_bit_word_for_obey(1);
     mu5_selftest_assert_no_interrupt(localTestContext);
@@ -523,7 +534,7 @@ static void sac_selftest_obey_from_obey_only_page_is_permitted(TESTCONTEXT *test
 static void sac_selftest_read_from_read_only_page_is_permitted(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_READ_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_read_32_bit_word(1);
     mu5_selftest_assert_no_interrupt(localTestContext);
@@ -532,7 +543,7 @@ static void sac_selftest_read_from_read_only_page_is_permitted(TESTCONTEXT *test
 static void sac_selftest_write_to_write_only_page_is_permitted(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_WRITE_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_WRITE_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_write_32_bit_word(1, 0);
     mu5_selftest_assert_no_interrupt(localTestContext);
@@ -542,7 +553,7 @@ static void sac_selftest_executive_mode_access_to_executive_mode_page_is_permitt
 {
     mu5_selftest_set_executive_mode(testContext, &cpu_dev);
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_WRITE_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_WRITE_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_write_32_bit_word(1, 0);
     mu5_selftest_assert_no_interrupt(localTestContext);
@@ -552,7 +563,7 @@ static void sac_selftest_executive_mode_access_to_user_mode_page_is_permitted(TE
 {
     mu5_selftest_set_executive_mode(testContext, &cpu_dev);
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_USER_ACCESS | SAC_WRITE_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_USER_ACCESS | SAC_WRITE_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_write_32_bit_word(1, 0);
     mu5_selftest_assert_no_interrupt(localTestContext);
@@ -562,7 +573,7 @@ static void sac_selftest_user_mode_access_to_executive_mode_page_generates_acces
 {
     mu5_selftest_set_user_mode(testContext, &cpu_dev);
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_READ_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_read_32_bit_word(1);
     sac_selftest_assert_operand_access_violation_as_illegal_order();
@@ -598,21 +609,21 @@ static void sac_selftest_can_write_real_address_to_cpr(TESTCONTEXT *testContext)
 {
 	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 27);
 	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, 0xAAAAAAAAFFFFFFFF);
-	sac_selftest_assert_reg_instance_equals(REG_CPR, 27, 0x000000007FFFFFFF);
+	sac_selftest_assert_reg_instance_equals(REG_CPR, 27, 0x00000000FFFFFFFF);
 }
 
 static void sac_selftest_writing_real_address_to_reserved_cpr_has_no_effect(TESTCONTEXT *testContext)
 {
 	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
 	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, 0xAAAAAAAAFFFFFFFF);
-	sac_selftest_assert_reg_instance_equals(REG_CPR, 31, 0x0200000070800005);
+	sac_selftest_assert_reg_instance_equals(REG_CPR, 31, 0x0200000073800005);
 }
 
 static void sac_selftest_can_read_real_address_from_cpr(TESTCONTEXT *testContext)
 {
     sac_selftest_set_register_instance(REG_CPR, 31, 0xFFFFFFFFFFFFFFFF);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
-    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, 0x000000007FFFFFFF);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, 0x00000000FFFFFFFF);
 }
 
 static void sac_selftest_can_write_virtual_address_to_cpr(TESTCONTEXT *testContext)
@@ -626,7 +637,7 @@ static void sac_selftest_writing_virtual_address_to_reserved_cpr_has_no_effect(T
 {
 	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 28);
 	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0xAAAAAAAAFFFFFFFF);
-	sac_selftest_assert_reg_instance_equals(REG_CPR, 28, 0x0200000070800005);
+	sac_selftest_assert_reg_instance_equals(REG_CPR, 28, 0x0200000073800005);
 }
 
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_ignore_bit(TESTCONTEXT *testContext)
@@ -790,7 +801,7 @@ static void sac_selftest_search_cpr_updates_find_result(TESTCONTEXT *testContext
 static void sac_selftest_write_to_access_violation_resets_it_to_zero(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_OBEY_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_read_32_bit_word(1);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_ACCESS_VIOLATION, 0xFFFFFFFFFFFFFFFF);
@@ -800,8 +811,8 @@ static void sac_selftest_write_to_access_violation_resets_it_to_zero(TESTCONTEXT
 static void sac_selftest_write_to_system_error_interrupts_resets_it_to_zero(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), RA(SAC_ALL_ACCESS, 0x10, 0));
-    mu5_selftest_setup_cpr(1, VA(0xF, 0, 0), RA(SAC_ALL_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(1, VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_read_32_bit_word(1);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_SYSTEM_ERROR_INTERRUPTS, 0xFFFFFFFFFFFFFFFF);
@@ -820,7 +831,7 @@ static void sac_selftest_write_to_cpr_not_equivalence_psx_not_equivalance_lines_
 static void sac_selftest_write_v_real_address_writes_to_system_v_store(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0x0, 0, 0), RA(SAC_ALL_ACCESS,0x080000, 0xC));
+    mu5_selftest_setup_cpr(0, VA(0x0, 0, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS,0x080000, 0xC));
 
     sac_write_64_bit_word(0x000, 0xABCDDCBA01233210);
     sac_write_64_bit_word(0x1FE, 0xBCDDCBA012332105);
@@ -831,7 +842,7 @@ static void sac_selftest_write_v_real_address_writes_to_system_v_store(TESTCONTE
 static void sac_selftest_read_v_real_address_reads_system_v_store(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, VA(0x0, 0, 0), RA(SAC_ALL_ACCESS, 0x080000, 0xC));
+    mu5_selftest_setup_cpr(0, VA(0x0, 0, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x080000, 0xC));
 
     sac_write_v_store(SYSTEM_V_STORE_BLOCK, 0xFF, 0xABCDDCBA01233210);
     sac_write_v_store(SYSTEM_V_STORE_BLOCK, 0x00, 0xBCDDCBA012332105);

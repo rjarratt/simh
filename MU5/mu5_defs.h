@@ -56,10 +56,26 @@ in this Software without prior written authorization from Robert Jarratt.
 #define LOG_CPU_SELFTEST        (1 << 2)
 #define LOG_CPU_SELFTEST_DETAIL (1 << 3)
 #define LOG_CPU_SELFTEST_FAIL   (1 << 4)
+#define LOG_SAC_ERROR           (1 << 5)
+#define LOG_SAC_REAL_ACCESSES   (1 << 6) /* TODO: separate out the debtab settings for each unit */
+#define LOG_SAC_MEMORY_TRACE    (1 << 7) /* TODO: separate out the debtab settings for each unit */
 
 #define MAX_LOCAL_MEMORY  (32768)    /* RNI told me Local Store consisted of four 4096-word memory units, each word containing 64 data bits + 8 parity bits. This is the size in 32-bit words */
 #define MAX_MASS_MEMORY  (262144)    /* RNI told me Local Store consisted of four 4096-word memory units, each word containing 64 data bits + 8 parity bits. This is the size in 32-bit words */
 
+/* The Exchange Unit numbers below are presumed but not confirmed. RNI believes the numbers are in the order in which they appear in Fig. 6.12 on p133 of the book. However in an email
+   he also said "The BTU was also a unit, as was the SPM.I think the SPM was unit 10 or 11."
+*/
+#define UNIT_FIXED_HEAD_DISC 0
+#define UNIT_PDP11 1
+#define UNIT_MU5_PROCESSOR 2
+#define UNIT_LOCAL_STORE 3
+#define UNIT_1905E 4
+#define UNIT_MASS_STORE 5
+#define UNIT_BTU 6 /* A total guess */
+#define UNIT_SPM 10 /* or could be 11 */
+
+/* Interrupt numbers */
 #define INT_SYSTEM_ERROR 0
 #define INT_CPR_NOT_EQUIVALENCE 1
 #define INT_EXCHANGE 2
@@ -69,17 +85,22 @@ in this Software without prior written authorization from Robert Jarratt.
 #define INT_PROGRAM_FAULTS 6
 #define INT_SOFTWARE_INTERRUPT 7
 
+/* Descriptor types */
 #define DESCRIPTOR_TYPE_GENERAL_VECTOR 0
 #define DESCRIPTOR_TYPE_GENERAL_STRING 1
 #define DESCRIPTOR_TYPE_ADDRESS_VECTOR 2
 #define DESCRIPTOR_TYPE_MISCELLANEOUS  3
 
+/* Descriptor sizes */
 #define DESCRIPTOR_SIZE_1_BIT 0
 #define DESCRIPTOR_SIZE_4_BIT 2
 #define DESCRIPTOR_SIZE_8_BIT 3
 #define DESCRIPTOR_SIZE_16_BIT 4
 #define DESCRIPTOR_SIZE_32_BIT 5
 #define DESCRIPTOR_SIZE_64_BIT 6
+
+#define RA_LOCAL(address) ((UNIT_LOCAL_STORE << 20) | (address & 0xFFFFF))
+#define RA_LOCAL_BYTE(address) ((UNIT_LOCAL_STORE << 22) | (address & 0xFFFFF))
 
 typedef struct
 {
