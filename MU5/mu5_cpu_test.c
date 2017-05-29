@@ -2075,7 +2075,7 @@ static void cpu_selftest_assert_reg_equals_mask(char *name, t_uint64 expectedVal
 
     if ((mask & actualValue) != (mask & expectedValue))
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value in register %s to be %llX, but was %llX for mask %llX\n", name, mask & expectedValue, mask & actualValue, mask);
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected value in register %s to be %llX, but was %llX for mask %llX\n", name, mask & expectedValue, mask & actualValue, mask);
         cpu_selftest_set_failure();
     }
 }
@@ -2085,7 +2085,7 @@ static void cpu_selftest_assert_memory_contents_32_bit(t_addr address, uint32 ex
     uint32 actualValue = sac_read_32_bit_word(address);
     if (actualValue != expectedValue)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at address %08X to be %08X, but was %08X\n", address, expectedValue, actualValue);
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected value at address %08X to be %08X, but was %08X\n", address, expectedValue, actualValue);
         cpu_selftest_set_failure();
     }
 }
@@ -2095,7 +2095,7 @@ static void cpu_selftest_assert_memory_contents_64_bit(t_addr address, t_uint64 
     t_uint64 actualValue = sac_read_64_bit_word(address);
     if (actualValue != expectedValue)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at address %08X to be %016llX, but was %016llX\n", address, expectedValue, actualValue);
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected value at address %08X to be %016llX, but was %016llX\n", address, expectedValue, actualValue);
         cpu_selftest_set_failure();
     }
 }
@@ -2105,7 +2105,7 @@ static void cpu_selftest_assert_vector_content_64_bit(t_addr origin, uint32 offs
     t_uint64 actualValue = sac_read_64_bit_word(cpu_selftest_get_64_bit_vector_element_address(origin, offset));
     if (actualValue != expectedValue)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %016llX, but was %016llX\n", offset, origin, expectedValue, actualValue);
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %016llX, but was %016llX\n", offset, origin, expectedValue, actualValue);
         cpu_selftest_set_failure();
     }
 }
@@ -2115,7 +2115,7 @@ static void cpu_selftest_assert_vector_content_32_bit(t_addr origin, uint32 offs
     uint32 actualValue = sac_read_32_bit_word(cpu_selftest_get_32_bit_vector_element_address(origin, offset));
     if (actualValue != expectedValue)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %08X, but was %08X\n", offset, origin, expectedValue, actualValue);
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %08X, but was %08X\n", offset, origin, expectedValue, actualValue);
         cpu_selftest_set_failure();
     }
 }
@@ -2125,7 +2125,7 @@ static void cpu_selftest_assert_vector_content_16_bit(t_addr origin, uint32 offs
     uint16 actualValue = sac_read_16_bit_word(cpu_selftest_get_16_bit_vector_element_address(origin, offset));
     if (actualValue != expectedValue)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %04X, but was %04X\n", offset, origin, expectedValue, actualValue);
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %04X, but was %04X\n", offset, origin, expectedValue, actualValue);
         cpu_selftest_set_failure();
     }
 }
@@ -2135,7 +2135,7 @@ static void cpu_selftest_assert_vector_content_8_bit(t_addr origin, uint32 offse
     uint8 actualValue = sac_read_8_bit_word(cpu_selftest_get_8_bit_vector_element_address(origin, offset));
     if (actualValue != expectedValue)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %02X, but was %02X\n", offset, origin, expectedValue, actualValue);
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %02X, but was %02X\n", offset, origin, expectedValue, actualValue);
         cpu_selftest_set_failure();
     }
 }
@@ -2147,7 +2147,7 @@ static void cpu_selftest_assert_vector_content_4_bit(t_addr origin, uint32 offse
     uint8 actualNibble = (byte >> shift) & 0xF;
     if (actualNibble != expectedValue)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %01X, but was %01X\n", offset, origin, expectedValue, actualNibble);
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %01X, but was %01X\n", offset, origin, expectedValue, actualNibble);
         cpu_selftest_set_failure();
     }
 }
@@ -2159,7 +2159,7 @@ static void cpu_selftest_assert_vector_content_1_bit(t_addr origin, uint32 offse
     uint8 actualBit = (byte >> shift) & 0x1;
     if (actualBit != expectedValue)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %01X, but was %01X\n", offset, origin, expectedValue, actualBit);
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected value at element %u of vector at %08X to be %01X, but was %01X\n", offset, origin, expectedValue, actualBit);
         cpu_selftest_set_failure();
     }
 }
@@ -2170,7 +2170,7 @@ static void cpu_selftest_assert_interrupt_return_address(int interruptNumber, ui
     uint32 actual = stored_link & 0x00000000FFFFFFFF;
     if (actual != expectedAddress)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, localTestContext->dev, "Interrupt return address was %08X, expected %08X\n", actual, expectedAddress);
+        sim_debug(LOG_SELFTEST_FAIL, localTestContext->dev, "Interrupt return address was %08X, expected %08X\n", actual, expectedAddress);
         mu5_selftest_set_failure(localTestContext);
     }
 }
@@ -2196,7 +2196,7 @@ static void cpu_selftest_assert_no_b_overflow(void)
     t_uint64 bod = cpu_selftest_get_register(REG_BOD);
     if (bod & BOD_BOVF_MASK)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected B overflow\n");
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Unexpected B overflow\n");
         cpu_selftest_set_failure();
     }
 }
@@ -2211,7 +2211,7 @@ static void cpu_selftest_assert_b_overflow(void)
     t_uint64 bod = cpu_selftest_get_register(REG_BOD);
     if (!(bod & BOD_BOVF_MASK))
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected B overflow\n");
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected B overflow\n");
         cpu_selftest_set_failure();
     }
 }
@@ -2227,7 +2227,7 @@ static void cpu_selftest_assert_no_acc_overflow(void)
     t_uint64 aod = cpu_selftest_get_register(REG_AOD);
     if (aod & AOD_FLPOVF_MASK)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected A overflow\n");
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Unexpected A overflow\n");
         cpu_selftest_set_failure();
     }
 }
@@ -2242,7 +2242,7 @@ static void cpu_selftest_assert_acc_fixed_point_overflow(void)
     t_uint64 aod = cpu_selftest_get_register(REG_AOD);
     if (!(aod & AOD_FXPOVF_MASK))
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected A fixed point overflow\n");
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected A fixed point overflow\n");
         cpu_selftest_set_failure();
     }
 }
@@ -2258,7 +2258,7 @@ static void cpu_selftest_assert_no_a_zero_divide(void)
     t_uint64 aod = cpu_selftest_get_register(REG_AOD);
     if (aod &AOD_ZDIV_MASK)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Unexpected A zero divide\n");
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Unexpected A zero divide\n");
         cpu_selftest_set_failure();
     }
 }
@@ -2273,7 +2273,7 @@ static void cpu_selftest_assert_a_zero_divide(void)
     t_uint64 aod = cpu_selftest_get_register(REG_AOD);
     if (!(aod & AOD_ZDIV_MASK))
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected A zero divide\n");
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected A zero divide\n");
         cpu_selftest_set_failure();
     }
 }
@@ -2292,47 +2292,47 @@ static void cpu_selftest_assert_interrupt(int interruptNumber)
         {
             case INT_SYSTEM_ERROR:
             {
-                sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected System Error interrupt to have occurred\n");
+                sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected System Error interrupt to have occurred\n");
                 break;
             }
             case INT_CPR_NOT_EQUIVALENCE:
             {
-                sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected CPR Not Equivalence interrupt to have occurred\n");
+                sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected CPR Not Equivalence interrupt to have occurred\n");
                 break;
             }
             case INT_EXCHANGE:
             {
-                sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected Exchange interrupt to have occurred\n");
+                sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected Exchange interrupt to have occurred\n");
                 break;
             }
             case INT_PERIPHERAL_WINDOW:
             {
-                sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected Peripheral Window interrupt to have occurred\n");
+                sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected Peripheral Window interrupt to have occurred\n");
                 break;
             }
             case INT_INSTRUCTION_COUNT_ZERO:
             {
-                sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected Instruction Count Zero interrupt to have occurred\n");
+                sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected Instruction Count Zero interrupt to have occurred\n");
                 break;
             }
             case INT_ILLEGAL_ORDERS:
             {
-                sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected Illegal Orders interrupt to have occurred\n");
+                sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected Illegal Orders interrupt to have occurred\n");
                 break;
             }
             case INT_PROGRAM_FAULTS:
             {
-                sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected Program Faults interrupt to have occurred\n");
+                sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected Program Faults interrupt to have occurred\n");
                 break;
             }
             case INT_SOFTWARE_INTERRUPT:
             {
-                sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected Software interrupt to have occurred\n");
+                sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected Software interrupt to have occurred\n");
                 break;
             }
             default:
             {
-                sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Error in test, expecting invalid interrupt number %d\n", interruptNumber);
+                sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Error in test, expecting invalid interrupt number %d\n", interruptNumber);
                 break;
             }
         }
@@ -2357,7 +2357,7 @@ static void cpu_selftest_assert_dod_interrupt_as_system_error(char *name, uint32
     uint32 dod = cpu_selftest_get_register(REG_DOD) & 0xFFFFFFFF;
     if (!(dod & mask))
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected %s bit to be set in DOD\n", name);
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected %s bit to be set in DOD\n", name);
         cpu_selftest_set_failure();
     }
 }
@@ -2369,7 +2369,7 @@ static void cpu_selftest_assert_d_error_no_interrupt(char *name, uint32 mask)
     uint32 dod = cpu_selftest_get_register(REG_DOD) & 0xFFFFFFFF;
     if (!(dod & mask))
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected %s bit to be set in DOD\n", name);
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected %s bit to be set in DOD\n", name);
         cpu_selftest_set_failure();
     }
 }
@@ -2381,7 +2381,7 @@ static void cpu_selftest_assert_no_d_interrupt(char *name, uint32 mask)
     uint32 dod = cpu_selftest_get_register(REG_DOD) & 0xFFFFFFFF;
     if (dod & mask)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected %s bit to be clear in DOD\n", name);
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected %s bit to be clear in DOD\n", name);
         cpu_selftest_set_failure();
     }
 }
@@ -2561,7 +2561,7 @@ static void cpu_selftest_assert_bn(int expectedValue)
     uint8 bn = (ms >> 8) & 1;
     if (bn != expectedValue)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "Expected BN to be %d\n", expectedValue);
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected BN to be %d\n", expectedValue);
         cpu_selftest_set_failure();
     }
 }
@@ -2572,7 +2572,7 @@ static void cpu_selftest_assert_boolean_order_condition(CONDITIONTABLE *entry)
     uint8 bn = (ms >> 8) & 1;
     if (bn != entry->newBn)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "For BN=%d and R=%d, function %X expected BN to become %d\n", entry->bn, entry->r, entry->func, entry->newBn);
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "For BN=%d and R=%d, function %X expected BN to become %d\n", entry->bn, entry->r, entry->func, entry->newBn);
         cpu_selftest_set_failure();
     }
 }
@@ -2582,7 +2582,7 @@ static void cpu_selftest_assert_v_store_contents(uint8 block, uint8 line, t_uint
     t_uint64 actual = sac_read_v_store(block, line);
     if (actual != expectedValue)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "V-Store block=%u, line=%u, expected 0x%llX, but was x%llX\n", block, line, expectedValue, actual);
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "V-Store block=%u, line=%u, expected 0x%llX, but was x%llX\n", block, line, expectedValue, actual);
         cpu_selftest_set_failure();
     }
 }

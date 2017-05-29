@@ -60,6 +60,9 @@ TODO: Real address line bits concatenated
 #define RA_MASK 0xFFFFF
 #define RA_V_MASK 0x080000
 
+#define LOG_SAC_REAL_ACCESSES   (1 << 0)
+#define LOG_SAC_MEMORY_TRACE    (1 << 1)
+
 typedef struct VSTORE_LINE
 {
     t_uint64(*ReadCallback)(uint8 line);
@@ -117,9 +120,9 @@ static MTAB sac_mod[] =
 static DEBTAB sac_debtab[] =
 {
     { "EVENT",          SIM_DBG_EVENT,     "event dispatch activities" },
-    { "SELFTESTDETAIL", LOG_CPU_SELFTEST_DETAIL,  "self test detailed output" },
-    { "SELFTESTFAIL",   LOG_CPU_SELFTEST_FAIL,  "self test failure output" },
-	{ "ERROR",          LOG_SAC_ERROR, "significant errors" },
+    { "SELFTESTDETAIL", LOG_SELFTEST_DETAIL,  "self test detailed output" },
+    { "SELFTESTFAIL",   LOG_SELFTEST_FAIL,  "self test failure output" },
+	{ "ERROR",          LOG_ERROR, "significant errors" },
 	{ "REAL",           LOG_SAC_REAL_ACCESSES, "real address accesses" },
 	{ NULL,           0 }
 };
@@ -372,7 +375,7 @@ uint32 sac_read_32_bit_word_real_address(t_addr address)
         default:
         {
             result = 0;
-            sim_debug(LOG_SAC_ERROR, &sac_dev, "Read unknown (%hu) store real address %08X, result=%08X\n", unit, address, result);
+            sim_debug(LOG_ERROR, &sac_dev, "Read unknown (%hu) store real address %08X, result=%08X\n", unit, address, result);
             break;
         }
     }
@@ -402,7 +405,7 @@ void sac_write_32_bit_word_real_address(t_addr address, uint32 value)
 
         default:
         {
-            sim_debug(LOG_SAC_ERROR, &sac_dev, "Write unknown (%hu) store real address %08X, value=%08X\n", unit, address, value);
+            sim_debug(LOG_ERROR, &sac_dev, "Write unknown (%hu) store real address %08X, value=%08X\n", unit, address, value);
             break;
         }
     }

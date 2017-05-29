@@ -97,6 +97,9 @@ to set the MS register to some appropriate setting.
 #define SCALE_32 1
 #define SCALE_64 2
 
+#define LOG_CPU_PERF            (1 << 0)
+#define LOG_CPU_DECODE          (1 << 1)
+
 static int cpu_stopped = 0;
 
 int32 sim_emax;
@@ -278,9 +281,9 @@ static DEBTAB cpu_debtab[] =
     { "PERF",           LOG_CPU_PERF,             "CPU performance" },
     { "EVENT",          SIM_DBG_EVENT,            "event dispatch activities" },
     { "DECODE",         LOG_CPU_DECODE,           "decode instructions" },
-    { "SELFTEST",       LOG_CPU_SELFTEST,         "self test summary output" },
-    { "SELFTESTDETAIL", LOG_CPU_SELFTEST_DETAIL,  "self test detailed output" },
-    { "SELFTESTFAIL",   LOG_CPU_SELFTEST_FAIL,    "self test failure output" },
+    { "SELFTEST",       LOG_SELFTEST,         "self test summary output" },
+    { "SELFTESTDETAIL", LOG_SELFTEST_DETAIL,  "self test detailed output" },
+    { "SELFTESTFAIL",   LOG_SELFTEST_FAIL,    "self test failure output" },
     { NULL,             0 }
 };
 

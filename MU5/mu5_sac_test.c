@@ -239,7 +239,7 @@ static void sac_selftest_assert_real_address_memory_contents(t_addr address, uin
     uint32 actualValue = sac_read_32_bit_word_real_address(address);
     if (actualValue != expectedValue)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, localTestContext->dev, "Expected value at real address 0x%X to be %X, but was %X\n", address, expectedValue, actualValue);
+        sim_debug(LOG_SELFTEST_FAIL, localTestContext->dev, "Expected value at real address 0x%X to be %X, but was %X\n", address, expectedValue, actualValue);
         mu5_selftest_set_failure(localTestContext);
     }
 }
@@ -249,7 +249,7 @@ static void  sac_selftest_assert_memory_contents(t_addr address, uint32 expected
     uint32 actualValue = sac_read_32_bit_word(address);
     if (actualValue != expectedValue)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, localTestContext->dev, "Expected value at address 0x%X to be %X, but was %X\n", address, expectedValue, actualValue);
+        sim_debug(LOG_SELFTEST_FAIL, localTestContext->dev, "Expected value at address 0x%X to be %X, but was %X\n", address, expectedValue, actualValue);
         mu5_selftest_set_failure(localTestContext);
     }
 }
@@ -593,7 +593,7 @@ static void sac_selftest_writing_read_only_vstore_line_does_nothing(TESTCONTEXT 
     sac_selftest_assert_vstore_contents(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0);
     if (VStoreTestLocation != 0)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, testContext->dev, "Expected value in V-Store test backing location to be 0, but was %llX\n", VStoreTestLocation);
+        sim_debug(LOG_SELFTEST_FAIL, testContext->dev, "Expected value in V-Store test backing location to be 0, but was %llX\n", VStoreTestLocation);
         mu5_selftest_set_failure(testContext);
     }
 }

@@ -76,8 +76,8 @@ static MTAB console_mod[] =
 static DEBTAB console_debtab[] =
 {
     { "EVENT",          SIM_DBG_EVENT,     "event dispatch activities" },
-    { "SELFTESTDETAIL", LOG_CPU_SELFTEST_DETAIL,  "self test detailed output" },
-    { "SELFTESTFAIL",   LOG_CPU_SELFTEST_FAIL,  "self test failure output" },
+    { "SELFTESTDETAIL", LOG_SELFTEST_DETAIL,  "self test detailed output" },
+    { "SELFTESTFAIL",   LOG_SELFTEST_FAIL,  "self test failure output" },
     { NULL,           0 }
 };
 

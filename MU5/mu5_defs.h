@@ -51,14 +51,10 @@ in this Software without prior written authorization from Robert Jarratt.
 #define REG_CALLBACK 0x8000000
 
 /* Debug flags */
-#define LOG_CPU_PERF            (1 << 0)
-#define LOG_CPU_DECODE          (1 << 1)
-#define LOG_CPU_SELFTEST        (1 << 2)
-#define LOG_CPU_SELFTEST_DETAIL (1 << 3)
-#define LOG_CPU_SELFTEST_FAIL   (1 << 4)
-#define LOG_SAC_ERROR           (1 << 5)
-#define LOG_SAC_REAL_ACCESSES   (1 << 6) /* TODO: separate out the debtab settings for each unit */
-#define LOG_SAC_MEMORY_TRACE    (1 << 7) /* TODO: separate out the debtab settings for each unit */
+#define LOG_ERROR           (1 << 12)
+#define LOG_SELFTEST        (1 << 13)
+#define LOG_SELFTEST_DETAIL (1 << 14)
+#define LOG_SELFTEST_FAIL   (1 << 15)
 
 #define MAX_LOCAL_MEMORY  (32768)    /* RNI told me Local Store consisted of four 4096-word memory units, each word containing 64 data bits + 8 parity bits. This is the size in 32-bit words */
 #define MAX_MASS_MEMORY  (262144)    /* RNI told me Local Store consisted of four 4096-word memory units, each word containing 64 data bits + 8 parity bits. This is the size in 32-bit words */
