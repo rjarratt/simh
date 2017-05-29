@@ -218,10 +218,10 @@ void sac_reset_state(void)
 	/* set up the reserved CPRs. These are made-up values, don't know the originals. Size 5 = 512 words */
 	/* at the moment these are all the same value as I don't know what they should be, just make sure the 
 	   CPR IGNORE ignores all but one of them to avoid a multiple equivalence error */
-	cpr[28] = 0x0200000073800005;
-	cpr[29] = 0x0200000073800005;
-	cpr[30] = 0x0200000073800005;
-	cpr[31] = 0x0200000073800005; /* Maps V-Store to segment 8192, exec mode only access */
+	cpr[28] = ((t_uint64)CPR_VA(0x0, 0x2000, 0x0) << 32) | CPR_RA_LOCAL(SAC_ALL_EXEC_ACCESS, 0x80000, 0x5);
+	cpr[29] = ((t_uint64)CPR_VA(0x0, 0x2000, 0x0) << 32) | CPR_RA_LOCAL(SAC_ALL_EXEC_ACCESS, 0x80000, 0x5);
+	cpr[30] = ((t_uint64)CPR_VA(0x0, 0x2000, 0x0) << 32) | CPR_RA_LOCAL(SAC_ALL_EXEC_ACCESS, 0x80000, 0x5);
+	cpr[31] = ((t_uint64)CPR_VA(0x0, 0x2000, 0x0) << 32) | CPR_RA_LOCAL(SAC_ALL_EXEC_ACCESS, 0x80000, 0x5); /* Maps V-Store to segment 8192, exec mode only access */
 
     /* Notes from AEK thesis: The 4 fixed CPRs appear to have the following purposes
        1. Locked down code for the supervisor-supervisor.
