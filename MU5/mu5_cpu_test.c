@@ -256,6 +256,8 @@ in this Software without prior written authorization from Robert Jarratt.
 #define TEST_LESS_THAN 0x0600
 #define TEST_OVERFLOW 0x0800
 
+#define NB_DEFAULT 0x00F0
+
 typedef struct
 {
     uint8 func;
@@ -2643,7 +2645,7 @@ static void cpu_selftest_instruction_fetches_extended_literal_using_obey_access(
 
 static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_from_sf_using_obey_access(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_SF);
     cpu_selftest_load_16_bit_literal(n);
@@ -2667,7 +2669,7 @@ static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_fro
 
 static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_from_nb_using_obey_access(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_NB);
     cpu_selftest_load_16_bit_literal(n);
@@ -2680,7 +2682,7 @@ static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_fro
 
 static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_from_xnb_using_obey_access(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_XNB);
     cpu_selftest_load_16_bit_literal(n);
@@ -2921,7 +2923,7 @@ static void cpu_selftest_load_operand_non_existent_internal_register(TESTCONTEXT
 
 static void cpu_selftest_load_operand_32_bit_variable(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     int8 n = 0x1;
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_V32, n);
     cpu_selftest_set_register(REG_NB, base);
@@ -2933,7 +2935,7 @@ static void cpu_selftest_load_operand_32_bit_variable(TESTCONTEXT *testContext)
 
 static void cpu_selftest_load_operand_32_bit_variable_6_bit_offset_is_unsigned(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     int8 n = 0x3F;
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_V32, n);
     cpu_selftest_set_register(REG_NB, base);
@@ -2945,7 +2947,7 @@ static void cpu_selftest_load_operand_32_bit_variable_6_bit_offset_is_unsigned(T
 
 static void cpu_selftest_load_operand_64_bit_variable(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     int8 n = 0x1;
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_V64, n);
     cpu_selftest_set_register(REG_NB, base);
@@ -2962,7 +2964,7 @@ static void cpu_selftest_load_operand_64_bit_variable(TESTCONTEXT *testContext)
 static void cpu_selftest_load_operand_b_relative_descriptor_loads_D(TESTCONTEXT *testContext)
 {
     // TODO: #define the following values
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x1;
@@ -2978,7 +2980,7 @@ static void cpu_selftest_load_operand_b_relative_descriptor_loads_D(TESTCONTEXT 
 
 static void cpu_selftest_load_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_4(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x1;
@@ -2994,7 +2996,7 @@ static void cpu_selftest_load_operand_b_relative_descriptor_32_bit_value_at_6_bi
 
 static void cpu_selftest_load_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_5(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x1;
@@ -3010,7 +3012,7 @@ static void cpu_selftest_load_operand_b_relative_descriptor_32_bit_value_at_6_bi
 
 static void cpu_selftest_load_operand_b_relative_descriptor_64_bit_value_at_6_bit_offset(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x1;
@@ -3026,7 +3028,7 @@ static void cpu_selftest_load_operand_b_relative_descriptor_64_bit_value_at_6_bi
 
 static void cpu_selftest_load_operand_b_relative_descriptor_16_bit_value_at_6_bit_offset(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x1;
@@ -3042,7 +3044,7 @@ static void cpu_selftest_load_operand_b_relative_descriptor_16_bit_value_at_6_bi
 
 static void cpu_selftest_load_operand_b_relative_descriptor_8_bit_value_at_6_bit_offset(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x1;
@@ -3058,7 +3060,7 @@ static void cpu_selftest_load_operand_b_relative_descriptor_8_bit_value_at_6_bit
 
 static void cpu_selftest_load_operand_b_relative_descriptor_4_bit_value_at_6_bit_offset(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x1;
@@ -3074,7 +3076,7 @@ static void cpu_selftest_load_operand_b_relative_descriptor_4_bit_value_at_6_bit
 
 static void cpu_selftest_load_operand_b_relative_descriptor_1_bit_value_at_6_bit_offset(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x1;
@@ -3090,7 +3092,7 @@ static void cpu_selftest_load_operand_b_relative_descriptor_1_bit_value_at_6_bit
 
 static void cpu_selftest_load_operand_b_relative_descriptor_with_negative_modifier_generates_bounds_check(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = -1;
     int8 n = 0x1;
@@ -3104,7 +3106,7 @@ static void cpu_selftest_load_operand_b_relative_descriptor_with_negative_modifi
 
 static void cpu_selftest_load_operand_b_relative_descriptor_modifier_greater_than_bound_generates_bounds_check(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 2;
     int8 n = 0x1;
@@ -3118,7 +3120,7 @@ static void cpu_selftest_load_operand_b_relative_descriptor_modifier_greater_tha
 
 static void cpu_selftest_load_operand_zero_relative_descriptor_loads_D(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x1;
     t_uint64 d = cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_64_BIT, 2, vecorigin);
@@ -3132,7 +3134,7 @@ static void cpu_selftest_load_operand_zero_relative_descriptor_loads_D(TESTCONTE
 
 static void cpu_selftest_load_operand_zero_relative_descriptor_64_bit_value_at_6_bit_offset(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x1;
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_S0, n);
@@ -3245,7 +3247,7 @@ static void cpu_selftest_load_operand_extended_literal_kp_1(TESTCONTEXT *testCon
 
 static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_sf(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_SF);
     cpu_selftest_load_16_bit_literal(n);
@@ -3269,7 +3271,7 @@ static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_zero(
 
 static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_NB);
     cpu_selftest_load_16_bit_literal(n);
@@ -3282,7 +3284,7 @@ static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_nb(TE
 
 static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_xnb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_XNB);
     cpu_selftest_load_16_bit_literal(n);
@@ -3295,7 +3297,7 @@ static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_xnb(T
 
 static void cpu_selftest_load_operand_extended_32_bit_variable_from_stack(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_STACK);
     sac_write_64_bit_word(base, 0xAAAABBBB);
     cpu_selftest_set_register(REG_SF, base);
@@ -3307,7 +3309,7 @@ static void cpu_selftest_load_operand_extended_32_bit_variable_from_stack(TESTCO
 
 static void cpu_selftest_load_operand_extended_32_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_DR);
     cpu_selftest_run_code();
     cpu_selftest_assert_illegal_function_as_system_error();
@@ -3315,7 +3317,7 @@ static void cpu_selftest_load_operand_extended_32_bit_variable_from_d_generates_
 
 static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_NB_REF);
     sac_write_32_bit_word(base, 0xAAAABBBB);
     cpu_selftest_set_register(REG_NB, base);
@@ -3326,7 +3328,7 @@ static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_nb_re
 
 static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_xnb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_XNB);
     sac_write_32_bit_word(base, 0xAAAABBBB);
     cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
@@ -3337,7 +3339,7 @@ static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_xnb_r
 
 static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_sf(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V64, NP_SF);
     cpu_selftest_load_16_bit_literal(n);
@@ -3361,7 +3363,7 @@ static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_zero(
 
 static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V64, NP_NB);
     cpu_selftest_load_16_bit_literal(n);
@@ -3374,7 +3376,7 @@ static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_nb(TE
 
 static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_xnb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V64, NP_XNB);
     cpu_selftest_load_16_bit_literal(n);
@@ -3387,7 +3389,7 @@ static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_xnb(T
 
 static void cpu_selftest_load_operand_extended_64_bit_variable_from_stack(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V64, NP_STACK);
     sac_write_64_bit_word(base, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_set_register(REG_SF, base);
@@ -3399,7 +3401,7 @@ static void cpu_selftest_load_operand_extended_64_bit_variable_from_stack(TESTCO
 
 static void cpu_selftest_load_operand_extended_64_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V64, NP_DR);
     cpu_selftest_run_code();
     cpu_selftest_assert_illegal_function_as_system_error();
@@ -3407,7 +3409,7 @@ static void cpu_selftest_load_operand_extended_64_bit_variable_from_d_generates_
 
 static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V64, NP_NB_REF);
     sac_write_64_bit_word(base, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_set_register(REG_NB, base);
@@ -3418,7 +3420,7 @@ static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_nb_re
 
 static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_xnb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V64, NP_XNB);
     sac_write_64_bit_word(base, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
@@ -3429,7 +3431,7 @@ static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_xnb_r
 
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_sf_kp_4(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x2;
@@ -3446,7 +3448,7 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_valu
 
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_sf_kp_5(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x2;
@@ -3463,7 +3465,7 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_valu
 
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_zero(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x4;
@@ -3479,7 +3481,7 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_valu
 
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x2;
@@ -3496,7 +3498,7 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_valu
 
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_xnb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x2;
@@ -3513,7 +3515,7 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_valu
 
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_stack(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_SB, NP_STACK);
@@ -3529,7 +3531,7 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_valu
 
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_dr(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_SB, NP_DR);
@@ -3543,7 +3545,7 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_valu
 
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_from_dr_does_not_load_D(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     t_uint64 d = cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin);
@@ -3557,7 +3559,7 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_from_dr_doe
 
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_nb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_SB, NP_NB_REF);
@@ -3572,7 +3574,7 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_valu
 
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_xnb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_SB, NP_XNB_REF);
@@ -3587,7 +3589,7 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_valu
 
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_64_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x2;
@@ -3604,7 +3606,7 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_64_bit_valu
 
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_16_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x2;
@@ -3621,7 +3623,7 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_16_bit_valu
 
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_8_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x2;
@@ -3638,7 +3640,7 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_8_bit_value
 
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_4_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x2;
@@ -3655,7 +3657,7 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_4_bit_value
 
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_1_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x2;
@@ -3672,7 +3674,7 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_1_bit_value
 
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_value_from_sf(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_S0, NP_SF);
@@ -3687,7 +3689,7 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_v
 
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_value_from_zero(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x4;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_S0, NP_0);
@@ -3701,7 +3703,7 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_v
 
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_S0, NP_NB);
@@ -3716,7 +3718,7 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_v
 
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_S0, NP_XNB);
@@ -3731,7 +3733,7 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_v
 
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_value_from_stack(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_S0, NP_STACK);
     cpu_selftest_set_register(REG_SF, base);
@@ -3745,7 +3747,7 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_v
 
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_value_from_dr(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_S0, NP_DR);
     cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
@@ -3757,7 +3759,7 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_v
 
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_from_dr_does_not_load_D(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     t_uint64 d = cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin);
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_S0, NP_DR);
@@ -3769,7 +3771,7 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_from_dr_
 
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_value_from_nb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_S0, NP_NB_REF);
     cpu_selftest_set_register(REG_NB, base);
@@ -3782,7 +3784,7 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_v
 
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_S0, NP_XNB_REF);
     cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
@@ -3795,7 +3797,7 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_v
 
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_64_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_S0, NP_NB);
@@ -3810,7 +3812,7 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_64_bit_v
 
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_16_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_S0, NP_NB);
@@ -3825,7 +3827,7 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_16_bit_v
 
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_8_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_S0, NP_NB);
@@ -3840,7 +3842,7 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_8_bit_va
 
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_4_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_S0, NP_NB);
@@ -3855,7 +3857,7 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_4_bit_va
 
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_1_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_S0, NP_NB);
@@ -3870,7 +3872,7 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_1_bit_va
 
 static void cpu_selftest_load_operand_with_invalid_descriptor_element_size_generates_its_interrupt(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_S0, NP_NB);
@@ -4096,7 +4098,7 @@ static void cpu_selftest_store_operand_non_existent_internal_register(TESTCONTEX
 
 static void cpu_selftest_store_operand_32_bit_variable(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     int8 n = 0x1;
     cpu_selftest_load_order(CR_FLOAT, F_STORE, K_V32, n);
     cpu_selftest_set_aod_operand_64_bit();
@@ -4109,7 +4111,7 @@ static void cpu_selftest_store_operand_32_bit_variable(TESTCONTEXT *testContext)
 
 static void cpu_selftest_store_operand_64_bit_variable(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     int8 n = 0x1;
     cpu_selftest_load_order(CR_FLOAT, F_STORE, K_V64, n);
     cpu_selftest_set_aod_operand_64_bit();
@@ -4122,7 +4124,7 @@ static void cpu_selftest_store_operand_64_bit_variable(TESTCONTEXT *testContext)
 
 static void cpu_selftest_store_operand_b_relative_descriptor_loads_D(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x1;
@@ -4138,7 +4140,7 @@ static void cpu_selftest_store_operand_b_relative_descriptor_loads_D(TESTCONTEXT
 
 static void cpu_selftest_store_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_4(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x1;
@@ -4155,7 +4157,7 @@ static void cpu_selftest_store_operand_b_relative_descriptor_32_bit_value_at_6_b
 
 static void cpu_selftest_store_operand_b_relative_descriptor_32_bit_value_at_6_bit_offset_k_5(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x1;
@@ -4172,7 +4174,7 @@ static void cpu_selftest_store_operand_b_relative_descriptor_32_bit_value_at_6_b
 
 static void cpu_selftest_store_operand_b_relative_descriptor_64_bit_value_at_6_bit_offset(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x1;
@@ -4189,7 +4191,7 @@ static void cpu_selftest_store_operand_b_relative_descriptor_64_bit_value_at_6_b
 
 static void cpu_selftest_store_operand_b_relative_descriptor_16_bit_value_at_6_bit_offset(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x1;
@@ -4206,7 +4208,7 @@ static void cpu_selftest_store_operand_b_relative_descriptor_16_bit_value_at_6_b
 
 static void cpu_selftest_store_operand_b_relative_descriptor_8_bit_value_at_6_bit_offset(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x1;
@@ -4223,7 +4225,7 @@ static void cpu_selftest_store_operand_b_relative_descriptor_8_bit_value_at_6_bi
 
 static void cpu_selftest_store_operand_b_relative_descriptor_4_bit_value_at_6_bit_offset(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x1;
@@ -4240,7 +4242,7 @@ static void cpu_selftest_store_operand_b_relative_descriptor_4_bit_value_at_6_bi
 
 static void cpu_selftest_store_operand_b_relative_descriptor_1_bit_value_at_6_bit_offset(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x1;
@@ -4257,7 +4259,7 @@ static void cpu_selftest_store_operand_b_relative_descriptor_1_bit_value_at_6_bi
 
 static void cpu_selftest_store_operand_zero_relative_descriptor_loads_D(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x1;
     t_uint64 d = cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_64_BIT, 2, vecorigin);
@@ -4272,7 +4274,7 @@ static void cpu_selftest_store_operand_zero_relative_descriptor_loads_D(TESTCONT
 
 static void cpu_selftest_store_operand_zero_relative_descriptor_64_bit_value_at_6_bit_offset(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x1;
     cpu_selftest_load_order(CR_FLOAT, F_STORE, K_S0, n);
@@ -4303,7 +4305,7 @@ static void cpu_selftest_store_operand_extended_literal_kp_1_generates_interrupt
 
 static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_sf(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V32, NP_SF);
     cpu_selftest_load_16_bit_literal(n);
@@ -4329,7 +4331,7 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_zero
 
 static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V32, NP_NB);
     cpu_selftest_load_16_bit_literal(n);
@@ -4343,7 +4345,7 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_nb(T
 
 static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_xnb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V32, NP_XNB);
     cpu_selftest_load_16_bit_literal(n);
@@ -4357,7 +4359,7 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_xnb(
 
 static void cpu_selftest_store_operand_extended_32_bit_variable_from_stack(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V32, NP_STACK);
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0xFFFFFFFFAAAABBBB);
@@ -4370,7 +4372,7 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_from_stack(TESTC
 
 static void cpu_selftest_store_operand_extended_32_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V32, NP_DR);
     cpu_selftest_run_code();
     cpu_selftest_assert_illegal_function_as_system_error();
@@ -4378,7 +4380,7 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_from_d_generates
 
 static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V32, NP_NB_REF);
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0xFFFFFFFFAAAABBBB);
@@ -4390,7 +4392,7 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_nb_r
 
 static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_xnb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V32, NP_XNB);
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0xFFFFFFFFAAAABBBB);
@@ -4402,7 +4404,7 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_xnb_
 
 static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_sf(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V64, NP_SF);
     cpu_selftest_load_16_bit_literal(n);
@@ -4428,7 +4430,7 @@ static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_zero
 
 static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V64, NP_NB);
     cpu_selftest_load_16_bit_literal(n);
@@ -4442,7 +4444,7 @@ static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_nb(T
 
 static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_xnb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V64, NP_XNB);
     cpu_selftest_load_16_bit_literal(n);
@@ -4455,7 +4457,7 @@ static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_xnb(
 }
 static void cpu_selftest_store_operand_extended_64_bit_variable_from_stack(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V64, NP_STACK);
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0xAAAABBBBCCCCDDDD);
@@ -4468,7 +4470,7 @@ static void cpu_selftest_store_operand_extended_64_bit_variable_from_stack(TESTC
 
 static void cpu_selftest_store_operand_extended_64_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V64, NP_DR);
     cpu_selftest_run_code();
     cpu_selftest_assert_illegal_function_as_system_error();
@@ -4476,7 +4478,7 @@ static void cpu_selftest_store_operand_extended_64_bit_variable_from_d_generates
 
 static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V64, NP_NB_REF);
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0xAAAABBBBCCCCDDDD);
@@ -4488,7 +4490,7 @@ static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_nb_r
 
 static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_xnb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V64, NP_XNB);
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0xAAAABBBBCCCCDDDD);
@@ -4500,7 +4502,7 @@ static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_xnb_
 
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_sf_kp_4(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x2;
@@ -4518,7 +4520,7 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_val
 
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_sf_kp_5(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x2;
@@ -4536,7 +4538,7 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_val
 
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_zero(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x4;
@@ -4553,7 +4555,7 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_val
 
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x2;
@@ -4571,7 +4573,7 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_val
 
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_xnb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x2;
@@ -4589,7 +4591,7 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_val
 
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_stack(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_SB, NP_STACK);
@@ -4606,7 +4608,7 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_val
 
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_dr(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_SB, NP_DR);
@@ -4621,7 +4623,7 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_val
 
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_from_dr_does_not_load_D(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     t_uint64 d = cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin);
@@ -4636,7 +4638,7 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_from_dr_do
 
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_nb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_SB, NP_NB_REF);
@@ -4652,7 +4654,7 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_val
 
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_xnb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_SB, NP_XNB_REF);
@@ -4668,7 +4670,7 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_val
 
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_64_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x2;
@@ -4686,7 +4688,7 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_64_bit_val
 
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_16_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x2;
@@ -4704,7 +4706,7 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_16_bit_val
 
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_8_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x2;
@@ -4722,7 +4724,7 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_8_bit_valu
 
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_4_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x2;
@@ -4740,7 +4742,7 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_4_bit_valu
 
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_1_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     uint32 vecoffset = 1;
     int8 n = 0x2;
@@ -4758,7 +4760,7 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_1_bit_valu
 
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_sf(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_SF);
@@ -4774,7 +4776,7 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_
 
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_zero(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x4;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_0);
@@ -4789,7 +4791,7 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_
 
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_NB);
@@ -4805,7 +4807,7 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_
 
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_XNB);
@@ -4821,7 +4823,7 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_
 
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_stack(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_STACK);
     cpu_selftest_set_register(REG_SF, base);
@@ -4836,7 +4838,7 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_
 
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_dr(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_DR);
     cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
@@ -4849,7 +4851,7 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_
 
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_from_dr_does_not_load_D(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     t_uint64 d = cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin);
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_DR);
@@ -4863,7 +4865,7 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_from_dr
 
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_nb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_NB_REF);
     cpu_selftest_set_register(REG_NB, base);
@@ -4877,7 +4879,7 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_
 
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_XNB_REF);
     cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
@@ -4891,7 +4893,7 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_
 
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_64_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_NB);
@@ -4907,7 +4909,7 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_64_bit_
 
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_16_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_NB);
@@ -4923,7 +4925,7 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_16_bit_
 
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_8_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_NB);
@@ -4939,7 +4941,7 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_8_bit_v
 
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_4_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_NB);
@@ -4955,7 +4957,7 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_4_bit_v
 
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_value_from_nb(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_NB);
@@ -4971,7 +4973,7 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_v
 
 static void cpu_selftest_store_operand_with_invalid_descriptor_element_size_generates_its_interrupt(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(0x01F0);
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_NB);
@@ -5045,7 +5047,7 @@ static void cpu_selftest_sts1_xd_load_loads_whole_of_XD(TESTCONTEXT *testContext
 
 static void cpu_selftest_sts1_stack_stacks_operand(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_STS1, F_STACK, K_LITERAL, NP_64_BIT_LITERAL);
     cpu_selftest_load_64_bit_literal(0xBBBBBBBBFFFFFFFF);
     cpu_selftest_set_register(REG_SF, base);
@@ -5057,7 +5059,7 @@ static void cpu_selftest_sts1_stack_stacks_operand(TESTCONTEXT *testContext)
 
 static void cpu_selftest_sts1_xd_store_stores_xd_to_operand(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     int8 n = 0x2;
     cpu_selftest_load_order(CR_STS1, F_STORE_XD, K_V64, n);
     cpu_selftest_set_register(REG_NB, base);
@@ -5069,7 +5071,7 @@ static void cpu_selftest_sts1_xd_store_stores_xd_to_operand(TESTCONTEXT *testCon
 
 static void cpu_selftest_sts1_xd_store_to_secondary_operand_generates_interrupt(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     int8 n = 0x2;
     cpu_selftest_load_order(CR_STS1, F_STORE_XD, K_SB, n);
     cpu_selftest_set_register(REG_NB, base);
@@ -5925,7 +5927,7 @@ static void cpu_selftest_sts2_d_load_loads_whole_of_D(TESTCONTEXT *testContext)
 
 static void cpu_selftest_sts2_d_stack_load_stacks_D_loads_new_D(TESTCONTEXT *testContext)
 {
-    cpu_selftest_set_register(REG_SF, 0x00F0);
+    cpu_selftest_set_register(REG_SF, NB_DEFAULT);
     cpu_selftest_set_register(REG_D, 0xAAAAAAAABBBBBBBB);
     cpu_selftest_load_order_extended(CR_STS2, F_STACK_LOAD_D, K_LITERAL, NP_64_BIT_LITERAL);
     cpu_selftest_load_64_bit_literal(0xCCCCCCCCFFFFFFFF);
@@ -5938,7 +5940,7 @@ static void cpu_selftest_sts2_d_stack_load_stacks_D_loads_new_D(TESTCONTEXT *tes
 
 static void cpu_selftest_sts2_d_store_stores_d_to_operand(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     int8 n = 0x2;
     cpu_selftest_load_order(CR_STS2, F_STORE_D, K_V64, n);
     cpu_selftest_set_register(REG_NB, base);
@@ -5950,7 +5952,7 @@ static void cpu_selftest_sts2_d_store_stores_d_to_operand(TESTCONTEXT *testConte
 
 static void cpu_selftest_sts2_d_store_to_secondary_operand_generates_interrupt(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     int8 n = 0x2;
     cpu_selftest_load_order(CR_STS2, F_STORE_D, K_SB, n);
     cpu_selftest_set_register(REG_NB, base);
@@ -6555,7 +6557,7 @@ static void cpu_selftest_b_load_and_decrement_flags_overflow(TESTCONTEXT *testCo
 
 static void cpu_selftest_b_stack_and_load_stacks_B_and_loads_B(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_B, F_STACK_LOAD_B, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
     cpu_selftest_set_register(REG_SF, base);
@@ -6569,7 +6571,7 @@ static void cpu_selftest_b_stack_and_load_stacks_B_and_loads_B(TESTCONTEXT *test
 
 static void cpu_selftest_b_store_stores_B(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     int8 n = 0x2;
     cpu_selftest_load_order(CR_B, F_STORE_B, K_V64, n);
     cpu_selftest_set_register(REG_NB, base);
@@ -6796,7 +6798,7 @@ static void cpu_selftest_x_load_loads_X(TESTCONTEXT *testContext)
 
 static void cpu_selftest_x_stack_and_load_stacks_X_and_loads_X(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_XS, F_STACK_LOAD_X, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
     cpu_selftest_set_register(REG_SF, base);
@@ -6810,7 +6812,7 @@ static void cpu_selftest_x_stack_and_load_stacks_X_and_loads_X(TESTCONTEXT *test
 
 static void cpu_selftest_x_store_stores_X(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     int8 n = 0x2;
     cpu_selftest_load_order(CR_XS, F_STORE_X, K_V64, n);
     cpu_selftest_set_register(REG_NB, base);
@@ -7056,7 +7058,7 @@ static void cpu_selftest_a_load_loads_AOD(TESTCONTEXT *testContext)
 
 static void cpu_selftest_a_stack_and_load_stacks_AOD_and_loads_AOD(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_AU, F_STACK_LOAD_AOD, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0xFFFFFFFF);
     cpu_selftest_clear_acc_faults_to_system_error_in_exec_mode();
@@ -7071,7 +7073,7 @@ static void cpu_selftest_a_stack_and_load_stacks_AOD_and_loads_AOD(TESTCONTEXT *
 
 static void cpu_selftest_a_store_stores_AOD(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     int8 n = 0x2;
     cpu_selftest_load_order(CR_AU, F_STORE_AOD, K_V64, n);
     cpu_selftest_set_register(REG_NB, base);
@@ -7215,7 +7217,7 @@ static void cpu_selftest_dec_load_loads_AEX(TESTCONTEXT *testContext)
 
 static void cpu_selftest_dec_stack_and_load_stacks_AEX_and_loads_AEX(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_ADC, F_STACK_LOAD_AEX, K_LITERAL, NP_64_BIT_LITERAL);
     cpu_selftest_load_64_bit_literal(0xCCCCCCCCFFFFFFFF);
     cpu_selftest_set_register(REG_SF, base);
@@ -7229,7 +7231,7 @@ static void cpu_selftest_dec_stack_and_load_stacks_AEX_and_loads_AEX(TESTCONTEXT
 
 static void cpu_selftest_dec_store_stores_AEX(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     int8 n = 0x2;
     cpu_selftest_load_order(CR_ADC, F_STORE_AEX, K_V64, n);
     cpu_selftest_set_register(REG_NB, base);
@@ -7282,7 +7284,7 @@ static void cpu_selftest_flt_load_double_loads_64_bits_into_A(TESTCONTEXT *testC
 
 static void cpu_selftest_flt_stack_and_load_stacks_A_and_loads_A_32_bits(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STACK_LOAD, K_LITERAL, NP_64_BIT_LITERAL);
     cpu_selftest_load_64_bit_literal(0xCCCCCCCCFFFFFFFF);
     cpu_selftest_set_aod_operand_32_bit();
@@ -7297,7 +7299,7 @@ static void cpu_selftest_flt_stack_and_load_stacks_A_and_loads_A_32_bits(TESTCON
 
 static void cpu_selftest_flt_stack_and_load_stacks_A_and_loads_A_64_bits(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STACK_LOAD, K_LITERAL, NP_64_BIT_LITERAL);
     cpu_selftest_load_64_bit_literal(0xCCCCCCCCFFFFFFFF);
     cpu_selftest_set_aod_operand_64_bit();
@@ -7312,7 +7314,7 @@ static void cpu_selftest_flt_stack_and_load_stacks_A_and_loads_A_64_bits(TESTCON
 
 static void cpu_selftest_flt_store_stores_A_32_bits(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     int8 n = 0x2;
     cpu_selftest_load_order(CR_FLOAT, F_STORE, K_V64, n);
     cpu_selftest_set_aod_operand_32_bit();
@@ -7325,7 +7327,7 @@ static void cpu_selftest_flt_store_stores_A_32_bits(TESTCONTEXT *testContext)
 
 static void cpu_selftest_flt_store_stores_A_64_bits(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     int8 n = 0x2;
     cpu_selftest_load_order(CR_FLOAT, F_STORE, K_V64, n);
     cpu_selftest_set_aod_operand_64_bit();
@@ -8764,7 +8766,7 @@ static void cpu_selftest_cpr_not_equivalance_interrupt_on_order_fetch_stores_lin
 
 static void cpu_selftest_cpr_not_equivalance_interrupt_on_primary_operand_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_SF);
     cpu_selftest_load_16_bit_literal(n);
@@ -8777,7 +8779,7 @@ static void cpu_selftest_cpr_not_equivalance_interrupt_on_primary_operand_stores
 
 static void cpu_selftest_cpr_not_equivalance_interrupt_on_secondary_operand_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext)
 {
-    uint32 base = 0x00F0;
+    uint32 base = NB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_SB, NP_DR);
     cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 1, 0x0));
