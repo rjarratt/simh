@@ -918,8 +918,13 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
                 {
                     b = Fgetc(ptr);
                     sac_write_8_bit_word(origin++, b);
+					if (interrupt != 0)
+					{
+						r = SCPE_NXM; /* not necessarily the most appropriate error, but there isn't a better one for what is presumed to be a CPR NEQ interrupt */
+						break;
+					}
                 }
-            } while (!feof(ptr));
+            } while (!feof(ptr) && r == SCPE_OK);
         }
     }
 
