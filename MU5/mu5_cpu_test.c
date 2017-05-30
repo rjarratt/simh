@@ -409,6 +409,7 @@ static void cpu_selftest_16_bit_instruction_advances_co_by_1(TESTCONTEXT *testCo
 static void cpu_selftest_32_bit_instruction_advances_co_by_2(TESTCONTEXT *testContext);
 static void cpu_selftest_48_bit_instruction_advances_co_by_3(TESTCONTEXT *testContext);
 static void cpu_selftest_80_bit_instruction_advances_co_by_5(TESTCONTEXT *testContext);
+static void cpu_selftest_dummy_order_advances_co_over_operand(TESTCONTEXT *testContext);
 static void cpu_selftest_advancing_co_across_segment_boundary_with_get_operand_generates_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_advancing_co_across_segment_boundary_with_set_operand_generates_interrupt(TESTCONTEXT *testContext);
 
@@ -1119,6 +1120,7 @@ static UNITTEST tests[] =
     { "32-bit instruction advances CO by 2", cpu_selftest_32_bit_instruction_advances_co_by_2 },
     { "48-bit instruction advances CO by 3", cpu_selftest_48_bit_instruction_advances_co_by_3 },
     { "80-bit instruction advances CO by 5", cpu_selftest_80_bit_instruction_advances_co_by_5 },
+    { "Dummy order advances CO over operand", cpu_selftest_dummy_order_advances_co_over_operand },
     { "Instruction with get operand that advances CO across a segment boundary generates an interrupt", cpu_selftest_advancing_co_across_segment_boundary_with_get_operand_generates_interrupt },
     { "Instruction with set operand that advances CO across a segment boundary generates an interrupt", cpu_selftest_advancing_co_across_segment_boundary_with_set_operand_generates_interrupt },
 
@@ -2738,6 +2740,14 @@ static void cpu_selftest_80_bit_instruction_advances_co_by_5(TESTCONTEXT *testCo
 {
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, KP_LITERAL, NP_64_BIT_LITERAL);
     cpu_selftest_load_64_bit_literal(0x7FFFFFFFFFFFFFFF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_CO, 5);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_dummy_order_advances_co_over_operand(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_XS, 1, KP_LITERAL, NP_64_BIT_LITERAL);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_CO, 5);
     cpu_selftest_assert_no_interrupt();

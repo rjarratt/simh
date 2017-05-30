@@ -2698,7 +2698,10 @@ static void prop_write_instruction_counter(uint8 line, t_uint64 value)
 
 static void cpu_execute_dummy_order(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-    /* Dummy orders are legal, they just have no effect. */
+    /* Dummy orders are legal, they just have no effect, except to advance the program counter over the operand. */
+    /* doing a get_operand can have side effects, like move SF or generate an access violation */
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "DUMMY ");
+    cpu_get_operand(order);
 }
 
 static void cpu_start_interrupt_processing(void)
