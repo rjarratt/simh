@@ -2700,13 +2700,13 @@ static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_fro
 static void cpu_selftest_instruction_access_violation_when_fetching_extended_literal_from_non_executable_segment(TESTCONTEXT *testContext)
 {
     /* not sure how valid this test is, with the order crossing a segment boundary*/
-    mu5_selftest_setup_cpr(1, CPR_VA(0, 0x2000, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0x0));
-    mu5_selftest_setup_cpr(2, CPR_VA(0, 0x2000, 1), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x10, 0x0));
+    mu5_selftest_setup_cpr(1, CPR_VA(0, 0x2001, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0x0));
+    mu5_selftest_setup_cpr(2, CPR_VA(0, 0x2001, 1), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x10, 0x0));
     cpu_selftest_set_load_location(0x1F);
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, KP_LITERAL, NP_16_BIT_SIGNED_LITERAL);
     cpu_selftest_load_16_bit_literal(0xFFFF);
     cpu_selftest_clear_bcpr();
-    cpu_selftest_run_code_from_location(0x4000001F); /* expressed as 16-bit word virtual address */
+    cpu_selftest_run_code_from_location(0x4002001F); /* expressed as 16-bit word virtual address */
     mu5_selftest_assert_instruction_access_violation_as_system_error_interrupt(localTestContext);
 }
 
@@ -8782,10 +8782,10 @@ static void cpu_selftest_cpr_not_equivalance_interrupt_on_primary_operand_stores
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_SF);
     cpu_selftest_load_16_bit_literal(n);
     cpu_selftest_set_register(REG_SF, base);
-    mu5_selftest_setup_cpr(0, CPR_VA(0, 0x2000, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0xC)); /* Overwrite normal CPR 0 so VA 0 is not mapped */
-    cpu_selftest_run_code_from_location(0x40000000); /* expressed as 16-bit word address */
+    mu5_selftest_setup_cpr(0, CPR_VA(0, 0x2001, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0xC)); /* Overwrite normal CPR 0 so VA 0 is not mapped */
+    cpu_selftest_run_code_from_location(0x40020000); /* expressed as 16-bit word address */
     cpu_selftest_run_continue(); /* must go round again to process interrupt */
-    cpu_selftest_assert_interrupt_return_address(INT_CPR_NOT_EQUIVALENCE, 0x40000000);
+    cpu_selftest_assert_interrupt_return_address(INT_CPR_NOT_EQUIVALENCE, 0x40020000);
 }
 
 static void cpu_selftest_cpr_not_equivalance_interrupt_on_secondary_operand_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext)
@@ -8794,10 +8794,10 @@ static void cpu_selftest_cpr_not_equivalance_interrupt_on_secondary_operand_stor
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_SB, NP_DR);
     cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 1, 0x0));
-    mu5_selftest_setup_cpr(0, CPR_VA(0, 0x2000, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0xC)); /* Overwrite normal CPR 0 so VA 0 is not mapped */
-    cpu_selftest_run_code_from_location(0x40000000); /* expressed as 16-bit word address */
+    mu5_selftest_setup_cpr(0, CPR_VA(0, 0x2001, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0xC)); /* Overwrite normal CPR 0 so VA 0 is not mapped */
+    cpu_selftest_run_code_from_location(0x40020000); /* expressed as 16-bit word address */
     cpu_selftest_run_continue(); /* must go round again to process interrupt */
-    cpu_selftest_assert_interrupt_return_address(INT_CPR_NOT_EQUIVALENCE, 0x40000000);
+    cpu_selftest_assert_interrupt_return_address(INT_CPR_NOT_EQUIVALENCE, 0x40020000);
 }
 
 static void cpu_selftest_no_b_overflow_interrupt_if_b_overflow_is_inhibited(TESTCONTEXT *testContext)
