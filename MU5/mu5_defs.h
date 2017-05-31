@@ -57,10 +57,10 @@ in this Software without prior written authorization from Robert Jarratt.
 #define LOG_SELFTEST_FAIL   (1 << 15)
 
 #define MAX_LOCAL_MEMORY  (32768)    /* RNI told me Local Store consisted of four 4096-word memory units, each word containing 64 data bits + 8 parity bits. This is the size in 32-bit words */
-#define MAX_MASS_MEMORY  (262144)    /* RNI told me Local Store consisted of four 4096-word memory units, each word containing 64 data bits + 8 parity bits. This is the size in 32-bit words */
+#define MAX_MASS_MEMORY  (262144)
 
-/* The Exchange Unit numbers below are presumed but not confirmed. RNI believes the numbers are in the order in which they appear in Fig. 6.12 on p133 of the book. However in an email
-   he also said "The BTU was also a unit, as was the SPM.I think the SPM was unit 10 or 11."
+/* The Exchange Unit numbers below are presumed but not confirmed. RNI believes the numbers are in the order in which they appear in Fig. 6.12 on p133 of the book, he is also confident that the
+   fixed head disc was indeed unit 0. However in an email he also said "The BTU was also a unit, as was the SPM.I think the SPM was unit 10 or 11."
 */
 #define UNIT_FIXED_HEAD_DISC 0
 #define UNIT_PDP11 1
@@ -97,6 +97,7 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #define CPR_VA(P,S,X) ((P << 26 ) | (S << 12) | X)
 #define CPR_RA_LOCAL(AC,A,LZ) (((AC & 0xF) << 28) | (UNIT_LOCAL_STORE << 24) | ((A & 0xFFFFF) << 4) | (LZ & 0xF))
+#define CPR_RA_MASS(AC,A,LZ) (((AC & 0xF) << 28) | (UNIT_MASS_STORE << 24) | ((A & 0xFFFFF) << 4) | (LZ & 0xF))
 #define RA_LOCAL(address) ((UNIT_LOCAL_STORE << 20) | (address & 0xFFFFF))
 #define RA_LOCAL_BYTE(address) ((UNIT_LOCAL_STORE << 22) | (address & 0xFFFFF))
 
