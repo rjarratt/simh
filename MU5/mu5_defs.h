@@ -99,6 +99,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define CPR_RA_LOCAL(AC,A,LZ) (((AC & 0xF) << 28) | (UNIT_LOCAL_STORE << 24) | ((A & 0xFFFFF) << 4) | (LZ & 0xF))
 #define CPR_RA_MASS(AC,A,LZ) (((AC & 0xF) << 28) | (UNIT_MASS_STORE << 24) | ((A & 0xFFFFF) << 4) | (LZ & 0xF))
 #define RA_LOCAL(address) ((UNIT_LOCAL_STORE << 20) | (address & 0xFFFFF))
+#define RA_MASS(address) ((UNIT_MASS_STORE << 20) | (address & 0xFFFFF))
 #define RA_LOCAL_BYTE(address) ((UNIT_LOCAL_STORE << 22) | (address & 0xFFFFF))
 
 typedef struct
