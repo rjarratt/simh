@@ -960,7 +960,7 @@ static t_stat cpu_reset(DEVICE *dptr)
     return result;
 }
 
-/* memory examine */
+/* memory examine. Always a real address (unit number not needed), use -L for local store, -M for mass store */
 static t_stat cpu_ex(t_value *vptr, t_addr addr, UNIT *uptr, int32 sw)
 {
     t_stat result = SCPE_OK;
@@ -968,13 +968,31 @@ static t_stat cpu_ex(t_value *vptr, t_addr addr, UNIT *uptr, int32 sw)
     {
         result = SCPE_ARG;
     }
-    else if (addr < MAX_LOCAL_MEMORY)
+	else if (SWMASK('L'))
+	{
+		if (addr < MAX_LOCAL_MEMORY)
+		{
+			*vptr = sac_read_32_bit_word_real_address(RA_LOCAL(addr));
+		}
+		else
+		{
+			result = SCPE_NXM;
+		}
+	}
+	else if (SWMASK('M'))
+	{
+		if (addr < MAX_MASS_MEMORY)
+		{
+			*vptr = sac_read_32_bit_word_real_address(RA_MASS(addr));
+		}
+		else
+		{
+			result = SCPE_NXM;
+		}
+	}
+	else
     {
-        *vptr = sac_read_32_bit_word(addr);
-    }
-    else
-    {
-        result = SCPE_NXM;
+        result = SCPE_ARG;
     }
 
     return result;
