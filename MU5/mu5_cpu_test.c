@@ -933,6 +933,7 @@ static void cpu_selftest_setting_aod_zero_divide_in_executive_mode_generates_acc
 static void cpu_selftest_setting_aod_zero_divide_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
 static void cpu_selftest_clearing_acc_fault_in_executive_mode_does_not_clear_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_clearing_acc_fault_in_user_mode_does_not_clear_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_setting_operand_size_in_aod_does_not_trigger_interrupt_evaluation(TESTCONTEXT *testContext);
 
 static void cpu_selftest_setting_d_fault_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_d_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
@@ -1642,6 +1643,7 @@ static UNITTEST tests[] =
 	{ "Setting AOD zero divide in executive mode does not generate an interrupt if inhibited", cpu_selftest_setting_aod_zero_divide_in_executive_mode_does_not_generate_interrupt_if_inhibited },
     { "Clearing an A fault in executive mode does not clear interrupt", cpu_selftest_clearing_acc_fault_in_executive_mode_does_not_clear_interrupt },
     { "Clearing an A fault in user mode does not clear interrupt", cpu_selftest_clearing_acc_fault_in_user_mode_does_not_clear_interrupt },
+	{ "Setting operand size in AOD does not trigger interrupt evaluation", cpu_selftest_setting_operand_size_in_aod_does_not_trigger_interrupt_evaluation },
 
     { "Setting a D fault in executive mode generates system error interrupt", cpu_selftest_setting_d_fault_in_executive_mode_generates_system_error_interrupt },
     { "Setting a D fault in executive mode does not generate system error interrupt if inhibited", cpu_selftest_setting_d_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited },
@@ -8458,6 +8460,15 @@ static void cpu_selftest_clearing_acc_fault_in_user_mode_does_not_clear_interrup
     cpu_selftest_set_register(REG_AOD, AOD_FLPOVF_MASK);
     cpu_selftest_set_register(REG_AOD, 0);
     cpu_selftest_assert_acc_interrupt_as_program_fault();
+}
+
+static void cpu_selftest_setting_operand_size_in_aod_does_not_trigger_interrupt_evaluation(TESTCONTEXT *testContext)
+{
+	cpu_selftest_set_user_mode();
+	cpu_selftest_set_register(REG_AOD, AOD_ZDIV_MASK);
+	cpu_selftest_set_executive_mode();
+	cpu_selftest_set_register(REG_AOD, AOD_OPSIZ_MASK | AOD_ZDIV_MASK);
+	cpu_selftest_assert_acc_interrupt_as_program_fault();
 }
 
 static void cpu_selftest_setting_d_fault_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext)

@@ -1106,9 +1106,8 @@ static SIM_INLINE void cpu_set_register_64(REG *reg, t_uint64 value)
     t_uint64 old_value;
     t_uint64_register_backing *backing;
     assert(reg->width == 64);
-    *(t_uint64 *)(reg->loc) = value;
     backing = reg->loc;
-    old_value = backing->backing_value;
+	old_value = backing->backing_value;
     backing->backing_value = value;
     if (reg->flags & REG_CALLBACK)
     {
@@ -1253,7 +1252,10 @@ static void cpu_set_ms_bn(int value)
 
 static void cpu_aod_callback(t_uint64 old_value, t_uint64 new_value)
 {
-	cpu_evaluate_interrupts();
+	if ((old_value & 0xFFF) != (new_value & 0xFFF))
+	{
+		cpu_evaluate_interrupts();
+	}
 }
 
 static void cpu_bod_callback(uint32 old_value, uint32 new_value)
