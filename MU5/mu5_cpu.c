@@ -913,7 +913,7 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
                 }
 
                 origin = segment << 18;
-                printf("Loading segment %u of length %hu at virtual address %08X\n", segment, segment_length, origin);
+                printf("Loading segment %u of length %hu bytes at virtual address %08X\n", segment, segment_length * 2, origin);
                 for (i = 0; i < 2 * segment_length; i++)
                 {
                     b = Fgetc(ptr);
@@ -1253,7 +1253,7 @@ static void cpu_set_ms_bn(int value)
 
 static void cpu_aod_callback(t_uint64 old_value, t_uint64 new_value)
 {
-    cpu_evaluate_interrupts();
+	cpu_evaluate_interrupts();
 }
 
 static void cpu_bod_callback(uint32 old_value, uint32 new_value)
