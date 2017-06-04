@@ -116,6 +116,8 @@ static void sac_selftest_write_to_access_violation_resets_it_to_zero(TESTCONTEXT
 static void sac_selftest_write_to_system_error_interrupts_resets_it_to_zero(TESTCONTEXT *testContext); /* TODO: other items are also reset, see p93 */
 static void sac_selftest_write_to_cpr_not_equivalence_psx_not_equivalance_lines_to_zero(TESTCONTEXT *testContext);
 
+static void sac_selftest_write_segment_8192_writes_to_system_v_store(TESTCONTEXT *testContext);
+static void sac_selftest_read_segment_8192_reads_system_v_store(TESTCONTEXT *testContext);
 static void sac_selftest_write_v_real_address_writes_to_system_v_store(TESTCONTEXT *testContext);
 static void sac_selftest_read_v_real_address_reads_system_v_store(TESTCONTEXT *testContext);
 
@@ -181,6 +183,8 @@ static UNITTEST tests[] =
     { "Write to SYSTEM ERROR INTERRUPT resets it to zero", sac_selftest_write_to_system_error_interrupts_resets_it_to_zero },
     { "Write to CPR NOT EQUIVALENCE PSX resets not-equivalence lines to zero", sac_selftest_write_to_cpr_not_equivalence_psx_not_equivalance_lines_to_zero },
 
+	{ "Write to segment 8192 writes to the System V-Store", sac_selftest_write_segment_8192_writes_to_system_v_store },
+	{ "Read from segment 8192 reads from the System V-Store", sac_selftest_read_segment_8192_reads_system_v_store },
     { "Write to a V real address writes to the System V-Store", sac_selftest_write_v_real_address_writes_to_system_v_store },
     { "Read from a V real address reads from the System V-Store", sac_selftest_read_v_real_address_reads_system_v_store }
 
@@ -316,10 +320,10 @@ static void sac_selftest_virtual_access_uses_PN_if_segment_less_than_8192(TESTCO
 static void sac_selftest_virtual_access_ignores_PN_if_segment_is_8192_or_greater(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, CPR_VA(0, 0x2000, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, CPR_VA(0, 0x2001, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_write_32_bit_word_real_address(RA_LOCAL(0x11), 0xAAAAAAAA);
-    sac_selftest_assert_memory_contents(0x20000001, 0xAAAAAAAA);
+    sac_selftest_assert_memory_contents(0x20010001, 0xAAAAAAAA);
 }
 
 static void sac_selftest_virtual_read_updates_cpr_referenced_bit(TESTCONTEXT *testContext)
@@ -616,7 +620,7 @@ static void sac_selftest_writing_real_address_to_reserved_cpr_has_no_effect(TEST
 {
 	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 31);
 	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, 0xAAAAAAAAFFFFFFFF);
-	sac_selftest_assert_reg_instance_equals(REG_CPR, 31, 0x0200000073800005);
+	sac_selftest_assert_reg_instance_equals(REG_CPR, 31, 0x0206C0007500000C);
 }
 
 static void sac_selftest_can_read_real_address_from_cpr(TESTCONTEXT *testContext)
@@ -637,7 +641,7 @@ static void sac_selftest_writing_virtual_address_to_reserved_cpr_has_no_effect(T
 {
 	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 28);
 	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0xAAAAAAAAFFFFFFFF);
-	sac_selftest_assert_reg_instance_equals(REG_CPR, 28, 0x0200000073800005);
+	sac_selftest_assert_reg_instance_equals(REG_CPR, 28, 0x200100073007D04);
 }
 
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_ignore_bit(TESTCONTEXT *testContext)
@@ -826,6 +830,29 @@ static void sac_selftest_write_to_cpr_not_equivalence_psx_not_equivalance_lines_
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NOT_EQUIVALENCE_PSX, 0xFFFFFFFFFFFFFFFF);
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NOT_EQUIVALENCE_PSX, 0x0);
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NOT_EQUIVALENCE_S, 0x0);
+}
+
+static void sac_selftest_write_segment_8192_writes_to_system_v_store(TESTCONTEXT *testContext)
+{
+	sac_selftest_clear_bcpr();
+
+	sac_write_64_bit_word(0x20000000, 0xABCDDCBA01233210);
+	sac_write_64_bit_word(0x200001FE, 0xBCDDCBA012332105);
+	sac_selftest_assert_vstore_contents(SYSTEM_V_STORE_BLOCK, 0x00, 0xABCDDCBA01233210);
+	sac_selftest_assert_vstore_contents(SYSTEM_V_STORE_BLOCK, 0xFF, 0xBCDDCBA012332105);
+}
+
+static void sac_selftest_read_segment_8192_reads_system_v_store(TESTCONTEXT *testContext)
+{
+	sac_selftest_clear_bcpr();
+	mu5_selftest_setup_cpr(0, CPR_VA(0x0, 0, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x080000, 0xC));
+
+	sac_write_v_store(SYSTEM_V_STORE_BLOCK, 0xFF, 0xABCDDCBA01233210);
+	sac_write_v_store(SYSTEM_V_STORE_BLOCK, 0x00, 0xBCDDCBA012332105);
+	sac_selftest_assert_memory_contents(0x200001FE, 0xABCDDCBA);
+	sac_selftest_assert_memory_contents(0x200001FF, 0x01233210);
+	sac_selftest_assert_memory_contents(0x20000000, 0xBCDDCBA0);
+	sac_selftest_assert_memory_contents(0x20000001, 0x12332105);
 }
 
 static void sac_selftest_write_v_real_address_writes_to_system_v_store(TESTCONTEXT *testContext)

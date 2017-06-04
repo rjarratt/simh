@@ -215,20 +215,27 @@ void sac_reset_state(void)
     memset(VStore, 0, sizeof(VStore));
     memset(SystemVStore, 0, sizeof(SystemVStore));
     memset(cpr, 0, sizeof(cpr));
-	/* set up the reserved CPRs. These are made-up values, don't know the originals. Size 5 = 512 words */
-	/* at the moment these are all the same value as I don't know what they should be, just make sure the 
-	   CPR IGNORE ignores all but one of them to avoid a multiple equivalence error */
-	cpr[28] = ((t_uint64)CPR_VA(0x0, 0x2000, 0x0) << 32) | CPR_RA_LOCAL(SAC_ALL_EXEC_ACCESS, 0x80000, 0x5);
-	cpr[29] = ((t_uint64)CPR_VA(0x0, 0x2000, 0x0) << 32) | CPR_RA_LOCAL(SAC_ALL_EXEC_ACCESS, 0x80000, 0x5);
-	cpr[30] = ((t_uint64)CPR_VA(0x0, 0x2000, 0x0) << 32) | CPR_RA_LOCAL(SAC_ALL_EXEC_ACCESS, 0x80000, 0x5);
-	cpr[31] = ((t_uint64)CPR_VA(0x0, 0x2000, 0x0) << 32) | CPR_RA_LOCAL(SAC_ALL_EXEC_ACCESS, 0x80000, 0x5); /* Maps V-Store to segment 8192, exec mode only access */
 
-    /* Notes from AEK thesis: The 4 fixed CPRs appear to have the following purposes
+	/* set up the reserved CPRs. These are partially made-up values, I don't know the originals. AEK's thesis lists 4 fixed CPRs, while a picture taken
+       of a sheet on the MU5 console still in the Department lists some of the common segments, some of which appear to correspond to the fixed CPRs. The
+       list below is the list from AEK's thesis, along with my guess at which entry from the sheet of common segments they apply to.
+
        1. Locked down code for the supervisor-supervisor.
        2. Locked down data for the supervisor-supervisor.
        3. Data block referencing the currently running process and its page tables.
-       4. Mass Store access (CPR31)
+       4. Mass Store access (CPR31). This looks to be segment 8300 from the photograph of the common segments.
+
+       NB Size 4 = 256 words or 1K bytes, which is the only value MUSS ever actually used.
+      
     */
+
+    /* at the moment these are all the same value as I don't know what they should be, just make sure the
+	   CPR IGNORE ignores all but one of them to avoid a multiple equivalence error */
+	/* TODO: Set up access correctly, e.g. OBEY only for 8193, requires sim_load to be able to override */
+	cpr[28] = ((t_uint64)CPR_VA(0x0, 8193, 0x0) << 32) | CPR_RA_LOCAL(SAC_ALL_EXEC_ACCESS, 0x007D0, 0x4); /* MUSS code (first point, interrupt level, locked in core, the rest paged (Item 1 in the list above) */
+	cpr[29] = ((t_uint64)CPR_VA(0x0, 8194, 0x0) << 32) | CPR_RA_LOCAL(SAC_ALL_EXEC_ACCESS, 0x007E0, 0x4); /* MUSS Interrupt Level Names and Run Time Stack (Item 2 in the list above) */
+	cpr[30] = ((t_uint64)CPR_VA(0x0, 8196, 0x0) << 32) | CPR_RA_LOCAL(SAC_ALL_EXEC_ACCESS, 0x007F0, 0x4); /* Process Register Blocks of current process (item 3 in the list above) */
+	cpr[31] = ((t_uint64)CPR_VA(0x0, 8300, 0x0) << 32) | CPR_RA_MASS(SAC_ALL_EXEC_ACCESS, 0x00000, 0xC);  /* Mass store (less frequently used tables locked in slow core) (Item 4 in the list above)*/
 
     for (i = 0; i < V_STORE_BLOCK_SIZE; i++)
     {
@@ -676,20 +683,26 @@ static int sac_check_access(uint8 requestedAccess, uint8 permittedAccess)
 static int sac_map_address(t_addr address, uint8 access, t_addr *mappedAddress)
 {
 	int result = 0;
-    *mappedAddress = 0;
+	uint32 va = (address >> 4) & 0x3FFFFFF;
+	uint32 seg = (address >> 16) & 0x3FFF;
+	*mappedAddress = 0;
     if (cpu_get_ms() & MS_MASK_BCPR)
     {
         *mappedAddress = address;
 		result = 1;
     }
+	else if (seg == 8192)
+	{
+		/* This is the Segment 8192 that in the real MU5 was actually done in PROP rather than SAC */
+		*mappedAddress = RA_LOCAL(0x80000) | (address & 0x7FFFF);
+		result = 1;
+	}
     else
     {
         int numMatches;
         int firstMatchIndex;
         uint32 matchMask;
         uint32 segmentMask;
-        uint32 va = (address >> 4) & 0x3FFFFFF;
-        uint32 seg = (address >> 16) & 0x3FFF;
         if (seg < 8192)
         {
             va = ((uint32)PROPProcessNumber << 26) | va;
