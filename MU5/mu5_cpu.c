@@ -97,6 +97,9 @@ to set the MS register to some appropriate setting.
 #define SCALE_32 1
 #define SCALE_64 2
 
+#define LOG_CPU_PERF            (1 << 0)
+#define LOG_CPU_DECODE          (1 << 1)
+
 static int cpu_stopped = 0;
 
 int32 sim_emax;
@@ -278,9 +281,9 @@ static DEBTAB cpu_debtab[] =
     { "PERF",           LOG_CPU_PERF,             "CPU performance" },
     { "EVENT",          SIM_DBG_EVENT,            "event dispatch activities" },
     { "DECODE",         LOG_CPU_DECODE,           "decode instructions" },
-    { "SELFTEST",       LOG_CPU_SELFTEST,         "self test summary output" },
-    { "SELFTESTDETAIL", LOG_CPU_SELFTEST_DETAIL,  "self test detailed output" },
-    { "SELFTESTFAIL",   LOG_CPU_SELFTEST_FAIL,    "self test failure output" },
+    { "SELFTEST",       LOG_SELFTEST,         "self test summary output" },
+    { "SELFTESTDETAIL", LOG_SELFTEST_DETAIL,  "self test detailed output" },
+    { "SELFTESTFAIL",   LOG_SELFTEST_FAIL,    "self test failure output" },
     { NULL,             0 }
 };
 
@@ -851,7 +854,7 @@ t_stat sim_instr(void)
     return reason;
 }
 
-/* Loads two formats of file. Both formats are sequences of 16-bit words. If the -o option is specified then an absolute binary file loaded starting at the specified physical origin. If the
+/* Loads two formats of file. Both formats are sequences of 16-bit words. If the -o option is specified then an absolute binary file loaded starting at the specified physical origin of the local store. If the
  -o option is not specified then the file is a multi-segment binary file loaded into virtual addresses as specified in the file. The multi-segement file uses a format that has been made-up, as I
  don't know how this was done in MU5 itself. Each segment in the file starts with a 16-bit segment number and a 16-bit length (in 16-bit words), followed by the binary. This format allows files
  produced by my XPL cross-compiler to be loaded. */
@@ -894,7 +897,8 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
                     break;
                 }
 
-                sac_write_8_bit_word_real_address(origin++, b & 0xFF);
+                sac_write_8_bit_word_real_address(RA_LOCAL_BYTE(origin), b & 0xFF);
+				origin++;
             }
         }
         else
@@ -909,13 +913,18 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
                 }
 
                 origin = segment << 18;
-                printf("Loading segment %u of length %hu at virtual address %08X\n", segment, segment_length, origin);
+                printf("Loading segment %u of length %hu bytes at virtual address %08X\n", segment, segment_length * 2, origin);
                 for (i = 0; i < 2 * segment_length; i++)
                 {
                     b = Fgetc(ptr);
                     sac_write_8_bit_word(origin++, b);
+					if (interrupt != 0)
+					{
+						r = SCPE_NXM; /* not necessarily the most appropriate error, but there isn't a better one for what is presumed to be a CPR NEQ interrupt */
+						break;
+					}
                 }
-            } while (!feof(ptr));
+            } while (!feof(ptr) && r == SCPE_OK);
         }
     }
 
@@ -951,7 +960,7 @@ static t_stat cpu_reset(DEVICE *dptr)
     return result;
 }
 
-/* memory examine */
+/* memory examine. Always a real address (unit number not needed), use -L for local store, -M for mass store */
 static t_stat cpu_ex(t_value *vptr, t_addr addr, UNIT *uptr, int32 sw)
 {
     t_stat result = SCPE_OK;
@@ -959,13 +968,31 @@ static t_stat cpu_ex(t_value *vptr, t_addr addr, UNIT *uptr, int32 sw)
     {
         result = SCPE_ARG;
     }
-    else if (addr < MAX_LOCAL_MEMORY)
+	else if (SWMASK('L'))
+	{
+		if (addr < MAX_LOCAL_MEMORY)
+		{
+			*vptr = sac_read_32_bit_word_real_address(RA_LOCAL(addr));
+		}
+		else
+		{
+			result = SCPE_NXM;
+		}
+	}
+	else if (SWMASK('M'))
+	{
+		if (addr < MAX_MASS_MEMORY)
+		{
+			*vptr = sac_read_32_bit_word_real_address(RA_MASS(addr));
+		}
+		else
+		{
+			result = SCPE_NXM;
+		}
+	}
+	else
     {
-        *vptr = sac_read_32_bit_word(addr);
-    }
-    else
-    {
-        result = SCPE_NXM;
+        result = SCPE_ARG;
     }
 
     return result;
@@ -1079,9 +1106,8 @@ static SIM_INLINE void cpu_set_register_64(REG *reg, t_uint64 value)
     t_uint64 old_value;
     t_uint64_register_backing *backing;
     assert(reg->width == 64);
-    *(t_uint64 *)(reg->loc) = value;
     backing = reg->loc;
-    old_value = backing->backing_value;
+	old_value = backing->backing_value;
     backing->backing_value = value;
     if (reg->flags & REG_CALLBACK)
     {
@@ -1226,7 +1252,10 @@ static void cpu_set_ms_bn(int value)
 
 static void cpu_aod_callback(t_uint64 old_value, t_uint64 new_value)
 {
-    cpu_evaluate_interrupts();
+	if ((old_value & 0xFFF) != (new_value & 0xFFF))
+	{
+		cpu_evaluate_interrupts();
+	}
 }
 
 static void cpu_bod_callback(uint32 old_value, uint32 new_value)
@@ -2689,7 +2718,10 @@ static void prop_write_instruction_counter(uint8 line, t_uint64 value)
 
 static void cpu_execute_dummy_order(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-    /* Dummy orders are legal, they just have no effect. */
+    /* Dummy orders are legal, they just have no effect, except to advance the program counter over the operand. */
+    /* doing a get_operand can have side effects, like move SF or generate an access violation */
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "DUMMY ");
+    cpu_get_operand(order);
 }
 
 static void cpu_start_interrupt_processing(void)

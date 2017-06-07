@@ -63,20 +63,20 @@ void mu5_selftest_run_suite(TESTCONTEXT *context, UNITTEST *unitTests, uint32 nu
             test->runner(context);
             if (context->result == SCPE_OK)
             {
-                sim_debug(LOG_CPU_SELFTEST_DETAIL, context->dev, "%s [OK]\n", test->name);
+                sim_debug(LOG_SELFTEST_DETAIL, context->dev, "%s [OK]\n", test->name);
                 context->countSuccessful++;
             }
             else
             {
                 context->overallResult = SCPE_AFAIL;
-                sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "%s [FAIL]\n", test->name);
+                sim_debug(LOG_SELFTEST_FAIL, context->dev, "%s [FAIL]\n", test->name);
                 context->countFailed++;
             }
         }
         else
         {
             context->overallResult = SCPE_AFAIL;
-            sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "%s [UNDEFINED]\n", test->name);
+            sim_debug(LOG_SELFTEST_FAIL, context->dev, "%s [UNDEFINED]\n", test->name);
             context->countFailed++;
         }
     }
@@ -84,14 +84,13 @@ void mu5_selftest_run_suite(TESTCONTEXT *context, UNITTEST *unitTests, uint32 nu
 
 t_stat mu5_selftest_end(TESTCONTEXT *context)
 {
-    sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "\n");
     if (context->countFailed == 0)
     {
-        sim_debug(LOG_CPU_SELFTEST, &cpu_dev, "ALL %d TESTS PASSED\n", context->countSuccessful);
+        sim_debug(LOG_SELFTEST, &cpu_dev, "ALL %d TESTS PASSED\n", context->countSuccessful);
     }
     else
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, &cpu_dev, "%d of %d TESTS PASSED, %d FAILED\n", context->countSuccessful, context->countFailed + context->countSuccessful, context->countFailed);
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "%d of %d TESTS PASSED, %d FAILED\n", context->countSuccessful, context->countFailed + context->countSuccessful, context->countFailed);
     }
 
     return context->overallResult;
@@ -159,7 +158,7 @@ void mu5_selftest_set_inhibit_program_fault_interrupts(TESTCONTEXT *context, DEV
 
 void mu5_selftest_assert_fail(TESTCONTEXT *context)
 {
-    sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Test failed\n");
+    sim_debug(LOG_SELFTEST_FAIL, context->dev, "Test failed\n");
     mu5_selftest_set_failure(context);
 }
 
@@ -174,7 +173,7 @@ void mu5_selftest_assert_reg_equals(TESTCONTEXT *context, DEVICE *device, char *
 
     if (actualValue != expectedValue)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Expected value in register %s to be %llX, but was %llX\n", name, expectedValue, actualValue);
+        sim_debug(LOG_SELFTEST_FAIL, context->dev, "Expected value in register %s to be %llX, but was %llX\n", name, expectedValue, actualValue);
         mu5_selftest_set_failure(context);
     }
 }
@@ -185,7 +184,7 @@ void mu5_selftest_assert_reg_instance_equals(TESTCONTEXT *context, DEVICE *devic
 
     if (actualValue != expectedValue)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Expected value in register %s[%hu] to be %llX, but was %llX\n", name, (unsigned short)index, expectedValue, actualValue);
+        sim_debug(LOG_SELFTEST_FAIL, context->dev, "Expected value in register %s[%hu] to be %llX, but was %llX\n", name, (unsigned short)index, expectedValue, actualValue);
         mu5_selftest_set_failure(context);
     }
 }
@@ -204,7 +203,7 @@ void mu5_selftest_assert_interrupt_inhibited(TESTCONTEXT *context)
 {
     if (cpu_get_interrupt_number() != 255)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Unexpected interrupt\n");
+        sim_debug(LOG_SELFTEST_FAIL, context->dev, "Unexpected interrupt\n");
         mu5_selftest_set_failure(context);
     }
 }
@@ -213,7 +212,7 @@ void mu5_selftest_assert_no_interrupt(TESTCONTEXT *context)
 {
     if (cpu_get_interrupt_number() != 255)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Unexpected interrupt\n");
+        sim_debug(LOG_SELFTEST_FAIL, context->dev, "Unexpected interrupt\n");
         mu5_selftest_set_failure(context);
     }
 
@@ -226,7 +225,7 @@ void mu5_selftest_assert_interrupt_number(TESTCONTEXT *context, int expectedInte
     int interruptNumber = cpu_get_interrupt_number();
     if (interruptNumber != expectedInterruptNumber)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Found interrupt %d when expected interrupt %d to have occurred\n", interruptNumber, expectedInterruptNumber);
+        sim_debug(LOG_SELFTEST_FAIL, context->dev, "Found interrupt %d when expected interrupt %d to have occurred\n", interruptNumber, expectedInterruptNumber);
         mu5_selftest_set_failure(context);
     }
 }
@@ -277,7 +276,7 @@ void mu5_selftest_assert_vstore_contents(TESTCONTEXT *context, uint8 block, uint
     t_uint64 actualValue = sac_read_v_store(block, line);
     if (actualValue != expectedValue)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Expected value in V-Store block %hu line %hu to be %llX, but was %llX\n", (unsigned short)block, (unsigned short)line, expectedValue, actualValue);
+        sim_debug(LOG_SELFTEST_FAIL, context->dev, "Expected value in V-Store block %hu line %hu to be %llX, but was %llX\n", (unsigned short)block, (unsigned short)line, expectedValue, actualValue);
         mu5_selftest_set_failure(context);
     }
 }
@@ -324,7 +323,7 @@ REG *mu5_selftest_find_register(TESTCONTEXT *context, DEVICE *device, char *name
 
     if (rptr->name == NULL)
     {
-        sim_debug(LOG_CPU_SELFTEST_FAIL, device, "Could not find register %s\n", name);
+        sim_debug(LOG_SELFTEST_FAIL, device, "Could not find register %s\n", name);
         mu5_selftest_set_failure(context);
         rptr = NULL;
     }
@@ -423,7 +422,7 @@ void mu5_selftest_set_register_instance(TESTCONTEXT *context, DEVICE *device, ch
             }
             default:
             {
-                sim_debug(LOG_CPU_SELFTEST_FAIL, context->dev, "Unexpected register width %d for register %s\n", reg->width, name);
+                sim_debug(LOG_SELFTEST_FAIL, context->dev, "Unexpected register width %d for register %s\n", reg->width, name);
                 mu5_selftest_set_failure(context);
                 break;
             }

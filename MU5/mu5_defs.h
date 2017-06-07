@@ -51,15 +51,27 @@ in this Software without prior written authorization from Robert Jarratt.
 #define REG_CALLBACK 0x8000000
 
 /* Debug flags */
-#define LOG_CPU_PERF            (1 << 0)
-#define LOG_CPU_DECODE          (1 << 1)
-#define LOG_CPU_SELFTEST        (1 << 2)
-#define LOG_CPU_SELFTEST_DETAIL (1 << 3)
-#define LOG_CPU_SELFTEST_FAIL   (1 << 4)
+#define LOG_ERROR           (1 << 12)
+#define LOG_SELFTEST        (1 << 13)
+#define LOG_SELFTEST_DETAIL (1 << 14)
+#define LOG_SELFTEST_FAIL   (1 << 15)
 
-#define MAX_LOCAL_MEMORY (262144)    /* RNI told me Local Store consisted of four 4096-word memory units, each word containing 64 data bits + 8 parity bits. This is the size in 32-bit words */
-#define MAX_MASS_MEMORY  (262144)    /* Mass Store consisted of 256K 4-byte words. This is the size in 32-bit words */
+#define MAX_LOCAL_MEMORY  (32768)    /* RNI told me Local Store consisted of four 4096-word memory units, each word containing 64 data bits + 8 parity bits. This is the size in 32-bit words */
+#define MAX_MASS_MEMORY  (262144)
 
+/* The Exchange Unit numbers below are presumed but not confirmed. RNI believes the numbers are in the order in which they appear in Fig. 6.12 on p133 of the book, he is also confident that the
+   fixed head disc was indeed unit 0. However in an email he also said "The BTU was also a unit, as was the SPM.I think the SPM was unit 10 or 11."
+*/
+#define UNIT_FIXED_HEAD_DISC 0
+#define UNIT_PDP11 1
+#define UNIT_MU5_PROCESSOR 2
+#define UNIT_LOCAL_STORE 3
+#define UNIT_1905E 4
+#define UNIT_MASS_STORE 5
+#define UNIT_BTU 6 /* A total guess */
+#define UNIT_SPM 10 /* or could be 11 */
+
+/* Interrupt numbers */
 #define INT_SYSTEM_ERROR 0
 #define INT_CPR_NOT_EQUIVALENCE 1
 #define INT_EXCHANGE 2
@@ -69,17 +81,26 @@ in this Software without prior written authorization from Robert Jarratt.
 #define INT_PROGRAM_FAULTS 6
 #define INT_SOFTWARE_INTERRUPT 7
 
+/* Descriptor types */
 #define DESCRIPTOR_TYPE_GENERAL_VECTOR 0
 #define DESCRIPTOR_TYPE_GENERAL_STRING 1
 #define DESCRIPTOR_TYPE_ADDRESS_VECTOR 2
 #define DESCRIPTOR_TYPE_MISCELLANEOUS  3
 
+/* Descriptor sizes */
 #define DESCRIPTOR_SIZE_1_BIT 0
 #define DESCRIPTOR_SIZE_4_BIT 2
 #define DESCRIPTOR_SIZE_8_BIT 3
 #define DESCRIPTOR_SIZE_16_BIT 4
 #define DESCRIPTOR_SIZE_32_BIT 5
 #define DESCRIPTOR_SIZE_64_BIT 6
+
+#define CPR_VA(P,S,X) ((P << 26 ) | (S << 12) | X)
+#define CPR_RA_LOCAL(AC,A,LZ) (((AC & 0xF) << 28) | (UNIT_LOCAL_STORE << 24) | ((A & 0xFFFFF) << 4) | (LZ & 0xF))
+#define CPR_RA_MASS(AC,A,LZ) (((AC & 0xF) << 28) | (UNIT_MASS_STORE << 24) | ((A & 0xFFFFF) << 4) | (LZ & 0xF))
+#define RA_LOCAL(address) ((UNIT_LOCAL_STORE << 20) | (address & 0xFFFFF))
+#define RA_MASS(address) ((UNIT_MASS_STORE << 20) | (address & 0xFFFFF))
+#define RA_LOCAL_BYTE(address) ((UNIT_LOCAL_STORE << 22) | (address & 0xFFFFF))
 
 typedef struct
 {

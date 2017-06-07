@@ -32,9 +32,6 @@ in this Software without prior written authorization from Robert Jarratt.
 #define TEST_V_STORE_LOCATION_BLOCK 7
 #define TEST_V_STORE_LOCATION_LINE 255
 
-#define VA(P,S,X) ((P << 26 ) | (S << 12) | X)
-#define RA(AC,A,LZ) ((AC << 28) | (A << 4) | LZ)
-
 typedef struct TESTCONTEXT
 {
     DEVICE *dev;
