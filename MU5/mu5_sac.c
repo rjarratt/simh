@@ -160,6 +160,7 @@ static void sac_write_cpr_not_equivalence_psx_callback(uint8 line, t_uint64 valu
 static t_uint64 sac_read_cpr_not_equivalence_s_callback(uint8 line);
 
 static void sac_reset_cpr(uint8 n);
+static int sac_match_cpr(int cpr_num, uint32 *mask, uint32 va, uint32 *match_result);
 static uint32 sac_search_cprs(uint32 mask, uint32 va);
 static uint32 sac_match_cprs(uint32 va, int *numMatches, int *firstMatchIndex, uint32 *segmentMask);
 static int sac_check_access(uint8 requestedAccess, uint8 permittedAccess);
@@ -258,7 +259,7 @@ void sac_reset_state(void)
     CPRNumber = 0;
     CPRFind = 0;
     CPRFindMask = 0;
-    CPRIgnore = 0xFFFFFFFF;
+    CPRIgnore = 0x0FFFFFFF;
     CPRAltered = 0;
     CPRReferenced = 0;
     CPRNotEquivalencePSX = 0;
@@ -493,10 +494,10 @@ static t_uint64 sac_read_cpr_ra_callback(uint8 line)
 
 static void sac_write_cpr_ra_callback(uint8 line, t_uint64 value)
 {
-	//if (CPRNumber < 28)
-	//{
+	if (CPRNumber < 28)
+	{
 		cpr[CPRNumber] = (cpr[CPRNumber] & 0xFFFFFFFF00000000) | (value & CPR_RA_MASK);
-	//}
+	}
 }
 
 static t_uint64 sac_read_cpr_va_callback(uint8 line)
@@ -506,11 +507,11 @@ static t_uint64 sac_read_cpr_va_callback(uint8 line)
 
 static void sac_write_cpr_va_callback(uint8 line, t_uint64 value)
 {
-	//if (CPRNumber < 28)
-	//{
+	if (CPRNumber < 28)
+	{
 		cpr[CPRNumber] = ((value & CPR_VA_MASK) << 32) | (cpr[CPRNumber] & CPR_RA_MASK);
 		sac_reset_cpr(CPRNumber);
-	//}
+	}
 }
 
 static t_uint64 sac_read_cpr_ignore_callback(uint8 line)
@@ -604,22 +605,34 @@ static void sac_reset_cpr(uint8 n)
     CPRFind &= ~(1 << CPRNumber);
 }
 
+static int sac_match_cpr(int cpr_num, uint32 *mask, uint32 va, uint32 *match_result)
+{
+	int result = 0;
+	uint32 result_mask = 1 << cpr_num;
+
+	if (!(CPRIgnore & result_mask))
+	{
+		if (cpr_num == 31)
+		{
+			*mask |= 0xF000; /* Allow CPR 31 to map 1MB segment as per AEK thesis */
+		}
+		if ((va & ~*mask) == ((cpr[cpr_num] >> 32) & ~*mask))
+		{
+			result = 1;
+			*match_result = *match_result | result_mask;
+		}
+	}
+
+	return result;
+}
+
 static uint32 sac_search_cprs(uint32 mask, uint32 va)
 {
     int i;
     uint32 result = 0;
-    uint32 iresult = 1;
     for (i = 0; i < NUM_CPRS; i++)
     {
-        if (!(CPRIgnore & iresult))
-        {
-            if ((va & ~mask) == ((cpr[i] >> 32) & ~mask))
-            {
-                result = result | iresult;
-            }
-        }
-
-        iresult = iresult << 1;
+		sac_match_cpr(i, &mask, va, &result);
     }
 
     return result;
@@ -627,44 +640,32 @@ static uint32 sac_search_cprs(uint32 mask, uint32 va)
 
 static uint32 sac_match_cprs(uint32 va, int *numMatches, int *firstMatchIndex, uint32 *segmentMask)
 {
-    int i;
-    uint32 result = 0;
-    uint32 mask = 0;
-    uint32 maskLen;
-    uint32 iresult = 1;
-    int numMatchesResult = 0;
-    int firstMatchIndexResult = -1;
-    for (i = 0; i < NUM_CPRS; i++)
-    {
-        if (!(CPRIgnore & iresult))
-        {
-            maskLen = cpr[i] & 0xF;
-            mask = ~((0xFFF << maskLen)) & 0xFFF;
-            if (i == 31)
-            {
-                mask |= 0xF000; /* Allow CPR 31 to map 1MB segment as per AEK thesis */
-            }
+	  int i;
+	  uint32 result = 0;
+	  uint32 mask = 0;
+	  uint32 maskLen;
+	  int numMatchesResult = 0;
+	  int firstMatchIndexResult = -1;
+	  for (i = 0; i < NUM_CPRS; i++)
+	  {
+		  maskLen = cpr[i] & 0xF;
+		  mask = ~((0xFFF << maskLen)) & 0xFFF;
+		  if (sac_match_cpr(i, &mask, va, &result))
+		  {
+		  	numMatchesResult++;
+		  	if (numMatchesResult == 1)
+		  	{
+		  		firstMatchIndexResult = i;
+		  	}
 
-            if ((va & ~mask) == ((cpr[i] >> 32) & ~mask))
-            {
-                numMatchesResult++;
-                if (numMatchesResult == 1)
-                {
-                    firstMatchIndexResult = i;
-                }
+		  	*segmentMask = mask;
+		  }
+	  }
 
-                result = result | iresult;
-                *segmentMask = mask;
-            }
-        }
+	  *numMatches = numMatchesResult;
+	  *firstMatchIndex = firstMatchIndexResult;
 
-        iresult = iresult << 1;
-    }
-
-    *numMatches = numMatchesResult;
-    *firstMatchIndex = firstMatchIndexResult;
-
-    return result;
+	  return result;
 }
 
 static int sac_check_access(uint8 requestedAccess, uint8 permittedAccess)
@@ -809,29 +810,13 @@ static void sac_write_local_store(t_addr address, uint32 value)
 
 static uint32 sac_read_mass_store(t_addr address)
 {
-    uint32 result;
-    if (address & RA_V_MASK)
-    {
-        assert(0);
-    }
-    else
-    {
-        assert(address < MAX_MASS_MEMORY);
-        result = MassStore[address];
-    }
+	uint32 result;
+	result = MassStore[address % MAX_MASS_MEMORY];
 
-    return result;
+	return result;
 }
 
 static void sac_write_mass_store(t_addr address, uint32 value)
 {
-    if (address & RA_V_MASK)
-    {
-        assert(0);
-    }
-    else
-    {
-        assert(address < MAX_MASS_MEMORY);
-        MassStore[address] = value;
-    }
+	MassStore[address % MAX_MASS_MEMORY] = value;
 }

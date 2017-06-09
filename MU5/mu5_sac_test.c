@@ -68,7 +68,7 @@ static void sac_selftest_virtual_write_updates_cpr_altered_bit(TESTCONTEXT *test
 static void sac_selftest_virtual_access_of_smallest_page_size(TESTCONTEXT *testContext);
 static void sac_selftest_virtual_access_of_largest_page_size(TESTCONTEXT *testContext);
 static void sac_selftest_virtual_access_of_mixed_page_size(TESTCONTEXT *testContext);
-static void sac_selftest_virtual_access_via_cpr_31_covers_1Mb_page_size(TESTCONTEXT *testContext);
+static void sac_selftest_virtual_access_via_cpr_31_covers_1Mword_page_size(TESTCONTEXT *testContext);
 static void sac_selftest_cpr_not_equivalence_generates_not_equivalence_interrupt(TESTCONTEXT *testContext);
 static void sac_selftest_cpr_not_equivalence_sets_cpr_not_equivalence_v_lines(TESTCONTEXT *testContext);
 static void sac_selftest_cpr_multiple_equivalence_generates_system_error_interrupt(TESTCONTEXT *testContext);
@@ -109,6 +109,7 @@ static void sac_selftest_search_cpr_finds_matches_ignoring_X(TESTCONTEXT *testCo
 static void sac_selftest_search_cpr_finds_matches_ignoring_P_and_X(TESTCONTEXT *testContext);
 static void sac_selftest_search_cpr_finds_matches_masking_selected_S_bits(TESTCONTEXT *testContext);
 static void sac_selftest_search_cpr_ignores_empty_cprs(TESTCONTEXT *testContext);
+static void sac_selftest_search_cpr_matches_1Mword_page_size_in_cpr_31(TESTCONTEXT *testContext);
 static void sac_selftest_search_cpr_does_not_update_cpr_referenced_bits(TESTCONTEXT *testContext);
 static void sac_selftest_search_cpr_does_not_update_cpr_altered_bits(TESTCONTEXT *testContext);
 static void sac_selftest_writing_any_value_to_cpr_find_resets_it_to_zero(TESTCONTEXT *testContext);
@@ -136,7 +137,7 @@ static UNITTEST tests[] =
     { "Virtual access to smallest page size", sac_selftest_virtual_access_of_smallest_page_size },
     { "Virtual access to largest page size", sac_selftest_virtual_access_of_largest_page_size },
     { "Virtual access to mixed page size", sac_selftest_virtual_access_of_mixed_page_size },
-    { "Virtual access via CPR 31 covers 1Mbyte page size", sac_selftest_virtual_access_via_cpr_31_covers_1Mb_page_size },
+    { "Virtual access via CPR 31 covers 1Mword page size", sac_selftest_virtual_access_via_cpr_31_covers_1Mword_page_size },
     { "CPR not-equivalence generates a not-equivalence interrupt", sac_selftest_cpr_not_equivalence_generates_not_equivalence_interrupt },
     { "CPR not-equivalence sets not-equivalence V lines", sac_selftest_cpr_not_equivalence_sets_cpr_not_equivalence_v_lines },
     { "CPR multiple-equivalence error generates a system error interrupt", sac_selftest_cpr_multiple_equivalence_generates_system_error_interrupt },
@@ -176,8 +177,9 @@ static UNITTEST tests[] =
     { "CPR SEARCH finds all matches ignoring X", sac_selftest_search_cpr_finds_matches_ignoring_X },
     { "CPR SEARCH finds all matches ignoring P and X", sac_selftest_search_cpr_finds_matches_ignoring_P_and_X },
     { "CPR SEARCH finds all matches ignoring selected S bits from CPR FIND MASK ", sac_selftest_search_cpr_finds_matches_masking_selected_S_bits },
-    { "CPR SEARCH finds all matches while ignoring any empty CPRs", sac_selftest_search_cpr_ignores_empty_cprs },
-    { "CPR SEARCH does not update CPR REFERENCED bits", sac_selftest_search_cpr_does_not_update_cpr_referenced_bits },
+	{ "CPR SEARCH finds all matches while ignoring any empty CPRs", sac_selftest_search_cpr_ignores_empty_cprs },
+	{ "CPR SEARCH matches 1Mword page size in CPR 31", sac_selftest_search_cpr_matches_1Mword_page_size_in_cpr_31 },
+	{ "CPR SEARCH does not update CPR REFERENCED bits", sac_selftest_search_cpr_does_not_update_cpr_referenced_bits },
     { "CPR SEARCH does not update CPR ALTERED bits", sac_selftest_search_cpr_does_not_update_cpr_altered_bits },
     { "Writing any value to CPR FIND resets it to zero", sac_selftest_writing_any_value_to_cpr_find_resets_it_to_zero },
     { "CPR SEARCH updates the result in CPR FIND", sac_selftest_search_cpr_updates_find_result },
@@ -322,10 +324,10 @@ static void sac_selftest_virtual_access_uses_PN_if_segment_less_than_8192(TESTCO
 static void sac_selftest_virtual_access_ignores_PN_if_segment_is_8192_or_greater(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, CPR_VA(0, 0x2001, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x10, 0));
+    mu5_selftest_setup_cpr(0, CPR_VA(0, 0x2010, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x10, 0));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_write_32_bit_word_real_address(RA_LOCAL(0x11), 0xAAAAAAAA);
-    sac_selftest_assert_memory_contents(0x20010001, 0xAAAAAAAA);
+    sac_selftest_assert_memory_contents(0x20100001, 0xAAAAAAAA);
 }
 
 static void sac_selftest_virtual_read_updates_cpr_referenced_bit(TESTCONTEXT *testContext)
@@ -397,13 +399,13 @@ static void sac_selftest_virtual_access_of_mixed_page_size(TESTCONTEXT *testCont
     sac_selftest_assert_memory_contents(0x107FF, 0xAAAAAAAA);
 }
 
-static void sac_selftest_virtual_access_via_cpr_31_covers_1Mb_page_size(TESTCONTEXT *testContext)
+static void sac_selftest_virtual_access_via_cpr_31_covers_1Mword_page_size(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(31, VA(0xF, 0x10, 0), RA(SAC_ALL_ACCESS, 0x0000, 0xC));
+    mu5_selftest_setup_cpr(31, CPR_VA(0x0, 8300, 0), CPR_RA_MASS(SAC_ALL_ACCESS, 0x0000, 0xC));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
-    sac_write_32_bit_word_real_address(0x77FFF, 0xAAAAAAAA);
-    sac_selftest_assert_memory_contents(0x177FFF, 0xAAAAAAAA);
+    sac_write_32_bit_word_real_address(RA_MASS(0x3FFFF), 0xAAAAAAAA);
+    sac_selftest_assert_memory_contents(0x206FFFFF, 0xAAAAAAAA);
 }
 
 static void sac_selftest_cpr_not_equivalence_generates_not_equivalence_interrupt(TESTCONTEXT *testContext)
@@ -659,7 +661,7 @@ static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_ignore
 {
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 27);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0xAAAAAAAAFFFFFFFF);
-    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0xF7FFFFFF);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0x07FFFFFF);
 }
 
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_find_bit(TESTCONTEXT *testContext)
@@ -765,6 +767,17 @@ static void sac_selftest_search_cpr_ignores_empty_cprs(TESTCONTEXT *testContext)
 
     sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, 0x04000002);
 }
+
+static void sac_selftest_search_cpr_matches_1Mword_page_size_in_cpr_31(TESTCONTEXT *testContext)
+{
+	mu5_selftest_setup_cpr(31, CPR_VA(0, 8300, 0), 0);
+
+	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, 0x0000FFF);
+	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, CPR_VA(0x0, 8300, 0xFFF));
+
+	sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, 0x80000000);
+}
+
 
 static void sac_selftest_search_cpr_does_not_update_cpr_referenced_bits(TESTCONTEXT *testContext)
 {
