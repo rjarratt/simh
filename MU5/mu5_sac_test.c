@@ -659,9 +659,11 @@ static void sac_selftest_writing_virtual_address_to_reserved_cpr_has_no_effect(T
 
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_ignore_bit(TESTCONTEXT *testContext)
 {
-    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 27);
+	t_uint64 expected = sac_read_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE);
+	expected = expected & 0xFFFF7FFF;
+    sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 15);
     sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0xAAAAAAAAFFFFFFFF);
-    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, 0x07FFFFFF);
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, expected);
 }
 
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_find_bit(TESTCONTEXT *testContext)
