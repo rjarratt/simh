@@ -213,7 +213,8 @@ void sac_reset_state(void)
 {
     uint16 i;
 	memset(LocalStore, 0, sizeof(uint32) * MAX_LOCAL_MEMORY);
-    memset(VStore, 0, sizeof(VStore));
+	memset(MassStore, 0, sizeof(uint32) * MAX_MASS_MEMORY);
+	memset(VStore, 0, sizeof(VStore));
     memset(SystemVStore, 0, sizeof(SystemVStore));
     memset(cpr, 0, sizeof(cpr));
 
