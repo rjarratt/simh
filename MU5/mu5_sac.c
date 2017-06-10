@@ -36,7 +36,6 @@ Known Limitations
 -----------------
 The following V Store lines are not implemented: CPR X FIELD, SAC PARITY, SAC MODE, UNIT STATUS, 1905E INTERRUPT.
 
-TODO: CPR 31 1Mbyte
 TODO: Real address line bits concatenated
 
 */
