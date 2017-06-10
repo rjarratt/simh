@@ -63,6 +63,8 @@ TODO: Real address line bits concatenated
 #define LOG_SAC_REAL_ACCESSES   (1 << 0)
 #define LOG_SAC_MEMORY_TRACE    (1 << 1)
 
+#define CPR_MASK(n) (0x80000000 >> n)
+
 typedef struct VSTORE_LINE
 {
     t_uint64(*ReadCallback)(uint8 line);
@@ -260,7 +262,7 @@ void sac_reset_state(void)
     CPRNumber = 0;
     CPRFind = 0;
     CPRFindMask = 0;
-    CPRIgnore = 0x0FFFFFFF;
+    CPRIgnore = 0xFFFFFFF0; /* Enable the reserved CPRs 28-31 */
     CPRAltered = 0;
     CPRReferenced = 0;
     CPRNotEquivalencePSX = 0;
@@ -600,16 +602,16 @@ static t_uint64 sac_read_cpr_not_equivalence_s_callback(uint8 line)
 
 static void sac_reset_cpr(uint8 n)
 {
-    CPRIgnore &= ~(1 << CPRNumber);
-    CPRAltered &= ~(1 << CPRNumber);
-    CPRReferenced &= ~(1 << CPRNumber);
-    CPRFind &= ~(1 << CPRNumber);
+    CPRIgnore &= ~CPR_MASK(n);
+    CPRAltered &= ~CPR_MASK(n);
+    CPRReferenced &= ~CPR_MASK(n);
+    CPRFind &= ~CPR_MASK(n);
 }
 
 static int sac_match_cpr(int cpr_num, uint32 *mask, uint32 va, uint32 *match_result)
 {
 	int result = 0;
-	uint32 result_mask = 1 << cpr_num;
+	uint32 result_mask = CPR_MASK(cpr_num);
 
 	if (!(CPRIgnore & result_mask))
 	{
