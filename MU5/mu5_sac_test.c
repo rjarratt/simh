@@ -376,15 +376,14 @@ static void sac_selftest_virtual_access_of_smallest_page_size(TESTCONTEXT *testC
 
 static void sac_selftest_virtual_access_of_largest_page_size(TESTCONTEXT *testContext)
 {
-    /* with only 32K 32-bit words of local store the segments have to be made to have the segments overlap in the local
-       store for this test to work. Furthermore the local store is not big enough to house a full 64K-word segment, so the highest address we can use is 32K */
+    /* This test uses the mass store because the local store is not big enough to house the largest page size */
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(0, CPR_VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x20000, 0xC));
-    mu5_selftest_setup_cpr(1, CPR_VA(0xF, 1, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x00000, 0xC));
-    mu5_selftest_setup_cpr(2, CPR_VA(0xF, 2, 0), CPR_RA_LOCAL(SAC_ALL_ACCESS, 0x40000, 0xC));
+    mu5_selftest_setup_cpr(0, CPR_VA(0xF, 0, 0), CPR_RA_MASS(SAC_ALL_ACCESS, 0x00000, 0xC));
+    mu5_selftest_setup_cpr(1, CPR_VA(0xF, 1, 0), CPR_RA_MASS(SAC_ALL_ACCESS, 0x10000, 0xC));
+    mu5_selftest_setup_cpr(2, CPR_VA(0xF, 2, 0), CPR_RA_MASS(SAC_ALL_ACCESS, 0x20000, 0xC));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
-    sac_write_32_bit_word_real_address(RA_LOCAL(0x7FFF), 0xAAAAAAAA); /* 7FFF is not full size because of local store limit */ /* TODO: change to Mass store to test the limit? */
-    sac_selftest_assert_memory_contents(0x17FFF, 0xAAAAAAAA);
+    sac_write_32_bit_word_real_address(RA_MASS(0x1FFFF), 0xAAAAAAAA);
+    sac_selftest_assert_memory_contents(0x1FFFF, 0xAAAAAAAA);
 }
 
 static void sac_selftest_virtual_access_of_mixed_page_size(TESTCONTEXT *testContext)
