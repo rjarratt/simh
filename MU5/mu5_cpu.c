@@ -2726,13 +2726,19 @@ static void cpu_execute_dummy_order(uint16 order, DISPATCH_ENTRY *innerTable)
 
 static void cpu_start_interrupt_processing(void)
 {
-    uint8 interruptNumber = cpu_get_interrupt_number();
-    t_uint64 link = cpu_get_link();
-    t_uint64 newLink = sac_read_v_store(SYSTEM_V_STORE_BLOCK, 16 + (interruptNumber * 2) + 1);
+    uint8 interruptNumber;
+	t_uint64 link;
+	t_uint64 newLink;
+
+	interruptNumber = cpu_get_interrupt_number();
+	link = cpu_get_link();
+    cpu_set_register_bit_16(reg_ms, MS_MASK_EXEC, 1);
+
+	newLink = sac_read_v_store(SYSTEM_V_STORE_BLOCK, 16 + (interruptNumber * 2) + 1);
+    sac_write_v_store(SYSTEM_V_STORE_BLOCK, 16 + (interruptNumber * 2), link);
+
 	cpu_clear_interrupt(interruptNumber);
 
-    sac_write_v_store(SYSTEM_V_STORE_BLOCK, 16 + (interruptNumber * 2), link);
-    cpu_set_register_bit_16(reg_ms, MS_MASK_EXEC, 1);
     cpu_set_link(newLink);
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "Interrupt Entry for interrupt %d\n", interruptNumber);
 	sim_debug(LOG_CPU_DECODE, &cpu_dev, "Interrupt Entry: SETLINK %016llx\n", link);
