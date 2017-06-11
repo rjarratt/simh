@@ -323,6 +323,7 @@ static void cpu_selftest_setup_interrupt_vector(int interruptNumber, uint16 ms, 
 static void cpu_selftest_setup_illegal_function_error(void);
 static void cpu_selftest_setup_name_adder_overflow_error(void);
 static void cpu_selftest_setup_control_adder_overflow_error(void);
+static void cpu_selftest_setup_interrupt_entry_link(int interruptNumber);
 
 static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 static void cpu_selftest_assert_reg_equals_mask(char *name, t_uint64 expectedValue, t_uint64 mask);
@@ -2070,6 +2071,10 @@ static void cpu_selftest_setup_control_adder_overflow_error(void)
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
 }
 
+static void cpu_selftest_setup_interrupt_entry_link(int interruptNumber)
+{
+	sac_write_v_store(SYSTEM_V_STORE_BLOCK, 16 + (interruptNumber * 2) + 1, 0x0004000000000000); /* Ensure Executive mode is retained after processing interrupt entry sequence */
+}
 
 static void cpu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue)
 {
@@ -8781,6 +8786,7 @@ static void cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set(TESTCONTEXT 
 
 static void cpu_selftest_cpr_not_equivalance_interrupt_on_order_fetch_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext)
 {
+	cpu_selftest_setup_interrupt_entry_link(INT_CPR_NOT_EQUIVALENCE);
     cpu_selftest_run_code_from_location(0x1FFFFF);
     cpu_selftest_run_continue(); /* must go round again to process interrupt */
     cpu_selftest_assert_interrupt_return_address(INT_CPR_NOT_EQUIVALENCE, 0x1FFFFF);
@@ -8794,6 +8800,7 @@ static void cpu_selftest_cpr_not_equivalance_interrupt_on_primary_operand_stores
     cpu_selftest_load_16_bit_literal(n);
     cpu_selftest_set_register(REG_SF, base);
     mu5_selftest_setup_cpr(0, CPR_VA(0, 0x2010, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0xC)); /* Overwrite normal CPR 0 so VA 0 is not mapped */
+	cpu_selftest_setup_interrupt_entry_link(INT_CPR_NOT_EQUIVALENCE);
     cpu_selftest_run_code_from_location(0x40200000); /* expressed as 16-bit word address */
     cpu_selftest_run_continue(); /* must go round again to process interrupt */
     cpu_selftest_assert_interrupt_return_address(INT_CPR_NOT_EQUIVALENCE, 0x40200000);
@@ -8806,7 +8813,8 @@ static void cpu_selftest_cpr_not_equivalance_interrupt_on_secondary_operand_stor
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_SB, NP_DR);
     cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_STRING, DESCRIPTOR_SIZE_8_BIT, 1, 0x0));
     mu5_selftest_setup_cpr(0, CPR_VA(0, 0x2010, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0xC)); /* Overwrite normal CPR 0 so VA 0 is not mapped */
-    cpu_selftest_run_code_from_location(0x40200000); /* expressed as 16-bit word address */
+	cpu_selftest_setup_interrupt_entry_link(INT_CPR_NOT_EQUIVALENCE);
+	cpu_selftest_run_code_from_location(0x40200000); /* expressed as 16-bit word address */
     cpu_selftest_run_continue(); /* must go round again to process interrupt */
     cpu_selftest_assert_interrupt_return_address(INT_CPR_NOT_EQUIVALENCE, 0x40200000);
 }
@@ -8958,11 +8966,12 @@ static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(TESTCONTEXT *testC
 
 static void cpu_selftest_interrupt_stacks_link_in_system_v_store(TESTCONTEXT *testContext)
 {
-    cpu_selftest_set_register(REG_MS, 0xAA00);
+    cpu_selftest_set_register(REG_MS, 0xAA04);
     cpu_selftest_set_register(REG_NB, 0xBBBB);
     cpu_set_interrupt(INT_PROGRAM_FAULTS);
+	cpu_selftest_setup_interrupt_entry_link(INT_PROGRAM_FAULTS);
     cpu_selftest_run_code_from_location(10);
-    mu5_selftest_assert_vstore_contents(testContext, SYSTEM_V_STORE_BLOCK, 28, 0xAA00BBBB0000000A);
+    mu5_selftest_assert_vstore_contents(testContext, SYSTEM_V_STORE_BLOCK, 28, 0xAA04BBBB0000000A);
 }
 
 static void cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store(TESTCONTEXT *testContext)
@@ -8977,9 +8986,9 @@ static void cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store(TE
 
 static void cpu_selftest_interrupt_sets_executive_mode(TESTCONTEXT *testContext)
 {
+    sac_write_v_store(SYSTEM_V_STORE_BLOCK, 29, 0xBB84CCCC0000000B);
     cpu_selftest_set_register(REG_MS, 0);
     cpu_selftest_set_user_mode();
-    sac_write_v_store(SYSTEM_V_STORE_BLOCK, 29, 0xBB84CCCC0000000B);
     cpu_set_interrupt(INT_PROGRAM_FAULTS);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_MS, 0xBB84);
