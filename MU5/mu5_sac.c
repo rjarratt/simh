@@ -32,6 +32,29 @@ There are believed to be 4 hard-wired CPRs. When asked in April 2017 RNI was
 not sure which ones and did not know their values. He said: "Assume 4 for now
 and assume they are numbers 28-31. Writing to them would have no effect."
 
+Notes on V and Vx Store Access
+------------------------------
+
+V-store is only accessed using k'=7 operands, with System Store also accessible through segment 8192.
+Vx-store is accessed by real addresses with the V bit (see section 2.13 of the Programming Manual) set,
+so can be accessed by type 3.0 descriptors, or if the CPRs are bypassed (MS8=1). Vx-store cannot be
+accessed using a virtual address, partly because the real address component of the CPR RA field is not wide
+enough to hold the V bit, but mainly because the hardware did not support this as the designers felt that
+it should not be accessible through user memory addressing.
+
+When a V-store access to the System Store is made (block 0), this is turned into a virtual address access
+for segment 8192. In practice this means that a CPR must always be defined that maps segment 8192 to an
+area of the local store. So the System Store can also be accessed using any operand type that creates a
+virtual address in segment 8192.
+
+A note on the V-store terminology (RNI 4th June 2017):
+The V-store terminology derives from Atlas, in which the V-store was an early (possibly the first)
+implementation of memory-mapped I/O. Previous machines had generally included special functions to deal
+with I/O but Atlas had the added need to manipulate the registers that implemented the paging system,
+so the idea of using a separate addressing mechanism for all the special purpose registers, and then
+being able to use standard functions to manipulate them, was seen as a victory over the problem - hence V-store.
+
+
 Known Limitations
 -----------------
 The following V Store lines are not implemented: CPR X FIELD, SAC PARITY, SAC MODE, UNIT STATUS, 1905E INTERRUPT.
@@ -73,7 +96,6 @@ typedef struct VSTORE_LINE
 static uint32 LocalStore[MAX_LOCAL_MEMORY];
 static uint32 MassStore[MAX_MASS_MEMORY];
 static VSTORE_LINE VStore[V_STORE_BLOCKS][V_STORE_BLOCK_SIZE];
-static t_uint64 SystemVStore[V_STORE_BLOCK_SIZE];
 
 static UNIT sac_unit =
 {
@@ -133,9 +155,6 @@ static const char* sac_description(DEVICE *dptr) {
 }
 
 static t_stat sac_reset(DEVICE *dptr);
-
-static t_uint64 system_read_callback(uint8 line);
-static void system_write_callback(uint8 line, t_uint64 value);
 
 static void sac_write_cpr_search_callback(uint8 line, t_uint64 value);
 static void sac_write_cpr_number_callback(uint8 line, t_uint64 value);
@@ -212,11 +231,9 @@ static t_stat sac_reset(DEVICE *dptr)
 
 void sac_reset_state(void)
 {
-    uint16 i;
 	memset(LocalStore, 0, sizeof(uint32) * MAX_LOCAL_MEMORY);
 	memset(MassStore, 0, sizeof(uint32) * MAX_MASS_MEMORY);
 	memset(VStore, 0, sizeof(VStore));
-    memset(SystemVStore, 0, sizeof(SystemVStore));
     memset(cpr, 0, sizeof(cpr));
 
 	/* set up the reserved CPRs. These are partially made-up values, I don't know the originals. AEK's thesis lists 4 fixed CPRs, while a picture taken
@@ -235,15 +252,10 @@ void sac_reset_state(void)
     /* at the moment these are all the same value as I don't know what they should be, just make sure the
 	   CPR IGNORE ignores all but one of them to avoid a multiple equivalence error */
 	/* TODO: Set up access correctly, e.g. OBEY only for 8193, requires sim_load to be able to override */
-	cpr[28] = ((t_uint64)CPR_VA(0x0, 8193, 0x0) << 32) | CPR_RA_LOCAL(SAC_ALL_EXEC_ACCESS, 0x007D0, 0x4); /* MUSS code (first point, interrupt level, locked in core, the rest paged (Item 1 in the list above) */
-	cpr[29] = ((t_uint64)CPR_VA(0x0, 8194, 0x0) << 32) | CPR_RA_LOCAL(SAC_ALL_EXEC_ACCESS, 0x007E0, 0x4); /* MUSS Interrupt Level Names and Run Time Stack (Item 2 in the list above) */
-	cpr[30] = ((t_uint64)CPR_VA(0x0, 8196, 0x0) << 32) | CPR_RA_LOCAL(SAC_ALL_EXEC_ACCESS, 0x007F0, 0x4); /* Process Register Blocks of current process (item 3 in the list above) */
+	cpr[28] = ((t_uint64)CPR_VA(0x0, 8193, 0x0) << 32) | CPR_RA_LOCAL(SAC_ALL_EXEC_ACCESS, 0x07D00, 0x4); /* MUSS code (first point, interrupt level, locked in core, the rest paged (Item 1 in the list above) */
+	cpr[29] = ((t_uint64)CPR_VA(0x0, 8194, 0x0) << 32) | CPR_RA_LOCAL(SAC_ALL_EXEC_ACCESS, 0x07E00, 0x4); /* MUSS Interrupt Level Names and Run Time Stack (Item 2 in the list above) */
+	cpr[30] = ((t_uint64)CPR_VA(0x0, 8192, 0x0) << 32) | CPR_RA_LOCAL(SAC_ALL_EXEC_ACCESS, 0x07F00, 0x4); /* Segment 8192 needs to be mapped, this slot previously for item 3 above (segment 8196) */
 	cpr[31] = ((t_uint64)CPR_VA(0x0, 8300, 0x0) << 32) | CPR_RA_MASS(SAC_ALL_EXEC_ACCESS, 0x00000, 0xC);  /* Mass store (less frequently used tables locked in slow core) (Item 4 in the list above)*/
-
-    for (i = 0; i < V_STORE_BLOCK_SIZE; i++)
-    {
-        sac_setup_v_store_location(SYSTEM_V_STORE_BLOCK, i & 0xFF, system_read_callback, system_write_callback);
-    }
 
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, NULL, sac_write_cpr_search_callback);
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, NULL, sac_write_cpr_number_callback);
@@ -441,7 +453,12 @@ void sac_setup_v_store_location(uint8 block, uint8 line, t_uint64(*readCallback)
 void sac_write_v_store(uint8 block, uint8 line, t_uint64 value)
 {
     VSTORE_LINE *l = &VStore[block][line];
-    if (l->WriteCallback != NULL)
+	if (block == SYSTEM_V_STORE_BLOCK)
+	{
+		t_addr addr = addr = 0x20000000 | (block << 9) | (line << 1); /* 64-bit address so  block and line shifted left by 1 */
+		sac_write_64_bit_word(addr, value); // TODO: Must work when BCPR is set as well
+	}
+	else if (l->WriteCallback != NULL)
     {
         l->WriteCallback(line, value);
     }
@@ -451,22 +468,17 @@ t_uint64 sac_read_v_store(uint8 block, uint8 line)
 {
     t_uint64 result = 0;
     VSTORE_LINE *l = &VStore[block][line];
-    if (l->ReadCallback != NULL)
+	if (block == SYSTEM_V_STORE_BLOCK)
+	{
+		t_addr addr = addr = 0x20000000 | (block << 9) | (line << 1); /* 64-bit address so  block and line shifted left by 1 */
+		result = sac_read_64_bit_word(addr); // TODO: Must work when BCPR is set as well
+	}
+	else if (l->ReadCallback != NULL)
     {
         result = l->ReadCallback(line);
     }
 
     return result;
-}
-
-static t_uint64 system_read_callback(uint8 line)
-{
-    return SystemVStore[line];
-}
-
-static void system_write_callback(uint8 line, t_uint64 value)
-{
-    SystemVStore[line] = value;
 }
 
 static void sac_write_cpr_search_callback(uint8 line, t_uint64 value)
@@ -699,12 +711,6 @@ static int sac_map_address(t_addr address, uint8 access, t_addr *mappedAddress)
         *mappedAddress = address;
 		result = 1;
     }
-	else if (seg == 8192)
-	{
-		/* This is the Segment 8192 that in the real MU5 was actually done in PROP rather than SAC */
-		*mappedAddress = RA_LOCAL(0x80000) | (address & 0x7FFFF);
-		result = 1;
-	}
     else
     {
         int numMatches;
@@ -773,41 +779,17 @@ static uint8 sac_get_real_address_unit(t_addr address)
 
 static uint32 sac_read_local_store(t_addr address)
 {
-    uint32 result;
-    if (address & RA_V_MASK)
-    {
-        t_uint64 fullWord = sac_read_v_store(SYSTEM_V_STORE_BLOCK, (address & ~RA_V_MASK) >> 1);
-        result = (address & 1) ? fullWord & 0xFFFFFFFF : fullWord >> 32;
-    }
-    else
-    {
-        assert(address < MAX_LOCAL_MEMORY);
-        result = LocalStore[address];
-    }
+	uint32 result;
+	assert(address < MAX_LOCAL_MEMORY);
+	result = LocalStore[address];
 
-    return result;
+	return result;
 }
 
 static void sac_write_local_store(t_addr address, uint32 value)
 {
-    if (address & RA_V_MASK)
-    {
-        t_uint64 fullWord = sac_read_v_store(SYSTEM_V_STORE_BLOCK, (address & ~RA_V_MASK) >> 1);
-        if (address & 1)
-        {
-            fullWord = (fullWord & 0xFFFFFFFF00000000) | value;
-        }
-        else
-        {
-            fullWord = ((t_uint64)value << 32) | (fullWord & 0xFFFFFFFF);
-        }
-        sac_write_v_store(SYSTEM_V_STORE_BLOCK, (address & ~RA_V_MASK) >> 1, fullWord);
-    }
-    else
-    {
-        assert(address < MAX_LOCAL_MEMORY);
-        LocalStore[address] = value;
-    }
+	assert(address < MAX_LOCAL_MEMORY);
+	LocalStore[address] = value;
 }
 
 static uint32 sac_read_mass_store(t_addr address)
