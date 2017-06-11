@@ -2656,8 +2656,8 @@ static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_fro
     cpu_selftest_load_16_bit_literal(n);
     cpu_selftest_set_register(REG_SF, base);
     mu5_selftest_setup_cpr(0, CPR_VA(0, 0x0000, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x1000, 0xC));
-    mu5_selftest_setup_cpr(1, CPR_VA(0, 0x2000, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0xC));
-    cpu_selftest_run_code_from_location(0x40000000); /* expressed as 16-bit word address */
+    mu5_selftest_setup_cpr(1, CPR_VA(0, 0x2010, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0xC));
+    cpu_selftest_run_code_from_location(0x40200000); /* expressed as 16-bit word address */
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -2667,8 +2667,8 @@ static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_fro
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_0);
     cpu_selftest_load_16_bit_literal(n);
     mu5_selftest_setup_cpr(0, CPR_VA(0, 0x0000, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x1000, 0xC));
-    mu5_selftest_setup_cpr(1, CPR_VA(0, 0x2000, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0xC));
-    cpu_selftest_run_code_from_location(0x40000000); /* expressed as 16-bit word address */
+    mu5_selftest_setup_cpr(1, CPR_VA(0, 0x2010, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0xC));
+    cpu_selftest_run_code_from_location(0x40200000); /* expressed as 16-bit word address */
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -2680,8 +2680,8 @@ static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_fro
     cpu_selftest_load_16_bit_literal(n);
     cpu_selftest_set_register(REG_NB, base);
     mu5_selftest_setup_cpr(0, CPR_VA(0, 0x0000, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x1000, 0xC));
-    mu5_selftest_setup_cpr(1, CPR_VA(0, 0x2000, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0xC));
-    cpu_selftest_run_code_from_location(0x40000000); /* expressed as 16-bit word address */
+    mu5_selftest_setup_cpr(1, CPR_VA(0, 0x2010, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0xC));
+    cpu_selftest_run_code_from_location(0x40200000); /* expressed as 16-bit word address */
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -2693,8 +2693,8 @@ static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_fro
     cpu_selftest_load_16_bit_literal(n);
     cpu_selftest_set_register(REG_XNB, base);
     mu5_selftest_setup_cpr(0, CPR_VA(0, 0x0000, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x1000, 0xC));
-    mu5_selftest_setup_cpr(1, CPR_VA(0, 0x2000, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0xC));
-    cpu_selftest_run_code_from_location(0x40000000); /* expressed as 16-bit word address */
+    mu5_selftest_setup_cpr(1, CPR_VA(0, 0x2010, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0xC));
+    cpu_selftest_run_code_from_location(0x40200000); /* expressed as 16-bit word address */
     cpu_selftest_assert_no_interrupt();
 }
 
