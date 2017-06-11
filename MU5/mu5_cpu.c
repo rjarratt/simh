@@ -2437,7 +2437,7 @@ static t_uint64 cpu_get_operand(uint16 order)
                     uint8 line = addr & MASK_8;
                     if (cpu_is_executive_mode())
                     {
-                        result = sac_read_v_store(block, line);
+						result = sac_read_v_store(block, line);
                     }
                     else
                     {
@@ -2561,15 +2561,15 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
                     addr = addr >> 1; /* 64-bit address? */
                     block = (addr >> 8) & MASK_8;
                     line = addr & MASK_8;
-                    if (cpu_is_executive_mode())
-                    {
-                        sac_write_v_store(block, line, value);
-                    }
-                    else
-                    {
-                        cpu_set_illegal_order_interrupt(PROGRAM_FAULT_STATUS_MASK_ILLEGAL_V_STORE_ACCESS_ERROR);
-                    }
-                    break;
+					if (cpu_is_executive_mode())
+					{
+						sac_write_v_store(block, line, value);
+					}
+					else
+					{
+						cpu_set_illegal_order_interrupt(PROGRAM_FAULT_STATUS_MASK_ILLEGAL_V_STORE_ACCESS_ERROR);
+					}
+					break;
                 }
                 }
                 default:
@@ -2729,12 +2729,14 @@ static void cpu_start_interrupt_processing(void)
     uint8 interruptNumber = cpu_get_interrupt_number();
     t_uint64 link = cpu_get_link();
     t_uint64 newLink = sac_read_v_store(SYSTEM_V_STORE_BLOCK, 16 + (interruptNumber * 2) + 1);
-    cpu_clear_interrupt(interruptNumber);
+	cpu_clear_interrupt(interruptNumber);
 
     sac_write_v_store(SYSTEM_V_STORE_BLOCK, 16 + (interruptNumber * 2), link);
     cpu_set_register_bit_16(reg_ms, MS_MASK_EXEC, 1);
     cpu_set_link(newLink);
-//    printf("Interrupt %hu detected\n", (unsigned short)interruptNumber);
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "Interrupt Entry for interrupt %d\n", interruptNumber);
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "Interrupt Entry: SETLINK %016llx\n", link);
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, "Interrupt Entry: EXIT %016llx\n", newLink);
 }
 
 static void cpu_execute_cr_level(uint16 order, DISPATCH_ENTRY *innerTable)
