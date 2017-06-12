@@ -62,6 +62,8 @@ in this Software without prior written authorization from Robert Jarratt.
 #define SAC_V_STORE_SYSTEM_ERROR_INTERRUPTS 23
 
 void sac_reset_state(void);
+void sac_set_loading(void);
+void sac_clear_loading(void);
 t_uint64 sac_read_64_bit_word(t_addr address);
 void sac_write_64_bit_word(t_addr address, t_uint64 value);
 uint32 sac_read_32_bit_word(t_addr address);

@@ -114,6 +114,8 @@ static uint16 CPRNotEquivalenceS;
 static uint8 AccessViolation;
 static uint8 SystemErrorInterrupt;
 
+static int OverrideAccessCheck;
+
 static t_uint64 cpr[NUM_CPRS];
 
 BITFIELD cpr_bits[] = {
@@ -251,10 +253,9 @@ void sac_reset_state(void)
 
     /* at the moment these are all the same value as I don't know what they should be, just make sure the
 	   CPR IGNORE ignores all but one of them to avoid a multiple equivalence error */
-	/* TODO: Set up access correctly, e.g. OBEY only for 8193, requires sim_load to be able to override */
-	cpr[28] = ((t_uint64)CPR_VA(0x0, 8193, 0x0) << 32) | CPR_RA_LOCAL(SAC_ALL_EXEC_ACCESS, 0x07D00, 0x4); /* MUSS code (first point, interrupt level, locked in core, the rest paged (Item 1 in the list above) */
-	cpr[29] = ((t_uint64)CPR_VA(0x0, 8194, 0x0) << 32) | CPR_RA_LOCAL(SAC_ALL_EXEC_ACCESS, 0x07E00, 0x4); /* MUSS Interrupt Level Names and Run Time Stack (Item 2 in the list above) */
-	cpr[30] = ((t_uint64)CPR_VA(0x0, 8192, 0x0) << 32) | CPR_RA_LOCAL(SAC_ALL_EXEC_ACCESS, 0x07F00, 0x4); /* Segment 8192 needs to be mapped, this slot previously for item 3 above (segment 8196) */
+	cpr[28] = ((t_uint64)CPR_VA(0x0, 8193, 0x0) << 32) | CPR_RA_LOCAL(SAC_OBEY_ACCESS | SAC_READ_ACCESS, 0x07D00, 0x4); /* MUSS code (first point, interrupt level, locked in core, the rest paged (Item 1 in the list above) */
+	cpr[29] = ((t_uint64)CPR_VA(0x0, 8194, 0x0) << 32) | CPR_RA_LOCAL(SAC_READ_ACCESS | SAC_WRITE_ACCESS, 0x07E00, 0x4); /* MUSS Interrupt Level Names and Run Time Stack (Item 2 in the list above) */
+	cpr[30] = ((t_uint64)CPR_VA(0x0, 8192, 0x0) << 32) | CPR_RA_LOCAL(SAC_READ_ACCESS | SAC_WRITE_ACCESS, 0x07F00, 0x4); /* Segment 8192 needs to be mapped, this slot previously for item 3 above (segment 8196) */
 	cpr[31] = ((t_uint64)CPR_VA(0x0, 8300, 0x0) << 32) | CPR_RA_MASS(SAC_ALL_EXEC_ACCESS, 0x00000, 0xC);  /* Mass store (less frequently used tables locked in slow core) (Item 4 in the list above)*/
 
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, NULL, sac_write_cpr_search_callback);
@@ -280,6 +281,18 @@ void sac_reset_state(void)
     CPRNotEquivalenceS = 0;
     AccessViolation = 0;
     SystemErrorInterrupt = 0;
+
+	OverrideAccessCheck = 0;
+}
+
+void sac_set_loading(void)
+{
+	OverrideAccessCheck = 1;
+}
+
+void sac_clear_loading(void)
+{
+	OverrideAccessCheck = 0;
 }
 
 t_uint64 sac_read_64_bit_word(t_addr address)
@@ -684,6 +697,7 @@ static uint32 sac_match_cprs(uint32 va, int *numMatches, int *firstMatchIndex, u
 
 static int sac_check_access(uint8 requestedAccess, uint8 permittedAccess)
 {
+	int result;
     uint8 augmentedRequestedAccess = requestedAccess;
     uint8 augmentedPermittedAccess = permittedAccess;
 
@@ -697,7 +711,8 @@ static int sac_check_access(uint8 requestedAccess, uint8 permittedAccess)
         augmentedPermittedAccess |= SAC_READ_ACCESS;
     }
 
-    return augmentedRequestedAccess == (augmentedRequestedAccess & augmentedPermittedAccess & 0xF);
+    result = OverrideAccessCheck | (augmentedRequestedAccess == (augmentedRequestedAccess & augmentedPermittedAccess & 0xF));
+	return result;
 }
 
 static int sac_map_address(t_addr address, uint8 access, t_addr *mappedAddress)

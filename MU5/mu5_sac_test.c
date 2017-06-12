@@ -121,6 +121,9 @@ static void sac_selftest_write_to_cpr_not_equivalence_psx_not_equivalance_lines_
 static void sac_selftest_write_segment_8192_writes_to_system_v_store(TESTCONTEXT *testContext);
 static void sac_selftest_read_segment_8192_reads_system_v_store(TESTCONTEXT *testContext);
 
+static void sac_selftest_can_bypass_access_check_if_override_set(TESTCONTEXT *testContext);
+static void sac_selftest_cannot_bypass_access_check_if_override_clear(TESTCONTEXT *testContext);
+
 static UNITTEST tests[] =
 {
     { "Writing a word with Bypass CPR set writes to a real address", sac_selftest_write_word_with_bcpr_set_writes_real_address },
@@ -186,7 +189,11 @@ static UNITTEST tests[] =
     { "Write to CPR NOT EQUIVALENCE PSX resets not-equivalence lines to zero", sac_selftest_write_to_cpr_not_equivalence_psx_not_equivalance_lines_to_zero },
 
 	{ "Write to segment 8192 writes to the System V-Store", sac_selftest_write_segment_8192_writes_to_system_v_store },
-	{ "Read from segment 8192 reads from the System V-Store", sac_selftest_read_segment_8192_reads_system_v_store }
+	{ "Read from segment 8192 reads from the System V-Store", sac_selftest_read_segment_8192_reads_system_v_store },
+
+	{ "Can bypass access check if override is set", sac_selftest_can_bypass_access_check_if_override_set },
+	{ "Cannot bypass access check if override is clear", sac_selftest_cannot_bypass_access_check_if_override_clear }
+
 };
 
 void sac_selftest(TESTCONTEXT *testContext)
@@ -648,7 +655,7 @@ static void sac_selftest_writing_virtual_address_to_reserved_cpr_has_no_effect(T
 {
 	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 28);
 	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0xAAAAAAAAFFFFFFFF);
-	sac_selftest_assert_reg_instance_equals(REG_CPR, 28, 0x20010007307D004);
+	sac_selftest_assert_reg_instance_equals(REG_CPR, 28, 0x20010005307D004);
 }
 
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_ignore_bit(TESTCONTEXT *testContext)
@@ -873,3 +880,22 @@ static void sac_selftest_read_segment_8192_reads_system_v_store(TESTCONTEXT *tes
 	sac_selftest_assert_memory_contents(0x20000000, 0xBCDDCBA0);
 	sac_selftest_assert_memory_contents(0x20000001, 0x12332105);
 }
+
+static void sac_selftest_can_bypass_access_check_if_override_set(TESTCONTEXT *testContext)
+{
+	sac_set_loading();
+	mu5_selftest_clear_bcpr(testContext, &cpu_dev);
+	mu5_selftest_set_executive_mode(testContext, &cpu_dev);
+	sac_write_32_bit_word(0x20010000, 0x12332105);
+	sac_selftest_assert_memory_contents(0x20010000, 0x12332105);
+}
+
+static void sac_selftest_cannot_bypass_access_check_if_override_clear(TESTCONTEXT *testContext)
+{
+	sac_clear_loading();
+	mu5_selftest_clear_bcpr(testContext, &cpu_dev);
+	mu5_selftest_set_executive_mode(testContext, &cpu_dev);
+	sac_write_32_bit_word(0x20010000, 0x12332105);
+	sac_selftest_assert_memory_contents(0x20010000, 0);
+}
+

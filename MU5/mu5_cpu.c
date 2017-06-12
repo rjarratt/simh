@@ -903,6 +903,7 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
         }
         else
         {
+			sac_set_loading();
             do
             {
                 segment = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
@@ -925,6 +926,8 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
 					}
                 }
             } while (!feof(ptr) && r == SCPE_OK);
+
+			sac_clear_loading();
         }
     }
 
