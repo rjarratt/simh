@@ -44,6 +44,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define PROP_V_STORE_INSTRUCTION_COUNTER 3
 
 #define CONSOLE_V_STORE_CONSOLE_INTERRUPT 0
+#define CONSOLE_V_STORE_DATE_UPPER_HOOTER 5
 #define CONSOLE_V_STORE_TELETYPE_DATA 6
 #define CONSOLE_V_STORE_TELETYPE_CONTROL 7
 
