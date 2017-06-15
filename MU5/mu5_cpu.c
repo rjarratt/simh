@@ -1687,7 +1687,7 @@ static t_uint64 cpu_get_operand_6_bit_literal(uint16 order, uint32 instructionAd
     t_uint64 result = 0;
     result = cpu_get_n(order);
     result = cpu_sign_extend_6_bit(result);
-    sim_debug(LOG_CPU_DECODE, &cpu_dev, "%lld\n", result);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "%lld", result);
     return result;
 }
 
@@ -1724,11 +1724,11 @@ static t_uint64 cpu_get_operand_extended_literal(uint16 order, uint32 instructio
 
     if (unsignedLiteral)
     {
-        sim_debug(LOG_CPU_DECODE, &cpu_dev, "%llu\n", result);
+        sim_debug(LOG_CPU_DECODE, &cpu_dev, "%llu", result);
     }
     else
     {
-        sim_debug(LOG_CPU_DECODE, &cpu_dev, "%lld\n", result);
+        sim_debug(LOG_CPU_DECODE, &cpu_dev, "%lld", result);
     }
 
     return result;
@@ -1748,7 +1748,7 @@ static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 ins
             uint16 offset = sac_read_16_bit_word_for_obey(instructionAddress + 1);
             result = cpu_get_name_segment_address_from_reg(reg_sf, offset, scale);
             *instructionLength += 1;
-            sim_debug(LOG_CPU_DECODE, &cpu_dev, "SF %u\n", offset);
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "SF %u", offset);
             break;
         }
         case 1:
@@ -1756,7 +1756,7 @@ static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 ins
             uint16 offset = sac_read_16_bit_word_for_obey(instructionAddress + 1);
             result = cpu_get_name_segment_address_from_addr(0, offset, scale);
             *instructionLength += 1;
-            sim_debug(LOG_CPU_DECODE, &cpu_dev, "Z %u\n", offset);
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "Z %u", offset);
             break;
         }
         case 2:
@@ -1764,7 +1764,7 @@ static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 ins
             uint16 offset = sac_read_16_bit_word_for_obey(instructionAddress + 1);
             result = cpu_get_name_segment_address_from_reg(reg_nb, offset, scale);
             *instructionLength += 1;
-            sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB %u\n", offset);
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "NB %u", offset);
             break;
         }
         case 3:
@@ -1773,20 +1773,20 @@ static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 ins
             uint16 offset = sac_read_16_bit_word_for_obey(instructionAddress + 1);
             result = cpu_get_name_segment_address_from_addr(addr, offset, scale);
             *instructionLength += 1;
-            sim_debug(LOG_CPU_DECODE, &cpu_dev, "XNB %u\n", offset);
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "XNB %u", offset);
             break;
         }
         case 4:
         {
             result = cpu_pop_address();
             *is64bit = TRUE;
-            sim_debug(LOG_CPU_DECODE, &cpu_dev, "STACK Z 0\n");
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "STACK Z 0");
             break;
         }
         case 5:
         {
             result = 0;
-            sim_debug(LOG_CPU_DECODE, &cpu_dev, "DR\n");
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "DR");
             cpu_set_illegal_function_interrupt();
             break;
         }
@@ -1795,7 +1795,7 @@ static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 ins
             t_addr addr = cpu_get_register_16(reg_nb);
             result = addr;
             *instructionLength += 1;
-            sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 NB 0\n");
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 NB 0");
             break;
         }
         case 7:
@@ -1803,7 +1803,7 @@ static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 ins
             t_addr addr = cpu_get_register_32(reg_xnb) & 0xFFFF;
             result = addr;
             *instructionLength += 1;
-            sim_debug(LOG_CPU_DECODE, &cpu_dev, "XNB 0\n");
+            sim_debug(LOG_CPU_DECODE, &cpu_dev, "XNB 0");
             break;
         }
     }
@@ -1815,7 +1815,7 @@ static t_addr cpu_get_operand_address_variable_32(uint16 order, uint32 instructi
 {
     t_addr result;
     uint16 n = cpu_get_n(order);
-    sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 %hu\n", n);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 %hu", n);
     result = cpu_get_name_segment_address_from_reg(reg_nb, n, SCALE_32);
 
     return result;
@@ -1825,7 +1825,7 @@ static t_addr cpu_get_operand_address_variable_64(uint16 order, uint32 instructi
 {
     t_addr result;
     uint16 n = cpu_get_n(order);
-    sim_debug(LOG_CPU_DECODE, &cpu_dev, "V64 %hu\n", n);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "V64 %hu", n);
     result = cpu_get_name_segment_address_from_reg(reg_nb, n, SCALE_64);
 
     return result;
@@ -2061,7 +2061,7 @@ static t_uint64 cpu_get_operand_b_relative_descriptor(uint16 order, uint32 instr
 
     result = cpu_get_operand_from_descriptor(order, instructionAddress, instructionLength, cpu_get_register_32(reg_b));
 
-    sim_debug(LOG_CPU_DECODE, &cpu_dev, "SB NB %hu\n", n);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "SB NB %hu", n);
 
     return result;
 }
@@ -2073,7 +2073,7 @@ static void cpu_set_operand_b_relative_descriptor(uint16 order, uint32 instructi
 
     cpu_set_operand_from_descriptor(order, instructionAddress, instructionLength, cpu_get_register_32(reg_b), value);
 
-    sim_debug(LOG_CPU_DECODE, &cpu_dev, "SB NB %hu\n", n);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "SB NB %hu", n);
 }
 
 static t_uint64 cpu_get_operand_zero_relative_descriptor(uint16 order, uint32 instructionAddress, int *instructionLength)
@@ -2083,7 +2083,7 @@ static t_uint64 cpu_get_operand_zero_relative_descriptor(uint16 order, uint32 in
 
     result = cpu_get_operand_from_descriptor(order, instructionAddress, instructionLength, 0);
 
-    sim_debug(LOG_CPU_DECODE, &cpu_dev, "S0 %hu\n", n);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "S0 %hu", n);
 
     return result;
 }
@@ -2095,7 +2095,7 @@ static void cpu_set_operand_zero_relative_descriptor(uint16 order, uint32 instru
 
     cpu_set_operand_from_descriptor(order, instructionAddress, instructionLength, 0, value);
 
-    sim_debug(LOG_CPU_DECODE, &cpu_dev, "S0 NB %hu\n", n);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "S0 NB %hu", n);
 }
 
 
@@ -2223,7 +2223,7 @@ static t_uint64 cpu_get_operand_internal_register(uint16 order, uint32 instructi
         }
     }
 
-    sim_debug(LOG_CPU_DECODE, &cpu_dev, "R%hu\n", (unsigned short)n);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "R%hu", (unsigned short)n);
 
     return result;
 }
@@ -2317,7 +2317,7 @@ static t_uint64 cpu_set_operand_internal_register(uint16 order, t_uint64 value)
         }
     }
 
-    sim_debug(LOG_CPU_DECODE, &cpu_dev, "R%hu\n", (unsigned short)n);
+    sim_debug(LOG_CPU_DECODE, &cpu_dev, "R%hu", (unsigned short)n);
 
     return result;
 }
@@ -2456,6 +2456,8 @@ static t_uint64 cpu_get_operand(uint16 order)
 
     cpu_set_co(cpu_co_add(instructionAddress, instructionLength));
 
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, " (Op=%016llx)\n", result);
+
     return result;
 }
 
@@ -2591,6 +2593,8 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
     }
 
     cpu_set_co(cpu_co_add(instructionAddress, instructionLength));
+
+	sim_debug(LOG_CPU_DECODE, &cpu_dev, " (Op=%016llx)\n", value);
 }
 
 static t_uint64 cpu_sign_extend(t_uint64 value, int8 bits)
@@ -2654,7 +2658,8 @@ void cpu_execute_next_order(void)
         order = sac_read_16_bit_word_for_obey(start_co);
         if (interrupt == 0)
         {
-            cr = cpu_get_cr(order);
+			sim_debug(LOG_CPU_DECODE, &cpu_dev, "%08X: ", start_co);
+			cr = cpu_get_cr(order);
             if ((cpu_get_ms() & MS_MASK_INH_INS_COUNT) == 0 && PROPInstructionCounter > 0)
             {
                 PROPInstructionCounter--;
@@ -2706,7 +2711,7 @@ static t_uint64 prop_read_system_error_status_callback(uint8 line)
 static void prop_write_system_error_status_callback(uint8 line, t_uint64 value)
 {
     PROPSystemErrorStatus = 0;
-    cpu_evaluate_interrupts();
+    cpu_evaluate_interrupts(); // TODO: Not sure if this should be here.
 }
 
 static t_uint64 prop_read_instruction_counter(uint8 line)
@@ -4021,8 +4026,8 @@ static void cpu_execute_b_compare_and_increment(uint16 order, DISPATCH_ENTRY *in
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "B CINC ");
     t_uint64 b = cpu_sign_extend_32_bit(cpu_get_register_32(reg_b));
     t_int64 comparand = cpu_sign_extend_32_bit(cpu_get_operand(order));
-    cpu_test_b_value(b - comparand);
-    b++;
+	cpu_test_b_value(b - comparand);
+	b++;
     cpu_check_b_overflow(b);
     cpu_set_register_32(reg_b, b & MASK_32);
 }
