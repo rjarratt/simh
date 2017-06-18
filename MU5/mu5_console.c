@@ -46,8 +46,8 @@ Only does Teletype output.
 
 #define MASK_TTY_INPUT 0x20
 
-#define AUDIO_SAMPLE_RATE     11025
-#define AUDIO_OUT_BUFFER_SIZE  1
+#define AUDIO_SAMPLE_RATE     22050
+#define AUDIO_OUT_BUFFER_SIZE  2205 /* Also the lag as a proportion of the sample rate */
 
 static t_stat console_reset(DEVICE *dptr);
 static t_stat console_svc(UNIT *uptr);
@@ -62,25 +62,30 @@ static void console_write_teletype_data_callback(uint8 line, t_uint64 value);
 static t_uint64 console_read_teletype_control_callback(uint8 line);
 static void console_write_teletype_control_callback(uint8 line, t_uint64 value);
 
-static t_stat OpenAudioOutput(void);
-static void PlayAudioOutput(uint8 hoot);
-void CloseAudioOutput(void);
+static t_stat StartAudioOutput(void);
+void StopAudioOutput(void);
 
 static uint8 ConsoleInterrupt;
 static uint8 TeletypeData;
 static uint8 TeletypeControl;
 static int TeletypeOperationInProgress;
+static volatile uint8 ConsoleHoot;
 
 #if defined (_WIN32)
-static HWAVEOUT     hWaveOut;
-static PBYTE        pBuffer1, pBuffer2;
-static PWAVEHDR     pWaveHdr1, pWaveHdr2;
-static WAVEFORMATEX waveformat;
+static volatile int terminateThread = 0;
+static HWAVEOUT hWaveOut;
+static volatile PBYTE pBuffer1, pBuffer2;
+static volatile PWAVEHDR pWaveHdr1, pWaveHdr2;
+static volatile HANDLE AudioEventHandle = INVALID_HANDLE_VALUE;
+static HANDLE AudioThreadHandle = INVALID_HANDLE_VALUE;
+static DWORD WINAPI AudioThreadProc(void *param);
+static void CheckAudioBuffer(WAVEHDR *pWaveHdr);
+static void FillAndSendAudioBuffer(WAVEHDR *pWaveHdr);
 #endif
 
 static UNIT console_unit =
 {
-    UDATA(console_svc, UNIT_FIX | UNIT_BINK, 0)
+	UDATA(console_svc, UNIT_FIX | UNIT_BINK, 0)
 };
 
 static REG console_reg[] =
@@ -138,11 +143,11 @@ DEVICE console_dev = {
 static t_stat console_reset(DEVICE *dptr)
 {
     t_stat result = SCPE_OK;
-	OpenAudioOutput(); // TODO: Proper open somewhere
+	StartAudioOutput();
     console_reset_state();
-    sim_cancel(&console_unit);
-    sim_activate(&console_unit, 1);
-    return result;
+	sim_cancel(&console_unit);
+	sim_activate(&console_unit, 1);
+	return result;
 }
 
 void console_reset_state(void)
@@ -159,23 +164,23 @@ void console_reset_state(void)
 
 static t_stat console_svc(UNIT *uptr)
 {
-    if (TeletypeOperationInProgress)
-    {
-        if (!(TeletypeControl & MASK_TTY_INPUT))
-        {
-            sim_putchar(TeletypeData);
-            ConsoleInterrupt |= MASK_TCI;
-            /* TODO actually set interrupt here, for now just enable polling */
-        }
-        TeletypeOperationInProgress = 0;
-    }
-    console_schedule_next_poll(uptr);
-    return SCPE_OK;
+	if (TeletypeOperationInProgress)
+	{
+		if (!(TeletypeControl & MASK_TTY_INPUT))
+		{
+			sim_putchar(TeletypeData);
+			ConsoleInterrupt |= MASK_TCI;
+			/* TODO actually set interrupt here, for now just enable polling */
+		}
+		TeletypeOperationInProgress = 0;
+	}
+	console_schedule_next_poll(uptr);
+	return SCPE_OK;
 }
 
 static void console_schedule_next_poll(UNIT *uptr)
 {
-    sim_activate_after_abs(uptr, 72727); /* 110 baud is 1 character every 1/13.75 seconds, which is 72727 microseconds */
+	sim_activate_after_abs(uptr, 72727); /* 110 baud is 1 character every 1/13.75 seconds, which is 72727 microseconds */
 }
 
 static t_uint64 console_read_console_interrupt_callback(uint8 line)
@@ -205,11 +210,11 @@ static void console_write_date_upper_hooter_callback(uint8 line, t_uint64 value)
 {
 	if ((value & 0x1) == 0)
 	{
-		PlayAudioOutput(0);
+		ConsoleHoot = 0;
 	}
 	else
 	{
-		PlayAudioOutput(255);
+		ConsoleHoot = 255;
 	}
 }
 
@@ -235,10 +240,37 @@ static void console_write_teletype_control_callback(uint8 line, t_uint64 value)
 }
 
 #if defined (_WIN32)
+/* Using waveform audio APIs: https://msdn.microsoft.com/en-us/library/dd742883(v=vs.85).aspx */
 
-static t_stat OpenAudioOutput(void)
+// TODO: Look at https://msdn.microsoft.com/en-us/library/dd797970(v=vs.85).aspx
+static t_stat StartAudioOutput(void)
 {
 	t_stat result = SCPE_OK;
+	WAVEFORMATEX waveformat;
+
+	/* TODO: Clean up error handling so don't leave events and threads lying around. */
+	/* TODO: Shutdown of thread */
+	if (AudioEventHandle == INVALID_HANDLE_VALUE)
+	{
+		AudioEventHandle = CreateEvent(NULL, FALSE, FALSE, NULL); /* Create auto-reset event, with event unsignalled */
+		if (AudioEventHandle == NULL)
+		{
+			result = SCPE_OPENERR;
+		}
+	}
+
+	if (AudioThreadHandle == INVALID_HANDLE_VALUE)
+	{
+		AudioThreadHandle = CreateThread(NULL, 0, AudioThreadProc, NULL, CREATE_SUSPENDED, NULL);
+		if (AudioThreadHandle == NULL)
+		{
+			result = SCPE_OPENERR;
+		}
+		else
+		{
+			SetThreadPriority(AudioThreadHandle, THREAD_PRIORITY_HIGHEST);
+		}
+	}
 
 	pWaveHdr1 = malloc(sizeof(WAVEHDR));
 	pWaveHdr2 = malloc(sizeof(WAVEHDR));
@@ -263,7 +295,7 @@ static t_stat OpenAudioOutput(void)
 		waveformat.wBitsPerSample = 8;
 		waveformat.cbSize = 0;
 
-		if (waveOutOpen(&hWaveOut, WAVE_MAPPER, &waveformat, (DWORD_PTR)NULL, (DWORD_PTR)NULL, CALLBACK_NULL) != MMSYSERR_NOERROR)
+		if (waveOutOpen(&hWaveOut, WAVE_MAPPER, &waveformat, (DWORD_PTR)AudioEventHandle, (DWORD_PTR)NULL, CALLBACK_EVENT) != MMSYSERR_NOERROR)
 		{
 			free(pWaveHdr1);
 			free(pWaveHdr2);
@@ -282,8 +314,8 @@ static t_stat OpenAudioOutput(void)
 		pWaveHdr1->dwBufferLength = AUDIO_OUT_BUFFER_SIZE;
 		pWaveHdr1->dwBytesRecorded = 0;
 		pWaveHdr1->dwUser = 0;
-		pWaveHdr1->dwFlags = WHDR_BEGINLOOP | WHDR_ENDLOOP;
-		pWaveHdr1->dwLoops = MAXINT32 /* 1 */;
+		pWaveHdr1->dwFlags = 0;
+		pWaveHdr1->dwLoops = 1;
 		pWaveHdr1->lpNext = NULL;
 		pWaveHdr1->reserved = 0;
 
@@ -293,26 +325,97 @@ static t_stat OpenAudioOutput(void)
 		pWaveHdr2->dwBufferLength = AUDIO_OUT_BUFFER_SIZE;
 		pWaveHdr2->dwBytesRecorded = 0;
 		pWaveHdr2->dwUser = 0;
-		pWaveHdr2->dwFlags = WHDR_BEGINLOOP | WHDR_ENDLOOP;
-		pWaveHdr2->dwLoops = MAXINT32 /* 1 */;
+		pWaveHdr2->dwFlags = 0;
+		pWaveHdr2->dwLoops = 1;
 		pWaveHdr2->lpNext = NULL;
 		pWaveHdr2->reserved = 0;
 
 		waveOutPrepareHeader(hWaveOut, pWaveHdr2, sizeof(WAVEHDR));
+
+		ResumeThread(AudioThreadHandle);
+
+		//FillAndSendAudioBuffer(pWaveHdr1);
+		//FillAndSendAudioBuffer(pWaveHdr2);
 	}
 
 	return result;
 }
 
-static void PlayAudioOutput(uint8 hoot)
+static DWORD WINAPI AudioThreadProc(void *param)
 {
-	waveOutReset(hWaveOut);
-	pBuffer1[0] = hoot;
-	waveOutWrite(hWaveOut, pWaveHdr1, sizeof(WAVEHDR));
+	PWAVEHDR currentWaveHdr = pWaveHdr1;
+	int i = 0;
+	LARGE_INTEGER countsPerSecond;
+	LARGE_INTEGER lastSampleCount;
+	LARGE_INTEGER currentCount;
+	LONGLONG countsPerSample;
+	LONGLONG countDiff;
+
+	QueryPerformanceFrequency(&countsPerSecond);
+	countsPerSample = countsPerSecond.QuadPart / AUDIO_SAMPLE_RATE;
+	QueryPerformanceCounter(&lastSampleCount);
+
+//	DWORD waitResult;
+
+	while (!terminateThread)
+	{
+		do
+		{
+			QueryPerformanceCounter(&currentCount);
+			countDiff = currentCount.QuadPart - lastSampleCount.QuadPart;
+			if (countDiff > countsPerSample)
+			{
+				currentWaveHdr->lpData[i++] = ConsoleHoot;
+				lastSampleCount.QuadPart += countsPerSample;
+				countDiff -= countsPerSample;
+				if (i >= AUDIO_OUT_BUFFER_SIZE)
+				{
+					i = 0;
+					waveOutWrite(hWaveOut, currentWaveHdr, sizeof(WAVEHDR));
+					if (currentWaveHdr == pWaveHdr1)
+					{
+						currentWaveHdr = pWaveHdr2;
+					}
+					else
+					{
+						currentWaveHdr = pWaveHdr1;
+					}
+				}
+			}
+		} while (countDiff > countsPerSample);
+
+
+		////waitResult = WaitForSingleObject(AudioEventHandle, 1000);
+		////printf("Thread wait complete result = %X\n", waitResult);
+		////if (!terminateThread && waitResult == WAIT_OBJECT_0)
+		////{
+		//	if ((pWaveHdr1->dwFlags & WHDR_DONE) & (pWaveHdr2->dwFlags & WHDR_DONE)) printf(".");
+		//	CheckAudioBuffer(pWaveHdr1);
+		//	CheckAudioBuffer(pWaveHdr2);
+		////}
+	}
+
+	return 0;
 }
 
-void CloseAudioOutput(void)
+static void FillAndSendAudioBuffer(WAVEHDR *pWaveHdr)
 {
+	if (ConsoleHoot == 0) ConsoleHoot = 255; else ConsoleHoot = 0;
+	memset(pWaveHdr->lpData, ConsoleHoot, AUDIO_OUT_BUFFER_SIZE);
+	waveOutWrite(hWaveOut, pWaveHdr, sizeof(WAVEHDR));
+}
+
+static void CheckAudioBuffer(WAVEHDR *pWaveHdr)
+{
+	if (pWaveHdr->dwFlags & WHDR_DONE)
+	{
+		FillAndSendAudioBuffer(pWaveHdr);
+	}
+}
+
+void StopAudioOutput(void)
+{
+	terminateThread = 1;
 	waveOutReset(hWaveOut);
 	waveOutUnprepareHeader(hWaveOut, pWaveHdr1, sizeof(WAVEHDR));
 	waveOutUnprepareHeader(hWaveOut, pWaveHdr2, sizeof(WAVEHDR));
@@ -322,18 +425,18 @@ void CloseAudioOutput(void)
 	free(pBuffer1);
 	free(pBuffer2);
 	waveOutClose(hWaveOut);
+
+	WaitForSingleObject(AudioThreadHandle, 1000);
+	CloseHandle(AudioEventHandle);
+	CloseHandle(AudioThreadHandle);
 }
 #else
-static t_stat OpenAudioOutput(void)
+static t_stat StartAudioOutput(void)
 {
 	return SCPE_NOFNC;
 }
 
-static void PlayAudioOutput(uint8 hoot)
-{
-}
-
-void CloseAudioOutput(void)
+void StopAudioOutput(void)
 {
 }
 
