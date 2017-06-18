@@ -364,6 +364,7 @@ static DWORD WINAPI AudioThreadProc(void *param)
 					}
 				}
 			}
+			Sleep(0);
 		} while (countDiff > countsPerSample);
 	}
 
