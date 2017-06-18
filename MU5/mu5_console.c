@@ -76,11 +76,8 @@ static volatile int terminateThread = 0;
 static HWAVEOUT hWaveOut;
 static volatile PBYTE pBuffer1, pBuffer2;
 static volatile PWAVEHDR pWaveHdr1, pWaveHdr2;
-static volatile HANDLE AudioEventHandle = INVALID_HANDLE_VALUE;
 static HANDLE AudioThreadHandle = INVALID_HANDLE_VALUE;
 static DWORD WINAPI AudioThreadProc(void *param);
-static void CheckAudioBuffer(WAVEHDR *pWaveHdr);
-static void FillAndSendAudioBuffer(WAVEHDR *pWaveHdr);
 #endif
 
 static UNIT console_unit =
@@ -242,7 +239,6 @@ static void console_write_teletype_control_callback(uint8 line, t_uint64 value)
 #if defined (_WIN32)
 /* Using waveform audio APIs: https://msdn.microsoft.com/en-us/library/dd742883(v=vs.85).aspx */
 
-// TODO: Look at https://msdn.microsoft.com/en-us/library/dd797970(v=vs.85).aspx
 static t_stat StartAudioOutput(void)
 {
 	t_stat result = SCPE_OK;
@@ -250,15 +246,6 @@ static t_stat StartAudioOutput(void)
 
 	/* TODO: Clean up error handling so don't leave events and threads lying around. */
 	/* TODO: Shutdown of thread */
-	if (AudioEventHandle == INVALID_HANDLE_VALUE)
-	{
-		AudioEventHandle = CreateEvent(NULL, FALSE, FALSE, NULL); /* Create auto-reset event, with event unsignalled */
-		if (AudioEventHandle == NULL)
-		{
-			result = SCPE_OPENERR;
-		}
-	}
-
 	if (AudioThreadHandle == INVALID_HANDLE_VALUE)
 	{
 		AudioThreadHandle = CreateThread(NULL, 0, AudioThreadProc, NULL, CREATE_SUSPENDED, NULL);
@@ -295,7 +282,7 @@ static t_stat StartAudioOutput(void)
 		waveformat.wBitsPerSample = 8;
 		waveformat.cbSize = 0;
 
-		if (waveOutOpen(&hWaveOut, WAVE_MAPPER, &waveformat, (DWORD_PTR)AudioEventHandle, (DWORD_PTR)NULL, CALLBACK_EVENT) != MMSYSERR_NOERROR)
+		if (waveOutOpen(&hWaveOut, WAVE_MAPPER, &waveformat, (DWORD_PTR)NULL, (DWORD_PTR)NULL, CALLBACK_NULL) != MMSYSERR_NOERROR)
 		{
 			free(pWaveHdr1);
 			free(pWaveHdr2);
@@ -333,9 +320,6 @@ static t_stat StartAudioOutput(void)
 		waveOutPrepareHeader(hWaveOut, pWaveHdr2, sizeof(WAVEHDR));
 
 		ResumeThread(AudioThreadHandle);
-
-		//FillAndSendAudioBuffer(pWaveHdr1);
-		//FillAndSendAudioBuffer(pWaveHdr2);
 	}
 
 	return result;
@@ -354,8 +338,6 @@ static DWORD WINAPI AudioThreadProc(void *param)
 	QueryPerformanceFrequency(&countsPerSecond);
 	countsPerSample = countsPerSecond.QuadPart / AUDIO_SAMPLE_RATE;
 	QueryPerformanceCounter(&lastSampleCount);
-
-//	DWORD waitResult;
 
 	while (!terminateThread)
 	{
@@ -383,34 +365,9 @@ static DWORD WINAPI AudioThreadProc(void *param)
 				}
 			}
 		} while (countDiff > countsPerSample);
-
-
-		////waitResult = WaitForSingleObject(AudioEventHandle, 1000);
-		////printf("Thread wait complete result = %X\n", waitResult);
-		////if (!terminateThread && waitResult == WAIT_OBJECT_0)
-		////{
-		//	if ((pWaveHdr1->dwFlags & WHDR_DONE) & (pWaveHdr2->dwFlags & WHDR_DONE)) printf(".");
-		//	CheckAudioBuffer(pWaveHdr1);
-		//	CheckAudioBuffer(pWaveHdr2);
-		////}
 	}
 
 	return 0;
-}
-
-static void FillAndSendAudioBuffer(WAVEHDR *pWaveHdr)
-{
-	if (ConsoleHoot == 0) ConsoleHoot = 255; else ConsoleHoot = 0;
-	memset(pWaveHdr->lpData, ConsoleHoot, AUDIO_OUT_BUFFER_SIZE);
-	waveOutWrite(hWaveOut, pWaveHdr, sizeof(WAVEHDR));
-}
-
-static void CheckAudioBuffer(WAVEHDR *pWaveHdr)
-{
-	if (pWaveHdr->dwFlags & WHDR_DONE)
-	{
-		FillAndSendAudioBuffer(pWaveHdr);
-	}
 }
 
 void StopAudioOutput(void)
@@ -427,7 +384,6 @@ void StopAudioOutput(void)
 	waveOutClose(hWaveOut);
 
 	WaitForSingleObject(AudioThreadHandle, 1000);
-	CloseHandle(AudioEventHandle);
 	CloseHandle(AudioThreadHandle);
 }
 #else
