@@ -61,6 +61,8 @@ static t_uint64 console_read_teletype_data_callback(uint8 line);
 static void console_write_teletype_data_callback(uint8 line, t_uint64 value);
 static t_uint64 console_read_teletype_control_callback(uint8 line);
 static void console_write_teletype_control_callback(uint8 line, t_uint64 value);
+static t_uint64 console_read_engineers_handswitches_callback(uint8 line);
+static void console_write_engineers_handswitches_callback(uint8 line, t_uint64 value);
 
 static t_stat StartAudioOutput(void);
 void StopAudioOutput(void);
@@ -69,6 +71,7 @@ static uint8 ConsoleInterrupt;
 static uint8 TeletypeData;
 static uint8 TeletypeControl;
 static int TeletypeOperationInProgress;
+static uint16 EngineersHandswitches;
 static volatile uint8 ConsoleHoot;
 
 #if defined (_WIN32)
@@ -156,7 +159,8 @@ void console_reset_state(void)
     sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_CONSOLE_INTERRUPT, console_read_console_interrupt_callback, console_write_console_interrupt_callback);
 	sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_DATE_UPPER_HOOTER, console_read_date_upper_hooter_callback, console_write_date_upper_hooter_callback);
     sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TELETYPE_DATA, console_read_teletype_data_callback, console_write_teletype_data_callback);
-    sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TELETYPE_CONTROL, console_read_teletype_control_callback, console_write_teletype_control_callback);
+	sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TELETYPE_CONTROL, console_read_teletype_control_callback, console_write_teletype_control_callback);
+	sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_ENGINEERS_HANDSWITCHES, console_read_engineers_handswitches_callback, console_write_engineers_handswitches_callback);
 }
 
 static t_stat console_svc(UNIT *uptr)
@@ -222,7 +226,7 @@ static t_uint64 console_read_teletype_data_callback(uint8 line)
 
 static void console_write_teletype_data_callback(uint8 line, t_uint64 value)
 {
-    TeletypeData = value & 0xFF;
+    TeletypeData = value & MASK_8;
     TeletypeOperationInProgress = 1;
 }
 
@@ -233,7 +237,20 @@ static t_uint64 console_read_teletype_control_callback(uint8 line)
 
 static void console_write_teletype_control_callback(uint8 line, t_uint64 value)
 {
-    TeletypeControl = value & 0xFF;
+    TeletypeControl = value & MASK_8;
+}
+
+static t_uint64 console_read_engineers_handswitches_callback(uint8 line)
+{
+	return EngineersHandswitches;
+}
+
+/* The real machine does NOT support writing to this V-Store location, but this is a mechanism for the handswitches to be set from the ini file without a special command
+   TODO: Add special command for setting the handswitches
+*/
+static void console_write_engineers_handswitches_callback(uint8 line, t_uint64 value)
+{
+	EngineersHandswitches = value & MASK_16;
 }
 
 #if defined (_WIN32)

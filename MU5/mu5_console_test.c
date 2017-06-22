@@ -46,11 +46,16 @@ static void console_selftest_write_console_interrupt_resets_tci(TESTCONTEXT *tes
 
 static void console_selftest_after_writing_teletype_data_in_output_mode_tci_is_set(TESTCONTEXT *testContext);
 
+static void console_selftest_engineers_handswitches_can_be_set_and_read(TESTCONTEXT *testContext);
+
 static UNITTEST tests[] =
 {
     { "Writing CONSOLE INTERRUPT V-Line resets teletype character interrupt bit", console_selftest_write_console_interrupt_resets_tci },
 
     { "After writing to TELETYPE DATA V-Line in transmit mode the teletype character interrupt bit is set", console_selftest_after_writing_teletype_data_in_output_mode_tci_is_set },
+
+	{ "Engineer's handswitches can be set and read", console_selftest_engineers_handswitches_can_be_set_and_read }
+
 };
 
 void console_selftest(TESTCONTEXT *testContext)
@@ -95,4 +100,13 @@ static void console_selftest_after_writing_teletype_data_in_output_mode_tci_is_s
     sac_write_v_store(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TELETYPE_DATA, 0);
     console_selftest_execute_cycle();
     console_selftest_assert_vstore_contents(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_CONSOLE_INTERRUPT, 0x2);
+}
+
+static void console_selftest_engineers_handswitches_can_be_set_and_read(TESTCONTEXT *testContext)
+{
+	sac_write_v_store(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_ENGINEERS_HANDSWITCHES, 0xFFFFFFFF);
+	console_selftest_assert_vstore_contents(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_ENGINEERS_HANDSWITCHES, 0xFFFF);
+
+	sac_write_v_store(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_ENGINEERS_HANDSWITCHES, 0x00);
+	console_selftest_assert_vstore_contents(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_ENGINEERS_HANDSWITCHES, 0x00);
 }

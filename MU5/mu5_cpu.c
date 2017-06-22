@@ -90,10 +90,6 @@ to set the MS register to some appropriate setting.
 
 */
 
-#define MASK_8 0xFF
-#define MASK_16 0xFFFF
-#define MASK_32 0xFFFFFFFF
-
 #define SCALE_32 1
 #define SCALE_64 2
 
@@ -3004,9 +3000,16 @@ static void cpu_execute_organisational_MS_load(uint16 order, DISPATCH_ENTRY *inn
 
 static void cpu_execute_organisational_DL_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
+	int i;
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "DL= ");
-    t_uint64 operand = cpu_get_operand(order);
+    uint32 operand = cpu_get_operand(order) & MASK_32;
     cpu_set_register_32(reg_dl, operand & MASK_32);
+	
+	for (i = 0; i < 32; i++)
+	{
+		printf("%c", (operand >> (31 - i)) & 1 ? '1' : '0');
+	}
+	printf("\r");
 }
 
 static void cpu_execute_organisational_spm(uint16 order, DISPATCH_ENTRY *innerTable)

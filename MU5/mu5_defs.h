@@ -59,6 +59,10 @@ in this Software without prior written authorization from Robert Jarratt.
 #define MAX_LOCAL_MEMORY  (32768)    /* RNI told me Local Store consisted of four 4096-word memory units, each word containing 64 data bits + 8 parity bits. This is the size in 32-bit words */
 #define MAX_MASS_MEMORY  (262144)
 
+#define MASK_8 0xFF
+#define MASK_16 0xFFFF
+#define MASK_32 0xFFFFFFFF
+
 /* The Exchange Unit numbers below are presumed but not confirmed. RNI believes the numbers are in the order in which they appear in Fig. 6.12 on p133 of the book, he is also confident that the
    fixed head disc was indeed unit 0. However in an email he also said "The BTU was also a unit, as was the SPM.I think the SPM was unit 10 or 11."
 */

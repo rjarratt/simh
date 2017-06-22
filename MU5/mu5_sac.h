@@ -47,6 +47,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define CONSOLE_V_STORE_DATE_UPPER_HOOTER 5
 #define CONSOLE_V_STORE_TELETYPE_DATA 6
 #define CONSOLE_V_STORE_TELETYPE_CONTROL 7
+#define CONSOLE_V_STORE_ENGINEERS_HANDSWITCHES 11
 
 #define SAC_V_STORE_CPR_SEARCH 0
 #define SAC_V_STORE_CPR_NUMBER 1
