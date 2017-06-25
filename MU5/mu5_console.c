@@ -50,6 +50,7 @@ Only does Teletype output.
 #define AUDIO_OUT_BUFFER_SIZE  2205 /* Also the lag as a proportion of the sample rate */
 
 static t_stat console_reset(DEVICE *dptr);
+static t_stat console_detach(UNIT* uptr);
 static t_stat console_svc(UNIT *uptr);
 static void console_schedule_next_poll(UNIT *uptr);
 
@@ -76,11 +77,12 @@ static volatile uint8 ConsoleHoot;
 
 #if defined (_WIN32)
 static volatile int terminateThread = 0;
-static HWAVEOUT hWaveOut;
+static HWAVEOUT hWaveOut = INVALID_HANDLE_VALUE;
 static volatile PBYTE pBuffer1, pBuffer2;
 static volatile PWAVEHDR pWaveHdr1, pWaveHdr2;
 static HANDLE AudioThreadHandle = INVALID_HANDLE_VALUE;
 static DWORD WINAPI AudioThreadProc(void *param);
+static void AudioCleanupBuffers(void);
 #endif
 
 static UNIT console_unit =
@@ -126,7 +128,7 @@ DEVICE console_dev = {
     &console_reset,       /* reset */
     NULL,                 /* boot */
     NULL,                 /* attach */
-    NULL,                 /* detach */
+    &console_detach,      /* detach */
     NULL,                 /* ctxt */
     DEV_DEBUG,            /* flags */
     0,                    /* dctrl */
@@ -143,11 +145,18 @@ DEVICE console_dev = {
 static t_stat console_reset(DEVICE *dptr)
 {
     t_stat result = SCPE_OK;
+	StopAudioOutput();
 	StartAudioOutput();
     console_reset_state();
 	sim_cancel(&console_unit);
 	sim_activate(&console_unit, 1);
 	return result;
+}
+
+static t_stat console_detach(UNIT* uptr)
+{
+	StopAudioOutput();
+	return SCPE_OK;
 }
 
 void console_reset_state(void)
@@ -261,13 +270,12 @@ static t_stat StartAudioOutput(void)
 	t_stat result = SCPE_OK;
 	WAVEFORMATEX waveformat;
 
-	/* TODO: Clean up error handling so don't leave events and threads lying around. */
-	/* TODO: Shutdown of thread */
 	if (AudioThreadHandle == INVALID_HANDLE_VALUE)
 	{
 		AudioThreadHandle = CreateThread(NULL, 0, AudioThreadProc, NULL, CREATE_SUSPENDED, NULL);
 		if (AudioThreadHandle == NULL)
 		{
+			AudioThreadHandle = INVALID_HANDLE_VALUE;
 			result = SCPE_OPENERR;
 		}
 		else
@@ -283,10 +291,7 @@ static t_stat StartAudioOutput(void)
 
 	if (!pWaveHdr1 || !pWaveHdr2 || !pBuffer1 || !pBuffer2)
 	{
-		if (!pWaveHdr1) free(pWaveHdr1);
-		if (!pWaveHdr2) free(pWaveHdr2);
-		if (!pBuffer1)  free(pBuffer1);
-		if (!pBuffer2)  free(pBuffer2);
+		AudioCleanupBuffers();
 		result = SCPE_MEM;
 	}
 	else
@@ -301,11 +306,8 @@ static t_stat StartAudioOutput(void)
 
 		if (waveOutOpen(&hWaveOut, WAVE_MAPPER, &waveformat, (DWORD_PTR)NULL, (DWORD_PTR)NULL, CALLBACK_NULL) != MMSYSERR_NOERROR)
 		{
-			free(pWaveHdr1);
-			free(pWaveHdr2);
-			free(pBuffer1);
-			free(pBuffer2);
-			hWaveOut = NULL;
+			AudioCleanupBuffers();
+			hWaveOut = INVALID_HANDLE_VALUE;
 			result = SCPE_OPENERR;
 		}
 	}
@@ -336,6 +338,7 @@ static t_stat StartAudioOutput(void)
 
 		waveOutPrepareHeader(hWaveOut, pWaveHdr2, sizeof(WAVEHDR));
 
+		terminateThread = 0;
 		ResumeThread(AudioThreadHandle);
 	}
 
@@ -388,21 +391,37 @@ static DWORD WINAPI AudioThreadProc(void *param)
 	return 0;
 }
 
+static void AudioCleanupBuffers(void)
+{
+	if (!pWaveHdr1) free(pWaveHdr1);
+	if (!pWaveHdr2) free(pWaveHdr2);
+	if (!pBuffer1)  free(pBuffer1);
+	if (!pBuffer2)  free(pBuffer2);
+}
+
 void StopAudioOutput(void)
 {
 	terminateThread = 1;
-	waveOutReset(hWaveOut);
-	waveOutUnprepareHeader(hWaveOut, pWaveHdr1, sizeof(WAVEHDR));
-	waveOutUnprepareHeader(hWaveOut, pWaveHdr2, sizeof(WAVEHDR));
+	if (AudioThreadHandle != INVALID_HANDLE_VALUE)
+	{
+		if (WaitForSingleObject(AudioThreadHandle, 1000) != WAIT_OBJECT_0)
+		{
+			TerminateThread(AudioThreadHandle, -1);
+		}
+		CloseHandle(AudioThreadHandle);
+		AudioThreadHandle = INVALID_HANDLE_VALUE;
+	}
 
-	free(pWaveHdr1);
-	free(pWaveHdr2);
-	free(pBuffer1);
-	free(pBuffer2);
-	waveOutClose(hWaveOut);
+	if (hWaveOut != INVALID_HANDLE_VALUE)
+	{
+		waveOutReset(hWaveOut);
+		waveOutUnprepareHeader(hWaveOut, pWaveHdr1, sizeof(WAVEHDR));
+		waveOutUnprepareHeader(hWaveOut, pWaveHdr2, sizeof(WAVEHDR));
+		waveOutClose(hWaveOut);
+		hWaveOut = INVALID_HANDLE_VALUE;
+	}
 
-	WaitForSingleObject(AudioThreadHandle, 1000);
-	CloseHandle(AudioThreadHandle);
+	AudioCleanupBuffers();
 }
 #else
 static t_stat StartAudioOutput(void)
