@@ -410,7 +410,7 @@ uint32 sac_read_32_bit_word_real_address(t_addr address)
         default:
         {
             result = 0;
-            sim_debug(LOG_ERROR, &sac_dev, "Read unknown (%hu) store real address %08X, result=%08X\n", unit, address, result);
+            sim_debug(LOG_ERROR, &sac_dev, "Read unknown (%hhu) store real address %08X, result=%08X\n", unit, address, result);
             break;
         }
     }
@@ -422,7 +422,7 @@ void sac_write_32_bit_word_real_address(t_addr address, uint32 value)
 {
     t_addr addr20 = address & RA_MASK;
     uint8 unit = sac_get_real_address_unit(address);
-    switch (unit)
+	switch (unit)
     {
         case UNIT_LOCAL_STORE:
         {
@@ -440,7 +440,7 @@ void sac_write_32_bit_word_real_address(t_addr address, uint32 value)
 
         default:
         {
-            sim_debug(LOG_ERROR, &sac_dev, "Write unknown (%hu) store real address %08X, value=%08X\n", unit, address, value);
+            sim_debug(LOG_ERROR, &sac_dev, "Write unknown (%hhu) store real address %08X, value=%08X\n", unit, address, value);
             break;
         }
     }

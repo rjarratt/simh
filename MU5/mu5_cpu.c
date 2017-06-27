@@ -910,7 +910,7 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
                 }
 
                 origin = segment << 18;
-                printf("Loading segment %u of length %hu bytes at virtual address %08X\n", segment, segment_length * 2, origin);
+                printf("Loading segment %u of length %u bytes at virtual address %08X\n", segment, segment_length * 2, origin);
                 for (i = 0; i < 2 * segment_length; i++)
                 {
                     b = Fgetc(ptr);
