@@ -35,8 +35,8 @@ Only does Teletype output.
 #include "mu5_defs.h"
 #include "mu5_sac.h"
 #include "mu5_console.h"
-#if defined (_WIN32)
-#include <windows.h>
+#if defined(HAVE_LIBSDL)
+#include <SDL.h>
 #endif
 
 #define MASK_FCI 0x1
@@ -47,7 +47,7 @@ Only does Teletype output.
 #define MASK_TTY_INPUT 0x20
 
 #define AUDIO_SAMPLE_RATE     22050
-#define AUDIO_OUT_BUFFER_SIZE  2205 /* Also the lag as a proportion of the sample rate */
+#define AUDIO_OUT_BUFFER_SIZE  2048 /* Also the lag as a proportion of the sample rate */
 
 static t_stat console_reset(DEVICE *dptr);
 static t_stat console_detach(UNIT* uptr);
@@ -66,7 +66,7 @@ static t_uint64 console_read_engineers_handswitches_callback(uint8 line);
 static void console_write_engineers_handswitches_callback(uint8 line, t_uint64 value);
 
 static t_stat StartAudioOutput(void);
-void StopAudioOutput(void);
+static void StopAudioOutput(void);
 
 static uint8 ConsoleInterrupt;
 static uint8 TeletypeData;
@@ -75,14 +75,19 @@ static int TeletypeOperationInProgress;
 static uint16 EngineersHandswitches;
 static volatile uint8 ConsoleHoot;
 
-#if defined (_WIN32)
-static volatile int terminateThread = 0;
+static volatile int terminate_thread = 0;
+
+#if defined(HAVE_LIBSDL)
+SDL_AudioDeviceID audio_device_handle = 0;
+SDL_Thread *audio_thread_handle = NULL;
+static int AudioThreadFunction(void *);
+#elif defined (_WIN32)
 static HWAVEOUT hWaveOut = INVALID_HANDLE_VALUE;
 static volatile PBYTE pBuffer1, pBuffer2;
 static volatile PWAVEHDR pWaveHdr1, pWaveHdr2;
-static HANDLE AudioThreadHandle = INVALID_HANDLE_VALUE;
-static DWORD WINAPI AudioThreadProc(void *param);
-static void AudioCleanupBuffers(void);
+static HANDLE audio_thread_handle = INVALID_HANDLE_VALUE;
+static DWORD WINAPI audio_thread_function(void *param);
+static void audio_cleanup_buffers(void);
 #endif
 
 static UNIT console_unit =
@@ -262,7 +267,108 @@ static void console_write_engineers_handswitches_callback(uint8 line, t_uint64 v
 	EngineersHandswitches = value & MASK_16;
 }
 
-#if defined (_WIN32)
+/* TODO: Audio code still has a crackle, possibly because at buffer changeover the old buffer has finished playing before the new one is queued */
+#if defined (HAVE_LIBSDL)
+static t_stat StartAudioOutput(void)
+{
+	t_stat result;
+	SDL_AudioSpec want, have;
+
+	terminate_thread = 0;
+
+	if (!SDL_WasInit(SDL_INIT_AUDIO))
+	{
+		SDL_Init(SDL_INIT_AUDIO);
+	}
+
+	if (audio_thread_handle == NULL)
+	{
+		audio_thread_handle = SDL_CreateThread(AudioThreadFunction, "AudioThread", NULL);
+		if (audio_thread_handle == NULL)
+		{
+			result = SCPE_OPENERR;
+			SDL_Log("Failed to create audio thread: %s", SDL_GetError());
+		}
+		else
+		{
+			SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH);
+		}
+	}
+
+	SDL_memset(&want, 0, sizeof(want)); /* or SDL_zero(want) */
+	want.freq = AUDIO_SAMPLE_RATE;
+	want.format = AUDIO_U8;
+	want.channels = 1;
+	want.samples = AUDIO_OUT_BUFFER_SIZE;
+	want.callback = NULL;
+
+	audio_device_handle = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+	if (audio_device_handle == 0)
+	{
+		result = SCPE_OPENERR;
+		SDL_Log("Failed to open audio: %s", SDL_GetError());
+	}
+	else
+	{
+		SDL_PauseAudioDevice(audio_device_handle, 0); /* start audio playing. */
+	}
+	return SCPE_OK;
+}
+
+static void StopAudioOutput(void)
+{
+	terminate_thread = 1;
+	if (audio_thread_handle != NULL)
+	{
+		SDL_WaitThread(audio_thread_handle, NULL);
+		audio_thread_handle = NULL;
+	}
+
+	if (audio_device_handle != 0)
+	{
+		SDL_CloseAudioDevice(audio_device_handle);
+	}
+}
+
+static int AudioThreadFunction(void *data)
+{
+	int i = 0;
+	t_uint64 countsPerSecond;
+	t_uint64 lastSampleCount;
+	t_uint64 currentCount;
+	t_uint64 countsPerSample;
+	t_uint64 countDiff;
+	uint8 buffer[AUDIO_OUT_BUFFER_SIZE];
+
+	countsPerSecond = SDL_GetPerformanceFrequency();
+	countsPerSample = countsPerSecond / AUDIO_SAMPLE_RATE;
+	lastSampleCount = SDL_GetPerformanceCounter();
+
+	while (!terminate_thread)
+	{
+		do
+		{
+			currentCount = SDL_GetPerformanceCounter();
+			countDiff = currentCount - lastSampleCount;
+			if (countDiff > countsPerSample)
+			{
+				buffer[i++] = ConsoleHoot;
+				lastSampleCount += countsPerSample;
+				countDiff -= countsPerSample;
+				if (i >= AUDIO_OUT_BUFFER_SIZE)
+				{
+					i = 0;
+					SDL_QueueAudio(audio_device_handle, buffer, sizeof(buffer));
+				}
+			}
+			Sleep(0);
+		} while (countDiff > countsPerSample);
+	}
+
+	return 0;
+}
+
+#elif defined (_WIN32)
 /* Using waveform audio APIs: https://msdn.microsoft.com/en-us/library/dd742883(v=vs.85).aspx */
 
 static t_stat StartAudioOutput(void)
@@ -270,17 +376,17 @@ static t_stat StartAudioOutput(void)
 	t_stat result = SCPE_OK;
 	WAVEFORMATEX waveformat;
 
-	if (AudioThreadHandle == INVALID_HANDLE_VALUE)
+	if (audio_thread_handle == INVALID_HANDLE_VALUE)
 	{
-		AudioThreadHandle = CreateThread(NULL, 0, AudioThreadProc, NULL, CREATE_SUSPENDED, NULL);
-		if (AudioThreadHandle == NULL)
+		audio_thread_handle = CreateThread(NULL, 0, audio_thread_function, NULL, CREATE_SUSPENDED, NULL);
+		if (audio_thread_handle == NULL)
 		{
-			AudioThreadHandle = INVALID_HANDLE_VALUE;
+			audio_thread_handle = INVALID_HANDLE_VALUE;
 			result = SCPE_OPENERR;
 		}
 		else
 		{
-			SetThreadPriority(AudioThreadHandle, THREAD_PRIORITY_HIGHEST);
+			SetThreadPriority(audio_thread_handle, THREAD_PRIORITY_HIGHEST);
 		}
 	}
 
@@ -291,7 +397,7 @@ static t_stat StartAudioOutput(void)
 
 	if (!pWaveHdr1 || !pWaveHdr2 || !pBuffer1 || !pBuffer2)
 	{
-		AudioCleanupBuffers();
+		audio_cleanup_buffers();
 		result = SCPE_MEM;
 	}
 	else
@@ -306,7 +412,7 @@ static t_stat StartAudioOutput(void)
 
 		if (waveOutOpen(&hWaveOut, WAVE_MAPPER, &waveformat, (DWORD_PTR)NULL, (DWORD_PTR)NULL, CALLBACK_NULL) != MMSYSERR_NOERROR)
 		{
-			AudioCleanupBuffers();
+			audio_cleanup_buffers();
 			hWaveOut = INVALID_HANDLE_VALUE;
 			result = SCPE_OPENERR;
 		}
@@ -338,14 +444,14 @@ static t_stat StartAudioOutput(void)
 
 		waveOutPrepareHeader(hWaveOut, pWaveHdr2, sizeof(WAVEHDR));
 
-		terminateThread = 0;
-		ResumeThread(AudioThreadHandle);
+		terminate_thread = 0;
+		ResumeThread(audio_thread_handle);
 	}
 
 	return result;
 }
 
-static DWORD WINAPI AudioThreadProc(void *param)
+static DWORD WINAPI audio_thread_function(void *param)
 {
 	PWAVEHDR currentWaveHdr = pWaveHdr1;
 	int i = 0;
@@ -359,7 +465,7 @@ static DWORD WINAPI AudioThreadProc(void *param)
 	countsPerSample = countsPerSecond.QuadPart / AUDIO_SAMPLE_RATE;
 	QueryPerformanceCounter(&lastSampleCount);
 
-	while (!terminateThread)
+	while (!terminate_thread)
 	{
 		do
 		{
@@ -391,7 +497,7 @@ static DWORD WINAPI AudioThreadProc(void *param)
 	return 0;
 }
 
-static void AudioCleanupBuffers(void)
+static void audio_cleanup_buffers(void)
 {
 	if (!pWaveHdr1) free(pWaveHdr1);
 	if (!pWaveHdr2) free(pWaveHdr2);
@@ -399,17 +505,17 @@ static void AudioCleanupBuffers(void)
 	if (!pBuffer2)  free(pBuffer2);
 }
 
-void StopAudioOutput(void)
+static void StopAudioOutput(void)
 {
-	terminateThread = 1;
-	if (AudioThreadHandle != INVALID_HANDLE_VALUE)
+	terminate_thread = 1;
+	if (audio_thread_handle != INVALID_HANDLE_VALUE)
 	{
-		if (WaitForSingleObject(AudioThreadHandle, 1000) != WAIT_OBJECT_0)
+		if (WaitForSingleObject(audio_thread_handle, 1000) != WAIT_OBJECT_0)
 		{
-			TerminateThread(AudioThreadHandle, -1);
+			TerminateThread(audio_thread_handle, -1);
 		}
-		CloseHandle(AudioThreadHandle);
-		AudioThreadHandle = INVALID_HANDLE_VALUE;
+		CloseHandle(audio_thread_handle);
+		audio_thread_handle = INVALID_HANDLE_VALUE;
 	}
 
 	if (hWaveOut != INVALID_HANDLE_VALUE)
@@ -421,7 +527,7 @@ void StopAudioOutput(void)
 		hWaveOut = INVALID_HANDLE_VALUE;
 	}
 
-	AudioCleanupBuffers();
+	audio_cleanup_buffers();
 }
 #else
 static t_stat StartAudioOutput(void)
