@@ -70,6 +70,14 @@ ifeq (old,$(shell gmake --version /dev/null 2>&1 | grep 'GNU Make' | awk '{ if (
   $(warning *** Warning *** fully process this makefile)
 endif
 BUILD_SINGLE := $(MAKECMDGOALS) $(BLANK_SUFFIX)
+
+ifneq (,$(call find_include,SDL2/SDL))
+  ifneq (,$(call find_lib,SDL2))
+    SDL_CCDEFS += -DHAVE_LIBSDL `$(realpath $(dir $(call find_include,SDL2/SDL))../../bin/sdl2-config) --cflags`
+    SDL_LDFLAGS += `$(realpath $(dir $(call find_include,SDL2/SDL))../../bin/sdl2-config) --libs`
+  endif
+endif
+
 # building the pdp1, pdp11, tx-0, or any microvax simulator could use video support
 ifneq (,$(or $(findstring XXpdp1XX,$(addsuffix XX,$(addprefix XX,$(MAKECMDGOALS)))),$(findstring pdp11,$(MAKECMDGOALS)),$(findstring tx-0,$(MAKECMDGOALS)),$(findstring microvax1,$(MAKECMDGOALS)),$(findstring microvax2,$(MAKECMDGOALS)),$(findstring microvax3900,$(MAKECMDGOALS)),$(findstring XXvaxXX,$(addsuffix XX,$(addprefix XX,$(MAKECMDGOALS))))))
   VIDEO_USEFUL = true
@@ -1423,7 +1431,7 @@ SSEM_OPT = -I ${SSEMD}
 
 MU5D = MU5
 MU5 = ${MU5D}/mu5_cpu.c ${MU5D}/mu5_sac.c ${MU5D}/mu5_console.c ${MU5D}/mu5_sys.c ${MU5D}/mu5_test.c ${MU5D}/mu5_cpu_test.c ${MU5D}/mu5_sac_test.c ${MU5D}/mu5_console_test.c
-MU5_OPT = -I ${MU5D} -DUSE_INT64
+MU5_OPT = -I ${MU5D} -DUSE_INT64 ${SDL_CCDEFS} ${SDL_LDFLAGS}
 
 B5500D = B5500
 B5500 = ${B5500D}/b5500_cpu.c ${B5500D}/b5500_io.c ${B5500D}/b5500_sys.c \
