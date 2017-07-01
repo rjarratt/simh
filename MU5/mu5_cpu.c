@@ -1939,17 +1939,17 @@ static t_uint64 cpu_get_operand_by_descriptor_vector(t_uint64 descriptor, uint32
             }
             case DESCRIPTOR_SIZE_16_BIT:
             {
-                result = sac_read_16_bit_word(addr >> 1); /* TODO: 16-bit word routine takes a 16-bit word address, not a byte address. Need to make memory access consistent */
+                result = sac_read_16_bit_word(addr >> 1);
                 break;
             }
             case DESCRIPTOR_SIZE_32_BIT:
             {
-                result = sac_read_32_bit_word(addr >> 2); /* TODO: 32-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
+                result = sac_read_32_bit_word(addr >> 2);
                 break;
             }
             case DESCRIPTOR_SIZE_64_BIT:
             {
-                result = sac_read_64_bit_word(addr >> 2); /* TODO: 64-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
+                result = sac_read_64_bit_word(addr >> 2);
                 break;
             }
             default:
@@ -2001,17 +2001,17 @@ static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 mod
             }
             case DESCRIPTOR_SIZE_16_BIT:
             {
-                sac_write_16_bit_word(addr >> 1, value & 0xFFFF);  /* TODO: 16-bit word routine takes a 16-bit word address, not a byte address. Need to make memory access consistent */
+                sac_write_16_bit_word(addr >> 1, value & 0xFFFF);
                 break;
             }
             case DESCRIPTOR_SIZE_32_BIT:
             {
-                sac_write_32_bit_word(addr >> 2, value & MASK_32); /* TODO: 32-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
+                sac_write_32_bit_word(addr >> 2, value & MASK_32);
                 break;
             }
             case DESCRIPTOR_SIZE_64_BIT:
             {
-                sac_write_64_bit_word(addr >> 2, value); /* TODO: 64-bit word routine takes a 32-bit word address, not a byte address. Need to make memory access consistent */
+                sac_write_64_bit_word(addr >> 2, value);
                 break;
             }
             default:

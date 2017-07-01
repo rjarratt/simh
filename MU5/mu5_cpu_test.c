@@ -2984,7 +2984,6 @@ static void cpu_selftest_load_operand_64_bit_variable(TESTCONTEXT *testContext)
 
 static void cpu_selftest_load_operand_b_relative_descriptor_loads_D(TESTCONTEXT *testContext)
 {
-    // TODO: #define the following values
     uint32 base = NB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(VEC_ORIGIN_DEFAULT);
     uint32 vecoffset = 1;
