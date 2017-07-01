@@ -1307,7 +1307,7 @@ static uint16 cpu_calculate_base_offset_from_addr(t_addr base, t_int64 offset, u
 
 static t_addr cpu_get_name_segment_address_from_addr(t_addr base, int16 offset, uint8 scale)
 {
-    t_addr result = (cpu_get_register_16(reg_sn) << 16) | cpu_calculate_base_offset_from_addr(base, offset, scale);
+    t_addr result = (cpu_get_register_16(reg_sn) << 16) | cpu_calculate_base_offset_from_addr(base, offset, scale); // TODO: need tests for different SN values
     return result;
 }
 
@@ -1765,9 +1765,8 @@ static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 ins
         }
         case 3:
         {
-            t_addr addr = cpu_get_register_32(reg_xnb) & 0xFFFF;
             uint16 offset = sac_read_16_bit_word_for_obey(instructionAddress + 1);
-            result = cpu_get_name_segment_address_from_addr(addr, offset, scale);
+            result = cpu_calculate_base_offset_from_reg_32(reg_xnb, offset, scale);
             *instructionLength += 1;
             sim_debug(LOG_CPU_DECODE, &cpu_dev, "XNB %u", offset);
             break;
@@ -1796,7 +1795,7 @@ static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 ins
         }
         case 7:
         {
-            t_addr addr = cpu_get_register_32(reg_xnb) & 0xFFFF;
+            t_addr addr = cpu_get_register_32(reg_xnb);
             result = addr;
             *instructionLength += 1;
             sim_debug(LOG_CPU_DECODE, &cpu_dev, "XNB 0");

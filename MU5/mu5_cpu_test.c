@@ -256,7 +256,8 @@ in this Software without prior written authorization from Robert Jarratt.
 #define TEST_LESS_THAN 0x0600
 #define TEST_OVERFLOW 0x0800
 
-#define NB_DEFAULT 0x00F0
+#define NB_DEFAULT   0x00F0
+#define XNB_DEFAULT 0x100F0
 #define VEC_ORIGIN_DEFAULT 0x01F0
 
 typedef struct
@@ -272,7 +273,7 @@ static uint32 currentLoadLocation;
 extern DEVICE cpu_dev;
 
 static void cpu_selftest_reset(UNITTEST *test);
-static void cpu_selftest_setup_test_virtual_page(uint8 access);
+static void cpu_selftest_setup_test_virtual_pages(uint8 access);
 static void cpu_selftest_set_load_location(uint32 location);
 static void cpu_selftest_load_order(uint8 cr, uint8 f, uint8 k, uint8 n);
 static void cpu_selftest_load_order_extended(uint8 cr, uint8 f, uint8 kp, uint8 np);
@@ -1739,16 +1740,17 @@ static void cpu_selftest_reset(UNITTEST *test)
 {
     sac_reset_state(); /* reset SAC first because it clears the V-Store callbacks which may be set by other devices */
     cpu_reset_state();
-    cpu_selftest_setup_test_virtual_page(SAC_ALL_ACCESS);
+    cpu_selftest_setup_test_virtual_pages(SAC_ALL_ACCESS);
     cpu_selftest_clear_bcpr();
     currentLoadLocation = 0;
     cpu_selftest_set_acc_faults_to_system_error_in_exec_mode(); // TODO: remove this line and test explicitly.
     cpu_selftest_set_b_and_d_faults_to_system_error_in_exec_mode(); // TODO: remove this line and test explicitly.
 }
 
-static void cpu_selftest_setup_test_virtual_page(uint8 access)
+static void cpu_selftest_setup_test_virtual_pages(uint8 access)
 {
-    mu5_selftest_setup_cpr(0, CPR_VA(0, 0x0000, 0), CPR_RA_LOCAL(access, 0, 0xC)); /* 64K-word page */
+	mu5_selftest_setup_cpr(0, CPR_VA(0, 0x0000, 0), CPR_RA_LOCAL(access, 0x0000, 0xC)); /* 64K-word page */
+	mu5_selftest_setup_cpr(1, CPR_VA(0, 0x0001, 0), CPR_RA_LOCAL(access, 0x1000, 0xC)); /* TODO: yes it overlaps the previous one, but the second segment is only used in some XNB tests */
 }
 
 static void cpu_selftest_set_load_location(uint32 location)
@@ -2623,7 +2625,7 @@ void cpu_selftest(TESTCONTEXT *testContext)
 static void cpu_selftest_16_bit_instruction_fetches_using_obey_access(TESTCONTEXT *testContext)
 {
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
-    cpu_selftest_setup_test_virtual_page(SAC_OBEY_ACCESS);
+    cpu_selftest_setup_test_virtual_pages(SAC_OBEY_ACCESS);
     cpu_selftest_run_code();
     cpu_selftest_assert_no_interrupt();
 }
@@ -2631,7 +2633,7 @@ static void cpu_selftest_16_bit_instruction_fetches_using_obey_access(TESTCONTEX
 static void cpu_selftest_16_bit_instruction_generates_instruction_access_violation_when_fetching_from_non_executable_segment(TESTCONTEXT *testContext)
 {
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
-    cpu_selftest_setup_test_virtual_page(SAC_READ_ACCESS);
+    cpu_selftest_setup_test_virtual_pages(SAC_READ_ACCESS);
     cpu_selftest_run_code();
     mu5_selftest_assert_instruction_access_violation_as_system_error_interrupt(localTestContext);
 }
@@ -2639,7 +2641,7 @@ static void cpu_selftest_16_bit_instruction_generates_instruction_access_violati
 static void cpu_selftest_instruction_not_obeyed_if_access_violation_when_fetching_instruction(TESTCONTEXT *testContext)
 {
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
-    cpu_selftest_setup_test_virtual_page(SAC_READ_ACCESS);
+    cpu_selftest_setup_test_virtual_pages(SAC_READ_ACCESS);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0);
 }
@@ -2648,7 +2650,7 @@ static void cpu_selftest_instruction_fetches_extended_literal_using_obey_access(
 {
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, KP_LITERAL, NP_16_BIT_SIGNED_LITERAL);
     cpu_selftest_load_16_bit_literal(0xFFFF);
-    cpu_selftest_setup_test_virtual_page(SAC_OBEY_ACCESS);
+    cpu_selftest_setup_test_virtual_pages(SAC_OBEY_ACCESS);
     cpu_selftest_run_code();
     cpu_selftest_assert_no_interrupt();
 }
@@ -3302,12 +3304,12 @@ static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_nb(TE
 
 static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_xnb(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
+    uint32 base = XNB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_XNB);
     cpu_selftest_load_16_bit_literal(n);
     sac_write_32_bit_word(base + n, 0xAAAABBBB);
-    cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
+    cpu_selftest_set_register(REG_XNB, base);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAABBBB);
     cpu_selftest_assert_no_interrupt();
@@ -3349,7 +3351,7 @@ static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_xnb_r
     uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_XNB);
     sac_write_32_bit_word(base, 0xAAAABBBB);
-    cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
+    cpu_selftest_set_register(REG_XNB, base);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAABBBB);
     cpu_selftest_assert_no_interrupt();
@@ -3394,12 +3396,12 @@ static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_nb(TE
 
 static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_xnb(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
+    uint32 base = XNB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V64, NP_XNB);
     cpu_selftest_load_16_bit_literal(n);
     sac_write_64_bit_word(base + (n * 2), 0xAAAABBBBCCCCDDDD);
-    cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
+    cpu_selftest_set_register(REG_XNB, base);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_assert_no_interrupt();
@@ -3441,7 +3443,7 @@ static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_xnb_r
     uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V64, NP_XNB);
     sac_write_64_bit_word(base, 0xAAAABBBBCCCCDDDD);
-    cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
+    cpu_selftest_set_register(REG_XNB, base);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_assert_no_interrupt();
@@ -3516,13 +3518,13 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_valu
 
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_xnb(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
+    uint32 base = XNB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(VEC_ORIGIN_DEFAULT);
     uint32 vecoffset = 1;
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_SB, NP_XNB);
     cpu_selftest_load_16_bit_literal(n);
-    cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
+    cpu_selftest_set_register(REG_XNB, base);
     cpu_selftest_set_register(REG_B, vecoffset);
     sac_write_64_bit_word(base + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
     cpu_selftest_load_32_bit_value_to_descriptor_location(vecorigin, vecoffset, 0xAAAABBBB);
@@ -3592,11 +3594,11 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_valu
 
 static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_value_from_xnb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
+    uint32 base = XNB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(VEC_ORIGIN_DEFAULT);
     uint32 vecoffset = 1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_SB, NP_XNB_REF);
-    cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
+    cpu_selftest_set_register(REG_XNB, base);
     cpu_selftest_set_register(REG_B, vecoffset);
     sac_write_64_bit_word(base, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
     cpu_selftest_load_32_bit_value_to_descriptor_location(vecorigin, vecoffset, 0xAAAABBBB);
@@ -3736,12 +3738,12 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_v
 
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
+    uint32 base = XNB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(VEC_ORIGIN_DEFAULT);
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_S0, NP_XNB);
     cpu_selftest_load_16_bit_literal(n);
-    cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
+    cpu_selftest_set_register(REG_XNB, base);
     sac_write_64_bit_word(base + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
     cpu_selftest_load_32_bit_value_to_descriptor_location(vecorigin, 0, 0xAAAABBBB);
     cpu_selftest_run_code();
@@ -3802,10 +3804,10 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_v
 
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
+    uint32 base = XNB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(VEC_ORIGIN_DEFAULT);
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_S0, NP_XNB_REF);
-    cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
+    cpu_selftest_set_register(REG_XNB, base);
     sac_write_64_bit_word(base, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
     cpu_selftest_load_32_bit_value_to_descriptor_location(vecorigin, 0, 0xAAAABBBB);
     cpu_selftest_run_code();
@@ -4363,13 +4365,13 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_nb(T
 
 static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_xnb(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
+    uint32 base = XNB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V32, NP_XNB);
     cpu_selftest_load_16_bit_literal(n);
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0xFFFFFFFFAAAABBBB);
-    cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
+    cpu_selftest_set_register(REG_XNB, base);
     cpu_selftest_run_code();
     cpu_selftest_assert_memory_contents_32_bit(base + n, 0xAAAABBBB);
     cpu_selftest_assert_no_interrupt();
@@ -4410,11 +4412,11 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_nb_r
 
 static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_xnb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
+    uint32 base = XNB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V32, NP_XNB);
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0xFFFFFFFFAAAABBBB);
-    cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
+    cpu_selftest_set_register(REG_XNB, base);
     cpu_selftest_run_code();
     cpu_selftest_assert_memory_contents_32_bit(base, 0xAAAABBBB);
     cpu_selftest_assert_no_interrupt();
@@ -4462,13 +4464,13 @@ static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_nb(T
 
 static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_xnb(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
+    uint32 base = XNB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V64, NP_XNB);
     cpu_selftest_load_16_bit_literal(n);
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0xAAAABBBBCCCCDDDD);
-    cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
+	cpu_selftest_set_register(REG_XNB, base);
     cpu_selftest_run_code();
     cpu_selftest_assert_memory_contents_64_bit(base + (n * 2), 0xAAAABBBBCCCCDDDD);
     cpu_selftest_assert_no_interrupt();
@@ -4508,11 +4510,11 @@ static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_nb_r
 
 static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_xnb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
+    uint32 base = XNB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V64, NP_XNB);
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0xAAAABBBBCCCCDDDD);
-    cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
+    cpu_selftest_set_register(REG_XNB, base);
     cpu_selftest_run_code();
     cpu_selftest_assert_memory_contents_64_bit(base, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_assert_no_interrupt();
@@ -4591,13 +4593,13 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_val
 
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_xnb(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
+    uint32 base = XNB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(VEC_ORIGIN_DEFAULT);
     uint32 vecoffset = 1;
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_SB, NP_XNB);
     cpu_selftest_load_16_bit_literal(n);
-    cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
+    cpu_selftest_set_register(REG_XNB, base);
     cpu_selftest_set_register(REG_B, vecoffset);
     sac_write_64_bit_word(base + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
     cpu_selftest_set_aod_operand_64_bit();
@@ -4672,11 +4674,11 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_val
 
 static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_value_from_xnb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
+    uint32 base = XNB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(VEC_ORIGIN_DEFAULT);
     uint32 vecoffset = 1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_SB, NP_XNB_REF);
-    cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
+    cpu_selftest_set_register(REG_XNB, base);
     cpu_selftest_set_register(REG_B, vecoffset);
     sac_write_64_bit_word(base, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
     cpu_selftest_set_aod_operand_64_bit();
@@ -4825,12 +4827,12 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_
 
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
+    uint32 base = XNB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(VEC_ORIGIN_DEFAULT);
     int8 n = 0x2;
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_XNB);
     cpu_selftest_load_16_bit_literal(n);
-    cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
+    cpu_selftest_set_register(REG_XNB, base);
     sac_write_64_bit_word(base + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0x00000000AAAABBBB);
@@ -4897,10 +4899,10 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_
 
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_value_from_xnb_ref(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
+    uint32 base = XNB_DEFAULT;
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(VEC_ORIGIN_DEFAULT);
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_XNB_REF);
-    cpu_selftest_set_register(REG_XNB, base); // TODO: upper half of XNB provides segment
+	cpu_selftest_set_register(REG_XNB, base);
     sac_write_64_bit_word(base, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0x00000000AAAABBBB);
