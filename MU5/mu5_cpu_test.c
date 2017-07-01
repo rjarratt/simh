@@ -1749,8 +1749,9 @@ static void cpu_selftest_reset(UNITTEST *test)
 
 static void cpu_selftest_setup_test_virtual_pages(uint8 access)
 {
-	mu5_selftest_setup_cpr(0, CPR_VA(0, 0x0000, 0), CPR_RA_LOCAL(access, 0x0000, 0xC)); /* 64K-word page */
-	mu5_selftest_setup_cpr(1, CPR_VA(0, 0x0001, 0), CPR_RA_LOCAL(access, 0x1000, 0xC)); /* TODO: yes it overlaps the previous one, but the second segment is only used in some XNB tests */
+	mu5_selftest_setup_cpr(0, CPR_VA(0, 0x0000, 0x000), CPR_RA_LOCAL(access, 0x0000, 0xA)); /* 16K-word page at the bottom of segment 0 */
+	mu5_selftest_setup_cpr(1, CPR_VA(0, 0x0001, 0x000), CPR_RA_LOCAL(access, 0x1000, 0xA)); /* 16K-word page at the top of segment 0, used for tests that go off the end of the segment */
+	mu5_selftest_setup_cpr(2, CPR_VA(0, 0x0000, 0x400), CPR_RA_LOCAL(access, 0x1000, 0xA)); /* 16K-word page at the bottom of segment 1, overlaps with CPR1, but is only used for some XNB tests */
 }
 
 static void cpu_selftest_set_load_location(uint32 location)
