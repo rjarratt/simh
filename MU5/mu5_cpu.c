@@ -1307,7 +1307,7 @@ static uint16 cpu_calculate_base_offset_from_addr(t_addr base, t_int64 offset, u
 
 static t_addr cpu_get_name_segment_address_from_addr(t_addr base, int16 offset, uint8 scale)
 {
-    t_addr result = (cpu_get_register_16(reg_sn) << 16) | cpu_calculate_base_offset_from_addr(base, offset, scale); // TODO: need tests for different SN values
+    t_addr result = (cpu_get_register_16(reg_sn) << 16) | cpu_calculate_base_offset_from_addr(base, offset, scale);
     return result;
 }
 
