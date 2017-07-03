@@ -260,7 +260,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define SN_BASE            0x10000
 #define NB_DEFAULT          0x00F0
 #define NAME_SEGMENT_DEFAULT_BASE (SN_BASE + NB_DEFAULT)
-#define XNB_DEFAULT        0x100F0
+#define XNB_DEFAULT        (SN_BASE + NB_DEFAULT)
 #define VEC_ORIGIN_DEFAULT  0x01F0
 
 typedef struct
@@ -324,6 +324,8 @@ static t_uint64 cpu_selftest_get_register(char *name);
 static void cpu_selftest_set_register(char *name, t_uint64 value);
 static void cpu_selftest_setup_name_base(uint16 base);
 static void cpu_selftest_setup_default_name_base(void);
+static void cpu_selftest_setup_stack_base(uint16 base);
+static void cpu_selftest_setup_default_stack_base(void);
 static void cpu_selftest_setup_vstore_test_location(void);
 static void cpu_selftest_setup_interrupt_vector(int interruptNumber, uint16 ms, uint16 nb, uint32 co);
 static void cpu_selftest_setup_illegal_function_error(void);
@@ -2061,6 +2063,17 @@ static void cpu_selftest_setup_default_name_base(void)
 	cpu_selftest_setup_name_base(NB_DEFAULT);
 }
 
+static void cpu_selftest_setup_stack_base(uint16 base)
+{
+	cpu_selftest_set_register(REG_SN, SN_DEFAULT);
+	cpu_selftest_set_register(REG_SF, base);
+}
+
+static void cpu_selftest_setup_default_stack_base(void)
+{
+	cpu_selftest_setup_stack_base(NB_DEFAULT);
+}
+
 static void cpu_selftest_setup_vstore_test_location(void)
 {
     sac_setup_v_store_location(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, mu5_selftest_read_callback_for_static_64_bit_location, mu5_selftest_write_callback_for_static_64_bit_location);
@@ -2674,12 +2687,11 @@ static void cpu_selftest_instruction_fetches_extended_literal_using_obey_access(
 
 static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_from_sf_using_obey_access(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_SF);
     cpu_selftest_load_16_bit_literal(n);
-    cpu_selftest_set_register(REG_SF, base);
-    mu5_selftest_setup_cpr(0, CPR_VA(0, 0x0000, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x1000, 0xC));
+	cpu_selftest_setup_default_stack_base();
+    mu5_selftest_setup_cpr(0, CPR_VA(0, SN_DEFAULT, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x1000, 0xC));
     mu5_selftest_setup_cpr(1, CPR_VA(0, 0x2010, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0xC));
     cpu_selftest_run_code_from_location(0x40200000); /* expressed as 16-bit word address */
     cpu_selftest_assert_no_interrupt();
@@ -2710,12 +2722,11 @@ static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_fro
 
 static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_from_xnb_using_obey_access(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_XNB);
     cpu_selftest_load_16_bit_literal(n);
-    cpu_selftest_set_register(REG_XNB, base);
-    mu5_selftest_setup_cpr(0, CPR_VA(0, 0x0000, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x1000, 0xC));
+    cpu_selftest_set_register(REG_XNB, XNB_DEFAULT);
+    mu5_selftest_setup_cpr(0, CPR_VA(0, SN_DEFAULT, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x1000, 0xC));
     mu5_selftest_setup_cpr(1, CPR_VA(0, 0x2010, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0xC));
     cpu_selftest_run_code_from_location(0x40200000); /* expressed as 16-bit word address */
     cpu_selftest_assert_no_interrupt();
@@ -3266,12 +3277,11 @@ static void cpu_selftest_load_operand_extended_literal_kp_1(TESTCONTEXT *testCon
 
 static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_sf(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_SF);
     cpu_selftest_load_16_bit_literal(n);
-    sac_write_32_bit_word(base + n, 0xAAAABBBB);
-    cpu_selftest_set_register(REG_SF, base);
+    sac_write_32_bit_word(NAME_SEGMENT_DEFAULT_BASE + n, 0xAAAABBBB);
+	cpu_selftest_setup_default_stack_base();
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAABBBB);
     cpu_selftest_assert_no_interrupt();
@@ -3315,19 +3325,17 @@ static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_xnb(T
 
 static void cpu_selftest_load_operand_extended_32_bit_variable_from_stack(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_STACK);
-    sac_write_64_bit_word(base, 0xAAAABBBB);
-    cpu_selftest_set_register(REG_SF, base);
+    sac_write_64_bit_word(NAME_SEGMENT_DEFAULT_BASE, 0xAAAABBBB);
+	cpu_selftest_setup_default_stack_base();
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAABBBB);
-    cpu_selftest_assert_reg_equals(REG_SF, base - 2);
+    cpu_selftest_assert_reg_equals(REG_SF, NAME_SEGMENT_DEFAULT_BASE - 2 - SN_BASE);
     cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_load_operand_extended_32_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_DR);
     cpu_selftest_run_code();
     cpu_selftest_assert_illegal_function_as_system_error();
