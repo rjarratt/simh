@@ -1787,8 +1787,7 @@ static t_addr cpu_get_operand_extended_variable_address(uint16 order, uint32 ins
         }
         case 6:
         {
-            t_addr addr = cpu_get_register_16(reg_nb);
-            result = addr;
+			result = cpu_get_name_segment_address_from_reg(reg_nb, 0, scale);
             *instructionLength += 1;
             sim_debug(LOG_CPU_DECODE, &cpu_dev, "V32 NB 0");
             break;
