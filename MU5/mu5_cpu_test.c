@@ -3330,7 +3330,7 @@ static void cpu_selftest_load_operand_extended_32_bit_variable_from_stack(TESTCO
 	cpu_selftest_setup_default_stack_base();
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAABBBB);
-    cpu_selftest_assert_reg_equals(REG_SF, NAME_SEGMENT_DEFAULT_BASE - 2 - SN_BASE);
+    cpu_selftest_assert_reg_equals(REG_SF, NB_DEFAULT - 2);
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -7413,13 +7413,12 @@ static void cpu_selftest_org_absolute_jump(TESTCONTEXT *testContext)
 
 static void cpu_selftest_org_return_sets_SF_and_unstacks_link(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
     cpu_selftest_load_organisational_order_extended(F_RETURN, K_V64, NP_STACK);
-    sac_write_64_bit_word(base, 0xFFFFBBBBAAAAAAAA);
-    cpu_selftest_set_register(REG_NB, base);
+    sac_write_64_bit_word(NAME_SEGMENT_DEFAULT_BASE, 0xFFFFBBBBAAAAAAAA);
+	cpu_selftest_setup_default_name_base();
     cpu_selftest_set_executive_mode();
     cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_SF, base - 2);
+    cpu_selftest_assert_reg_equals(REG_SF, NB_DEFAULT - 2);
     cpu_selftest_assert_reg_equals(REG_MS, 0xFFFF);
     cpu_selftest_assert_reg_equals(REG_NB, 0xBBBA);
     cpu_selftest_assert_reg_equals(REG_CO, 0x2AAAAAAA);
@@ -7441,13 +7440,12 @@ static void cpu_selftest_org_return_resets_link_except_privileged_ms_bits_in_use
 
 static void cpu_selftest_org_return_does_not_pop_stack_if_operand_is_not_stack_but_sets_NB(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
     cpu_selftest_load_organisational_order_extended(F_RETURN, KP_LITERAL, NP_64_BIT_LITERAL);
     cpu_selftest_load_64_bit_literal(0xFFFFBBBBAAAAAAAA);
-    cpu_selftest_set_register(REG_NB, base);
+	cpu_selftest_setup_default_name_base();
     cpu_selftest_set_executive_mode();
     cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_SF, base);
+    cpu_selftest_assert_reg_equals(REG_SF, NB_DEFAULT);
     cpu_selftest_assert_reg_equals(REG_MS, 0xFFFF);
     cpu_selftest_assert_reg_equals(REG_NB, 0xBBBA);
     cpu_selftest_assert_reg_equals(REG_CO, 0x2AAAAAAA);
@@ -7486,16 +7484,16 @@ static void cpu_selftest_org_XCn_sets_executive_mode(TESTCONTEXT *testContext)
 
 static void cpu_selftest_org_stacklink_puts_link_on_stack_adding_operand_to_stacked_CO(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
+    uint32 base = NAME_SEGMENT_DEFAULT_BASE;
     cpu_selftest_set_load_location(10);
     cpu_selftest_load_organisational_order_extended(F_STACKLINK, KP_LITERAL, NP_64_BIT_LITERAL);
     cpu_selftest_load_64_bit_literal(0x000000000000000A);
-    cpu_selftest_set_register(REG_SF, base);
+	cpu_selftest_setup_default_stack_base();
     cpu_selftest_set_register(REG_MS, 0xAA24);
     cpu_selftest_set_register(REG_NB, 0xBBBA);
     cpu_selftest_run_code_from_location(10);
     cpu_selftest_assert_memory_contents_64_bit(base + 2, 0xAA24BBBA00000014);
-    cpu_selftest_assert_reg_equals(REG_SF, base + 2);
+    cpu_selftest_assert_reg_equals(REG_SF, NB_DEFAULT + 2);
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -7631,9 +7629,9 @@ static void cpu_selftest_org_setlink_stores_link(TESTCONTEXT *testContext)
     cpu_selftest_load_organisational_order_extended(F_SETLINK, K_V64, NP_0);
     cpu_selftest_load_16_bit_literal(base);
     cpu_selftest_set_register(REG_MS, 0xAA24);
-    cpu_selftest_set_register(REG_NB, 0xBBBBBBBB);
+    cpu_selftest_setup_name_base(0xBBBB);
     cpu_selftest_run_code_from_location(10);
-    cpu_selftest_assert_memory_contents_64_bit(base * 2, 0xAA24BBBB0000000A);
+    cpu_selftest_assert_memory_contents_64_bit(SN_BASE + base * 2, 0xAA24BBBB0000000A);
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -7794,18 +7792,19 @@ static void cpu_selftest_org_sf_plus_generates_interrupt_on_segment_underflow(TE
 static void cpu_selftest_org_sf_load_nb_plus_adds_NB_to_signed_operand_and_stores_to_SF(TESTCONTEXT *testContext)
 {
     cpu_selftest_load_organisational_order_literal(F_SF_LOAD_NB_PLUS, 0x3F);
-    cpu_selftest_set_register(REG_NB, 10);
+    cpu_selftest_setup_name_base(10);
     cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_SF, 0x00000008);
-    cpu_selftest_assert_no_interrupt();
+	cpu_selftest_assert_reg_equals(REG_SF, 0x00000008);
+	cpu_selftest_assert_reg_equals(REG_SN, SN_DEFAULT);
+	cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_overflow(TESTCONTEXT *testContext)
 {
     cpu_selftest_load_organisational_order_extended(F_SF_LOAD_NB_PLUS, K_LITERAL, NP_32_BIT_UNSIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0x0000FFFF);
-    cpu_selftest_set_register(REG_NB, 10);
-    cpu_selftest_run_code();
+	cpu_selftest_setup_name_base(10);
+	cpu_selftest_run_code();
     cpu_selftest_assert_name_adder_overflow_interrupt_as_system_error();
 }
 
@@ -7813,7 +7812,7 @@ static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_unde
 {
     cpu_selftest_load_organisational_order_extended(F_SF_LOAD_NB_PLUS, K_LITERAL, NP_32_BIT_UNSIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0xFFFFFFFB);
-    cpu_selftest_set_register(REG_NB, 2);
+    cpu_selftest_setup_name_base(2);
     cpu_selftest_run_code();
     cpu_selftest_assert_name_adder_overflow_interrupt_as_system_error();
 }
@@ -7877,17 +7876,18 @@ static void cpu_selftest_org_nb_plus_adds_signed_operand_to_NB(TESTCONTEXT *test
 {
     cpu_selftest_load_organisational_order_extended(F_NB_PLUS, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0x3333FFFE);
-    cpu_selftest_set_register(REG_NB, 0x4444);
+	cpu_selftest_setup_name_base(0x4444);
     cpu_selftest_run_code();
-    cpu_selftest_assert_reg_equals(REG_NB, 0x4442);
-    cpu_selftest_assert_no_interrupt();
+	cpu_selftest_assert_reg_equals(REG_NB, 0x4442);
+	cpu_selftest_assert_reg_equals(REG_SN, SN_DEFAULT);
+	cpu_selftest_assert_no_interrupt();
 }
 
 static void cpu_selftest_org_nb_plus_generates_interrupt_on_segment_overflow(TESTCONTEXT *testContext)
 {
     cpu_selftest_load_organisational_order_extended(F_NB_PLUS, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0x00000002);
-    cpu_selftest_set_register(REG_NB, 0xFFFE);
+	cpu_selftest_setup_name_base(0xFFFE);
     cpu_selftest_run_code();
     cpu_selftest_assert_name_adder_overflow_interrupt_as_system_error();
 }
@@ -7896,7 +7896,7 @@ static void cpu_selftest_org_nb_plus_generates_interrupt_on_segment_underflow(TE
 {
     cpu_selftest_load_organisational_order_extended(F_NB_PLUS, K_LITERAL, NP_32_BIT_SIGNED_LITERAL);
     cpu_selftest_load_32_bit_literal(0xFFFFFFFC);
-    cpu_selftest_set_register(REG_NB, 0x0002);
+	cpu_selftest_setup_name_base(0x0002);
     cpu_selftest_run_code();
     cpu_selftest_assert_name_adder_overflow_interrupt_as_system_error();
 }
@@ -8911,7 +8911,7 @@ static void cpu_selftest_no_sss_interrupt_if_sss_is_inhibited(TESTCONTEXT *testC
 static void cpu_selftest_interrupt_stacks_link_in_system_v_store(TESTCONTEXT *testContext)
 {
     cpu_selftest_set_register(REG_MS, 0xAA04);
-    cpu_selftest_set_register(REG_NB, 0xBBBB);
+	cpu_selftest_setup_name_base(0xBBBB);
     cpu_set_interrupt(INT_PROGRAM_FAULTS);
 	cpu_selftest_setup_interrupt_entry_link(INT_PROGRAM_FAULTS);
     cpu_selftest_run_code_from_location(10);
