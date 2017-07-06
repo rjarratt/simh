@@ -47,4 +47,5 @@ Visual Studio Projects/*
 !Visual Studio Projects/0ReadMe_Projects.txt
 # Any PDFs generated from the DOCs
 doc/*.pdf
+!MU5ELR.bin
 
