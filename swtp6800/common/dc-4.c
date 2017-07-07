@@ -374,6 +374,7 @@ t_stat dsk_reset (DEVICE *dptr)
 int32 fdcdrv(int32 io, int32 data)
 {
     static long pos;
+    static int32 err;
 
     if (io) {                           /* write to DC-4 drive register */
         sim_debug (DEBUG_write, &dsk_dev, "\nfdcdrv: Drive selected %d cur_dsk=%d",
@@ -392,8 +393,16 @@ int32 fdcdrv(int32 io, int32 data)
         pos = 0x200;                    /* Read in SIR */
         sim_debug (DEBUG_read, &dsk_dev, "\nfdcdrv: Read pos = %ld ($%04X)",
             pos, (unsigned int) pos);
-        sim_fseek(dsk_unit[cur_dsk].fileref, pos, SEEK_SET); /* seek to offset */
-        sim_fread(dsk_unit[cur_dsk].filebuf, SECSIZ, 1, dsk_unit[cur_dsk].fileref); /* read in buffer */
+        err = sim_fseek(dsk_unit[cur_dsk].fileref, pos, SEEK_SET); /* seek to offset */
+        if (err) {
+            sim_printf("\nfdccmd: File error\n");
+            return SCPE_IOERR;
+        } 
+        err = sim_fread(dsk_unit[cur_dsk].filebuf, SECSIZ, 1, dsk_unit[cur_dsk].fileref); /* read in buffer */
+        if (err) {
+            sim_printf("\nfdccmd: File error\n");
+            return SCPE_IOERR;
+        } 
         dsk_unit[cur_dsk].u3 |= BUSY | DRQ; /* set DRQ & BUSY */
         dsk_unit[cur_dsk].pos = 0;      /* clear counter */
         spt = *((uint8 *)(dsk_unit[cur_dsk].filebuf) + MAXSEC) & 0xFF;
@@ -416,6 +425,7 @@ int32 fdccmd(int32 io, int32 data)
 {
     static int32 val = 0, val1 = NOTRDY;
     static long pos;
+    static int32 err;
  
     if ((dsk_unit[cur_dsk].flags & UNIT_ATT) == 0) { /* not attached */
         dsk_unit[cur_dsk].u3 |= NOTRDY; /* set not ready flag */
@@ -434,8 +444,16 @@ int32 fdccmd(int32 io, int32 data)
                 pos += SECSIZ * (dsk_unit[cur_dsk].u5 - 1);
                 sim_debug (DEBUG_read, &dsk_dev, "\nfdccmd: Read pos = %ld ($%08X)",
                     pos, (unsigned int) pos);
-                sim_fseek(dsk_unit[cur_dsk].fileref, pos, SEEK_SET); /* seek to offset */
-                sim_fread(dsk_unit[cur_dsk].filebuf, SECSIZ, 1, dsk_unit[cur_dsk].fileref); /* read in buffer */
+                err = sim_fseek(dsk_unit[cur_dsk].fileref, pos, SEEK_SET); /* seek to offset */
+                if (err) {
+                    sim_printf("\nfdccmd: File error\n");
+                    return SCPE_IOERR;
+                } 
+                err = sim_fread(dsk_unit[cur_dsk].filebuf, SECSIZ, 1, dsk_unit[cur_dsk].fileref); /* read in buffer */
+                if (err) {
+                    sim_printf("\nfdccmd: File error\n");
+                    return SCPE_IOERR;
+                } 
                 dsk_unit[cur_dsk].u3 |= BUSY | DRQ; /* set DRQ & BUSY */
                 dsk_unit[cur_dsk].pos = 0; /* clear counter */
                 break;
@@ -449,7 +467,11 @@ int32 fdccmd(int32 io, int32 data)
                     pos += SECSIZ * (dsk_unit[cur_dsk].u5 - 1);
                     sim_debug (DEBUG_write, &dsk_dev, "\nfdccmd: Write pos = %ld ($%08X)",
                         pos, (unsigned int) pos);
-                    sim_fseek(dsk_unit[cur_dsk].fileref, pos, SEEK_SET); /* seek to offset */
+                    err = sim_fseek(dsk_unit[cur_dsk].fileref, pos, SEEK_SET); /* seek to offset */
+                    if (err) {
+                        sim_printf("\nfdccmd: File error\n");
+                        return SCPE_IOERR;
+                    } 
                     wrt_flag = 1;           /* set write flag */
                     dsk_unit[cur_dsk].u3 |= BUSY | DRQ;/* set DRQ & BUSY */
                     dsk_unit[cur_dsk].pos = 0; /* clear counter */

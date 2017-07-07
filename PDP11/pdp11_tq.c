@@ -84,7 +84,6 @@
 #include "pdp11_defs.h"
 #define INIT_TYPE       TQ5_TYPE
 #define INIT_CAP        TQ5_CAP
-extern uint32 cpu_opt;
 #endif
 
 #include "pdp11_uqssp.h"
@@ -118,8 +117,8 @@ extern uint32 cpu_opt;
 #define UNIT_SXC        (1 << UNIT_V_SXC)
 #define UNIT_POL        (1 << UNIT_V_POL)
 #define UNIT_TMK        (1 << UNIT_V_TMK)
-#define cpkt            u3                              /* current packet */
-#define pktq            u4                              /* packet queue */
+#define cpkt            us9                             /* current packet */
+#define pktq            us10                            /* packet queue */
 #define uf              buf                             /* settable unit flags */
 #define objp            wait                            /* object position */
 #define io_status       u5                              /* io status from callback */
@@ -244,8 +243,6 @@ static struct drvtyp drv_tab[] = {
     };
 
 /* Data */
-
-extern int32 int_req[IPL_HLVL];
 
 uint32 tq_sa = 0;                                       /* status, addr */
 uint32 tq_saw = 0;                                      /* written data */
@@ -728,10 +725,14 @@ if (tq_csta < CST_UP) {                                 /* still init? */
     }                                                   /* end if */
 
 for (i = 0; i < TQ_NUMDR; i++) {                        /* chk unit q's */
+    uint16 tpkt;
+
     nuptr = tq_dev.units + i;                           /* ptr to unit */
     if (nuptr->cpkt || (nuptr->pktq == 0))
         continue;
-    pkt = tq_deqh ((uint16 *)&nuptr->pktq);             /* get top of q */
+    tpkt = nuptr->pktq;
+    pkt = tq_deqh (&tpkt);                              /* get top of q */
+    nuptr->pktq = tpkt;
     if (!tq_mscp (pkt, FALSE))                          /* process */
         return SCPE_OK;
     }
@@ -835,7 +836,7 @@ else {                                                  /* valid cmd */
     if ((uptr = tq_getucb (lu))) {                      /* valid unit? */
         if (q && (tq_cmf[cmd] & CMF_SEQ) &&             /* queueing, seq, */
             (uptr->cpkt || uptr->pktq)) {               /* and active? */
-            tq_enqt ((uint16 *)&uptr->pktq, pkt);       /* do later */
+            tq_enqt (&uptr->pktq, pkt);                 /* do later */
             return OK;
             }
 /*      if (tq_cmf[cmd] & MD_CDL)                     *//* clr cch lost? */
@@ -916,17 +917,17 @@ tpkt = 0;                                               /* set no mtch */
 if ((uptr = tq_getucb (lu))) {                          /* get unit */
     if (uptr->cpkt &&                                   /* curr pkt? */
         (GETP32 (uptr->cpkt, CMD_REFL) == ref)) {       /* match ref? */
-        tpkt = (uint16)uptr->cpkt;                      /* save match */
+        tpkt = uptr->cpkt;                              /* save match */
         uptr->cpkt = 0;                                 /* gonzo */
         sim_cancel (uptr);                              /* cancel unit */
         sim_activate (&tq_unit[TQ_QUEUE], tq_qtime);
         }
     else if (uptr->pktq &&                              /* head of q? */
         (GETP32 (uptr->pktq, CMD_REFL) == ref)) {       /* match ref? */
-        tpkt = (uint16)uptr->pktq;                      /* save match */
+        tpkt = uptr->pktq;                              /* save match */
         uptr->pktq = tq_pkt[tpkt].link;                 /* unlink */
         }
-    else if ((prv = (uint16)uptr->pktq)) {              /* srch pkt q */
+    else if ((prv = uptr->pktq)) {                      /* srch pkt q */
         while ((tpkt = tq_pkt[prv].link)) {             /* walk list */
             if (GETP32 (tpkt, RSP_REFL) == ref) {       /* match ref? */
                 tq_pkt[prv].link = tq_pkt[tpkt].link;   /* unlink */
@@ -1504,7 +1505,7 @@ return SCPE_IOERR;
 
 t_bool tq_mot_end (UNIT *uptr, uint32 flg, uint16 sts, uint32 rsiz)
 {
-uint16 pkt = (uint16)uptr->cpkt;                        /* packet */
+uint16 pkt = uptr->cpkt;                                /* packet */
 uint32 cmd = GETP (pkt, CMD_OPC, OPC);                  /* get cmd */
 uint16 lnt = RW_LNT_T;                                  /* assume rw */
 
@@ -1641,7 +1642,7 @@ if ((tq_cflgs & CF_THS) == 0)                           /* logging? */
     return OK;
 if (!tq_deqf (&pkt))                                    /* get log pkt */
     return ERR;
-tpkt = (uint16)uptr->cpkt;                              /* rw pkt */
+tpkt = uptr->cpkt;                                      /* rw pkt */
 lu = tq_pkt[tpkt].d[CMD_UN];                            /* unit # */
 
 tq_pkt[pkt].d[ELP_REFL] = tq_pkt[tpkt].d[CMD_REFL];     /* copy cmd ref */
@@ -1677,7 +1678,7 @@ if ((tq_cflgs & CF_THS) == 0)                           /* logging? */
     return OK;
 if (!tq_deqf (&pkt))                                    /* get log pkt */
     return ERR;
-tpkt = (uint16)uptr->cpkt;                              /* rw pkt */
+tpkt = uptr->cpkt;                                      /* rw pkt */
 tq_pkt[pkt].d[ELP_REFL] = tq_pkt[tpkt].d[CMD_REFL];     /* copy cmd ref */
 tq_pkt[pkt].d[ELP_REFH] = tq_pkt[tpkt].d[CMD_REFH];     /* copy cmd ref */
 tq_pkt[pkt].d[ELP_UN] = tq_pkt[tpkt].d[CMD_UN];         /* copy unit */
@@ -2210,7 +2211,6 @@ static const uint16 boot_rom[] = {
 t_stat tq_boot (int32 unitno, DEVICE *dptr)
 {
 size_t i;
-extern uint16 *M;
 
 for (i = 0; i < BOOT_LEN; i++)
     M[(BOOT_START >> 1) + i] = boot_rom[i];

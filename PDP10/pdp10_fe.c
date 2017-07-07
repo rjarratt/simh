@@ -42,8 +42,6 @@
 #include "sim_tmxr.h"
 #define UNIT_DUMMY      (1 << UNIT_V_UF)
 
-extern d10 *M;
-extern int32 apr_flg;
 extern int32 tmxr_poll;
 t_stat fei_svc (UNIT *uptr);
 t_stat feo_svc (UNIT *uptr);
@@ -300,7 +298,7 @@ M[FE_KEEPA] = INT64_C(0003740000000);                  /* PARITY STOP, CRM, DP P
 kaf_unit.u3 = 0;
 kaf_unit.u4 = 0;
 apr_flg = apr_flg & ~(APRF_ITC | APRF_CON);
-sim_activate (&fei_unit, KBD_WAIT (fei_unit.wait, tmxr_poll));
+sim_activate (&fei_unit, tmxr_poll);
 sim_activate_after (&kaf_unit, kaf_unit.wait);
 return SCPE_OK;
 }

@@ -1,6 +1,6 @@
 /* pdp10_defs.h: PDP-10 simulator definitions
 
-   Copyright (c) 1993-2010, Robert M Supnik
+   Copyright (c) 1993-2017, Robert M Supnik
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -23,6 +23,8 @@
    used in advertising or otherwise to promote the sale, use or other dealings
    in this Software without prior written authorization from Robert M Supnik.
 
+   19-Jan-17    RMS     Fixed CD11 definition (Mark Pizzolato)
+   30-Jun-13    RMS     Fixed IPL4 mask definition (Tim Litt)
    22-May-10    RMS     Added check for 64b addresses
    01-Feb-07    RMS     Added CD support
    29-Oct-06    RMS     Added clock coscheduling function
@@ -49,6 +51,7 @@
 #endif
 
 #include "sim_defs.h"                                   /* simulator defns */
+#include <setjmp.h>
 
 #if defined(USE_ADDR64)
 #error "PDP-10 does not support 64b addresses!"
@@ -140,7 +143,6 @@ typedef t_int64         d10;                            /* PDP-10 data (36b) */
 #define Q_ITS           (cpu_unit.flags & UNIT_ITS)
 #define Q_T20           (cpu_unit.flags & UNIT_T20)
 #define Q_KLAD          (cpu_unit.flags & UNIT_KLAD)
-#define Q_IDLE          (sim_idle_enab)
 
 /* Architectural constants */
 
@@ -723,7 +725,7 @@ typedef struct pdp_dib DIB;
 #define INT_PTR         (1u << INT_V_PTR)
 #define INT_PTP         (1u << INT_V_PTP)
 #define INT_LP20        (1u << INT_V_LP20)
-#define INT_CR          (1u << INT_V_CR)
+#define INT_CR          (1u << INT_V_CD)
 #define INT_DUPRX       (1u << INT_V_DUPRX)
 #define INT_DUPTX       (1u << INT_V_DUPTX)
 
@@ -773,6 +775,15 @@ void uba_debug_dma_in (uint32 ba, a10 pa_start, a10 pa_end);
 void uba_debug_dma_out (uint32 ba, a10 pa_start, a10 pa_end);
 void uba_debug_dma_nxm (const char *msg, a10 pa10, uint32 ba, int32 bc);
 
+extern d10 Read (a10 ea, int32 prv);                    /* read, read check */
+extern d10 ReadM (a10 ea, int32 prv);                   /* read, write check */
+extern d10 ReadE (a10 ea);                              /* read, exec */
+extern d10 ReadP (a10 ea);                              /* read, physical */
+extern void Write (a10 ea, d10 val, int32 prv);         /* write */
+extern void WriteE (a10 ea, d10 val);                   /* write, exec */
+extern void WriteP (a10 ea, d10 val);                   /* write, physical */
+extern t_bool AccViol (a10 ea, int32 prv, int32 mode);  /* access check */
+
 t_stat set_addr (UNIT *uptr, int32 val, CONST char *cptr, void *desc);
 t_stat set_addr_flt (UNIT *uptr, int32 val, CONST char *cptr, void *desc);
 t_stat show_addr (FILE *st, UNIT *uptr, int32 val, CONST void *desc);
@@ -785,5 +796,12 @@ extern d10 *ac_cur;                                     /* current AC block */
 extern int32 flags;                                     /* flags */
 extern const int32 pi_l2bit[8];
 extern const d10 bytemask[64];
+extern int32 int_req;
+extern d10 *M;                                          /* memory */
+extern a10 pager_PC;                                    /* pager: saved PC */
+extern d10 pager_word;                                  /* pager: error word */
+extern UNIT cpu_unit;
+extern int32 apr_flg;
+extern jmp_buf save_env;
 
 #endif

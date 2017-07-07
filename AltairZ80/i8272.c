@@ -784,9 +784,15 @@ uint8 I8272_Write(const uint32 Addr, uint8 cData)
                         case I8272_READ_TRACK:
                             sim_printf("I8272: " ADDRESS_FORMAT " Read a track (untested.)" NLP, PCX);
                             i8272_info->fdc_sector = 1; /* Read entire track from sector 1...eot */
+                            /* fall through */
+
                         case I8272_READ_DATA:
+                            /* fall through */
+                            
                         case I8272_READ_DELETED_DATA:
                             disk_read = 1;
+                            /* fall through */
+
                         case I8272_WRITE_DATA:
                         case I8272_WRITE_DELETED_DATA:
                             for(;i8272_info->fdc_sector<=i8272_info->fdc_eot;i8272_info->fdc_sector++) {

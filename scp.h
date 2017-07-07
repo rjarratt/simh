@@ -90,6 +90,8 @@ t_stat set_default_cmd (int32 flg, CONST char *cptr);
 t_stat pwd_cmd (int32 flg, CONST char *cptr);
 t_stat dir_cmd (int32 flg, CONST char *cptr);
 t_stat type_cmd (int32 flg, CONST char *cptr);
+t_stat delete_cmd (int32 flg, CONST char *cptr);
+t_stat copy_cmd (int32 flg, CONST char *cptr);
 t_stat brk_cmd (int32 flag, CONST char *ptr);
 t_stat do_cmd (int32 flag, CONST char *ptr);
 t_stat goto_cmd (int32 flag, CONST char *ptr);
@@ -122,12 +124,16 @@ t_stat _sim_activate (UNIT *uptr, int32 interval);
 t_stat sim_activate_abs (UNIT *uptr, int32 interval);
 t_stat sim_activate_notbefore (UNIT *uptr, int32 rtime);
 t_stat sim_activate_after (UNIT *uptr, uint32 usecs_walltime);
-t_stat _sim_activate_after (UNIT *uptr, uint32 usecs_walltime);
+t_stat sim_activate_after_d (UNIT *uptr, double usecs_walltime);
+t_stat _sim_activate_after (UNIT *uptr, double usecs_walltime);
 t_stat sim_activate_after_abs (UNIT *uptr, uint32 usecs_walltime);
-t_stat _sim_activate_after_abs (UNIT *uptr, uint32 usecs_walltime);
+t_stat sim_activate_after_abs_d (UNIT *uptr, double usecs_walltime);
+t_stat _sim_activate_after_abs (UNIT *uptr, double usecs_walltime);
 t_stat sim_cancel (UNIT *uptr);
 t_bool sim_is_active (UNIT *uptr);
 int32 sim_activate_time (UNIT *uptr);
+int32 _sim_activate_time (UNIT *uptr);
+double sim_activate_time_usecs (UNIT *uptr);
 t_stat sim_run_boot_prep (int32 flag);
 double sim_gtime (void);
 uint32 sim_grtime (void);
@@ -140,7 +146,9 @@ t_stat reset_all (uint32 start_device);
 t_stat reset_all_p (uint32 start_device);
 const char *sim_dname (DEVICE *dptr);
 const char *sim_uname (UNIT *dptr);
+const char *sim_set_uname (UNIT *uptr, const char *uname);
 t_stat get_yn (const char *ques, t_stat deflt);
+char *sim_trim_endspc (char *cptr);
 int sim_isspace (char c);
 int sim_islower (char c);
 int sim_isalpha (char c);
@@ -149,6 +157,21 @@ int sim_isdigit (char c);
 int sim_isgraph (char c);
 int sim_isalnum (char c);
 int sim_strncasecmp (const char *string1, const char *string2, size_t len);
+int sim_strcasecmp (const char *string1, const char *string2);
+size_t sim_strlcat (char *dst, const char *src, size_t size);
+size_t sim_strlcpy (char *dst, const char *src, size_t size);
+#ifndef strlcpy
+#define strlcpy(dst, src, size) sim_strlcpy((dst), (src), (size))
+#endif
+#ifndef strlcat
+#define strlcat(dst, src, size) sim_strlcat((dst), (src), (size))
+#endif
+#ifndef strncasecmp
+#define strncasecmp(str1, str2, len) sim_strncasecmp((str1), (str2), (len))
+#endif
+#ifndef strcasecmp
+#define strcasecmp(str1, str2) sim_strcasecmp ((str1), (str2))
+#endif
 CONST char *get_sim_opt (int32 opt, CONST char *cptr, t_stat *st);
 const char *put_switches (char *buf, size_t bufsize, uint32 sw);
 CONST char *get_glyph (const char *iptr, char *optr, char mchar);
@@ -163,12 +186,18 @@ char *sim_encode_quoted_string (const uint8 *iptr, uint32 size);
 void fprint_buffer_string (FILE *st, const uint8 *buf, uint32 size);
 t_value strtotv (CONST char *cptr, CONST char **endptr, uint32 radix);
 int Fprintf (FILE *f, const char *fmt, ...) GCC_FMT_ATTR(2, 3);
+/* Use scp.c provided fprintf function */
+#define fprintf Fprintf
+#define fputs(_s,_f) Fprintf(_f,"%s",_s)
+#define fputc(_c,_f) Fprintf(_f,"%c",_c)
 t_stat sim_set_memory_load_file (const unsigned char *data, size_t size);
 int Fgetc (FILE *f);
 t_stat fprint_val (FILE *stream, t_value val, uint32 rdx, uint32 wid, uint32 fmt);
 t_stat sprint_val (char *buf, t_value val, uint32 rdx, uint32 wid, uint32 fmt);
 t_stat sim_print_val (t_value val, uint32 radix, uint32 width, uint32 format);
 const char *sim_fmt_secs (double seconds);
+const char *sim_fmt_numeric (double number);
+const char *sprint_capac (DEVICE *dptr, UNIT *uptr);
 char *read_line (char *cptr, int32 size, FILE *stream);
 void fprint_reg_help (FILE *st, DEVICE *dptr);
 void fprint_set_help (FILE *st, DEVICE *dptr);
@@ -184,6 +213,7 @@ CTAB *find_ctab (CTAB *tab, const char *gbuf);
 C1TAB *find_c1tab (C1TAB *tab, const char *gbuf);
 SHTAB *find_shtab (SHTAB *tab, const char *gbuf);
 t_stat get_aval (t_addr addr, DEVICE *dptr, UNIT *uptr);
+t_value get_rval (REG *rptr, uint32 idx);
 BRKTAB *sim_brk_fnd (t_addr loc);
 uint32 sim_brk_test (t_addr bloc, uint32 btyp);
 void sim_brk_clrspc (uint32 spc, uint32 btyp);
@@ -226,7 +256,7 @@ void sim_debug_bits (uint32 dbits, DEVICE* dptr, BITFIELD* bitdefs,
 void sim_debug (uint32 dbits, void* dptr, const char *fmt, ...) GCC_FMT_ATTR(3, 4);
 #else
 void _sim_debug (uint32 dbits, void* dptr, const char *fmt, ...) GCC_FMT_ATTR(3, 4);
-#define sim_debug(dbits, dptr, ...) do { if (sim_deb && dptr && ((dptr)->dctrl & dbits)) _sim_debug (dbits, dptr, __VA_ARGS__);} while (0)
+#define sim_debug(dbits, dptr, ...) do { if (sim_deb && dptr && ((dptr)->dctrl & (dbits))) _sim_debug (dbits, dptr, __VA_ARGS__);} while (0)
 #endif
 #else
 #ifdef CANT_USE_MACRO_VA_ARGS
@@ -253,6 +283,8 @@ t_stat scp_vhelpFromFile (FILE *st, DEVICE *dptr,
 /* Global data */
 
 extern DEVICE *sim_dflt_dev;
+extern DEVICE *sim_dfdev;
+extern UNIT *sim_dfunit;
 extern int32 sim_interval;
 extern int32 sim_switches;
 extern int32 sim_quiet;
@@ -288,10 +320,10 @@ void sim_aio_activate (ACTIVATE_API caller, UNIT *uptr, int32 event_time);
 
 /* VM interface */
 
-extern char sim_name[];
+extern char sim_name[64];
 extern DEVICE *sim_devices[];
 extern REG *sim_PC;
-extern const char *sim_stop_messages[];
+extern const char *sim_stop_messages[SCPE_BASE];
 extern t_stat sim_instr (void);
 extern t_stat sim_load (FILE *ptr, CONST char *cptr, CONST char *fnam, int flag);
 extern int32 sim_emax;

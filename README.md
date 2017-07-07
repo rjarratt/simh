@@ -7,6 +7,7 @@
 #### Leonid Broukhis and Serge Vakulenko have implemented a simulator for the Soviet mainframe BESM-6 computer.
 
 #### Matt Burke has implemented new VAX model simulators:
+
     VAX/11 730
     VAX/11 750
     VAX 8600/8650
@@ -158,11 +159,16 @@ Host platforms which have libSDL available can leverage this functionality.
     Simulators which have boot commands which load constant files as part of 
     booting have those files imbedded into the simulator executable.  The 
     imbedded files are used if the normal boot file isn't found when the 
-    simulator boots.  Specific examples are:  VAX (MicroVAX 3900 - ka655x.bin), 
-    VAX8600 (VAX 8600 - vmb.exe), VAX780 (VAX 11/780 - vmb.exe), 
-    VAX750 (VAX 11/750 - vmb.exe, ka750_old.bin, ka750_new.bin), 
-    VAX730 (VAX 11/730 - vmb.exe), VAX610 (MicroVAX I - ka610.bin), 
-    VAX620 (rtVAX 1000 - ka620.bin), VAX630 (MicroVAX II - ka630.bin)
+    simulator boots.  Specific examples are:
+    
+		VAX (MicroVAX 3900 - ka655x.bin)
+		VAX8600 (VAX 8600 - vmb.exe)
+		VAX780 (VAX 11/780 - vmb.exe)
+		VAX750 (VAX 11/750 - vmb.exe, ka750_old.bin, ka750_new.bin), 
+		VAX730 (VAX 11/730 - vmb.exe)
+		VAX610 (MicroVAX I - ka610.bin)
+		VAX620 (rtVAX 1000 - ka620.bin)
+		VAX630 (MicroVAX II - ka630.bin)
 
 #### Control Flow
 
@@ -215,6 +221,7 @@ Error traps can be taken for any command which returns a status other than SCPE_
 ON Traps can specify any status value from the following list: NXM, UNATT, IOERR, CSUM, FMT, NOATT, OPENERR, MEM, ARG, STEP, UNK, RO, INCOMP, STOP, TTIERR, TTOERR, EOF, REL, NOPARAM, ALATT, TIMER, SIGERR, TTYERR, SUB, NOFNC, UDIS, NORO, INVSW, MISVAL, 2FARG, 2MARG, NXDEV, NXUN, NXREG, NXPAR, NEST, IERR, MTRLNT, LOST, TTMO, STALL, AFAIL.  These values can be indicated by name or by their internal numeric value (not recommended).
 
 Interactions with ASSERT command and "DO -e":
+
     DO -e		is equivalent to SET ON, which by itself it equivalent 
                 to "SET ON; ON ERROR RETURN".
     ASSERT		failure have several different actions:
@@ -253,69 +260,69 @@ The EXPECT command now exists to provide a means of reacting to simulator output
 
 #### New SCP Commands:
 
-    SCREENSHOT filename.bmp         Save video window to the specified file
-    SET ENVIRONMENT Name=Value      Set Environment variable
-    SET ASYNCH                      Enable Asynchronous I/O
-    SET NOASYNCH                    Disable Asynchronous I/O
-    SET VERIFY                      Enable commang display while processing DO command files
-    SET NOVERIFY                    Enable commang display while processing DO command files
-    SET MESSAGE                     Enable error message output when commands complete (default)
-    SET NOMESSAGE                   Disable error message output when commands complete
-    SET QUIET                       Set minimal output mode for command execution
-    SET NOQUIET                     Set normal output mode for command execution
-    SET PROMPT                      Change the prompt used by the simulator (defaulr sim>)
-    SET THROTTLE x/t                Throttle t ms every x cycles
-    SET REMOTE TELNET=port          Specify remote console telnet port
-    SET REMOTE NOTELNET             Disables remote console
-    SET REMOTE CONNECTIONS=n        Specify the number of concurrent remote console sessions
-    SHOW FEATURES                   Displays the devices descriptions and features
-    SHOW ASYNCH                     Display the current Asynchronous I/O status
-    SHOW SERIAL                     Display the available and/or open serial ports
-    SHOW ETHERNET                   Display the available and/or open ethernet connections
-    SHOW MULTIPLEXER                Display the details about open multiplexer devices
-    SHOW CLOCKS                     Display the details about calibrated timers
-    SHOW REMOTE                     Display the remote console configuration
-    SHOW ON                         Display ON condition dispatch actions
-    SET ON                          Enable ON condition error dispatching
-    SET NOON                        Disable ON condition error dispatching
-    GOTO                            Transfer to lable in the current DO command file
-    CALL                            Call subroutine at indicated label
-    RETURN                          Return from subroutine call
-    SHIFT                           Slide argument parameters %1 thru %9 left 1
-    NOOP                            A no-op command
-    ON                              Establish or cancel an ON condition dispatch
-    IF                              Test some simulator state and conditionally execute commands
-    CD                              Change working directory
-    SET DEFAULT                     Change working directory
-    PWD                             Show working directory
-    SHOW DEFAULT                    Show working directory
-    DIR {path|file}                 Display file listing
-    LS {path|file}                  Display file listing
-    NEXT                            Step across a subroutine call or step a single instruction.
-    EXPECT                          React to output produced by a simulated system
-    SEND                            Inject input to a simulated system's console
-    SCREENSHOT                      Snapshot the current video display window
-    RUN UNTIL breakpoint            Establish the breakpoiunt specified and run until it is encountered
-    RUN UNTIL "output-string" ...   Establish the specified "output-string" as an EXPECT and run until it is encountered.
-    GO UNTIL breakpoint             Establish the breakpoiunt specified and go until it is encountered
-    GO UNTILE "output-string" ...   Establish the specified "output-string" as an EXPECT and go until it is encountered.
+    SCREENSHOT filename.bmp          Save video window to the specified file
+    SET ENV Name=Value               Set Environment variable
+    SET ENV -p "Prompt" Name=Default Gather User input into an Environment Variable
+    SET ASYNCH                       Enable Asynchronous I/O
+    SET NOASYNCH                     Disable Asynchronous I/O
+    SET VERIFY                       Enable commang display while processing DO command files
+    SET NOVERIFY                     Enable commang display while processing DO command files
+    SET MESSAGE                      Enable error message output when commands complete (default)
+    SET NOMESSAGE                    Disable error message output when commands complete
+    SET QUIET                        Set minimal output mode for command execution
+    SET NOQUIET                      Set normal output mode for command execution
+    SET PROMPT                       Change the prompt used by the simulator (defaulr sim>)
+    SET THROTTLE x/t                 Throttle t ms every x cycles
+    SET REMOTE TELNET=port           Specify remote console telnet port
+    SET REMOTE NOTELNET              Disables remote console
+    SET REMOTE CONNECTIONS=n         Specify the number of concurrent remote console sessions
+    SHOW FEATURES                    Displays the devices descriptions and features
+    SHOW ASYNCH                      Display the current Asynchronous I/O status
+    SHOW SERIAL                      Display the available and/or open serial ports
+    SHOW ETHERNET                    Display the available and/or open ethernet connections
+    SHOW MULTIPLEXER                 Display the details about open multiplexer devices
+    SHOW CLOCKS                      Display the details about calibrated timers
+    SHOW REMOTE                      Display the remote console configuration
+    SHOW ON                          Display ON condition dispatch actions
+    SET ON                           Enable ON condition error dispatching
+    SET NOON                         Disable ON condition error dispatching
+    GOTO                             Transfer to lable in the current DO command file
+    CALL                             Call subroutine at indicated label
+    RETURN                           Return from subroutine call
+    SHIFT                            Slide argument parameters %1 thru %9 left 1
+    NOOP                             A no-op command
+    ON                               Establish or cancel an ON condition dispatch
+    IF                               Test some simulator state and conditionally execute commands
+    CD                               Change working directory
+    SET DEFAULT                      Change working directory
+    PWD                              Show working directory
+    SHOW DEFAULT                     Show working directory
+    DIR {path|file}                  Display file listing
+    LS {path|file}                   Display file listing
+    NEXT                             Step across a subroutine call or step a single instruction.
+    EXPECT                           React to output produced by a simulated system
+    SEND                             Inject input to a simulated system's console
+    SCREENSHOT                       Snapshot the current video display window
+    RUN UNTIL breakpoint             Establish the breakpoiunt specified and run until it is encountered
+    RUN UNTIL "output-string" ...    Establish the specified "output-string" as an EXPECT and run until it is encountered.
+    GO UNTIL breakpoint              Establish the breakpoiunt specified and go until it is encountered
+    GO UNTILE "output-string" ...    Establish the specified "output-string" as an EXPECT and go until it is encountered.
 
 #### Command Processing Enhancements
 
 ##### Environment variable insertion
-Built In variables %DATE%, %TIME%, %DATETIME%, %LDATE%, %LTIME%, %CTIME%, %DATE_YYYY%, %DATE_YY%, %DATE_YC%, %DATE_MM%, %DATE_DD%, %DATE_D%, %DATE_WYYYY%, %DATE_WW%, %TIME_HH%, %TIME_MM%, %TIME_SS%, %STATUS%, %TSTATUS%, %SIM_VERIFY%, %SIM_QUIET%, %SIM_MESSAGE%
-Command Aliases
+Built In variables %DATE%, %TIME%, %DATETIME%, %LDATE%, %LTIME%, %CTIME%, %DATE_YYYY%, %DATE_YY%, %DATE_YC%, %DATE_MM%, %DATE_MMM%, %DATE_MONTH%, %DATE_DD%, %DATE_D%, %DATE_WYYYY%, %DATE_WW%, %TIME_HH%, %TIME_MM%, %TIME_SS%, %STATUS%, %TSTATUS%, %SIM_VERIFY%, %SIM_QUIET%, %SIM_MESSAGE%
 
    Token "%0" expands to the command file name. 
    Token %n (n being a single digit) expands to the n'th argument
-   Tonen %* expands to the whole set of arguments (%1 ... %9)
+   Token %* expands to the whole set of arguments (%1 ... %9)
 
    The input sequence "\%" represents a literal "%", and "\\" represents a
    literal "\".  All other character combinations are rendered literally.
 
    Omitted parameters result in null-string substitutions.
 
-   A Tokens preceeded and followed by % characters are expanded as environment
+   Tokens preceeded and followed by % characters are expanded as environment
    variables, and if an environment variable isn't found then it can be one of 
    several special variables: 
    
@@ -325,10 +332,12 @@ Command Aliases
           %LDATE%             mm/dd/yy (Locale Formatted)
           %LTIME%             hh:mm:ss am/pm (Locale Formatted)
           %CTIME%             Www Mmm dd hh:mm:ss yyyy (Locale Formatted)
+          %UTIME%             nnnn (Unix time - seconds since 1/1/1970)
           %DATE_YYYY%         yyyy        (0000-9999)
           %DATE_YY%           yy          (00-99)
           %DATE_MM%           mm          (01-12)
           %DATE_MMM%          mmm         (JAN-DEC)
+          %DATE_MONTH%        month       (January-December)
           %DATE_DD%           dd          (01-31)
           %DATE_WW%           ww          (01-53)     ISO 8601 week number
           %DATE_WYYYY%        yyyy        (0000-9999) ISO 8601 week year number
@@ -359,7 +368,8 @@ Command Aliases
    untouched.
 
 ##### Command aliases
-   commands can be aliases with environment variables.  For example:
+
+Commands can be aliases with environment variables.  For example:
    
       sim> set env say=echo
       sim> say Hello there
@@ -422,7 +432,8 @@ Ubuntu:
 
 Compiling on windows is supported with recent versions of Microsoft Visual Studio (Standard or Express) and using GCC via the MinGW environment.  Things may also work under Cygwin, but that is not the preferred windows environment.  Not all features will be available as well as with either Visual Studio or MinGW.
 
-##### Required related files.  The file https://github.com/simh/simh/blob/master/Visual%20Studio%20Projects/0ReadMe_Projects.txt
+##### Required related files.  
+The file https://github.com/simh/simh/blob/master/Visual%20Studio%20Projects/0ReadMe_Projects.txt
 
 ##### Visual Studio (Standard or Express) 2008, 2010, 2012, 2013 or Visual Studio Community 2015
 

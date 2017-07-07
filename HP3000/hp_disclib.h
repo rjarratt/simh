@@ -1,4 +1,4 @@
-/* hp_disclib.h: HP MAC/ICD disc controller simulator library definitions
+/* hp_disclib.h: HP MAC/ICD disc controller simulator library declarations
 
    Copyright (c) 2011-2016, J. David Bryan
    Copyright (c) 2004-2011, Robert M. Supnik
@@ -24,6 +24,7 @@
    in advertising or otherwise to promote the sale, use or other dealings in
    this Software without prior written authorization from the authors.
 
+   10-Oct-16    JDB     Moved "hp3000_defs.h" inclusion to "hp_disclib.c"
    13-May-16    JDB     Modified for revised SCP API function parameter types
    24-Mar-16    JDB     Added the DL_BUFFER type to define the disc buffer array
    21-Mar-16    JDB     Changed uint16 types to HP_WORD
@@ -39,10 +40,6 @@
    simulators and the simulation library for the HP 13037 and 13365 disc
    controllers.  It must be included by the interface-specific modules.
 */
-
-
-
-#include "hp3000_defs.h"                        /* this must reflect the machine used */
 
 
 

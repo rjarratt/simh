@@ -384,9 +384,6 @@ static t_stat hdsk_reset(DEVICE *dptr)  {
     return SCPE_OK;
 }
 
-#ifdef _WIN32
-#define strcasecmp _stricmp
-#endif
 static uint32 is_imd(const UNIT *uptr) {
     return ((uptr != NULL) && (uptr -> filename != NULL) && (strlen(uptr -> filename) > 3) &&
             (strcasecmp(".IMD", uptr -> filename + strlen(uptr -> filename) - 4) == 0));
@@ -528,7 +525,10 @@ static t_stat hdsk_detach(UNIT *uptr) {
         if (unitIndex == -1)
             return SCPE_IERR;
         assert((0 <= unitIndex) && (unitIndex < HDSK_NUMBER));
-        diskClose(&hdsk_imd[unitIndex]);
+        result = diskClose(&hdsk_imd[unitIndex]);
+        if (result != SCPE_OK) {
+            return result;
+        }
     }
     result = detach_unit(uptr);
     uptr -> capac = HDSK_CAPACITY;

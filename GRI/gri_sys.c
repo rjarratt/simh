@@ -1,6 +1,6 @@
 /* gri_sys.c: GRI-909 simulator interface
 
-   Copyright (c) 2001-2015, Robert M Supnik
+   Copyright (c) 2001-2017, Robert M Supnik
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -23,6 +23,7 @@
    used in advertising or otherwise to promote the sale, use or other dealings
    in this Software without prior written authorization from Robert M Supnik.
 
+   13-Mar-17    RMS     Annotated fall through in switch
    14-Jan-08    RMS     Added GRI-99 support
    18-Oct-02    RMS     Fixed bug in symbolic decode (Hans Pufal)
 */
@@ -288,11 +289,6 @@ static const struct fnc_op fop[] = {
  };
 
 /* Print opcode field for FO, SF */
-
-/* Use scp.c provided fprintf function */
-#define fprintf Fprintf
-#define fputs(_s,f) Fprintf(f,"%s",_s)
-#define fputc(_c,f) Fprintf(f,"%c",_c)
 
 void fprint_op (FILE *of, uint32 inst, uint32 op)
 {
@@ -620,7 +616,7 @@ switch (j) {                                            /* case on class */
         cptr = get_sd (cptr, val, ',', TRUE);           /* src */
         if (!cptr)
             return SCPE_ARG;
-
+        /* fall through */
     case F_V_SFI:                                       /* skip func impl */
         cptr = get_fnc (cptr, val);                     /* fo # */
         break;

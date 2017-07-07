@@ -1,6 +1,6 @@
 /* pdp10_cpu.c: PDP-10 CPU simulator
 
-   Copyright (c) 1993-2016, Robert M. Supnik
+   Copyright (c) 1993-2017, Robert M. Supnik
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -25,6 +25,7 @@
 
    cpu          KS10 central processor
 
+   14-Jan-17    RMS     Fixed bugs in 1-proceed
    09-Feb-16    RMS     Fixed nested indirects and executes (Tim Litt)
    25-Mar-12    RMS     Added missing parameters to prototypes (Mark Pizzolato)
    17-Jul-07    RMS     Fixed non-portable usage in SHOW HISTORY
@@ -194,7 +195,6 @@ int32 stop_op0 = 0;                                     /* stop on 0 */
 int32 rlog = 0;                                         /* extend fixup log */
 int32 ind_max = 0;                                      /* nested ind limit */
 int32 xct_max = 0;                                      /* nested XCT limit */
-int32 t20_idlelock = 0;                                 /* TOPS-20 idle lock */
 a10 pcq[PCQ_SIZE] = { 0 };                              /* PC queue */
 int32 pcq_p = 0;                                        /* PC queue ptr */
 REG *pcq_r = NULL;                                      /* PC queue reg ptr */
@@ -254,14 +254,6 @@ void set_ac_display (d10 *acbase);
 
 extern t_stat build_dib_tab (void);
 extern t_stat show_iospace (FILE *st, UNIT *uptr, int32 val, CONST void *desc);
-extern d10 Read (a10 ea, int32 prv);                    /* read, read check */
-extern d10 ReadM (a10 ea, int32 prv);                   /* read, write check */
-extern d10 ReadE (a10 ea);                              /* read, exec */
-extern d10 ReadP (a10 ea);                              /* read, physical */
-extern void Write (a10 ea, d10 val, int32 prv);         /* write */
-extern void WriteE (a10 ea, d10 val);                   /* write, exec */
-extern void WriteP (a10 ea, d10 val);                   /* write, physical */
-extern t_bool AccViol (a10 ea, int32 prv, int32 mode);  /* access check */
 extern void set_dyn_ptrs (void);
 extern a10 conmap (a10 ea, int32 mode, int32 sw);
 extern void fe_intr ();
@@ -650,7 +642,6 @@ rlog = 0;                                               /* not in extend */
 pi_eval ();                                             /* eval pi system */
 if (!Q_ITS)                                             /* ~ITS, clr 1-proc */
     its_1pr = 0;
-t20_idlelock = 0;                                       /* clr T20 idle lock */
 
 /* Abort handling
 
@@ -1153,7 +1144,7 @@ case 0341:  AOJ; if (TL (AC(ac))) JUMP (ea); break;     /* AOJL */
 case 0342:  AOJ; if (TE (AC(ac))) JUMP (ea); break;     /* AOJE */
 case 0343:  AOJ; if (TLE (AC(ac))) JUMP (ea); break;    /* AOJLE */
 case 0344:  AOJ; JUMP(ea);                              /* AOJA */
-            if (Q_ITS && Q_IDLE &&                      /* ITS idle? */
+            if (Q_ITS &&                                /* ITS idle? */
                 TSTF (F_USR) && (pager_PC == 017) &&    /* user mode, loc 17? */
                 (ac == 0) && (ea == 017))               /* AOJA 0,17? */
                 sim_idle (0, FALSE);
@@ -1177,19 +1168,13 @@ case 0364:  SOJ; JUMP(ea); break;                       /* SOJA */
 case 0365:  SOJ; if (TGE (AC(ac))) JUMP (ea); break;    /* SOJGE */
 case 0366:  SOJ; if (TN (AC(ac))) JUMP (ea); break;     /* SOJN */
 case 0367:  SOJ; if (TG (AC(ac))) JUMP (ea);            /* SOJG */
-            if ((ea == pager_PC) && Q_IDLE) {           /* to self, idle enab? */
-                extern int32 tmr_poll;
+            if (ea == pager_PC) {                       /* to self? */
                 if ((ac == 6) && (ea == 1) &&           /* SOJG 6,1? */
                     TSTF (F_USR) && Q_T10)              /* T10, user mode? */
-                    sim_idle (0, FALSE);
-                else if (!t20_idlelock &&               /* interlock off? */
-                    (ac == 2) && (ea == 3) &&           /* SOJG 2,3? */
-                    !TSTF (F_USR) && Q_T20 &&           /* T20, mon mode? */
-                    (sim_interval > (tmr_poll >> 1))) { /* >= half clock? */
-                    t20_idlelock = 1;                   /* set interlock */
-                    if (sim_os_ms_sleep (1))            /* sleep 1ms */
-                        sim_interval = 0;               /* if ok, sched event */
-                    }
+                    sim_idle (0, FALSE);                /* idle */
+                else if ((ac == 2) && (ea == 3) &&      /* SOJG 2,3? */
+                    !TSTF (F_USR) && Q_T20)             /* T20, mon mode? */
+                    sim_idle (0, FALSE);                /* idle */
                 }                    
             break;
 case 0370:  SOS; break;                                 /* SOS */
@@ -1448,7 +1433,6 @@ case 0725:  IOA; io725 (AC(ac), ea); break;             /* BCIOB, IOWRBQ */
 
 default:
 MUUO:
-    its_2pr = 0;                                        /* clear trap */
     if (T20PAG) {                                       /* TOPS20 paging? */
         int32 tf = (op << (INST_V_OP - 18)) | (ac << (INST_V_AC - 18));
         WriteP (upta + UPT_MUUO, XWD (                  /* store flags,,op+ac */
@@ -1558,7 +1542,7 @@ if (its_2pr) {                                          /* 1-proc trap? */
         WriteP (upta + UPT_1PO, FLPC);                  /* wr old flgs, PC */
         mb = ReadP (upta + UPT_1PN);                    /* rd new flgs, PC */
         JUMP (mb);                                      /* set PC */
-        set_newflags (mb, TRUE);                        /* set new flags */
+        set_newflags (mb, FALSE);                       /* set new flags */
         }
     }                                                   /* end if 2-proc */
 }                                                       /* end for */
@@ -2212,8 +2196,11 @@ if (ea & APR_SENB)                                      /* set enables? */
     apr_enb = apr_enb | bits;
 if (ea & APR_CENB)                                      /* clear enables? */
     apr_enb = apr_enb & ~bits;
-if (ea & APR_CFLG)                                      /* clear flags? */
+if (ea & APR_CFLG) {                                    /* clear flags? */
+    if ((bits & APRF_TIM) && (apr_flg & APRF_TIM))
+        sim_rtcn_tick_ack (30, 0);
     apr_flg = apr_flg & ~bits;
+    }
 if (ea & APR_SFLG)                                      /* set flags? */
     apr_flg = apr_flg | bits;
 if (apr_flg & APRF_ITC) {                               /* interrupt console? */

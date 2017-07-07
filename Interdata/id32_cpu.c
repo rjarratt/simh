@@ -1,6 +1,6 @@
 /* id32_cpu.c: Interdata 32b CPU simulator
 
-   Copyright (c) 2000-2008, Robert M. Supnik
+   Copyright (c) 2000-2017, Robert M. Supnik
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -25,6 +25,7 @@
 
    cpu                  Interdata 32b CPU
 
+   09-Mar-17    RMS     OC to display testing wrong argument (COVERITY)
    28-Apr-07    RMS     Removed clock initialization
    27-Oct-06    RMS     Added idle support
                         Removed separate PASLA clock
@@ -651,7 +652,7 @@ if (abortval != 0) {                                    /* mem mgt abort? */
 while (reason == 0) {                                   /* loop until halted */
 
     uint32 dev, drom, opnd, inc, lim, bufa;
-    uint32 op, r1, r1p1, r2, rx2, ea;
+    uint32 op, r1, r1p1, r2, rx2, ea = 0;
     uint32 mpy, mpc, dvr;
     uint32 i, rslt, rlo, t;
     uint32 ir1, ir2, ir3, ityp;
@@ -1989,12 +1990,12 @@ switch (op) {
         return BY;                                      /* byte only */
 
     case IO_OC:                                         /* command */
-        op = op & 0xC0;
-        if (op == 0x40) {                               /* x40 = inc */
+        dat = dat & 0xC0;
+        if (dat == 0x40) {                              /* x40 = inc */
             drmod = 1;
             drpos = srpos = 0;                          /* init cntrs */
             }
-        else if (op == 0x80)                            /* x80 = norm */
+        else if (dat == 0x80)                           /* x80 = norm */
             drmod = 0;
         break;
 

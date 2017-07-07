@@ -28,41 +28,62 @@
 
 #include <stdio.h>
 #include <ctype.h>
-#include "sim_defs.h"		        /* simulator defns */
+#include "sim_defs.h"                   /* simulator defns */
 
-/* set the base I/O address for the 8259 */
-#define I8259_BASE      0xD8
-#define I8259_NUM       1
+#define SET_XACK(VAL)       (xack = VAL)
+
+//chip definitions for the iSBC-80/20
+/* set the base I/O address for the 8251 */
+#define I8251_BASE      0xEC
+#define I8251_NUM       1
 
 /* set the base I/O address for the 8255 */
 #define I8255_BASE_0    0xE4
 #define I8255_BASE_1    0xE8
 #define I8255_NUM       2
 
-/* set the base I/O address for the 8251 */
-#define I8251_BASE      0xEC
-#define I8251_NUM       1
+/* set the base I/O address for the 8259 */
+#define I8259_BASE      0xD8
+#define I8259_NUM       1
 
 /* set the base and size for the EPROM on the iSBC 80/20 */
 #define ROM_BASE        0x0000
 #define ROM_SIZE        0x1000
+#define ROM_DISABLE     1
 
 /* set the base and size for the RAM on the iSBC 80/20 */
 #define RAM_BASE        0x3C00
 #define RAM_SIZE        0x0400 
+#define RAM_DISABLE     1
 
 /* set INTR for CPU */
 #define INTR            INT_1
 
-/* set the base I/O address for the iSBC 208 */
-#define	SBC208_BASE	0x40
+//board definitions for the multibus
+/* set the base I/O address for the iSBC 201 */
+#define SBC201_BASE     0x78
+#define SBC201_INT      INT_1
+#define SBC201_NUM      0
 
-/* configure interrupt request line */
+/* set the base I/O address for the iSBC 202 */
+#define SBC202_BASE     0x78
+#define SBC202_INT      INT_1
+#define SBC202_NUM      1
+
+/* set the base I/O address for the iSBC 208 */
+#define SBC208_BASE     0x40
 #define SBC208_INT      INT_1
+#define SBC208_NUM      0
+
+/* set the base for the zx-200a disk controller */
+#define ZX200A_BASE     0x78
+#define ZX200A_INT      INT_1
+#define ZX200A_NUM      0
 
 /* set the base and size for the iSBC 064 */
 #define SBC064_BASE     0x0000
 #define SBC064_SIZE     0x10000
+#define SBC064_NUM      1
 
 /* multibus interrupt definitions */
 
@@ -84,10 +105,10 @@
 
 /* Memory */
 
-#define MAXMEMSIZE	    0x10000	        /* 8080 max memory size */
-#define MEMSIZE		    (i8080_unit.capac)  /* 8080 actual memory size */
-#define ADDRMASK	    (MAXMEMSIZE - 1)    /* 8080 address mask */
-#define MEM_ADDR_OK(x)	    (((uint32) (x)) < MEMSIZE)
+#define MAXMEMSIZE          0x10000             /* 8080 max memory size */
+#define MEMSIZE             (i8080_unit.capac)  /* 8080 actual memory size */
+#define ADDRMASK            (MAXMEMSIZE - 1)    /* 8080 address mask */
+#define MEM_ADDR_OK(x)      (((uint32) (x)) < MEMSIZE)
 
 /* debug definitions */
 
@@ -103,11 +124,11 @@
 
 /* Simulator stop codes */
 
-#define STOP_RSRV	1			    /* must be 1 */
-#define STOP_HALT	2			    /* HALT */
-#define STOP_IBKPT	3		            /* breakpoint */
-#define STOP_OPCODE	4                           /* Invalid Opcode */
-#define STOP_IO 	5                           /* I/O error */
-#define STOP_MEM 	6                           /* Memory error */
-#define STOP_XACK 	7                           /* XACK error */
+#define STOP_RSRV       1                           /* must be 1 */
+#define STOP_HALT       2                           /* HALT */
+#define STOP_IBKPT      3                           /* breakpoint */
+#define STOP_OPCODE     4                           /* Invalid Opcode */
+#define STOP_IO         5                           /* I/O error */
+#define STOP_MEM        6                           /* Memory error */
+#define STOP_XACK       7                           /* XACK error */
 

@@ -362,6 +362,7 @@ static uint8 HDC1001_Write(const uint32 Addr, uint8 cData)
     switch(Addr & 0x07) {
         case TF_SDH:
             hdc1001_info->sel_drive = (cData >> 3) & 0x03;
+            /* fall through */
         case TF_DATA:
         case TF_ERROR:
         case TF_SECNT:

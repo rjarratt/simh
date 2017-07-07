@@ -1,6 +1,6 @@
 /* pdp11_rp.c - RP04/05/06/07 RM02/03/05/80 Massbus disk controller
 
-   Copyright (c) 1993-2013, Robert M Supnik
+   Copyright (c) 1993-2017, Robert M Supnik
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -25,6 +25,7 @@
 
    rp           RH/RP/RM moving head disks
 
+   13-Mar-17    RMS     Annotated intentional fall through in switch
    23-Oct-13    RMS     Revised for new boot setup routine
    06-Mar-11    MP      Converted to using sim_disk library and refactored 
                         for Asynch I/O.
@@ -595,7 +596,9 @@ const char *rp_description (DEVICE *dptr);
    rp_mod       RP modifier list
 */
 
-DIB rp_dib = { MBA_AUTO, 0, &rp_mbrd, &rp_mbwr, 0, 0, 0, { &rp_abort } };
+#define IOLN_RP         054
+
+DIB rp_dib = { MBA_AUTO, IOLN_RP, &rp_mbrd, &rp_mbwr, 0, 0, 0, { &rp_abort } };
 
 UNIT rp_unit[] = {
     { UDATA (&rp_svc, UNIT_FIX+UNIT_ATTABLE+UNIT_DISABLE+UNIT_AUTO+
@@ -1169,7 +1172,8 @@ if (!uptr->io_complete) { /* Top End (I/O Initiation) Processing */
                 mba_set_exc (dibp->ba);                 /* set exception */
                 rp_update_ds (DS_ATA, drv);             /* set attn */
                 return SCPE_OK;
-                }
+            }
+            /* fall through */
         case FNC_WCHK:                                  /* write check */
         case FNC_READ:                                  /* read */
         case FNC_READH:                                 /* read headers */
@@ -1472,7 +1476,6 @@ static const uint16 boot_rom[] = {
 t_stat rp_boot (int32 unitno, DEVICE *dptr)
 {
 size_t i;
-extern uint16 *M;
 UNIT *uptr = dptr->units + unitno;
 
 for (i = 0; i < BOOT_LEN; i++)

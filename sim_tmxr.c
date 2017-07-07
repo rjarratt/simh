@@ -850,7 +850,7 @@ if (mp->port)                                           /* copy port */
 if (mp->logfiletmpl[0])                                 /* logfile info */
     sprintf (growstring(&tptr, 7 + strlen (mp->logfiletmpl)), ",Log=%s", mp->logfiletmpl);
 while ((*tptr == ',') || (*tptr == ' '))
-    memcpy (tptr, tptr+1, strlen(tptr+1)+1);
+    memmove (tptr, tptr+1, strlen(tptr+1)+1);
 for (i=0; i<mp->lines; ++i) {
     char *lptr;
     lp = mp->ldsc + i;
@@ -863,7 +863,7 @@ for (i=0; i<mp->lines; ++i) {
     }
 if (mp->lines == 1)
     while ((*tptr == ',') || (*tptr == ' '))
-        memcpy (tptr, tptr+1, strlen(tptr+1)+1);
+        memmove (tptr, tptr+1, strlen(tptr+1)+1);
 if (*tptr == '\0') {
     free (tptr);
     tptr = NULL;
@@ -2047,9 +2047,20 @@ if ((lp->txbfd && !lp->notelnet) || (TXBUF_AVAIL(lp) > 1)) {/* room for char (+ 
     TXBUF_CHAR (lp, chr);                               /* buffer char & adv pointer */
     if ((!lp->txbfd) && (TXBUF_AVAIL (lp) <= TMXR_GUARD))/* near full? */
         lp->xmte = 0;                                   /* disable line */
-    if (lp->txlog)                                      /* log if available */
-        fputc (chr, lp->txlog);
+    if (lp->txlog) {                                    /* log if available */
+        extern TMLN *sim_oline;                         /* Make sure to avoid recursion */
+        TMLN *save_oline = sim_oline;                   /* when logging to a socket */
+
+        sim_oline = NULL;                               /* save output socket */
+        fputc (chr, lp->txlog);                         /* log to actual file */
+        sim_oline = save_oline;                         /* resture output socket */
+        }
     sim_exp_check (&lp->expect, chr);                   /* process expect rules as needed */
+    if ((sim_interval > 0) &&                           /* not called within sim_process_event? */
+        (lp->txbps) && (lp->txdelta > 1000)) {          /* and rate limiting output slower than 1000 cps */
+        tmxr_send_buffered_data (lp);                   /* put data on wire */
+        sim_os_ms_sleep((lp->txdelta - 1000) / 1000);   /* wait an approximate character delay */
+        }
     return SCPE_OK;                                     /* char sent */
     }
 ++lp->txdrp; lp->xmte = 0;                              /* no room, dsbl line */
@@ -2383,6 +2394,7 @@ CONST char *tptr = cptr;
 t_bool nolog, notelnet, listennotelnet, modem_control, loopback, datagram, packet;
 TMLN *lp;
 t_stat r = SCPE_OK;
+t_bool not_quiet = (!sim_quiet) && (0 == (sim_switches & SWMASK ('Q')));
 
 if (*tptr == '\0')
     return SCPE_ARG;
@@ -2502,14 +2514,14 @@ while (*tptr) {
             if (0 == MATCH_CMD (gbuf, "CONNECT")) {
                 if ((NULL == cptr) || ('\0' == *cptr))
                     return sim_messagef (SCPE_2FARG, "Missing Connect Specifier\n");
-                strcpy (destination, cptr);
+                strncpy (destination, cptr, sizeof(destination)-1);
                 continue;
                 }
             if (0 == MATCH_CMD (gbuf, "SPEED")) {
                 if ((NULL == cptr) || ('\0' == *cptr) || 
                     (_tmln_speed_delta (cptr) < 0))
                     return sim_messagef (SCPE_ARG, "Invalid Speed Specifier: %s\n", (cptr ? cptr : ""));
-                strcpy (speed, cptr);
+                strncpy (speed, cptr, sizeof(speed)-1);
                 continue;
                 }
             cptr = get_glyph (gbuf, port, ';');
@@ -2598,9 +2610,7 @@ while (*tptr) {
                 else
                     strcpy (lp->txlogname, mp->logfiletmpl);
                 r = sim_open_logfile (lp->txlogname, TRUE, &lp->txlog, &lp->txlogref);
-                if (r == SCPE_OK)
-                    setvbuf (lp->txlog, NULL, _IOFBF, 65536);
-                else {
+                if (r != SCPE_OK) {
                     free (lp->txlogname);
                     lp->txlogname = NULL;
                     break;
@@ -2649,7 +2659,8 @@ while (*tptr) {
                 free (mp->port);
                 mp->port = NULL;
                 }
-            sim_printf ("Listening on port %s\n", listen);
+            if (not_quiet)
+                sim_printf ("Listening on port %s\n", listen);
             mp->port = (char *)realloc (mp->port, 1 + strlen (listen));
             strcpy (mp->port, listen);                      /* save port */
             mp->master = sock;                              /* save master socket */
@@ -2682,7 +2693,8 @@ while (*tptr) {
         if (loopback) {
             if (mp->lines > 1)
                 return sim_messagef (SCPE_ARG, "Ambiguous Loopback specification\n");
-            sim_printf ("Operating in loopback mode\n");
+            if (not_quiet)
+                sim_printf ("Operating in loopback mode\n");
             for (i = 0; i < mp->lines; i++) {
                 lp = mp->ldsc + i;
                 tmxr_set_line_loopback (lp, loopback);
@@ -2800,7 +2812,8 @@ while (*tptr) {
             if (sock == INVALID_SOCKET)                     /* open error */
                 return sim_messagef (SCPE_OPENERR, "Can't listen on port: %s\n", listen);
             _mux_detach_line (lp, TRUE, FALSE);
-            sim_printf ("Line %d Listening on port %s\n", line, listen);
+            if (not_quiet)
+                sim_printf ("Line %d Listening on port %s\n", line, listen);
             lp->port = (char *)realloc (lp->port, 1 + strlen (listen));
             strcpy (lp->port, listen);                       /* save port */
             lp->master = sock;                              /* save master socket */
@@ -2858,7 +2871,8 @@ while (*tptr) {
             }
         if (loopback) {
             tmxr_set_line_loopback (lp, loopback);
-            sim_printf ("Line %d operating in loopback mode\n", line);
+            if (not_quiet)
+                sim_printf ("Line %d operating in loopback mode\n", line);
             }
         lp->modem_control = modem_control;
         if (speed[0] && (!datagram) && (!lp->serport))
@@ -3867,11 +3881,11 @@ t_stat tmxr_activate_after (UNIT *uptr, uint32 usecs_walltime)
 #if defined(SIM_ASYNCH_MUX)
 if ((!(uptr->dynflags & UNIT_TM_POLL)) || 
     (!sim_asynch_enabled)) {
-    return _sim_activate_after (uptr, usecs_walltime);
+    return _sim_activate_after (uptr, (double)usecs_walltime);
     }
 return SCPE_OK;
 #else
-return _sim_activate_after (uptr, usecs_walltime);
+return _sim_activate_after (uptr, (double)usecs_walltime);
 #endif
 }
 
@@ -3880,32 +3894,35 @@ t_stat tmxr_activate_after_abs (UNIT *uptr, uint32 usecs_walltime)
 #if defined(SIM_ASYNCH_MUX)
 if ((!(uptr->dynflags & UNIT_TM_POLL)) || 
     (!sim_asynch_enabled)) {
-    return _sim_activate_after_abs (uptr, usecs_walltime);
+    return _sim_activate_after_abs (uptr, (double)usecs_walltime);
     }
 return SCPE_OK;
 #else
-return _sim_activate_after_abs (uptr, usecs_walltime);
+return _sim_activate_after_abs (uptr, (double)usecs_walltime);
 #endif
 }
 
 
 t_stat tmxr_clock_coschedule (UNIT *uptr, int32 interval)
 {
-return tmxr_clock_coschedule_tmr (uptr, 0, interval);
+int32 tmr = sim_rtcn_calibrated_tmr ();
+int32 ticks = (interval + (sim_rtcn_tick_size (tmr)/2))/sim_rtcn_tick_size (tmr);/* Convert to ticks */
+
+return tmxr_clock_coschedule_tmr (uptr, tmr, ticks);
 }
 
 t_stat tmxr_clock_coschedule_abs (UNIT *uptr, int32 interval)
 {
 sim_cancel (uptr);
-return tmxr_clock_coschedule_tmr (uptr, 0, interval);
+return tmxr_clock_coschedule (uptr, interval);
 }
 
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 
-t_stat tmxr_clock_coschedule_tmr (UNIT *uptr, int32 tmr, int32 interval)
+t_stat tmxr_clock_coschedule_tmr (UNIT *uptr, int32 tmr, int32 ticks)
 {
 TMXR *mp = (TMXR *)uptr->tmxr;
-int32 ticks = (interval + (sim_rtcn_tick_size (tmr)/2))/sim_rtcn_tick_size (tmr);/* Convert to ticks */
+int32 interval = ticks * sim_rtcn_tick_size (tmr);
 
 #if defined(SIM_ASYNCH_MUX)
 if ((!(uptr->dynflags & UNIT_TM_POLL)) || 
@@ -3939,15 +3956,15 @@ if (mp) {
         return _sim_activate (uptr, soon);
         }
     }
-sim_debug (TIMER_DBG_MUX, &sim_timer_dev, "scheduling %s after interval %d instructions\n", sim_uname (uptr), interval);
+sim_debug (TIMER_DBG_MUX, &sim_timer_dev, "coscheduling %s after interval %d ticks\n", sim_uname (uptr), ticks);
 return sim_clock_coschedule_tmr (uptr, tmr, ticks);
 #endif
 }
 
-t_stat tmxr_clock_coschedule_tmr_abs (UNIT *uptr, int32 tmr, int32 interval)
+t_stat tmxr_clock_coschedule_tmr_abs (UNIT *uptr, int32 tmr, int32 ticks)
 {
 sim_cancel (uptr);
-return tmxr_clock_coschedule_tmr (uptr, tmr, interval);
+return tmxr_clock_coschedule_tmr (uptr, tmr, ticks);
 }
 
 /* Generic Multiplexer attach help */

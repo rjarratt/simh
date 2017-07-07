@@ -95,9 +95,9 @@
       Thus, only writes need be checked against actual memory size.
 
    4. Adding I/O devices.  These modules must be modified:
-
-        altair_cpu.c    add I/O service routines to dev_table
-        altair_sys.c    add pointer to data structures in sim_devices
+        i8080.c - add I/O service routines to dev_table
+        isys80XX_sys.c - add pointer to data structures in sim_devices
+        system_defs.h - to define devices and addresses assigned to devices
 
     ?? ??? 11 - Original file.
     16 Dec 12 - Modified to use isbc_80_10.cfg file to set base and size.
@@ -107,7 +107,6 @@
                 at the end of the routine.
     17 Mar 13 - Modified to enable/disable trace based on start and stop
                 addresses.
-
 */
 
 #include "system_defs.h"
@@ -165,12 +164,13 @@ uint32 HL = 0;                          /* HL register pair */
 uint32 SP = 0;                          /* Stack pointer */
 uint32 saved_PC = 0;                    /* program counter */
 uint32 IM = 0;                          /* Interrupt Mask Register */
-uint8 xack = 0;                        /* XACK signal */
+uint8 xack = 0;                         /* XACK signal */
 uint32 int_req = 0;                     /* Interrupt request */
 
 int32 PCX;                              /* External view of PC */
 int32 PC;
 UNIT *uptr;
+uint32 port;                            //port used in any IN/OUT
 
 /* function prototypes */
 void    set_cpuint(int32 int_num);
@@ -206,7 +206,8 @@ extern uint32 sim_brk_types, sim_brk_dflt, sim_brk_summ; /* breakpoint info */
 
 
 struct idev {
-    uint8 (*routine)(t_bool, uint8, uint8);
+    uint8 (*routine)(t_bool, uint8);
+    uint16 port;
     uint8 devnum;
 };
 
@@ -218,7 +219,6 @@ address is here, 'nulldev' means no device is available
 extern struct idev dev_table[];
 
 /* CPU data structures
-
    i8080_dev      CPU device descriptor
    i8080_unit     CPU unit descriptor
    i8080_reg      CPU register list
@@ -265,7 +265,7 @@ DEBTAB i8080_debug[] = {
 };
 
 DEVICE i8080_dev = {
-    "CPU",                              //name
+    "I8080",                            //name
     &i8080_unit,                        //units
     i8080_reg,                          //registers
     i8080_mod,                          //modifiers
@@ -381,7 +381,6 @@ void set_cpuint(int32 int_num)
     int_req |= int_num;
 }
 
-//FILE    *fpd;
 
 /* instruction simulator */
 int32 sim_instr (void)
@@ -393,20 +392,14 @@ int32 sim_instr (void)
     reason = 0;
 
     uptr = i8080_dev.units;
-    if (i8080_dev.dctrl & DEBUG_flow) { 
-        if (uptr->flags & UNIT_8085)
-            sim_printf("CPU = 8085\n");
-        else
-            sim_printf("CPU = 8080\n");
-    }
+    if (uptr->flags & UNIT_8085)
+        sim_printf("CPU = 8085\n");
+    else
+        sim_printf("CPU = 8080\n");
     /* Main instruction fetch/decode loop */
 
     while (reason == 0) {               /* loop until halted */
 
-//        if (PC == 0x1000) {             /* turn on debugging */
-//            i8080_dev.dctrl = DEBUG_asm + DEBUG_reg; 
-//            reason = STOP_HALT;
-//        }
         if (i8080_dev.dctrl & DEBUG_reg) {
             dumpregs();
             sim_printf("\n");
@@ -418,7 +411,6 @@ int32 sim_instr (void)
         }
 
         if (int_req > 0) {              /* interrupt? */
-//            sim_printf("\ni8080: int_req=%04X IM=%04X", int_req, IM);
             if (uptr->flags & UNIT_8085) { /* 8085 */
                 if (int_req & ITRAP) {  /* int */
                     push_word(PC);
@@ -448,7 +440,6 @@ int32 sim_instr (void)
                     push_word(PC);      /* do an RST 7 */
                     PC = 0x0038;
                     int_req &= ~INT_R;
-//                    sim_printf("\ni8080: int_req=%04X", int_req);
                 }
             }
         }                               /* end interrupt */
@@ -462,9 +453,6 @@ int32 sim_instr (void)
         sim_interval--;                 /* countdown clock */
         PCX = PC;
 
-//        fprintf(fpd, "%04X\n", PC);
-//        fflush(fpd);
-
         if (uptr->flags & UNIT_TRACE) {
             dumpregs();
             sim_printf("\n");
@@ -472,11 +460,12 @@ int32 sim_instr (void)
         IR = OP = fetch_byte(0);        /* instruction fetch */
 
         if (GET_XACK(1) == 0) {         /* no XACK for instruction fetch */
-            reason = STOP_XACK;
-            sim_printf("Stopped for XACK-1 PC=%04X\n", --PC);
-            continue;
+//            reason = STOP_XACK;
+            sim_printf("Stopped for XACK-1 PC=%04X\n", PC);
+//            continue;
         }
 
+        // first instruction decode
         if (OP == 0x76) {               /* HLT Instruction*/
             reason = STOP_HALT;
             PC--;
@@ -517,10 +506,9 @@ int32 sim_instr (void)
         }
 
         if ((OP & 0xF8) == 0xB8) {      /* CMP */
-            DAR = A & 0xFF;
+            DAR = A;
             DAR -= getreg(OP & 0x07);
             setarith(DAR);
-            DAR &= BYTE_R;
             goto loop_end;
         }
 
@@ -568,7 +556,7 @@ int32 sim_instr (void)
         if ((OP & 0xF8) == 0x80) {      /* ADD */
             A += getreg(OP & 0x07);
             setarith(A);
-            A &= BYTE_R;
+            A &= BYTE_R;                //required
             goto loop_end;
         }
 
@@ -577,14 +565,14 @@ int32 sim_instr (void)
             if (GET_FLAG(CF))
                 A++;
             setarith(A);
-            A &= BYTE_R;
+            A &= BYTE_R;                //required
             goto loop_end;
         }
 
         if ((OP & 0xF8) == 0x90) {      /* SUB */
             A -= getreg(OP & 0x07);
             setarith(A);
-            A &= BYTE_R;
+            A &= BYTE_R;                //required
             goto loop_end;
         }
 
@@ -593,7 +581,7 @@ int32 sim_instr (void)
             if (GET_FLAG(CF))
                 A--;
             setarith(A);
-            A &= BYTE_R;
+            A &= BYTE_R;                //required
             goto loop_end;
         }
 
@@ -601,7 +589,6 @@ int32 sim_instr (void)
             DAR = getreg((OP >> 3) & 0x07);
             DAR++;
             setinc(DAR);
-//            DAR &= BYTE_R;
             putreg((OP >> 3) & 0x07, DAR);
             goto loop_end;
         }
@@ -610,7 +597,6 @@ int32 sim_instr (void)
             DAR = getreg((OP >> 3) & 0x07);
             DAR--;
             setinc(DAR);
-//            DAR &= BYTE_R;
             putreg((OP >> 3) & 0x07, DAR);
             goto loop_end;
         }
@@ -618,7 +604,6 @@ int32 sim_instr (void)
         if ((OP & 0xCF) == 0x03) {      /* INX */
             DAR = getpair((OP >> 4) & 0x03);
             DAR++;
-//            DAR &= WORD_R;
             putpair((OP >> 4) & 0x03, DAR);
             goto loop_end;
         }
@@ -626,7 +611,6 @@ int32 sim_instr (void)
         if ((OP & 0xCF) == 0x0B) {      /* DCX */
             DAR = getpair((OP >> 4) & 0x03);
             DAR--;
-//            DAR &= WORD_R;
             putpair((OP >> 4) & 0x03, DAR);
             goto loop_end;
         }
@@ -634,7 +618,7 @@ int32 sim_instr (void)
         if ((OP & 0xCF) == 0x09) {      /* DAD */
             HL += getpair((OP >> 4) & 0x03);
             COND_SET_FLAG(HL & 0x10000, CF);
-            HL &= WORD_R;
+            HL &= WORD_R;               //required
             goto loop_end;
         }
 
@@ -647,7 +631,6 @@ int32 sim_instr (void)
         if ((OP & 0xF8) == 0xA8) {      /* XRA */
             A ^= getreg(OP & 0x07);
             setlogical(A);
-            A &= BYTE_R;
             goto loop_end;
         }
 
@@ -690,7 +673,6 @@ int32 sim_instr (void)
         case 0xFE:                  /* CPI */
             DAR = A;
             DAR -= fetch_byte(1);
-//                DAR &= BYTE_R;
             setarith(DAR);
             break;
 
@@ -701,7 +683,6 @@ int32 sim_instr (void)
 
         case 0xEE:                  /* XRI */
             A ^= fetch_byte(1);
-//                DAR &= BYTE_R;
             setlogical(A);
             break;
 
@@ -734,34 +715,29 @@ int32 sim_instr (void)
 
         case 0x32:                  /* STA */
             DAR = fetch_word();
-            DAR &= WORD_R;
             put_mbyte(DAR, A);
             break;
 
         case 0x3A:                  /* LDA */
             DAR = fetch_word();
-            DAR &= WORD_R;
             A = get_mbyte(DAR);
             break;
 
         case 0x22:                  /* SHLD */
             DAR = fetch_word();
-            DAR &= WORD_R;
             put_mword(DAR, HL);
             break;
 
         case 0x2A:                  /* LHLD */
             DAR = fetch_word();
-            DAR &= WORD_R;
             HL = get_mword(DAR);
             break;
 
         case 0xEB:                  /* XCHG */
             DAR = HL;
             HL = DE;
-            HL &= WORD_R;
+            HL &= WORD_R;           //required
             DE = DAR;
-            DE &= WORD_R;
             break;
 
         /* Arithmetic Group */
@@ -769,7 +745,7 @@ int32 sim_instr (void)
         case 0xC6:                  /* ADI */
             A += fetch_byte(1);
             setarith(A);
-            A &= BYTE_R;
+            A &= BYTE_R;            //required
             break;
 
         case 0xCE:                  /* ACI */
@@ -777,20 +753,20 @@ int32 sim_instr (void)
             if (GET_FLAG(CF))
                 A++;
             setarith(A);
-            A &= BYTE_R;
+            A &= BYTE_R;            //required
             break;
 
         case 0xD6:                  /* SUI */
             A -= fetch_byte(1);
             setarith(A);
-            A &= BYTE_R;
+            A &= BYTE_R;            //required
             break;
 
         case 0xDE:                  /* SBI */
             A -= fetch_byte(1);
             if (GET_FLAG(CF))
                 A--;
-            setarith(A);
+            A &= BYTE_R;            //required
             A &= BYTE_R;
             break;
 
@@ -820,7 +796,6 @@ int32 sim_instr (void)
             A = (A << 1) & 0xFF;
             if (GET_FLAG(CF))
                 A |= 0x01;
-            A &= BYTE_R;
             break;
 
         case 0x0F:                  /* RRC */
@@ -828,7 +803,6 @@ int32 sim_instr (void)
             A = (A >> 1) & 0xFF;
             if (GET_FLAG(CF))
                 A |= 0x80;
-            A &= BYTE_R;
             break;
 
         case 0x17:                  /* RAL */
@@ -837,7 +811,6 @@ int32 sim_instr (void)
             A = (A << 1) & 0xFF;
             if (DAR)
                 A |= 0x01;
-            A &= BYTE_R;
             break;
 
         case 0x1F:                  /* RAR */
@@ -846,12 +819,10 @@ int32 sim_instr (void)
             A = (A >> 1) & 0xFF;
             if (DAR)
                 A |= 0x80;
-            A &= BYTE_R;
             break;
 
         case 0x2F:                  /* CMA */
             A = ~A;
-            A &= BYTE_R;
             break;
 
         case 0x3F:                  /* CMC */
@@ -871,7 +842,6 @@ int32 sim_instr (void)
             DAR = pop_word();
             push_word(HL);
             HL = DAR;
-            HL &= WORD_R;
             break;
 
         case 0xF9:                  /* SPHL */
@@ -880,25 +850,22 @@ int32 sim_instr (void)
 
         case 0xFB:                  /* EI */
             IM |= IE;
-//                sim_printf("\nEI: pc=%04X", PC - 1);
             break;
 
         case 0xF3:                  /* DI */
             IM &= ~IE;
-//                sim_printf("\nDI: pc=%04X", PC - 1);
             break;
 
         case 0xDB:                  /* IN */
             DAR = fetch_byte(1);
-            A = dev_table[DAR].routine(0, 0, dev_table[DAR].devnum);
-            A &= BYTE_R;
-//            sim_printf("\n%04X\tIN\t%02X\t;devnum=%d", PC - 1, DAR, dev_table[DAR].devnum);
+            port = DAR;
+            A = dev_table[DAR].routine(0, 0);
             break;
 
         case 0xD3:                  /* OUT */
             DAR = fetch_byte(1);
-            dev_table[DAR].routine(1, A, dev_table[DAR].devnum);
-//            sim_printf("\n%04X\tOUT\t%02X\t;devnum=%d", PC - 1, DAR, dev_table[DAR].devnum);
+            port = DAR;
+            dev_table[DAR].routine(1, A);
             break;
 
         default:                    /* undefined opcode */ 
@@ -910,17 +877,15 @@ int32 sim_instr (void)
         }
 loop_end:
         if (GET_XACK(1) == 0) {     /* no XACK for instruction fetch */
-            reason = STOP_XACK;
-            sim_printf("Stopped for XACK-2 PC=%04X\n", --PC);
-            continue;
+//            reason = STOP_XACK;
+//            sim_printf("Stopped for XACK-2 PC=%04X\n", PC);
+//            continue;
         }
-
     }
 
 /* Simulation halted */
 
     saved_PC = PC;
-//    fclose(fpd);
     return reason;
 }
 
@@ -1090,8 +1055,6 @@ int32 getreg(int32 reg)
 {
     switch (reg) {
     case 0:                         /* reg B */
-//           sim_printf("reg=%04X BC=%04X ret=%04X\n",
-//               reg, BC, (BC >>8) & 0xff);
         return ((BC >>8) & BYTE_R);
     case 1:                         /* reg C */
         return (BC & BYTE_R);
@@ -1118,9 +1081,7 @@ void putreg(int32 reg, int32 val)
 {
     switch (reg) {
     case 0:                         /* reg B */
-//            sim_printf("reg=%04X val=%04X\n", reg, val);
         BC = BC & BYTE_R;
-//            sim_printf("BC&0x00ff=%04X val<<8=%04X\n", BC, val<<8);
         BC = BC | (val <<8);
         break;
     case 1:                         /* reg C */
@@ -1251,7 +1212,6 @@ t_stat i8080_reset (DEVICE *dptr)
     IM = 0;
     sim_brk_types = sim_brk_dflt = SWMASK ('E');
     sim_printf("   8080: Reset\n");
-//    fpd = fopen("trace.txt", "w");
     return SCPE_OK;
 }
 
@@ -1296,10 +1256,9 @@ int32 sim_load (FILE *fileref, CONST char *cptr, CONST char *fnam, int flag)
     return (SCPE_OK);
 }
 
-/* Symbolic output
-
+/* Symbolic output - working
    Inputs:
-        *of   = output stream
+        *of     =       output stream
         addr    =       current PC
         *val    =       pointer to values
         *uptr   =       pointer to unit
@@ -1329,24 +1288,23 @@ t_stat fprint_sym (FILE *of, t_addr addr, t_value *val,
     inst = val[0];
     fprintf (of, "%s", opcode[inst]);
     if (oplen[inst] == 2) {
-        if (strchr(opcode[inst], ' ') != NULL)
-            fprintf (of, ",");
-        else fprintf (of, " ");
+//        if (strchr(opcode[inst], ' ') != NULL)
+//            fprintf (of, ",");
+//        else fprintf (of, " ");
         fprintf (of, "%02X", val[1]);
     }
     if (oplen[inst] == 3) {
         adr = val[1] & 0xFF;
         adr |= (val[2] << 8) & 0xff00;
-        if (strchr(opcode[inst], ' ') != NULL)
-            fprintf (of, ",");
-        else fprintf (of, " ");
+//        if (strchr(opcode[inst], ' ') != NULL)
+//            fprintf (of, ",");
+//        else fprintf (of, " ");
         fprintf (of, "%04X", adr);
     }
     return -(oplen[inst] - 1);
 }
 
 /* Symbolic input
-
    Inputs:
         *cptr   =       pointer to input string
         addr    =       current PC
@@ -1362,6 +1320,7 @@ t_stat parse_sym (CONST char *cptr, t_addr addr, UNIT *uptr, t_value *val, int32
     int32 cflag, i = 0, j, r;
     char gbuf[CBUFSIZE];
 
+    memset (gbuf, 0, sizeof (gbuf));
     cflag = (uptr == NULL) || (uptr == &i8080_unit);
     while (isspace (*cptr)) cptr++;                         /* absorb spaces */
     if ((sw & SWMASK ('A')) || ((*cptr == '\'') && cptr++)) { /* ASCII char? */
@@ -1379,7 +1338,7 @@ t_stat parse_sym (CONST char *cptr, t_addr addr, UNIT *uptr, t_value *val, int32
    or numeric (including spaces).
 */
 
-    while (1) {
+    while (i < sizeof (gbuf) - 4) {
         if (*cptr == ',' || *cptr == '\0' ||
              isdigit(*cptr))
                 break;

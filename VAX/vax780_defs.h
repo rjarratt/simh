@@ -1,6 +1,6 @@
 /* vax780_defs.h: VAX 780 model-specific definitions file
 
-   Copyright (c) 2004-2015, Robert M Supnik
+   Copyright (c) 2004-2017, Robert M Supnik
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -23,6 +23,8 @@
    used in advertising or otherwise to promote the sale, use or other dealings
    in this Software without prior written authorization from Robert M Supnik.
 
+   18-May-17    RMS     Added model-specific AST validation test
+   19-Jan-17    RMS     Moved CR to BR6 (Mark Pizzolato)
    29-Mar-15    RMS     Added model specific IPR max
    16-Dec-14    RMS     Removed TQ boot code (780 VMB doesn't support tape boot)
    05-Sep-14    RMS     Fixed SBR test (found by Mark Pizzolato)
@@ -152,6 +154,9 @@
 #define LP_AST_TEST(r)  if ((r) > AST_MAX) RSVD_OPND_FAULT
 #define LP_MBZ84_TEST(r) if ((((uint32)(r)) & 0xF8C00000) != 0) RSVD_OPND_FAULT
 #define LP_MBZ92_TEST(r) if ((((uint32)(r)) & 0x7FC00000) != 0) RSVD_OPND_FAULT
+
+#define MT_AST_TEST(r)  r = (r) & 07; \
+                        if ((r) > AST_MAX) RSVD_OPND_FAULT
 
 /* Memory */
 
@@ -310,8 +315,10 @@ typedef struct {
 
 
 /* Interrupt assignments; within each level, priority is right to left */
+/* CD11 must be defined but is not allowed in the configuration */
 
 #define INT_V_DTA       0                               /* BR6 */
+#define INT_V_CR        1
 
 #define INT_V_DZRX      0                               /* BR5 */
 #define INT_V_DZTX      1
@@ -331,13 +338,14 @@ typedef struct {
 #define INT_V_LPT       0                               /* BR4 */
 #define INT_V_PTR       1
 #define INT_V_PTP       2
-#define INT_V_CR        3
+//#define XXXXXXXX        3                             /* Former CR */
 #define INT_V_VHRX      4
 #define INT_V_VHTX      5
 #define INT_V_TDRX      6
 #define INT_V_TDTX      7
 
 #define INT_DTA         (1u << INT_V_DTA)
+#define INT_CR          (1u << INT_V_CR)
 #define INT_DZRX        (1u << INT_V_DZRX)
 #define INT_DZTX        (1u << INT_V_DZTX)
 #define INT_HK          (1u << INT_V_HK)
@@ -352,7 +360,6 @@ typedef struct {
 #define INT_VHTX        (1u << INT_V_VHTX)
 #define INT_PTR         (1u << INT_V_PTR)
 #define INT_PTP         (1u << INT_V_PTP)
-#define INT_CR          (1u << INT_V_CR)
 #define INT_DMCRX       (1u << INT_V_DMCRX)
 #define INT_DMCTX       (1u << INT_V_DMCTX)
 #define INT_DUPRX       (1u << INT_V_DUPRX)
@@ -362,6 +369,7 @@ typedef struct {
 #define INT_TDTX        (1u << INT_V_TDTX)
 
 #define IPL_DTA         (0x16 - IPL_HMIN)
+#define IPL_CR          (0x16 - IPL_HMIN)
 #define IPL_DZRX        (0x15 - IPL_HMIN)
 #define IPL_DZTX        (0x15 - IPL_HMIN)
 #define IPL_HK          (0x15 - IPL_HMIN)
@@ -374,7 +382,6 @@ typedef struct {
 #define IPL_LPT         (0x14 - IPL_HMIN)
 #define IPL_PTR         (0x14 - IPL_HMIN)
 #define IPL_PTP         (0x14 - IPL_HMIN)
-#define IPL_CR          (0x14 - IPL_HMIN)
 #define IPL_VHRX        (0x14 - IPL_HMIN)
 #define IPL_VHTX        (0x14 - IPL_HMIN)
 #define IPL_DMCRX       (0x15 - IPL_HMIN)
@@ -401,7 +408,6 @@ typedef struct {
 #define SET_INT(dv)     int_req[IPL_##dv] = int_req[IPL_##dv] | (INT_##dv)
 #define CLR_INT(dv)     int_req[IPL_##dv] = int_req[IPL_##dv] & ~(INT_##dv)
 #define IORETURN(f,v)   ((f)? (v): SCPE_OK)             /* cond error return */
-extern int32 int_req[IPL_HLVL];                         /* intr, IPL 14-17 */
 
 /* Logging */
 

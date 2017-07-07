@@ -132,7 +132,6 @@ static d10 tim_new_period = 0;                          /* period for the next i
 static int32 tim_mult;                                  /* Multiple of interval timer period at which tmxr is polled */
 
 d10 quant = 0;                                          /* ITS quantum */
-static int32 tim_t20_prob = 33;                         /* TOPS-20 prob */
 
 /* Exported variables - initialized by set CPU model and reset */
 
@@ -141,10 +140,7 @@ int32 tmr_poll;                                         /* SimH instructions/clo
 int32 tmxr_poll;                                        /* SimH instructions/term mux poll */
 
 extern int32 apr_flg, pi_act;
-extern UNIT cpu_unit;
 extern d10 pcst;
-extern a10 pager_PC;
-extern int32 t20_idlelock;
 
 static t_stat tcu_rd (int32 *data, int32 PA, int32 access);
 static t_stat tim_svc (UNIT *uptr);
@@ -152,11 +148,6 @@ static t_stat tim_reset (DEVICE *dptr);
 static t_bool update_interval (d10 new_interval);
 static void tim_incr_base (d10 *base, d10 incr);
 
-extern d10 Read (a10 ea, int32 prv);
-extern d10 ReadM (a10 ea, int32 prv);
-extern void Write (a10 ea, d10 val, int32 prv);
-extern void WriteP (a10 ea, d10 val);
-extern int32 pi_eval (void);
 extern t_stat wr_nop (int32 data, int32 PA, int32 access);
 
 /* TIM data structures
@@ -175,7 +166,6 @@ static REG tim_reg[] = {
     { ORDATAD (PERIOD, tim_period, 36, "reset value for interval") },
     { ORDATAD (QUANT, quant, 36, "quantum timer (ITS only)") },
     { DRDATAD (TIME, tim_unit.wait, 24, "tick delay"), REG_NZ + PV_LEFT },
-    { DRDATA (PROB, tim_t20_prob, 6), REG_NZ + PV_LEFT + REG_HIDDEN },
     { DRDATA (POLL, tmr_poll, 32), REG_HRO + PV_LEFT },
     { DRDATA (MUXPOLL, tmxr_poll, 32), REG_HRO + PV_LEFT },
     { DRDATA (MULT, tim_mult, 6), REG_HRO + PV_LEFT },
@@ -341,12 +331,14 @@ return FALSE;
 
 static t_stat tim_svc (UNIT *uptr)
 {
-if (cpu_unit.flags & UNIT_KLAD)                         /* diags? */
+if (cpu_unit.flags & UNIT_KLAD) {                       /* diags? */
     tmr_poll = uptr->wait;                              /* fixed clock */
-else
+    sim_activate (uptr, tmr_poll);                          /* reactivate unit */
+    }
+else {
     tmr_poll = sim_rtc_calb (clk_tps);                  /* else calibrate */
-    
-sim_activate (uptr, tmr_poll);                          /* reactivate unit */
+    sim_activate_after (uptr, 1000000/clk_tps);         /* reactivate unit */
+    }
 tmxr_poll = tmr_poll * tim_mult;                        /* set mux poll */
 tim_incr_base (tim_base, tim_period);                   /* incr time base based on period of expired interval */
 tim_period = tim_new_period;                            /* If interval has changed, update period */
@@ -360,10 +352,6 @@ if (Q_ITS) {                                            /* ITS? */
         pcst = AOB (pcst);                              /* add 1,,1 */
         }
     }                                                   /* end ITS */
-else {
-    if (t20_idlelock && PROB (100 - tim_t20_prob))
-        t20_idlelock = 0;
-    }
 return SCPE_OK;
 }
 
