@@ -28,12 +28,14 @@
         This software was written by Bill Beech, 24 Jan 13, to allow emulation of 
         more complex Multibus Computer Systems.
 
-        This program simulates up to 2 i8259 devices.  It handles 1 i8259 
+        This program simulates up to 4 i8259 devices.  It handles 1 i8259 
         device on the iSBC 80/20 and iSBC 80/30 SBCs.  Other devices could be on 
         other multibus boards in the simulated system.
 */
 
 #include "system_defs.h"                /* system header in system dir */
+
+#define  DEBUG   0
 
 /* function prototypes */
 
@@ -56,6 +58,12 @@ extern uint16 reg_dev(uint8 (*routine)(t_bool, uint8), uint16, uint8);
 int32 i8259_devnum = 0;                 //actual number of 8259 instances + 1
 uint16 i8259_port[4];                   //baseport port registered to each instance
 
+/* these bytes represent the input and output to/from a port instance */
+
+uint8 i8259_IR[4];                      //interrupt inputs (bits 0-7)
+uint8 i8259_CAS[4];                     //interrupt cascade I/O (bits 0-2) 
+uint8 i8259_INT[4];                     //interrupt output (bit 0)
+
 uint8 i8259_base[I8259_NUM];
 uint8 i8259_icw1[I8259_NUM];
 uint8 i8259_icw2[I8259_NUM];
@@ -67,7 +75,7 @@ uint8 i8259_ocw3[I8259_NUM];
 uint8 icw_num0 = 1, icw_num1 = 1;
 
 /* i8259 Standard I/O Data Structures */
-/* up to 2 i8259 devices */
+/* up to 4 i8259 devices */
 
 UNIT i8259_unit[] = {
     { UDATA (0, 0, 0) },                /* i8259 0 */
@@ -97,7 +105,6 @@ DEBTAB i8259_debug[] = {
     { "FLOW", DEBUG_flow },
     { "READ", DEBUG_read },
     { "WRITE", DEBUG_write },
-    { "XACK", DEBUG_xack },
     { "LEV1", DEBUG_level1 },
     { "LEV2", DEBUG_level2 },
     { NULL }
@@ -140,11 +147,11 @@ DEVICE i8259_dev = {
 t_stat i8259_reset (DEVICE *dptr, uint16 baseport)
 {
     if (i8259_devnum >= I8259_NUM) {
-        sim_printf("8259_reset: Illegal Device Number %d\n", i8259_devnum);
-        return 0;
+        sim_printf("i8255_reset: too many devices!\n");
+        return SCPE_MEM;
     }
-    sim_printf("   8259-%d: Reset\n", i8259_devnum);
-    sim_printf("   8259-%d: Registered at %04X\n", i8259_devnum, baseport);
+    sim_printf("      8259-%d: Reset\n", i8259_devnum);
+    sim_printf("      8259-%d: Registered at %04X\n", i8259_devnum, baseport);
     i8259_port[i8259_devnum] = baseport;
     reg_dev(i8259a, baseport, i8259_devnum); 
     reg_dev(i8259b, baseport + 1, i8259_devnum); 
@@ -199,7 +206,8 @@ uint8 i8259a(t_bool io, uint8 data)
                     break;
                 }
             }
-            sim_printf("   8259-%d: A data = %02X\n", devnum, data);
+            if (DEBUG)
+                sim_printf("   8259-%d: A data = %02X\n", devnum, data);
             icw_num0++;             /* step ICW number */
         }
 //        i8259_dump(devnum);
@@ -238,7 +246,8 @@ uint8 i8259b(t_bool io, uint8 data)
                     break;
                 }
             }
-            sim_printf("   8259-%d: B data = %02X\n", devnum, data);
+            if (DEBUG)
+                sim_printf("   8259-%d: B data = %02X\n", devnum, data);
             icw_num1++;                     /* step ICW number */
         }
 //        i8259_dump(devnum);

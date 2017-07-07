@@ -182,7 +182,7 @@ extern t_stat cpu_show_memory (FILE* st, UNIT* uptr, int32 val, CONST void* desc
 
 #define ADDR_IS_CDG(x)  (0)
 
-/* Machine specific reserved operand tests (all NOPs) */
+/* Machine specific reserved operand tests (mostly NOPs) */
 
 #define ML_PA_TEST(r)
 #define ML_LR_TEST(r)
@@ -191,6 +191,8 @@ extern t_stat cpu_show_memory (FILE* st, UNIT* uptr, int32 val, CONST void* desc
 #define LP_AST_TEST(r)
 #define LP_MBZ84_TEST(r)
 #define LP_MBZ92_TEST(r)
+
+#define MT_AST_TEST(r)  if ((r) > AST_MAX) RSVD_OPND_FAULT
 
 /* Qbus I/O modes */
 
@@ -381,7 +383,6 @@ typedef struct {
 #define SET_INT(dv)     int_req[IPL_##dv] = int_req[IPL_##dv] | (INT_##dv)
 #define CLR_INT(dv)     int_req[IPL_##dv] = int_req[IPL_##dv] & ~(INT_##dv)
 #define IORETURN(f,v)   ((f)? (v): SCPE_OK)             /* cond error return */
-extern int32 int_req[IPL_HLVL];                         /* intr, IPL 14-17 */
 
 /* Logging */
 

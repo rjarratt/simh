@@ -379,9 +379,9 @@ extern jmp_buf save_env;
 #define DR_F            0x80                            /* FPD ok flag */
 #define DR_NSPMASK      0x07                            /* #specifiers */
 #define DR_V_USPMASK    4
-#define DR_M_USPMASK    0x07                            /* #spec, sym_ */
-#define DR_GETNSP(x)    ((x) & DR_NSPMASK)
-#define DR_GETUSP(x)    (((x) >> DR_V_USPMASK) & DR_M_USPMASK)
+#define DR_M_USPMASK    0x7                             /* #spec, sym_ */
+#define DR_GETNSP(x)    ((x) & DR_NSPMASK)              /* #specifiers */
+#define DR_GETUSP(x)    (((x) >> DR_V_USPMASK) & DR_M_USPMASK) /* #specifiers for unimplemented instructions */
 
 /* Extra bits in the opcode flag word of the Decode ROM array only for history results */
 
@@ -762,7 +762,8 @@ enum opcodes {
 #define VAX_IDLE_BSDNEW     0x20
 #define VAX_IDLE_SYSV       0x40
 #define VAX_IDLE_ELN        0x40    /* VAXELN */
-extern uint32 cpu_idle_mask;                            /* idle mask */
+extern uint32 cpu_idle_mask;        /* idle mask */
+extern int32 extra_bytes;           /* bytes referenced by current string instruction */
 void cpu_idle (void);
 
 /* Instruction History */
@@ -922,5 +923,10 @@ extern t_stat cpu_set_model (UNIT *uptr, int32 val, CONST char *cptr, void *desc
 extern t_stat cpu_help (FILE *st, DEVICE *dptr, UNIT *uptr, int32 flag, const char *cptr);
 extern t_stat cpu_model_help (FILE *st, DEVICE *dptr, UNIT *uptr, int32 flag, const char *cptr);
 extern const uint32 byte_mask[33];
+extern int32 autcon_enb;                                /* autoconfig enable */
+extern int32 int_req[IPL_HLVL];                         /* intr, IPL 14-17 */
+extern uint32 *M;                                       /* Memory */
+extern DEVICE cpu_dev;                                  /* CPU */
+extern UNIT cpu_unit;                                   /* CPU */
 
 #endif                                                  /* _VAX_DEFS_H */

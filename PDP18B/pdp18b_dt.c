@@ -1,6 +1,6 @@
 /* pdp18b_dt.c: 18b DECtape simulator
 
-   Copyright (c) 1993-2016, Robert M Supnik
+   Copyright (c) 1993-2017, Robert M Supnik
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -27,6 +27,8 @@
                 (PDP-9) TC02/TU55 DECtape
                 (PDP-15) TC15/TU56 DECtape
 
+   15-Mar-17    RMS     Fixed dt_seterr to clear successor states
+   09-Mar-17    RMS     Fixed dt_seterr to handle nx unit select (COVERITY)
    10-Mar-16    RMS     Added 3-cycle databreak set/show entries
    07-Mar-16    RMS     Revised for dynamically allocated memory
    13-Mar-15    RMS     Added APIVEC register
@@ -993,7 +995,8 @@ switch (fnc) {                                          /* at speed, check fnc *
                 fprintf (sim_deb, ">>DT%d: reading block %d %s%s\n",
                          unum, blk, (dir? "backward": "forward"),
                          ((dtsa & DTA_MODE)? " continuous": " "));
-            dt_substate = 0;                            /* fall through */
+            dt_substate = 0;
+            /* fall through */
         case 0:                                         /* normal read */
             M[DT_WC] = (M[DT_WC] + 1) & DMASK;          /* incr WC, CA */
             M[DT_CA] = (M[DT_CA] + 1) & DMASK;
@@ -1006,6 +1009,7 @@ switch (fnc) {                                          /* at speed, check fnc *
                 M[ma] = dtdb;
             if (M[DT_WC] == 0)                          /* wc ovf? */
                 dt_substate = DTO_WCO;
+            /* fall through */
         case DTO_WCO:                                   /* wc ovf, not sob */
             if (wrd != (dir? 0: DTU_BSIZE (uptr) - 1))  /* not last? */
                 sim_activate (uptr, DT_WSIZE * dt_ltime);
@@ -1051,10 +1055,12 @@ switch (fnc) {                                          /* at speed, check fnc *
                 fprintf (sim_deb, ">>DT%d: writing block %d %s%s\n", unum, blk,
                          (dir? "backward": "forward"),
                          ((dtsa & DTA_MODE)? " continuous": " "));
-            dt_substate = 0;                            /* fall through */
+            dt_substate = 0;
+            /* fall through */
         case 0:                                         /* normal write */
             M[DT_WC] = (M[DT_WC] + 1) & DMASK;          /* incr WC, CA */
             M[DT_CA] = (M[DT_CA] + 1) & DMASK;
+            /* fall through */
         case DTO_WCO:                                   /* wc ovflo */
             ma = M[DT_CA] & AMASK;                      /* mem addr */
             ba = (blk * DTU_BSIZE (uptr)) + wrd;        /* buffer ptr */
@@ -1271,16 +1277,18 @@ return SCPE_OK;
 
 void dt_seterr (UNIT *uptr, int32 e)
 {
-int32 mot = DTS_GETMOT (uptr->STATE);
-
 dtsa = dtsa & ~DTA_STSTP;                               /* clear go */
 dtsb = dtsb | DTB_ERF | e;                              /* set error flag */
-if (mot >= DTS_ACCF) {                                  /* ~stopped or stopping? */
-    sim_cancel (uptr);                                  /* cancel activity */
-    if (dt_setpos (uptr))                               /* update position */
-        return;
-    sim_activate (uptr, dt_dctime);                     /* sched decel */
-    DTS_SETSTA (DTS_DECF | (mot & DTS_DIR), 0);         /* state = decel */
+if (uptr != NULL) {                                     /* valid select? */
+    int32 mot = DTS_GETMOT (uptr->STATE);               /* get motion */
+    if (mot >= DTS_ACCF) {                              /* ~stopped or stopping? */
+        sim_cancel (uptr);                              /* cancel activity */
+        if (dt_setpos (uptr))                           /* update position */
+            return;
+        sim_activate (uptr, dt_dctime);                 /* sched decel */
+        DTS_SETSTA (DTS_DECF | (mot & DTS_DIR), 0);     /* state = decel */
+        }
+    else DTS_SETSTA (mot, 0);                           /* clear 2nd, 3rd */
     }
 DT_UPDINT;
 return;

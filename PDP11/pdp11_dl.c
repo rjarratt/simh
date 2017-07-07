@@ -79,7 +79,6 @@
 #define DLOCSR_RD       (CSR_DONE|CSR_IE|DLOCSR_MNT|DLOCSR_XBR)
 #define DLOCSR_WR       (CSR_IE|DLOCSR_MNT|DLOCSR_XBR)
 
-extern int32 int_req[IPL_HLVL];
 extern int32 tmxr_poll;
 
 uint16 dli_csr[DLX_LINES] = { 0 };                      /* control/status */
@@ -165,18 +164,18 @@ MTAB dli_mod[] = {
 #define DBG_TRC  TMXR_DBG_TRC                           /* routine calls */
 
 DEBTAB dl_debug[] = {
-	{ "REG",       DBG_REG,   "Register Activities" },
-	{ "INT",       DBG_INT,   "Interrupt Activities" },
-	{ "XMT",  TMXR_DBG_XMT,   "Transmit Data" },
-	{ "RCV",  TMXR_DBG_RCV,   "Received Data" },
-	{ "RET",  TMXR_DBG_RET,   "Returned Received Data" },
-	{ "MDM",  TMXR_DBG_MDM,   "Modem Signals" },
-	{ "CON",  TMXR_DBG_CON,   "Connection Activities" },
-	{ "ASY",  TMXR_DBG_ASY,   "Asynchronous Activities" },
-	{ "TRC",       DBG_TRC,   "trace routine calls" },
-	{ "EXP",  TMXR_DBG_EXP,   "Expect Activities" },
-	{ "SEND", TMXR_DBG_SEND,  "Send Activities" },
-	{ 0 }
+    { "REG",       DBG_REG,   "Register Activities" },
+    { "INT",       DBG_INT,   "Interrupt Activities" },
+    { "XMT",  TMXR_DBG_XMT,   "Transmit Data" },
+    { "RCV",  TMXR_DBG_RCV,   "Received Data" },
+    { "RET",  TMXR_DBG_RET,   "Returned Received Data" },
+    { "MDM",  TMXR_DBG_MDM,   "Modem Signals" },
+    { "CON",  TMXR_DBG_CON,   "Connection Activities" },
+    { "ASY",  TMXR_DBG_ASY,   "Asynchronous Activities" },
+    { "TRC",       DBG_TRC,   "trace routine calls" },
+    { "EXP",  TMXR_DBG_EXP,   "Expect Activities" },
+    { "SEND", TMXR_DBG_SEND,  "Send Activities" },
+    { 0 }
 };
 
 
@@ -273,7 +272,7 @@ switch ((PA >> 1) & 03) {                               /* decode PA<2:1> */
         *data = dli_buf[ln] & DLIBUF_RD;
         dli_csr[ln] &= ~CSR_DONE;                       /* clr rcv done */
         dli_clr_int (ln, DLI_RCI);                      /* clr rcv int req */
-        /* Rechedule the next poll preceisely so that 
+        /* Reschedule the next poll preceisely so that 
            the programmed input speed is observed. */
         sim_clock_coschedule_abs (&dli_unit, tmxr_poll);
         break;

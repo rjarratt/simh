@@ -183,7 +183,6 @@ int32 tmr_iccs = 0;                                     /* interval timer csr */
 uint32 tmr_icr = 0;                                     /* curr interval */
 uint32 tmr_nicr = 0;                                    /* next interval */
 uint32 tmr_inc = 0;                                     /* timer increment */
-int32 tmr_sav = 0;                                      /* timer save */
 int32 tmr_int = 0;                                      /* interrupt */
 int32 clk_tps = 100;                                    /* ticks/second */
 int32 tmxr_poll = CLK_DELAY * TMXR_MULT;                /* term mux poll */
@@ -298,7 +297,6 @@ UNIT clk_unit = { UDATA (NULL, UNIT_IDLE+UNIT_FIX, sizeof(TOY))};
 REG clk_reg[] = {
     { DRDATAD (TIME,                   clk_unit.wait,  24, "initial poll interval"), REG_NZ + PV_LEFT },
     { DRDATAD (POLL,                        tmr_poll,  24, "calibrated poll interval"), REG_NZ + PV_LEFT + REG_HRO },
-    { DRDATAD (TPS,                          clk_tps,   8, "ticks per second (100)"), REG_NZ + PV_LEFT },
 #if defined (SIM_ASYNCH_IO)
     { DRDATAD (ASYNCH,            sim_asynch_enabled,   1, "asynch I/O enabled flag"), PV_LEFT },
     { DRDATAD (LATENCY,           sim_asynch_latency,  32, "desired asynch interrupt latency"), PV_LEFT },
@@ -307,12 +305,19 @@ REG clk_reg[] = {
     { NULL }
     };
 
+#define TMR_DB_TODR     0x10    /* TODR */
+
+DEBTAB todr_deb[] = {
+    { "TODR",  TMR_DB_TODR,     "TODR activities"},
+    { NULL, 0 }
+    };
+
 DEVICE clk_dev = {
     "TODR", &clk_unit, clk_reg, NULL,
     1, 0, 8, 4, 0, 32,
     NULL, NULL, &clk_reset,
     NULL, &clk_attach, &clk_detach,
-    NULL, 0, 0, NULL, NULL, NULL, &clk_help, NULL, NULL, 
+    NULL, DEV_DEBUG, 0, todr_deb, NULL, NULL, &clk_help, NULL, NULL, 
     &clk_description
     };
 
@@ -323,8 +328,8 @@ REG tmr_reg[] = {
     { HRDATAD (ICR,            tmr_icr, 32, "interval count register") },
     { HRDATAD (NICR,          tmr_nicr, 32, "next interval count register") },
     { FLDATAD (INT,            tmr_int,  0, "interrupt request") },
+    { DRDATAD (TPS,            clk_tps,  8, "ticks per second (100)"), REG_NZ + PV_LEFT },
     { HRDATA  (INCR,           tmr_inc, 32), REG_HIDDEN },
-    { HRDATA  (SAVE,           tmr_sav, 32), REG_HIDDEN },
     { NULL }
     };
 
@@ -332,14 +337,12 @@ REG tmr_reg[] = {
 #define TMR_DB_TICK     0x02    /* Ticks */
 #define TMR_DB_SCHED    0x04    /* Scheduling */
 #define TMR_DB_INT      0x08    /* Interrupts */
-#define TMR_DB_TODR     0x10    /* TODR */
 
 DEBTAB tmr_deb[] = {
     { "REG",   TMR_DB_REG,      "Register Access"},
     { "TICK",  TMR_DB_TICK,     "Ticks"},
-    { "SCHED", TMR_DB_SCHED,    "Ticks"},
+    { "SCHED", TMR_DB_SCHED,    "Scheduling"},
     { "INT",   TMR_DB_INT,      "Interrupts"},
-    { "TODR",  TMR_DB_TODR,     "TODR activities"},
     { NULL, 0 }
     };
 
@@ -568,7 +571,7 @@ tmxr_set_console_units (&tti_unit, &tto_unit);
 tti_buf = 0;
 tti_csr = 0;
 tti_int = 0;
-sim_activate (&tti_unit, KBD_WAIT (tti_unit.wait, tmr_poll));
+sim_activate (&tti_unit, tmr_poll);
 return SCPE_OK;
 }
 
@@ -656,11 +659,11 @@ void iccs_wr (int32 val)
 {
 sim_debug_bits_hdr (TMR_DB_REG, &tmr_dev, "iccs_wr()", tmr_iccs_bits, tmr_iccs, val, TRUE);
 if ((val & TMR_CSR_RUN) == 0) {                         /* clearing run? */
-    sim_cancel (&tmr_unit);                             /* cancel timer */
     if (tmr_iccs & TMR_CSR_RUN) {                       /* run 1 -> 0? */
         tmr_icr = icr_rd ();                            /* update itr */
         sim_rtcn_calb (0, TMR_CLK);                     /* stop timer */
         }
+    sim_cancel (&tmr_unit);                             /* cancel timer */
     }
 if (val & CSR_DONE)                                     /* Interrupt Acked? */
     sim_rtcn_tick_ack (20, TMR_CLK);                    /* Let timers know */
@@ -709,8 +712,9 @@ int32 icr_rd (void)
 int32 result;
 
 if (tmr_iccs & TMR_CSR_RUN) {                           /* running? */
-    uint32 delta = sim_grtime() - tmr_sav;
-    result = (int32)(tmr_nicr + (uint32)((1000000.0 * delta) / sim_timer_inst_per_sec ()));
+    uint32 usecs_remaining = (uint32)sim_activate_time_usecs (&tmr_unit);
+
+    result = (int32)(~usecs_remaining + 1);
     }
 else
     result = (int32)tmr_icr;
@@ -735,7 +739,7 @@ tmr_nicr = val;
 t_stat tmr_svc (UNIT *uptr)
 {
 sim_debug (TMR_DB_TICK, &tmr_dev, "tmr_svc()\n");
-tmxr_poll = tmr_poll * TMXR_MULT;                       /* set mux poll */
+tmxr_poll = tmr_poll * TMXR_MULT;                   /* set mux poll */
 if (tmr_iccs & TMR_CSR_DON)                         /* done? set err */
     tmr_iccs = tmr_iccs | TMR_CSR_ERR;
 else
@@ -758,12 +762,11 @@ void tmr_sched (uint32 nicr)
 {
 uint32 usecs = (nicr) ? (~nicr + 1) : 0xFFFFFFFF;
 
-clk_tps = 1000000 / usecs;
+clk_tps = (int32)((1000000.0 / usecs) + 0.5);
 
 sim_debug (TMR_DB_SCHED, &tmr_dev, "tmr_sched(nicr=0x%08X-usecs=0x%08X) - tps=%d\n", nicr, usecs, clk_tps);
 tmr_poll = sim_rtcn_calb (clk_tps, TMR_CLK);
-if (SCPE_OK == sim_activate_after (&tmr_unit, usecs))
-    tmr_sav = sim_grtime();                             /* Save interval base time */
+sim_activate_after (&tmr_unit, usecs);
 }
 
 /* 100Hz TODR reset */
@@ -890,6 +893,31 @@ return "interval timer";
 
 /* TODR routines */
 
+static const char *todr_fmt_vms_todr (int32 val)
+{
+static char buf[32];
+uint32 uval = (uint32)val;
+
+if (val < 0x10000000)
+    sprintf (buf, "Not VMS Time: 0x%08X", uval);
+else {
+    int yday, hr, min, sec, msecs;
+
+    uval -= 0x10000000;
+    msecs = (uval % 100) * 10;
+    uval /= 100;
+    sec = uval % 60;
+    uval /= 60;
+    min = uval % 60;
+    uval /= 60;
+    hr = uval % 24;
+    uval /= 24;
+    yday = uval;
+    sprintf (buf, "yday:%d %02d:%02d:%02d.%03d", yday, hr, min, sec, msecs);
+    }    
+return buf;
+}
+
 int32 todr_rd (void)
 {
 TOY *toy = (TOY *)clk_unit.filebuf;
@@ -899,7 +927,7 @@ sim_rtcn_get_time(&now, TMR_CLK);                       /* get curr time */
 base.tv_sec = toy->toy_gmtbase;
 base.tv_nsec = toy->toy_gmtbasemsec * 1000000;
 sim_timespec_diff (&val, &now, &base);
-sim_debug (TMR_DB_TODR, &tmr_dev, "todr_rd() - TODR=0x%X\n", (int32)(val.tv_sec*100 + val.tv_nsec/10000000));
+sim_debug (TMR_DB_TODR, &clk_dev, "todr_rd() - TODR=0x%X - %s\n", (int32)(val.tv_sec*100 + val.tv_nsec/10000000), todr_fmt_vms_todr ((int32)(val.tv_sec*100 + val.tv_nsec/10000000)));
 return (int32)(val.tv_sec*100 + val.tv_nsec/10000000);  /* 100hz Clock Ticks */
 }
 
@@ -907,24 +935,26 @@ void todr_wr (int32 data)
 {
 TOY *toy = (TOY *)clk_unit.filebuf;
 struct timespec now, val, base;
+time_t tbase;
 
-/* Save the GMT time when set value was 0 to record the base for future 
-   read operations in "battery backed-up" state */
+/* Save the GMT time when set value was 0 to record the base for 
+   future read operations in "battery backed-up" state */
 
 sim_rtcn_get_time(&now, TMR_CLK);                       /* get curr time */
 val.tv_sec = ((uint32)data) / 100;
 val.tv_nsec = (((uint32)data) % 100) * 10000000;
 sim_timespec_diff (&base, &now, &val);                  /* base = now - data */
 toy->toy_gmtbase = (uint32)base.tv_sec;
+tbase = (time_t)base.tv_sec;
 toy->toy_gmtbasemsec = base.tv_nsec/1000000;
-sim_debug (TMR_DB_TODR, &tmr_dev, "todr_wr(0x%X)\n", data);
+sim_debug (TMR_DB_TODR, &clk_dev, "todr_wr(0x%X) - %s - GMTBASE=%8.8s.%03d\n", data, todr_fmt_vms_todr (data), 11+ctime(&tbase), (int)(base.tv_nsec/1000000));
 }
 
 t_stat todr_resync (void)
 {
 TOY *toy = (TOY *)clk_unit.filebuf;
 
-if (clk_unit.flags & UNIT_ATT) {                        /* Attached means behave like real VAX780 */
+if (clk_unit.flags & UNIT_ATT) {                        /* Attached means behave like real VAX TODR */
     if (!toy->toy_gmtbase)                              /* Never set? */
         todr_wr (0);                                    /* Start ticking from 0 */
     }
@@ -932,18 +962,21 @@ else {                                                  /* Not-Attached means */
     uint32 base;                                        /* behave like simh VMS default */
     time_t curr;
     struct tm *ctm;
+    struct timespec now;
 
-    curr = time (NULL);                                 /* get curr time */
+    sim_rtcn_get_time(&now, TMR_CLK);                   /* get curr time */
+    curr = (time_t)now.tv_sec;
     if (curr == (time_t) -1)                            /* error? */
         return SCPE_NOFNC;
     ctm = localtime (&curr);                            /* decompose */
     if (ctm == NULL)                                    /* error? */
         return SCPE_NOFNC;
     base = (((((ctm->tm_yday * 24) +                    /* sec since 1-Jan */
-               ctm->tm_hour) * 60) +
-             ctm->tm_min) * 60) +
-           ctm->tm_sec;
-    todr_wr ((base * 100) + 0x10000000);                /* use VMS form */
+            ctm->tm_hour) * 60) +
+            ctm->tm_min) * 60) +
+            ctm->tm_sec;
+    todr_wr ((base * 100) + 0x10000000 +                /* use VMS form */
+             (int32)(now.tv_nsec / 10000000));
     }
 return SCPE_OK;
 }

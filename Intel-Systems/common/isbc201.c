@@ -63,26 +63,28 @@
             bit 5 - write protect
             bit 6 - write error
             bit 7 - not ready
-            If result type is 10H
+            If result type is 02H and ready has changed
             bit 0 - zero
             bit 1 - zero
             bit 2 - zero
             bit 3 - zero
-            bit 4 - zero
-            bit 5 - zero
+            bit 4 - drive 2 ready
+            bit 5 - drive 3 ready
             bit 6 - drive 0 ready
             bit 7 - drive 1 ready
+            else return 0
 
         07FH - Write - Reset diskette system.
 
     Operations:
-        Recalibrate -
-        Seek -
-        Format Track -
-        Write Data -
-        Write Deleted Data -
-        Read Data -
-        Verify CRC -
+        NOP - 0x00
+        Seek - 0x01
+        Format Track - 0x02
+        Recalibrate - 0x03
+        Read Data - 0x04
+        Verify CRC - 0x05
+        Write Data - 0x06
+        Write Deleted Data - 0x07
 
     IOPB - I/O Parameter Block
         Byte 0 - Channel Word
@@ -134,7 +136,7 @@
 
         u3 -
         u4 -
-        u5 - fdc number
+        u5 - fdc number (board instance number).
         u6 - fdd number.
 
 */
@@ -181,9 +183,17 @@
 #define RB1RD0          0x40            //drive 0 ready
 #define RB1RD1          0x80            //drive 1 ready
 
+//disk geometry values
+#define MDSSD           256256          //single density FDD size
+#define MDSDD           512512          //double density FDD size
+#define MAXSECSD        26              //single density last sector
+#define MAXSECDD        52              //double density last sector
+#define MAXTRK          76              //last track
+
 /* external globals */
 
-extern uint16 port;                     //port called in dev_table[port]
+extern uint16   port;                   //port called in dev_table[port]
+extern int32    PCX;
 
 /* external function prototypes */
 
@@ -212,17 +222,17 @@ void isbc201_diskio(uint8 fdcnum);      //do actual disk i/o
 int32 isbc201_fdcnum = 0;               //actual number of SBC-201 instances + 1
 
 typedef    struct    {                  //FDD definition
-    uint8   *buf;
     int     t0;
     int     rdy;
-    uint8   maxsec;
-    uint8   maxcyl;
+    uint8   sec;
+    uint8   cyl;
     }    FDDDEF;
 
 typedef    struct    {                  //FDC definition
     uint16  baseport;                   //FDC base port
     uint16  iopb;                       //FDC IOPB
     uint8   stat;                       //FDC status
+    uint8   rdychg;                     //FDC ready changed
     uint8   rtype;                      //FDC result type
     uint8   rbyte0;                     //FDC result byte for type 00
     uint8   rbyte1;                     //FDC result byte for type 10
@@ -233,25 +243,33 @@ typedef    struct    {                  //FDC definition
 FDCDEF    fdc201[4];                    //indexed by the isbc-201 instance number
 
 UNIT isbc201_unit[] = {
-    { UDATA (0, UNIT_ATTABLE+UNIT_DISABLE, 0), 20 }, 
-    { UDATA (0, UNIT_ATTABLE+UNIT_DISABLE, 0), 20 }, 
-    { UDATA (0, UNIT_ATTABLE+UNIT_DISABLE, 0), 20 }, 
-    { UDATA (0, UNIT_ATTABLE+UNIT_DISABLE, 0), 20 } 
+    { UDATA (0, UNIT_ATTABLE+UNIT_DISABLE+UNIT_BUFABLE+UNIT_MUSTBUF, MDSSD), 20 }, 
+    { UDATA (0, UNIT_ATTABLE+UNIT_DISABLE+UNIT_BUFABLE+UNIT_MUSTBUF, MDSSD), 20 }, 
+    { UDATA (0, UNIT_ATTABLE+UNIT_DISABLE+UNIT_BUFABLE+UNIT_MUSTBUF, MDSSD), 20 }, 
+    { UDATA (0, UNIT_ATTABLE+UNIT_DISABLE+UNIT_BUFABLE+UNIT_MUSTBUF, MDSSD), 20 } 
 };
 
 REG isbc201_reg[] = {
-    { HRDATA (STATUS0, isbc201_unit[0].u3, 8) }, /* isbc201 0 status */
-    { HRDATA (RTYP0, isbc201_unit[0].u4, 8) }, /* isbc201 0 result type */
-    { HRDATA (RBYT0, isbc201_unit[0].u5, 8) }, /* isbc201 0 result byte */
-    { HRDATA (STATUS1, isbc201_unit[1].u3, 8) }, /* isbc201 1 status */
-    { HRDATA (RTYP1, isbc201_unit[1].u4, 8) }, /* isbc201 0 result type */
-    { HRDATA (RBYT1, isbc201_unit[1].u5, 8) }, /* isbc201 0 result byte */
-    { HRDATA (STATUS2, isbc201_unit[2].u3, 8) }, /* isbc201 2 status */
-    { HRDATA (RTYP2, isbc201_unit[0].u4, 8) }, /* isbc201 0 result type */
-    { HRDATA (R$BYT2, isbc201_unit[2].u5, 8) }, /* isbc201 0 result byte */
-    { HRDATA (STATUS3, isbc201_unit[3].u3, 8) }, /* isbc201 3 status */
-    { HRDATA (RTYP3, isbc201_unit[3].u4, 8) }, /* isbc201 0 result type */
-    { HRDATA (RBYT3, isbc201_unit[3].u5, 8) }, /* isbc201 0 result byte */
+    { HRDATA (STAT0, fdc201[0].stat, 8) },      /* fdc201 0 status */
+    { HRDATA (RTYP0, fdc201[0].rtype, 8) },     /* fdc201 0 result type */
+    { HRDATA (RBYT0A, fdc201[0].rbyte0, 8) },   /* fdc201 0 result byte 0 */
+    { HRDATA (RBYT0B, fdc201[0].rbyte1, 8) },   /* fdc201 0 result byte 1 */
+    { HRDATA (INTFF0, fdc201[0].intff, 8) },    /* fdc201 0 interrupt f/f */
+    { HRDATA (STAT1, fdc201[1].stat, 8) },      /* fdc201 1 status */
+    { HRDATA (RTYP1, fdc201[1].rtype, 8) },     /* fdc201 1 result type */
+    { HRDATA (RBYT1A, fdc201[1].rbyte0, 8) },   /* fdc201 1 result byte 0 */
+    { HRDATA (RBYT1B, fdc201[1].rbyte1, 8) },   /* fdc201 1 result byte 1 */
+    { HRDATA (INTFF1, fdc201[1].intff, 8) },    /* fdc201 1 interrupt f/f */
+    { HRDATA (STAT2, fdc201[2].stat, 8) },      /* fdc201 2 status */
+    { HRDATA (RTYP2, fdc201[2].rtype, 8) },     /* fdc201 2 result type */
+    { HRDATA (RBYT2A, fdc201[2].rbyte0, 8) },   /* fdc201 2 result byte 0 */
+    { HRDATA (RBYT2B, fdc201[2].rbyte1, 8) },   /* fdc201 2 result byte 1 */
+    { HRDATA (INTFF2, fdc201[2].intff, 8) },    /* fdc201 2 interrupt f/f */
+    { HRDATA (STAT3, fdc201[3].stat, 8) },      /* fdc201 3 status */
+    { HRDATA (RTYP3, fdc201[3].rtype, 8) },     /* fdc201 3 result type */
+    { HRDATA (RBYT3A, fdc201[3].rbyte0, 8) },   /* fdc201 3 result byte 0 */
+    { HRDATA (RBYT3B, fdc201[3].rbyte1, 8) },   /* fdc201 3 result byte 1 */
+    { HRDATA (INTFF3, fdc201[3].intff, 8) },    /* fdc201 3 interrupt f/f */
     { NULL }
 };
 
@@ -303,21 +321,33 @@ DEVICE isbc201_dev = {
 
 t_stat isbc201_reset(DEVICE *dptr, uint16 base)
 {
-    sim_printf("Initializing iSBC-201 FDC Board\n");
+    int32 i;
+    UNIT *uptr;
+
+    sim_printf("      iSBC-201 FDC Board");
     if (SBC201_NUM) {
-        sim_printf("   isbc201-%d: Hardware Reset\n", isbc201_fdcnum);
-        sim_printf("   isbc201-%d: Registered at %04X\n", isbc201_fdcnum, base);
+        sim_printf(" - Found\n");
+        sim_printf("         isbc201-%d: Hardware Reset\n", isbc201_fdcnum);
+        sim_printf("         isbc201-%d: Registered at %04X\n", isbc201_fdcnum, base);
+        //register base port address for this FDC instance
         fdc201[isbc201_fdcnum].baseport = base;
+        //register I/O port addresses for each function
         reg_dev(isbc2010, base, isbc201_fdcnum);         //read status
         reg_dev(isbc2011, base + 1, isbc201_fdcnum);     //read rslt type/write IOPB addr-l
         reg_dev(isbc2012, base + 2, isbc201_fdcnum);     //write IOPB addr-h and start 
         reg_dev(isbc2013, base + 3, isbc201_fdcnum);     //read rstl byte 
-        reg_dev(isbc2017 , base + 7, isbc201_fdcnum);     //write reset isbc202
+        reg_dev(isbc2017, base + 7, isbc201_fdcnum);     //write reset fdc201
+        // one-time initialization for all FDDs for this FDC instance
+        for (i = 0; i < FDD_NUM; i++) { 
+            uptr = isbc201_dev.units + i;
+            uptr->u5 = isbc201_fdcnum;  //fdc device number
+            uptr->u6 = i;               //fdd unit number
+            uptr->flags |= UNIT_WPMODE; //set WP in unit flags
+        }
         isbc201_reset1(isbc201_fdcnum);
         isbc201_fdcnum++;
-    } else {
-        sim_printf("   No isbc201 installed\n");
-    }
+    } else
+        sim_printf(" - Not Found\n");
     return SCPE_OK;
 }
 
@@ -328,18 +358,14 @@ void isbc201_reset1(uint8 fdcnum)
     int32 i;
     UNIT *uptr;
 
-    sim_printf("   isbc201-%d: Software Reset\n", fdcnum);
+    sim_printf("         isbc201-%d: Software Reset\n", fdcnum);
     fdc201[fdcnum].stat = 0;            //clear status
     for (i = 0; i < FDD_NUM; i++) {     /* handle all units */
         uptr = isbc201_dev.units + i;
         fdc201[fdcnum].stat |= FDCPRE;  //set the FDC status
         fdc201[fdcnum].rtype = ROK;
         if (uptr->capac == 0) {         /* if not configured */
-            uptr->capac = 0;            /* initialize unit */
-            uptr->u5 = fdcnum;          //fdc device number
-            uptr->u6 = i;               //fdd unit number
-            uptr->flags |= UNIT_WPMODE; /* set WP in unit flags */
-            sim_printf("   isbc201-%d: Configured, Status=%02X Not attached\n", i, fdc201[fdcnum].stat);
+            sim_printf("         isbc201-%d: Configured, Status=%02X Not attached\n", i, fdc201[fdcnum].stat);
         } else {
             switch(i){
                 case 0:
@@ -351,20 +377,18 @@ void isbc201_reset1(uint8 fdcnum)
                     fdc201[fdcnum].rbyte1 |= RB1RD1;
                     break;
             }
-            sim_printf("   isbc201-%d: Configured, Status=%02X Attached to %s\n",
+            fdc201[fdcnum].rdychg = 0;
+            sim_printf("         isbc201-%d: Configured, Status=%02X Attached to %s\n",
                 i, fdc201[fdcnum].stat, uptr->filename);
         }
     }
 }
 
-/* isbc202 attach - attach an .IMG file to a FDD */
+/* fdc201 attach - attach an .IMG file to a FDD */
 
 t_stat isbc201_attach (UNIT *uptr, CONST char *cptr)
 {
     t_stat r;
-    FILE *fp;
-    int32 i, c = 0;
-    long flen;
     uint8 fdcnum, fddnum;
 
     sim_debug (DEBUG_flow, &isbc201_dev, "   isbc201_attach: Entered with cptr=%s\n", cptr);
@@ -374,54 +398,24 @@ t_stat isbc201_attach (UNIT *uptr, CONST char *cptr)
     }
     fdcnum = uptr->u5;
     fddnum = uptr->u6;
-    fp = fopen(uptr->filename, "rb");
-    if (fp == NULL) {
-        sim_printf("   Unable to open disk image file %s\n", uptr->filename);
-        sim_printf("   No disk image loaded!!!\n");
-    } else {
-        sim_printf("isbc202: Attach\n");
-        fseek(fp, 0, SEEK_END);         /* size disk image */
-        flen = ftell(fp);
-        fseek(fp, 0, SEEK_SET);
-        if (fdc201[fdcnum].fdd[fddnum].buf == NULL) { /* no buffer allocated */
-            fdc201[fdcnum].fdd[fddnum].buf = (uint8 *)malloc(flen);
-            if (fdc201[fdcnum].fdd[fddnum].buf == NULL) {
-                sim_printf("   isbc201_attach: Malloc error\n");
-                return SCPE_MEM;
-            }
-        }
-        uptr->capac = flen;
-        i = 0;
-        c = fgetc(fp);                  // copy disk image into buffer
-        while (c != EOF) {
-            *(fdc201[fdcnum].fdd[fddnum].buf + i++) = c & 0xFF;
-            c = fgetc(fp);
-        }
-        fclose(fp);
-        switch(fddnum){
-            case 0:
-                fdc201[fdcnum].stat |= RDY0; //set FDD 0 ready
-                fdc201[fdcnum].rtype = ROK;
-                fdc201[fdcnum].rbyte1 |= RB1RD0;
-                break;
-            case 1:
-                fdc201[fdcnum].stat |= RDY1; //set FDD 1 ready
-                fdc201[fdcnum].rtype = ROK;
-                fdc201[fdcnum].rbyte1 |= RB1RD1;
-                break;
-        }
-        if (flen == 256256) {           /* 8" 256K SSSD */
-            fdc201[fdcnum].fdd[fddnum].maxcyl = 77;
-            fdc201[fdcnum].fdd[fddnum].maxsec = 26;
-        }
-        sim_printf("   iSBC-201%d: Configured %d bytes, Attached to %s\n",
-            fdcnum, uptr->capac, uptr->filename);
+    switch(fddnum){
+        case 0:
+            fdc201[fdcnum].stat |= RDY0; //set FDD 0 ready
+            fdc201[fdcnum].rbyte1 |= RB1RD0;
+            break;
+        case 1:
+            fdc201[fdcnum].stat |= RDY1; //set FDD 1 ready
+            fdc201[fdcnum].rbyte1 |= RB1RD1;
+            break;
     }
+    fdc201[fdcnum].rtype = ROK;
+    sim_printf("   iSBC-201%d: FDD %d Configured %d bytes, Attached to %s\n",
+        fdcnum, fddnum, uptr->capac, uptr->filename);
     sim_debug (DEBUG_flow, &isbc201_dev, "   isbc201_attach: Done\n");
     return SCPE_OK;
 }
 
-/* isbc202 set mode = Write protect */
+/* fdc201 set mode = Write protect */
 
 t_stat isbc201_set_mode (UNIT *uptr, int32 val, CONST char *cptr, void *desc)
 {
@@ -443,7 +437,7 @@ uint8 isbc201_get_dn(void)
     for (i=0; i<SBC201_NUM; i++)
         if (port >= fdc201[i].baseport && port <= fdc201[i].baseport + 7)
             return i;
-    sim_printf("isbc201_get_dn: port %04X not in isbc202 device table\n", port);
+    sim_printf("isbc201_get_dn: port %04X not in fdc201 device table\n", port);
     return 0xFF;
 }
 
@@ -460,8 +454,8 @@ uint8 isbc2010(t_bool io, uint8 data)
     if ((fdcnum = isbc201_get_dn()) != 0xFF) {
         if (io == 0) {                  /* read ststus*/
             if (DEBUG)
-                sim_printf("\n   isbc201-%d: returned status=%02X", 
-                    fdcnum, fdc201[fdcnum].stat);
+                sim_printf("\n   isbc201-%d: 0x78 returned status=%02X PCX=%04X",
+                                        fdcnum, fdc201[fdcnum].stat, PCX);
             return fdc201[fdcnum].stat;
         }
     }
@@ -477,13 +471,14 @@ uint8 isbc2011(t_bool io, uint8 data)
             fdc201[fdcnum].intff = 0;      //clear interrupt FF
             fdc201[fdcnum].stat &= ~FDCINT;
             if (DEBUG)
-                sim_printf("\n   isbc201-%d: returned rtype=%02X intff=%02X status=%02X", 
-                    fdcnum, fdc201[fdcnum].rtype, fdc201[fdcnum].intff, fdc201[fdcnum].stat);
+                sim_printf("\n   isbc201-%d: 0x79 returned rtype=%02X intff=%02X status=%02X PCX=%04X", 
+                    fdcnum, fdc201[fdcnum].rtype, fdc201[fdcnum].intff, fdc201[fdcnum].stat, PCX);
             return fdc201[fdcnum].rtype;
         } else {                        /* write data port */
             fdc201[fdcnum].iopb = data;
             if (DEBUG)
-                sim_printf("\n   isbc201-%d: IOPB low=%02X", fdcnum, data);
+                sim_printf("\n   isbc201-%d: 0x79 IOPB low=%02X PCX=%04X", 
+                    fdcnum, data, PCX);
         }
     }
     return 0;
@@ -499,7 +494,8 @@ uint8 isbc2012(t_bool io, uint8 data)
         } else {                        /* write data port */
             fdc201[fdcnum].iopb |= (data << 8);
             if (DEBUG)
-                sim_printf("\n   isbc201-%d: data=%02X IOPB=%04X", fdcnum, data, fdc201[fdcnum].iopb);
+                sim_printf("\n   isbc201-%d: 0x7A IOPB=%04X PCX=%04X", 
+                    fdcnum, fdc201[fdcnum].iopb, PCX);
             isbc201_diskio(fdcnum);
             if (fdc201[fdcnum].intff)
                 fdc201[fdcnum].stat |= FDCINT;
@@ -510,21 +506,28 @@ uint8 isbc2012(t_bool io, uint8 data)
 
 uint8 isbc2013(t_bool io, uint8 data)
 {
-    uint8 fdcnum, rslt;
+    uint8 fdcnum;
 
     if ((fdcnum = isbc201_get_dn()) != 0xFF) {
         if (io == 0) {                  /* read data port */
-            switch(fdc201[fdcnum].rtype) {
-                case 0x00:
-                    rslt = fdc201[fdcnum].rbyte0;
-                    break;
-                case 0x02:
-                    rslt = fdc201[fdcnum].rbyte1;
-                    break;
+            if (fdc201[fdcnum].rtype == 0) {
+                if (DEBUG)
+                    sim_printf("\n   isbc201-%d: 0x7B returned rbyte0=%02X PCX=%04X",
+                        fdcnum, fdc201[fdcnum].rbyte0, PCX);
+                return fdc201[fdcnum].rbyte0;
+            } else {
+                if (fdc201[fdcnum].rdychg) {
+                    if (DEBUG)
+                        sim_printf("\n   isbc201-%d: 0x7B returned rbyte1=%02X PCX=%04X",
+                            fdcnum, fdc201[fdcnum].rbyte1, PCX);
+                    return fdc201[fdcnum].rbyte1;
+                } else {
+                    if (DEBUG)
+                        sim_printf("\n   isbc201-%d: 0x7B returned rbytex=%02X PCX=%04X",
+                            fdcnum, 0, PCX);
+                    return 0;
+                }
             }
-            if (DEBUG)
-                sim_printf("\n   isbc201-%d: returned result byte=%02X", fdcnum, rslt);
-            return rslt;
         } else {                        /* write data port */
             ; //stop diskette operation
         }
@@ -550,13 +553,13 @@ uint8 isbc2017(t_bool io, uint8 data)
 
 void isbc201_diskio(uint8 fdcnum)
 {
-    uint8 cw, di, nr, ta, sa, bn, data, nrptr, c;
+    uint8 cw, di, nr, ta, sa, bn, data, nrptr;
     uint16 ba, ni;
     uint32 dskoff;
-    uint8 fddnum;
+    uint8 fddnum, fmtb;
     uint32 i;
     UNIT *uptr;
-    FILE *fp;
+    uint8 *fbuf;
 
     //parse the IOPB
     cw = multibus_get_mbyte(fdc201[fdcnum].iopb);
@@ -569,6 +572,7 @@ void isbc201_diskio(uint8 fdcnum)
     ni = multibus_get_mword(fdc201[fdcnum].iopb + 8);
     fddnum = (di & 0x30) >> 4;
     uptr = isbc201_dev.units + fddnum;
+    fbuf = (uint8 *) (isbc201_dev.units + fddnum)->filebuf;
     if (DEBUG) {
         sim_printf("\n   isbc201-%d: isbc201_diskio IOPB=%04X FDD=%02X STAT=%02X",
             fdcnum, fdc201[fdcnum].iopb, fddnum, fdc201[fdcnum].stat);
@@ -581,7 +585,7 @@ void isbc201_diskio(uint8 fdcnum)
             if ((fdc201[fdcnum].stat & RDY0) == 0) {
                 fdc201[fdcnum].rtype = RERR;
                 fdc201[fdcnum].rbyte0 = RB0NR;
-                fdc201[fdcnum].intff = 1;  //set interrupt FF
+                fdc201[fdcnum].intff = 1; //set interrupt FF
                 sim_printf("\n   isbc201-%d: Ready error on drive %d", fdcnum, fddnum);
                 return;
             }
@@ -590,7 +594,7 @@ void isbc201_diskio(uint8 fdcnum)
             if ((fdc201[fdcnum].stat & RDY1) == 0) {
                 fdc201[fdcnum].rtype = RERR;
                 fdc201[fdcnum].rbyte0 = RB0NR;
-                fdc201[fdcnum].intff = 1;  //set interrupt FF
+                fdc201[fdcnum].intff = 1; //set interrupt FF
                 sim_printf("\n   isbc201-%d: Ready error on drive %d", fdcnum, fddnum);
                 return;
             }
@@ -598,37 +602,68 @@ void isbc201_diskio(uint8 fdcnum)
     }
     //check for address error
     if (
-        (sa > fdc201[fdcnum].fdd[fddnum].maxsec) ||
-        ((sa + nr) > (fdc201[fdcnum].fdd[fddnum].maxsec + 1)) ||
+        ((di & 0x07) != DHOME) && (
+        (sa > MAXSECSD) ||
+        ((sa + nr) > (MAXSECSD + 1)) ||
         (sa == 0) ||
-        (ta > fdc201[fdcnum].fdd[fddnum].maxcyl)
-        ) {
-//            sim_printf("\n   isbc201-%d: maxsec=%02X maxcyl=%02X",
-//                fdcnum, fdc201[fdcnum].fdd[fddnum].maxsec, fdc201[fdcnum].fdd[fddnum].maxcyl);
-            fdc201[fdcnum].rtype = RERR;
-            fdc201[fdcnum].rbyte0 = RB0ADR;
-            fdc201[fdcnum].intff = 1;      //set interrupt FF
-            sim_printf("\n   isbc201-%d: Address error on drive %d", fdcnum, fddnum);
-            return;
+        (ta > MAXTRK)
+        )) {
+        fdc201[fdcnum].rtype = RERR;
+        fdc201[fdcnum].rbyte0 = RB0ADR;
+        fdc201[fdcnum].intff = 1;      //set interrupt FF
+        sim_printf("\n   isbc201-%d: Address error on drive %d", fdcnum, fddnum);
+        return;
     }
     switch (di & 0x07) {
         case DNOP:
+            fdc201[fdcnum].rtype = ROK;
+            fdc201[fdcnum].intff = 1;   //set interrupt FF
+            break;
         case DSEEK:
+            fdc201[fdcnum].fdd[fddnum].sec = sa;
+            fdc201[fdcnum].fdd[fddnum].cyl = ta;
+            fdc201[fdcnum].rtype = ROK;
+            fdc201[fdcnum].intff = 1;   //set interrupt FF
+            break;
         case DHOME:
+            fdc201[fdcnum].fdd[fddnum].sec = sa;
+            fdc201[fdcnum].fdd[fddnum].cyl = 0;
+            fdc201[fdcnum].rtype = ROK;
+            fdc201[fdcnum].intff = 1;   //set interrupt FF
+            break;
         case DVCRC:
             fdc201[fdcnum].rtype = ROK;
-            fdc201[fdcnum].intff = 1;      //set interrupt FF
+            fdc201[fdcnum].intff = 1;   //set interrupt FF
+            break;
+        case DFMT:
+            //check for WP
+            if(uptr->flags & UNIT_WPMODE) {
+                fdc201[fdcnum].rtype = RERR;
+                fdc201[fdcnum].rbyte0 = RB0WP;
+                fdc201[fdcnum].intff = 1; //set interrupt FF
+                sim_printf("\n   isbc202-%d: Write protect error 1 on drive %d", fdcnum, fddnum);
+                return;
+            }
+            fmtb = multibus_get_mbyte(ba); //get the format byte
+            //calculate offset into disk image
+            dskoff = ((ta * MAXSECDD) + (sa - 1)) * 128;
+            for(i=0; i<=((uint32)(MAXSECDD) * 128); i++) {
+                *(fbuf + (dskoff + i)) = fmtb;
+            }
+            fdc201[fdcnum].rtype = ROK;
+            fdc201[fdcnum].intff = 1;   //set interrupt FF
             break;
         case DREAD:
             nrptr = 0;
             while(nrptr < nr) {
                 //calculate offset into disk image
-                dskoff = ((ta * fdc201[fdcnum].fdd[fddnum].maxsec) + (sa - 1)) * 128;
+                dskoff = ((ta * MAXSECSD) + (sa - 1)) * 128;
                 if (DEBUG)
-                    sim_printf("\n   isbc201-%d: cw=%02X di=%02X nr=%02X ta=%02X sa=%02X ba=%04X bn=%02X ni=%04X dskoff=%06X",
+                    sim_printf("\n   isbc201-%d: DREAD cw=%02X di=%02X nr=%02X ta=%02X sa=%02X ba=%04X bn=%02X ni=%04X dskoff=%06X",
                         fdcnum, cw, di, nr, ta, sa, ba, bn, ni, dskoff);
-                for (i=0; i<128; i++) {     //copy sector from image to RAM
-                    data = *(fdc201[fdcnum].fdd[fddnum].buf + (dskoff + i));
+                //copy sector from image to RAM
+                for (i=0; i<128; i++) { 
+                    data = *(fbuf + (dskoff + i));
                     multibus_put_mbyte(ba + i, data);
                 }
                 sa++;
@@ -636,41 +671,34 @@ void isbc201_diskio(uint8 fdcnum)
                 nrptr++;
             }
             fdc201[fdcnum].rtype = ROK;
-            fdc201[fdcnum].intff = 1;      //set interrupt FF
+            fdc201[fdcnum].intff = 1;   //set interrupt FF
             break;
         case DWRITE:
             //check for WP
             if(uptr->flags & UNIT_WPMODE) {
                 fdc201[fdcnum].rtype = RERR;
                 fdc201[fdcnum].rbyte0 = RB0WP;
-                fdc201[fdcnum].intff = 1;  //set interrupt FF
+                fdc201[fdcnum].intff = 1; //set interrupt FF
                 sim_printf("\n   isbc201-%d: Write protect error on drive %d", fdcnum, fddnum);
                 return;
             }
             nrptr = 0;
             while(nrptr < nr) {
                 //calculate offset into disk image
-                dskoff = ((ta * fdc201[fdcnum].fdd[fddnum].maxsec) + (sa - 1)) * 128;
+                dskoff = ((ta * MAXSECSD) + (sa - 1)) * 128;
                 if (DEBUG)
-                    sim_printf("\n   isbc201-%d: cw=%02X di=%02X nr=%02X ta=%02X sa=%02X ba=%04X bn=%02X ni=%04X dskoff=%06X",
+                    sim_printf("\n   isbc201-%d: DWRITE cw=%02X di=%02X nr=%02X ta=%02X sa=%02X ba=%04X bn=%02X ni=%04X dskoff=%06X",
                         fdcnum, cw, di, nr, ta, sa, ba, bn, ni, dskoff);
-                for (i=0; i<128; i++) {     //copy sector from image to RAM
+                for (i=0; i<128; i++) { //copy sector from image to RAM
                     data = multibus_get_mbyte(ba + i);
-                    *(fdc201[fdcnum].fdd[fddnum].buf + (dskoff + i)) = data;
+                    *(fbuf + (dskoff + i)) = data;
                 }
                 sa++;
                 ba+=0x80;
                 nrptr++;
             }
-            //*** quick fix. Needs more thought!
-            fp = fopen(uptr->filename, "wb"); // write out modified image
-            for (i=0; i<uptr->capac; i++) {
-                c = *(fdc201[fdcnum].fdd[fddnum].buf + i);
-                fputc(c, fp);
-            }
-            fclose(fp);
             fdc201[fdcnum].rtype = ROK;
-            fdc201[fdcnum].intff = 1;      //set interrupt FF
+            fdc201[fdcnum].intff = 1;   //set interrupt FF
             break;
         default:
             sim_printf("\n   isbc201-%d: isbc201_diskio bad di=%02X", fdcnum, di & 0x07);

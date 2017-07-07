@@ -1,6 +1,6 @@
 /* sigma_sys.c: Sigma system interface
 
-   Copyright (c) 2007-2008, Robert M Supnik
+   Copyright (c) 2007-2017, Robert M Supnik
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -22,6 +22,8 @@
    Except as contained in this notice, the name of Robert M Supnik shall not be
    used in advertising or otherwise to promote the sale, use or other dealings
    in this Software without prior written authorization from Robert M Supnik.
+
+   09-Mar-2017  RMS     Added LOAD processor for CCT
 */
 
 #include "sigma_defs.h"
@@ -49,6 +51,8 @@ extern UNIT cpu_unit;
 t_stat fprint_sym_m (FILE *of, uint32 inst);
 t_stat parse_sym_m (const char *cptr, t_value *val);
 void fprint_ebcdic (FILE *of, uint32 c);
+
+extern t_stat lp_read_cct (FILE *cfile);
 
 /* SCP data structures and interface routines
 
@@ -166,7 +170,7 @@ uint8 ebcdic_to_ascii[256] = {
 
 t_stat sim_load (FILE *fileref, CONST char *cptr, CONST char *fnam, int flag)
 {
-return SCPE_NOFNC;
+return lp_read_cct (fileref);
 }
 
 /* Symbol and format tables */
@@ -336,11 +340,6 @@ static const char *opcode[] = {
    Outputs:
         return  =       status code
 */
-
-/* Use scp.c provided fprintf function */
-#define fprintf Fprintf
-#define fputs(_s,f) Fprintf(f,"%s",_s)
-#define fputc(_c,f) Fprintf(f,"%c",_c)
 
 t_stat fprint_sym (FILE *of, t_addr addr, t_value *val,
     UNIT *uptr, int32 sw)

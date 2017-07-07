@@ -29,6 +29,10 @@
    06-Nov-2013  MB      Increased the speed of v-sync interrupts, which
                         was too slow for some O/S drivers.
    11-Jun-2013  MB      First version
+
+   Related documents:
+
+        AZ-GLFAB-MN - VAXstation II Technical Manual, BA23 Enclosure (Appendix C)
 */
 
 #if !defined(VAX_620)
@@ -36,6 +40,8 @@
 #include "vax_defs.h"
 #include "sim_video.h"
 #include "vax_2681.h"
+#include "vax_lk.h"
+#include "vax_vs.h"
 
 /* CSR - control/status register */
 
@@ -194,11 +200,6 @@ BITFIELD vc_ic_mode_bits[] = {
 #define IOLN_QVSS       0100
 
 extern int32 tmxr_poll;                                 /* calibrated delay */
-
-extern t_stat lk_wr (uint8 c);
-extern t_stat lk_rd (uint8 *c);
-extern t_stat vs_wr (uint8 c);
-extern t_stat vs_rd (uint8 *c);
 
 struct vc_int_t {
     uint32 ptr;
@@ -627,9 +628,9 @@ switch (rg) {
                 break;
 
             case 10:                                    /* Control mode bits */
-                vc_intc.mode &= ~0x60 | ((data << 3) & 0x60); /* mode<06:05> = data<03:02> */
+                vc_intc.mode &= ~ICM_M_RP | ((data << 3) & ICM_M_RP); /* mode<06:05> = data<03:02> */
                 if (((data & 0x3) == 0x1) || ((data & 0x3) == 2))
-                    vc_intc.mode &= ~0x80 | ((data << 7) & 0x80);
+                    vc_intc.mode &= ~ICM_MM | ((data << 7) & ICM_MM);
                 break;
 
             case 11:                                    /* Preselect IMR */
@@ -799,7 +800,7 @@ uint32 i;
 uint32 msk = (vc_intc.irr & ~vc_intc.imr);              /* unmasked interrutps */
 vc_icsr &= ~(ICSR_GRI|ICSR_M_IRRVEC);                   /* clear GRI & vector */
 
-if ((vc_intc.mode & 0x80) && ~(vc_intc.mode & 0x4)) {   /* group int MM & not polled */
+if ((vc_intc.mode & (ICM_MM | ICM_IM)) == ICM_MM) {     /* group int MM & not polled */
     for (i = 0; i < 8; i++) {
         if (msk & (1u << i)) {
             vc_icsr |= (ICSR_GRI | i);
@@ -875,6 +876,8 @@ return 0;                                               /* no intr req */
 
 t_stat vc_svc (UNIT *uptr)
 {
+SIM_MOUSE_EVENT mev;
+SIM_KEY_EVENT kev;
 t_bool updated = FALSE;                                 /* flag for refresh */
 uint32 lines;
 uint32 ln, col, off;
@@ -914,31 +917,35 @@ vc_cur_v = CUR_V;
 vc_cur_f = CUR_F;
 vc_cur_new_data = FALSE;
 
-xpos = vc_mpos & 0xFF;                                  /* get current mouse position */
-ypos = (vc_mpos >> 8) & 0xFF;
-dx = vid_mouse_xrel;                                    /* get relative movement */
-dy = -vid_mouse_yrel;
-if (dx > VC_MOVE_MAX)                                   /* limit movement */
-    dx = VC_MOVE_MAX;
-else if (dx < -VC_MOVE_MAX)
-    dx = -VC_MOVE_MAX;
-if (dy > VC_MOVE_MAX)
-    dy = VC_MOVE_MAX;
-else if (dy < -VC_MOVE_MAX)
-    dy = -VC_MOVE_MAX;
-xpos += dx;                                             /* add to counters */
-ypos += dy;
-vc_mpos = ((ypos & 0xFF) << 8) | (xpos & 0xFF);         /* update register */
-vid_mouse_xrel -= dx;                                   /* reset counters for next poll */
-vid_mouse_yrel += dy;
+if (vid_poll_kb (&kev) == SCPE_OK)                      /* poll keyboard */
+    lk_event (&kev);                                    /* push event */
+if (vid_poll_mouse (&mev) == SCPE_OK) {                 /* poll mouse */
+    xpos = vc_mpos & 0xFF;                              /* get current mouse position */
+    ypos = (vc_mpos >> 8) & 0xFF;
+    dx = mev.x_rel;                                     /* get relative movement */
+    dy = -mev.y_rel;
+    if (dx > VC_MOVE_MAX)                               /* limit movement */
+        dx = VC_MOVE_MAX;
+    else if (dx < -VC_MOVE_MAX)
+        dx = -VC_MOVE_MAX;
+    if (dy > VC_MOVE_MAX)
+        dy = VC_MOVE_MAX;
+    else if (dy < -VC_MOVE_MAX)
+        dy = -VC_MOVE_MAX;
+    xpos += dx;                                         /* add to counters */
+    ypos += dy;
+    vc_mpos = ((ypos & 0xFF) << 8) | (xpos & 0xFF);     /* update register */
 
-vc_csr |= (CSR_MSA | CSR_MSB | CSR_MSC);                /* reset button states */
-if (vid_mouse_b3)                                       /* set new button states */
-    vc_csr &= ~CSR_MSA;
-if (vid_mouse_b2)
-    vc_csr &= ~CSR_MSB;
-if (vid_mouse_b1)
-    vc_csr &= ~CSR_MSC;
+    vc_csr |= (CSR_MSA | CSR_MSB | CSR_MSC);            /* reset button states */
+    if (mev.b3_state)                                   /* set new button states */
+        vc_csr &= ~CSR_MSA;
+    if (mev.b2_state)
+        vc_csr &= ~CSR_MSB;
+    if (mev.b1_state)
+        vc_csr &= ~CSR_MSC;
+    
+    vs_event (&mev);                                    /* push event */
+    }
 
 lines = 0;
 for (ln = 0; ln < VC_YSIZE; ln++) {
@@ -996,7 +1003,7 @@ vc_intc.irr = 0;
 vc_intc.imr = 0xFF;
 vc_intc.isr = 0;
 vc_intc.acr = 0;
-vc_intc.mode = 0x80;
+vc_intc.mode = ICM_MM;
 vc_icsr = 0;
 
 vc_csr = (((QVMBASE >> QVMAWIDTH) & ((1<<CSR_S_MA)-1)) << CSR_V_MA) | CSR_MOD;

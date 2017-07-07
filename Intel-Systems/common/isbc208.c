@@ -800,11 +800,13 @@ t_stat isbc208_svc (UNIT *uptr)
                 }
                 //*** quick fix. Needs more thought!
                 fp = fopen(uptr->filename, "wb"); // write out modified image
-                for (i=0; i<uptr->capac; i++) {
-                    c = *(isbc208_buf[uptr->u6] + i) & 0xFF;
-                    fputc(c, fp);
+                if (fp) {
+                    for (i=0; i<uptr->capac; i++) {
+                        c = *(isbc208_buf[uptr->u6] + i) & 0xFF;
+                        fputc(c, fp);
+                    }
+                    fclose(fp);
                 }
-                fclose(fp);
 //*** need to step return results IAW table 3-11 in 143078-001
                 i8272_w2 = cyl;     /* generate a current address mark */
                 i8272_w3 = hed >> 2;
@@ -886,7 +888,7 @@ t_stat isbc208_svc (UNIT *uptr)
             i8272_r0 = hed + drv;   /* command done - no error */
             i8272_r1 = 0;
             i8272_r2 = 0;
-            i8272_msr &= ~(RQM + DIO + CB); /* execution phase done*/
+//            i8272_msr &= ~(RQM + DIO + CB); /* execution phase done*/
             i8272_msr = 0;          // force 0 for now, where does 0x07 come from?
             i8272_msr |= RQM;       /* enter command phase */
             rsp = wsp = 0;          /* reset indexes */
@@ -1069,10 +1071,16 @@ t_stat isbc208_attach (UNIT *uptr, CONST char *cptr)
         fseek(fp, 0, SEEK_END);         /* size disk image */
         flen = ftell(fp);
         fseek(fp, 0, SEEK_SET);
+        if (flen == -1) {
+            sim_printf("   isbc208_attach: File error\n");
+            fclose(fp);
+            return SCPE_IOERR;
+        } 
         if (isbc208_buf[uptr->u6] == NULL) { /* no buffer allocated */
             isbc208_buf[uptr->u6] = (uint8 *)malloc(flen);
             if (isbc208_buf[uptr->u6] == NULL) {
                 sim_printf("   iSBC208_attach: Malloc error\n");
+                fclose(fp);
                 return SCPE_MEM;
             }
         }

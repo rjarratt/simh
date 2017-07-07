@@ -371,7 +371,7 @@ if (r != SCPE_OK) {                                     /* error? */
         }
     return r;
     }
-strncpy (cpu_boot_cmd, ptr, CBUFSIZE);                  /* save for reboot */
+strncpy (cpu_boot_cmd, ptr, CBUFSIZE-1);                /* save for reboot */
 return run_cmd (flag, "CPU");
 }
 
@@ -387,7 +387,9 @@ DEVICE *dptr;
 UNIT *uptr;
 t_stat r;
 
-if (ptr && (*ptr == '/')) {                             /* handle "BOOT /R5:n DEV" format */
+if (ptr == NULL)
+    return SCPE_ARG;
+if (*ptr == '/') {                                      /* handle "BOOT /R5:n DEV" format */
     ptr = get_glyph (ptr, rbuf, 0);                     /* get glyph */
     regptr = rbuf;
     ptr = get_glyph (ptr, gbuf, 0);                     /* get glyph */
@@ -401,6 +403,7 @@ else {                                                  /* handle "BOOT DEV /R5:
     }
 /* parse R5 parameter value */
 r5v = 0;
+/* coverity[NULL_RETURNS] */ 
 if ((strncmp (regptr, "/R5:", 4) == 0) ||
     (strncmp (regptr, "/R5=", 4) == 0) ||
     (strncmp (regptr, "/r5:", 4) == 0) ||

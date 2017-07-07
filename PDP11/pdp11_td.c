@@ -447,13 +447,11 @@ OP CODE 11 (Resened)
 
 */
 
-#if defined (VM_VAX)                                  /* VAX version */
+#if defined (VM_VAX)                                    /* VAX version */
 #include "vax_defs.h"
-extern int32 int_req[IPL_HLVL];
 
 #else                                                   /* PDP-11 version */
 #include "pdp11_defs.h"
-extern int32 int_req[IPL_HLVL];
 #endif
 
 #include "pdp11_td.h"
@@ -921,7 +919,7 @@ switch (opcode) {
 
     case TD_OPDAT:
         if (ctlr->p_state != TD_WRITE1) {                   /* expecting data? */
-            sim_printf("TU58 protocol error 1\n");
+            sim_debug (TDDEB_ERR, ctlr->dptr, "td_process_packet() Opcode=%s(%d) - TU58 protocol error 1 - Not Expecting Data\n", opcode_name, opcode);
             return;
             }
         if (ctlr->ibptr < 2) {                              /* whole packet read? */
@@ -934,7 +932,7 @@ switch (opcode) {
 
     case TD_OPCMD:
         if (ctlr->p_state != TD_IDLE) {                     /* expecting command? */
-            sim_printf("TU58 protocol error 2\n");
+            sim_debug (TDDEB_ERR, ctlr->dptr, "td_process_packet() Opcode=%s(%d) - TU58 protocol error 2 - Not Expecting Command\n", opcode_name, opcode);
             return;
             }
         if (ctlr->ibptr < 2) {                              /* whole packet read? */
@@ -1021,6 +1019,10 @@ switch (opcode) {
             sim_debug (TDDEB_TRC, ctlr->dptr, "td_process_packet(OPBOO) Unit=%d\n", ctlr->ibuf[4]);
             ctlr->unitno = ctlr->ibuf[1];
             fbuf = (int8 *)ctlr->uptr[ctlr->unitno].filebuf;
+            if (fbuf == NULL) {                         /* attached? */
+                sim_debug (TDDEB_ERR, ctlr->dptr, "td_process_packet(OPBOO) Unit=%d - NOT ATTACHED\n", ctlr->ibuf[4]);
+                break;
+                }
             ctlr->block = 0;
             ctlr->txsize = 0;
             ctlr->p_state = TD_BOOTSTRAP;
@@ -1043,7 +1045,7 @@ switch (opcode) {
         break;
 
     default:
-        //sim_printf("TU58: Unknown opcode %d\n", opcode);
+        sim_debug (TDDEB_TRC, ctlr->dptr, "td_process_packet(%s) Unit=%d Unknown Opcode: %d\n", opcode_name, ctlr->ibuf[4], opcode);
         break;
     }
 }
@@ -1551,7 +1553,7 @@ return td_reset_ctlr (ctlr);
                         /* TBUF = 6 offset from CSR in R1                   */
                         /* BOOT_START:                                      */
     0012701, 0176500,   /*          MOV  #176500,R1  ; Set CSR              */
-    0012702, 0000000,   /*          MOV  #0,R0       ; Set Unit Number      */
+    0012700, 0000000,   /*          MOV  #0,R0       ; Set Unit Number      */
     0012706, BOOT_START,/*          MOV  #BOOT_START,SP ; Setup a Stack     */
     0005261, 0000004,   /*          INC  TCSR(R1)    ; Set BRK (Init)       */
     0005003,            /*          CLR  R3          ; data 000, 000        */
@@ -1584,12 +1586,11 @@ return td_reset_ctlr (ctlr);
 static t_stat td_boot (int32 unitno, DEVICE *dptr)
 {
 size_t i;
-extern uint16 *M;                                       /* memory */
 
 for (i = 0; i < BOOT_LEN; i++)
     M[(BOOT_START >> 1) + i] = boot_rom[i];
 M[BOOT_UNIT >> 1] = unitno & 1;
-M[BOOT_CSR >> 1] = (td_dib.ba & DMASK) + 000;
+M[BOOT_CSR >> 1] = (td_dib.ba & DMASK) + (unitno >> 1) * 010;
 cpu_set_boot (BOOT_ENTRY);
 return SCPE_OK;
 }

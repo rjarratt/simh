@@ -62,17 +62,14 @@
 #include "pdp10_defs.h"
 #define RANK_DZ         0                               /* no autoconfig */
 #define DZ_8B_DFLT      0
-extern int32 int_req;
 
 #elif defined (VM_VAX)                                  /* VAX version */
 #include "vax_defs.h"
 #define DZ_8B_DFLT      TT_MODE_8B
-extern int32 int_req[IPL_HLVL];
 
 #else                                                   /* PDP-11 version */
 #include "pdp11_defs.h"
 #define DZ_8B_DFLT      TT_MODE_8B
-extern int32 int_req[IPL_HLVL];
 #endif
 
 #include "sim_sock.h"
@@ -117,6 +114,7 @@ extern int32 int_req[IPL_HLVL];
 BITFIELD dz_csr_bits[] = {
   BITNCF(3),                                /* not used */
   BIT(MAINT),                               /* Maint */
+  BIT(CLR),                                 /* clear */
   BIT(MSE),                                 /* naster scan enable */
   BIT(RIE),                                 /* receive interrupt enable */
   BIT(RDONE),                               /* receive done */
@@ -169,7 +167,7 @@ const char *dz_stopbits[] = {"1", "2", "1", "1.5"};
 #define LPR_GETSPD(x)   dz_baudrates[((x) & LPR_M_SPEED) >> LPR_V_SPEED]
 #define LPR_GETCHARSIZE(x) dz_charsizes[((x) & LPR_M_CHARSIZE) >> LPR_V_CHARSIZE]
 #define LPR_GETPARITY(x) dz_parity[(((x) >> LPR_V_PARENB) & 1) | (((x) >> (LPR_V_PARODD-1)) & 2)]
-#define LPR_GETSTOPBITS(x) dz_stopbits[(((x) >> LPR_V_STOPBITS) & 1) + (((((x) & LPR_M_CHARSIZE) >> LPR_V_CHARSIZE) == 5) ? 2 : 0)]
+#define LPR_GETSTOPBITS(x) dz_stopbits[(((x) >> LPR_V_STOPBITS) & 1) + (((((x) & LPR_M_CHARSIZE) >> LPR_V_CHARSIZE) == 0) ? 2 : 0)]
 #define LPR_LPAR        0007770                         /* line pars - NI */
 #define LPR_RCVE        0010000                         /* receive enb */
 #define LPR_GETLN(x)    (((x) >> LPR_V_LINE) & DZ_LNOMASK)
@@ -214,8 +212,8 @@ BITFIELD dz_msr_bits[] = {
 #define TDR_V_TBR       8                               /* xmit break - NI */
 
 BITFIELD dz_tdr_bits[] = {
-  BITFFMT(CHAR,8,%02X),                     /* ring indicators */
-  BITFFMT(TBR, 8,%02X),                     /* carrier detects */
+  BITFFMT(CHAR,8,%02X),                     /* xmit char */
+  BITFFMT(TBR, 8,%02X),                     /* xmit break - NI */
   ENDBITS
 };
 
@@ -336,7 +334,7 @@ MTAB dz_mod[] = {
         NULL, &tmxr_show_cstat, (void *) &dz_desc, "Display current connections" },
     { MTAB_XTD|MTAB_VDV|MTAB_NMO, 0, "STATISTICS", NULL,
         NULL, &tmxr_show_cstat, (void *) &dz_desc, "Display multiplexer statistics" },
-    { MTAB_XTD|MTAB_VDV|MTAB_VALR, 020, "ADDRESS", "ADDRESS",
+    { MTAB_XTD|MTAB_VDV|MTAB_VALR, 010, "ADDRESS", "ADDRESS",
         &set_addr, &show_addr, NULL, "Bus address" },
     { MTAB_XTD|MTAB_VDV|MTAB_VALR, DZ_LINES, "VECTOR", "VECTOR",
         &set_vec, &show_vec_mux, (void *) &dz_desc, "Interrupt vector" },
@@ -398,7 +396,7 @@ switch ((PA >> 1) & 03) {                               /* case on PA<2:1> */
             tmxr_poll_rx (&dz_desc);                    /* poll input */
             dz_update_rcvi ();                          /* update rx intr */
             if (dz_rbuf[dz]) {
-                /* Rechedule the next poll preceisely so that 
+                /* Reschedule the next poll preceisely so that the 
                    the programmed input speed is observed. */
                 sim_clock_coschedule_abs (dz_unit, tmxr_poll);
                 }
@@ -754,6 +752,7 @@ sim_debug(DBG_TRC, &dz_dev, "dz_clear(dz=%d,flag=%d)\n", dz, flag);
 
 dz_csr[dz] = 0;                                         /* clear CSR */
 dz_rbuf[dz] = 0;                                        /* silo empty */
+dz_scnt[dz] = 0;
 dz_lpr[dz] = 0;                                         /* no params */
 if (flag)                                               /* INIT? clr all */
     dz_tcr[dz] = 0;

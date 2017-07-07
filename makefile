@@ -55,6 +55,9 @@
 # Internal ROM support can be disabled if GNU make is invoked with
 # DONT_USE_ROMS=1 on the command line.
 #
+# The use of pthreads for various things can be disabled if GNU make is 
+# invoked with NOPTHREADS=1 on the command line.
+#
 # Asynchronous I/O support can be disabled if GNU make is invoked with
 # NOASYNCH=1 on the command line.
 #
@@ -387,17 +390,10 @@ ifeq ($(WIN32),)  #*nix Environments (&& cygwin)
     OS_LDFLAGS += -lrt
     $(info using librt: $(call find_lib,rt))
   endif
-  ifneq (,$(call find_include,pthread))
-    ifneq (,$(call find_lib,pthread))
-      OS_CCDEFS += -DUSE_READER_THREAD
-      ifeq (,$(NOASYNCH))
-        OS_CCDEFS += -DSIM_ASYNCH_IO 
-      endif
-      OS_LDFLAGS += -lpthread
-      $(info using libpthread: $(call find_lib,pthread) $(call find_include,pthread))
-    else
-      LIBEXTSAVE := $(LIBEXT)
-      LIBEXT = a
+  ifneq (,$(NOPTHREADS))
+    OS_CCDEFS += -DDONT_USE_READER_THREAD
+  else
+    ifneq (,$(call find_include,pthread))
       ifneq (,$(call find_lib,pthread))
         OS_CCDEFS += -DUSE_READER_THREAD
         ifeq (,$(NOASYNCH))
@@ -406,15 +402,26 @@ ifeq ($(WIN32),)  #*nix Environments (&& cygwin)
         OS_LDFLAGS += -lpthread
         $(info using libpthread: $(call find_lib,pthread) $(call find_include,pthread))
       else
-        ifneq (,$(findstring Haiku,$(OSTYPE)))
+        LIBEXTSAVE := $(LIBEXT)
+        LIBEXT = a
+        ifneq (,$(call find_lib,pthread))
           OS_CCDEFS += -DUSE_READER_THREAD
           ifeq (,$(NOASYNCH))
             OS_CCDEFS += -DSIM_ASYNCH_IO 
           endif
-          $(info using libpthread: $(call find_include,pthread))
+          OS_LDFLAGS += -lpthread
+          $(info using libpthread: $(call find_lib,pthread) $(call find_include,pthread))
+        else
+          ifneq (,$(findstring Haiku,$(OSTYPE)))
+            OS_CCDEFS += -DUSE_READER_THREAD
+            ifeq (,$(NOASYNCH))
+              OS_CCDEFS += -DSIM_ASYNCH_IO 
+            endif
+            $(info using libpthread: $(call find_include,pthread))
+          endif
         endif
+        LIBEXT = $(LIBEXTSAVE)        
       endif
-      LIBEXT = $(LIBEXTSAVE)        
     endif
   endif
   # Find available RegEx library.  Prefer libpcreposix.
@@ -454,6 +461,9 @@ ifeq ($(WIN32),)  #*nix Environments (&& cygwin)
         endif
       endif
     endif
+  endif
+  ifneq (,$(call find_include,utime))
+    OS_CCDEFS += -DHAVE_UTIME
   endif
   ifneq (,$(call find_include,png))
     ifneq (,$(call find_lib,png))
@@ -763,6 +773,12 @@ ifeq ($(WIN32),)  #*nix Environments (&& cygwin)
   else
     ifeq (,$(shell grep 'define SIM_GIT_COMMIT_ID' sim_rev.h | grep 'Format:'))
       GIT_COMMIT_ID=$(shell grep 'define SIM_GIT_COMMIT_ID' sim_rev.h | awk '{ print $$3 }')
+    else
+      ifeq (git-submodule,$(if $(shell cd .. ; git rev-parse --git-dir 2>/dev/null),git-submodule))
+        GIT_COMMIT_ID=$(shell cd .. ; git submodule status | grep "$(notdir $(realpath .))" | awk '{ print $$1 }')
+      else
+        GIT_COMMIT_ID=undetermined-git-id
+      endif
     endif
   endif
 else
@@ -1217,9 +1233,10 @@ HP2100_OPT = -DHAVE_INT64 -I ${HP2100D}
 HP3000D = HP3000
 HP3000 = ${HP3000D}/hp_disclib.c ${HP3000D}/hp_tapelib.c ${HP3000D}/hp3000_atc.c \
 	${HP3000D}/hp3000_clk.c ${HP3000D}/hp3000_cpu.c ${HP3000D}/hp3000_cpu_base.c \
-	${HP3000D}/hp3000_cpu_fp.c ${HP3000D}/hp3000_ds.c ${HP3000D}/hp3000_iop.c \
-	${HP3000D}/hp3000_lp.c ${HP3000D}/hp3000_mpx.c ${HP3000D}/hp3000_ms.c \
-	${HP3000D}/hp3000_scmb.c ${HP3000D}/hp3000_sel.c ${HP3000D}/hp3000_sys.c
+	${HP3000D}/hp3000_cpu_fp.c ${HP3000D}/hp3000_cpu_cis.c ${HP3000D}/hp3000_ds.c \
+	${HP3000D}/hp3000_iop.c ${HP3000D}/hp3000_lp.c ${HP3000D}/hp3000_mem.c \
+	${HP3000D}/hp3000_mpx.c ${HP3000D}/hp3000_ms.c ${HP3000D}/hp3000_scmb.c \
+	${HP3000D}/hp3000_sel.c ${HP3000D}/hp3000_sys.c
 HP3000_OPT = -I ${HP3000D}
 
 
@@ -1391,7 +1408,7 @@ IMDS-225C = Intel-Systems/common
 IMDS-225 = ${IMDS-225C}/i8080.c ${IMDS-225D}/imds-225_sys.c \
 	${IMDS-225C}/i8251.c ${IMDS-225C}/i8255.c \
 	${IMDS-225C}/i8259.c ${IMDS-225C}/i8253.c \
-	${IMDS-225C}/ipceprom.c ${IMDS-225C}/ipcram8.c \
+	${IMDS-225C}/ieprom.c ${IMDS-225C}/iram8.c \
 	${IMDS-225C}/ipcmultibus.c ${IMDS-225D}/ipc.c \
 	${IMDS-225C}/ipc-cont.c ${IMDS-225C}/ioc-cont.c \
 	${IMDS-225C}/isbc202.c ${IMDS-225C}/isbc201.c \
@@ -1399,8 +1416,8 @@ IMDS-225 = ${IMDS-225C}/i8080.c ${IMDS-225D}/imds-225_sys.c \
 IMDS-225_OPT = -I ${IMDS-225D}
 
 
-IBMPCD = IBMPC-Systems/ibmpc
-IBMPCC = IBMPC-Systems/common
+IBMPCD = Intel-Systems/ibmpc
+IBMPCC = Intel-Systems/common
 IBMPC =	${IBMPCC}/i8255.c ${IBMPCD}/ibmpc.c \
 	${IBMPCC}/i8088.c ${IBMPCD}/ibmpc_sys.c \
 	${IBMPCC}/i8253.c ${IBMPCC}/i8259.c \
@@ -1409,8 +1426,8 @@ IBMPC =	${IBMPCC}/i8255.c ${IBMPCD}/ibmpc.c \
 IBMPC_OPT = -I ${IBMPCD}
 
 
-IBMPCXTD = IBMPC-Systems/ibmpcxt
-IBMPCXTC = IBMPC-Systems/common
+IBMPCXTD = Intel-Systems/ibmpcxt
+IBMPCXTC = Intel-Systems/common
 IBMPCXT = ${IBMPCXTC}/i8088.c ${IBMPCXTD}/ibmpcxt_sys.c \
 	${IBMPCXTC}/i8253.c ${IBMPCXTC}/i8259.c \
 	${IBMPCXTC}/i8255.c ${IBMPCXTD}/ibmpcxt.c \
@@ -1439,25 +1456,11 @@ B5500 = ${B5500D}/b5500_cpu.c ${B5500D}/b5500_io.c ${B5500D}/b5500_sys.c \
 	${B5500D}/b5500_dr.c ${B5500D}/b5500_dtc.c
 B5500_OPT = -I.. -DUSE_INT64 -DB5500 -DUSE_SIM_CARD
 
-###
-### Experimental simulators
-###
-
-CDC1700D = CDC1700
-CDC1700 = ${CDC1700D}/cdc1700_cpu.c ${CDC1700D}/cdc1700_dis.c \
-        ${CDC1700D}/cdc1700_io.c ${CDC1700D}/cdc1700_sys.c \
-        ${CDC1700D}/cdc1700_dev1.c ${CDC1700D}/cdc1700_mt.c \
-        ${CDC1700D}/cdc1700_dc.c ${CDC1700D}/cdc1700_iofw.c \
-        ${CDC1700D}/cdc1700_lp.c ${CDC1700D}/cdc1700_dp.c \
-        ${CDC1700D}/cdc1700_cd.c ${CDC1700D}/cdc1700_sym.c \
-        ${CDC1700D}/cdc1700_rtc.c
-CDC1700_OPT = -I ${CDC1700D}
-
 BESM6D = BESM6
 BESM6 = ${BESM6D}/besm6_cpu.c ${BESM6D}/besm6_sys.c ${BESM6D}/besm6_mmu.c \
         ${BESM6D}/besm6_arith.c ${BESM6D}/besm6_disk.c ${BESM6D}/besm6_drum.c \
         ${BESM6D}/besm6_tty.c ${BESM6D}/besm6_panel.c ${BESM6D}/besm6_printer.c \
-        ${BESM6D}/besm6_punch.c
+        ${BESM6D}/besm6_punch.c ${BESM6D}/besm6_punchcard.c
 
 ifneq (,$(BESM6_BUILD))
     ifneq (,$(and ${VIDEO_LDFLAGS}, $(or $(and $(call find_include,SDL2/SDL_ttf),$(call find_lib,SDL2_ttf)), $(and $(call find_include,SDL/SDL_ttf),$(call find_lib,SDL_ttf)))))
@@ -1475,7 +1478,7 @@ ifneq (,$(BESM6_BUILD))
             $(info *** No font file available, BESM-6 video panel disabled.)
             $(info ***)
             $(info *** To enable the panel display please specify one of:)
-            $(info ***          a font path with FONTNAME=path)
+            $(info ***          a font path with FONTPATH=path)
             $(info ***          a font name with FONTNAME=fontname.ttf)
             $(info ***          a font file with FONTFILE=path/fontname.ttf)
             $(info ***)
@@ -1497,6 +1500,20 @@ ifneq (,$(BESM6_BUILD))
       BESM6_OPT = -I ${BESM6D} -DUSE_INT64 
   endif
 endif
+
+###
+### Experimental simulators
+###
+
+CDC1700D = CDC1700
+CDC1700 = ${CDC1700D}/cdc1700_cpu.c ${CDC1700D}/cdc1700_dis.c \
+        ${CDC1700D}/cdc1700_io.c ${CDC1700D}/cdc1700_sys.c \
+        ${CDC1700D}/cdc1700_dev1.c ${CDC1700D}/cdc1700_mt.c \
+        ${CDC1700D}/cdc1700_dc.c ${CDC1700D}/cdc1700_iofw.c \
+        ${CDC1700D}/cdc1700_lp.c ${CDC1700D}/cdc1700_dp.c \
+        ${CDC1700D}/cdc1700_cd.c ${CDC1700D}/cdc1700_sym.c \
+        ${CDC1700D}/cdc1700_rtc.c ${CDC1700D}/cdc1700_msos5.c
+CDC1700_OPT = -I ${CDC1700D}
 
 ###
 ### Unsupported/Incomplete simulators
@@ -1530,19 +1547,21 @@ PDQ3D = PDQ-3
 PDQ3 = ${PDQ3D}/pdq3_cpu.c ${PDQ3D}/pdq3_sys.c ${PDQ3D}/pdq3_stddev.c \
     ${PDQ3D}/pdq3_mem.c ${PDQ3D}/pdq3_debug.c ${PDQ3D}/pdq3_fdc.c 
 PDQ3_OPT = -I ${PDQ3D} -DUSE_SIM_IMD
-
-
 #
-# Build everything (not the unsupported/incomplete simulators)
+# Build everything (not the unsupported/incomplete or experimental simulators)
 #
 ALL = pdp1 pdp4 pdp7 pdp8 pdp9 pdp15 pdp11 pdp10 \
 	vax microvax3900 microvax1 rtvax1000 microvax2 vax730 vax750 vax780 vax8600 \
 	nova eclipse hp2100 hp3000 i1401 i1620 s3 altair altairz80 gri \
 	i7094 ibm1130 id16 id32 sds lgp h316 cdc1700 \
-	swtp6800mp-a swtp6800mp-a2 tx-0 ssem mu5 b5500 isys8010 isys8020 \
-	isys8030 isys8024
+	swtp6800mp-a swtp6800mp-a2 tx-0 ssem b5500 isys8010 isys8020 \
+	isys8030 isys8024 imds-225
 
 all : ${ALL}
+
+EXPERIMENTAL = cdc1700 
+
+experimental : $(EXPERIMENTAL)
 
 clean :
 ifeq ($(WIN32),)
@@ -1841,22 +1860,14 @@ ${BIN}imds-225${EXE} : ${IMDS-225} ${SIM} ${BUILD_ROMS}
 ibmpc: ${BIN}ibmpc${EXE}
 
 ${BIN}ibmpc${EXE} : ${IBMPC} ${SIM} ${BUILD_ROMS}
-ifneq (1,$(CPP_BUILD)$(CPP_FORCE))
 	${MKDIRBIN}
 	${CC} ${IBMPC} ${SIM} ${IBMPC_OPT} $(CC_OUTSPEC) ${LDFLAGS}
-else
-	$(info ibmpc can't be built using C++)
-endif
 
 ibmpcxt: ${BIN}ibmpcxt${EXE}
 
 ${BIN}ibmpcxt${EXE} : ${IBMPCXT} ${SIM} ${BUILD_ROMS}
-ifneq (1,$(CPP_BUILD)$(CPP_FORCE))
 	${MKDIRBIN}
 	${CC} ${IBMPCXT} ${SIM} ${IBMPCXT_OPT} $(CC_OUTSPEC) ${LDFLAGS}
-else
-	$(info ibmpcxt can't be built using C++)
-endif
 
 tx-0 : ${BIN}tx-0${EXE}
 

@@ -1,6 +1,6 @@
 /*
 
-   Copyright (c) 2015-2016, John Forecast
+   Copyright (c) 2015-2017, John Forecast
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -538,8 +538,13 @@ static enum dpio_status DPDiskIORead(UNIT *uptr)
   if (iou->cylinder >= numcy)
     return DPIO_ADDRERR;
 
-  sim_fseeko(uptr->fileref, lba * DP_NUMBY, SEEK_SET);
-  sim_fread(iou->buf, sizeof(uint16), DP_NUMWD, uptr->fileref);
+  /*
+   * Report any error in the underlying container infrastructure as an
+   * address error.
+   */
+  if (sim_fseeko(uptr->fileref, lba * DP_NUMBY, SEEK_SET) ||
+      (sim_fread(iou->buf, sizeof(uint16), DP_NUMWD, uptr->fileref) != DP_NUMWD))
+    return DPIO_ADDRERR;
 
   for (i = 0; i < DP_NUMWD; i++) {
     /*** TODO: fix protect check ***/
@@ -579,8 +584,14 @@ static enum dpio_status DPDiskIOWrite(UNIT *uptr)
     } else iou->buf[i] = 0;
   }
 
-  sim_fseeko(uptr->fileref, lba * DP_NUMBY, SEEK_SET);
-  sim_fwrite(iou->buf, sizeof(uint16), DP_NUMWD, uptr->fileref);
+  /*
+   * Report any error in the underlying container infrastructure as an
+   * address error.
+   */
+  if (sim_fseeko(uptr->fileref, lba * DP_NUMBY, SEEK_SET) ||
+      (sim_fwrite(iou->buf, sizeof(uint16), DP_NUMWD, uptr->fileref) != DP_NUMWD))
+    return DPIO_ADDRERR;
+
   DPDiskIOIncSector(iou);
   return fill ? DPIO_DONE : DPIO_MORE;
 }
@@ -598,8 +609,13 @@ static enum dpio_status DPDiskIOCompare(UNIT *uptr)
   if (iou->cylinder >= numcy)
     return DPIO_ADDRERR;
 
-  sim_fseeko(uptr->fileref, lba * DP_NUMBY, SEEK_SET);
-  sim_fread(iou->buf, sizeof(uint16), DP_NUMWD, uptr->fileref);
+  /*
+   * Report any error in the underlying container infrastructure as an
+   * address error.
+   */
+  if (sim_fseeko(uptr->fileref, lba * DP_NUMBY, SEEK_SET) ||
+      (sim_fread(iou->buf, sizeof(uint16), DP_NUMWD, uptr->fileref) != DP_NUMWD))
+    return DPIO_ADDRERR;
 
   for (i = 0; i < DP_NUMWD; i++) {
     if (iou->buf[i] != LoadFromMem(iou->CWA))
@@ -623,7 +639,7 @@ void DPDiskIO(UNIT *uptr, uint16 iotype)
 {
   struct dpio_unit *iou = (struct dpio_unit *)uptr->up7;
   const char *error = "Unknown";
-  enum dpio_status status;
+  enum dpio_status status = DPIO_ADDRERR;
 
   switch (iotype) {
     case DP_WRITE:
@@ -1101,8 +1117,8 @@ t_stat DPautoload(void)
       t_offset offset = i * DP_NUMBY;
       void *buf = &M[i * DP_NUMWD];
 
-      sim_fseeko(uptr->fileref, offset, SEEK_SET);
-      if (sim_fread(buf, sizeof(uint16), DP_NUMWD, uptr->fileref) != DP_NUMWD)
+      if (sim_fseeko(uptr->fileref, offset, SEEK_SET) ||
+          (sim_fread(buf, sizeof(uint16), DP_NUMWD, uptr->fileref) != DP_NUMWD))
         return SCPE_IOERR;
     }
     return SCPE_OK;

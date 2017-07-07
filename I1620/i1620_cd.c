@@ -1,6 +1,6 @@
 /* i1620_cd.c: IBM 1622 card reader/punch
 
-   Copyright (c) 2002-2015, Robert M. Supnik
+   Copyright (c) 2002-2017, Robert M. Supnik
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -26,6 +26,7 @@
    cdr          1622 card reader
    cdp          1622 card punch
 
+   09-Mar-17    RMS     Guardbanded translation table lookups (COVERITY)
    31-Jan-15    TFM     Changes to translation tables (Tom McBride)
    10-Dec-13    RMS     Fixed WA card punch translations (Bob Armstrong)
                         Fixed card reader EOL processing (Bob Armstrong)
@@ -72,8 +73,8 @@ UNIT cdr_unit = {
     };
 
 REG cdr_reg[] = {
-    { FLDATA (LAST, ind[IN_LAST], 0) },
-    { DRDATA (POS, cdr_unit.pos, T_ADDR_W), PV_LEFT },
+    { FLDATAD (LAST, ind[IN_LAST], 0, "last card indicator") },
+    { DRDATAD (POS, cdr_unit.pos, T_ADDR_W, "position in the reader input file"), PV_LEFT },
     { NULL }
     };
 
@@ -289,7 +290,7 @@ switch (op) {                                           /* case on op */
         if (r != SCPE_OK)                               /* error? */
             return r;
         for (i = 0; i < CD_LEN; i++) {                  /* transfer to mem */
-            cdc = cdr_to_num[cdr_buf[i]];               /* translate */
+            cdc = cdr_to_num[cdr_buf[i] & 0177];        /* translate */
             if (cdc < 0) {                              /* invalid? */
                 ind[IN_RDCHK] = 1;                      /* set read check */
                 if (io_stop)                            /* set return status */
@@ -306,7 +307,7 @@ switch (op) {                                           /* case on op */
         if (r != SCPE_OK)                               /* error? */
             return r;
         for (i = 0; i < CD_LEN; i++) {                  /* transfer to mem */
-            cdc = cdr_to_alp[cdr_buf[i]];               /* translate */
+            cdc = cdr_to_alp[cdr_buf[i] & 0177];        /* translate */
             if (cdc < 0) {                              /* invalid? */
                 ind[IN_RDCHK] = 1;                      /* set read check */
                 if (io_stop)                            /* set return status */
@@ -366,7 +367,7 @@ if ((i = strlen (cdr_buf)) > 0) {                       /* anything at all? */
         }
     else {                                              /* line too long */
         ind[IN_RDCHK] = 1;
-        sim_printf ("CDR line too long");
+        sim_perror ("CDR line too long");
         return SCPE_IOERR;
         }
     }
@@ -432,7 +433,7 @@ switch (op) {                                           /* decode op */
     case OP_DN:
 
         /* DN punches all characters the same as WN except that a flagged
-           zero is punched as a hypehen (-) instead of a flagged
+           zero is punched as a hyphen (-) instead of a flagged
            zero ([). Punching begins at the P address and continues until
            the last digit of the storage module containing the P address
            has been punched. If the amount of data to be punched is an 
@@ -533,7 +534,7 @@ fputs (cdp_buf, cdp_unit.fileref);                      /* write card */
 cdp_unit.pos = ftell (cdp_unit.fileref);                /* count char */
 if (ferror (cdp_unit.fileref)) {                        /* error? */
     ind[IN_WRCHK] = 1;
-    sim_perror ("CDR I/O error");
+    sim_perror ("CDP I/O error");
     clearerr (cdp_unit.fileref);
     return SCPE_IOERR;
     }

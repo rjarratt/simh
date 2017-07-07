@@ -1,6 +1,6 @@
 /* vax_cpu1.c: VAX complex instructions
 
-   Copyright (c) 1998-2016, Robert M Supnik
+   Copyright (c) 1998-2017, Robert M Supnik
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -23,6 +23,7 @@
    used in advertising or otherwise to promote the sale, use or other dealings
    in this Software without prior written authorization from Robert M Supnik.
 
+   13-Mar-17    RMS     Annotated fall through in switch
    14-Jul-16    RMS     Corrected REI rule 9
    21-Jun-16    RMS     Removed reserved check on SIRR (Mark Pizzolato)
    18-Feb-16    RMS     Changed variables in MxPR to unsigned
@@ -865,7 +866,7 @@ switch (R[5] & MVC_M_STATE) {                           /* case on state */
         mlnt[2] = R[2] - mlnt[0] - mlnt[1];             /* tail */
         for (i = 0; i < 3; i++) {                       /* head, align, tail */
             lnt = looplnt[i];                           /* length for loop */
-            for (j = 0; j < mlnt[i]; j = j + lnt, sim_interval--) {
+            for (j = 0; j < mlnt[i]; j = j + lnt, extra_bytes++) {
                 wd = Read (R[1], lnt, RA);              /* read src */
                 Write (R[3], wd, lnt, WA);              /* write dst */
                 R[1] = R[1] + lnt;                      /* inc src addr */
@@ -883,7 +884,7 @@ switch (R[5] & MVC_M_STATE) {                           /* case on state */
         mlnt[2] = R[2] - mlnt[0] - mlnt[1];             /* tail */
         for (i = 0; i < 3; i++) {                       /* head, align, tail */
             lnt = looplnt[i];                           /* length for loop */
-            for (j = 0; j < mlnt[i]; j = j + lnt, sim_interval--) {
+            for (j = 0; j < mlnt[i]; j = j + lnt, extra_bytes++) {
                 wd = Read (R[1] - lnt, lnt, RA);        /* read src */
                 Write (R[3] - lnt, wd, lnt, WA);        /* write dst */
                 R[1] = R[1] - lnt;                      /* dec src addr */
@@ -909,7 +910,7 @@ switch (R[5] & MVC_M_STATE) {                           /* case on state */
             fill = fill & BMASK;                        /* fill for loop */
             if (lnt == L_LONG)
                 fill = (((uint32) fill) << 24) | (fill << 16) | (fill << 8) | fill;
-            for (j = 0; j < mlnt[i]; j = j + lnt, sim_interval--) {
+            for (j = 0; j < mlnt[i]; j = j + lnt, extra_bytes++) {
                 Write (R[3], fill, lnt, WA);            /* write fill */
                 R[3] = R[3] + lnt;                      /* inc dst addr */
                 R[4] = R[4] - lnt;                      /* dec fill lnt */
@@ -973,7 +974,7 @@ else {
     PSL = PSL | PSL_FPD;
     }
 R[2] = R[2] & STR_LNMASK;                               /* mask src2len */
-for (s1 = s2 = 0; ((R[0] | R[2]) & STR_LNMASK) != 0; sim_interval--) {
+for (s1 = s2 = 0; ((R[0] | R[2]) & STR_LNMASK) != 0; extra_bytes++) {
     if (R[0] & STR_LNMASK)                              /* src1? read */
         s1 = Read (R[1], L_BYTE, RA);
     else s1 = fill;                                     /* no, use fill */
@@ -1023,7 +1024,7 @@ else {
     R[1] = opnd[2];                                     /* src addr */
     PSL = PSL | PSL_FPD;
     }
-for ( ; (R[0] & STR_LNMASK) != 0; sim_interval-- ) {    /* loop thru string */
+for ( ; (R[0] & STR_LNMASK) != 0; extra_bytes++ ) {    /* loop thru string */
     c = Read (R[1], L_BYTE, RA);                        /* get src byte */
     if ((c == match) ^ skpc)                            /* match & locc? */
         break;
@@ -1064,7 +1065,7 @@ else {
     R[0] = STR_PACK (mask, opnd[0]);                    /* srclen + FPD data */
     PSL = PSL | PSL_FPD;
     }
-for ( ; (R[0] & STR_LNMASK) != 0; sim_interval-- ) {    /* loop thru string */
+for ( ; (R[0] & STR_LNMASK) != 0; extra_bytes++ ) {    /* loop thru string */
     c = Read (R[1], L_BYTE, RA);                        /* get byte */
     t = Read (R[3] + c, L_BYTE, RA);                    /* get table ent */
     if (((t & mask) != 0) ^ spanc)                      /* test vs instr */
@@ -1505,8 +1506,7 @@ switch (prn) {                                          /* case on reg # */
         break;
 
     case MT_ASTLVL:                                     /* ASTLVL */
-        if (val > AST_MAX)                              /* > 4? fault */
-            RSVD_OPND_FAULT;
+        MT_AST_TEST (val);                              /* trim, test val */
         ASTLVL = val;
         break;
 
@@ -1522,6 +1522,7 @@ switch (prn) {                                          /* case on reg # */
 
     case MT_MAPEN:                                      /* MAPEN */
         mapen = val & 1;
+        /* fall through */
     case MT_TBIA:                                       /* TBIA */
         zap_tb (1);                                     /* clr entire TLB */
         break;

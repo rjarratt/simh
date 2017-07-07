@@ -1,6 +1,6 @@
 /* vax_cpu.c: VAX CPU
 
-   Copyright (c) 1998-2012, Robert M Supnik
+   Copyright (c) 1998-2017, Robert M Supnik
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -25,6 +25,8 @@
 
    cpu          VAX central processor
 
+   31-Mar-17    RMS     Fixed uninitialized variable on FPD path (COVERITY)
+   13-Mar-17    RMS     Fixed dangling else in show_opnd (COVERITY)
    20-Sep-11    MP      Fixed idle conditions for various versions of Ultrix, 
                         Quasijarus-4.3BSD, NetBSD and OpenBSD.
                         Note: Since NetBSD and OpenBSD are still actively 
@@ -263,6 +265,7 @@ int32 ibufl, ibufh;                                     /* prefetch buf */
 int32 ibcnt, ppc;                                       /* prefetch ctl */
 uint32 cpu_idle_mask = VAX_IDLE_VMS;                    /* idle mask */
 uint32 cpu_idle_type = 1;                               /* default VMS */
+int32 extra_bytes;                                      /* bytes referenced by current string instruction */
 jmp_buf save_env;
 REG *pcq_r = NULL;                                      /* PC queue reg ptr */
 int32 pcq[PCQ_SIZE] = { 0 };                            /* PC queue */
@@ -319,7 +322,6 @@ static SIM_INLINE int32 get_istr (int32 lnt, int32 acc);
 int32 ReadOcta (int32 va, int32 *opnd, int32 j, int32 acc);
 t_bool cpu_show_opnd (FILE *st, InstHistory *h, int32 line);
 t_stat cpu_show_hist_records (FILE *st, t_bool do_header, int32 start, int32 count);
-t_stat cpu_idle_svc (UNIT *uptr);
 void cpu_idle (void);
 
 /* CPU data structures
@@ -331,7 +333,7 @@ void cpu_idle (void);
 */
 
 UNIT cpu_unit = {
-    UDATA (&cpu_idle_svc, UNIT_FIX|UNIT_BINK, INITMEMSIZE)
+    UDATA (NULL, UNIT_FIX|UNIT_BINK, INITMEMSIZE)
     };
 
 const char *psl_modes[] = {"K", "E", "S", "U"};
@@ -476,10 +478,15 @@ t_stat sim_instr (void)
 volatile int32 opc = 0, cc;                             /* used by setjmp */
 volatile int32 acc;                                     /* set by setjmp */
 int abortval;
-t_stat r;
+t_stat ret;
+int32 r = 0, rh = 0, temp = 0;
+int32 spec = 0, disp = 0, rn = 0, index = 0, numspec = 0;
+int32 vfldrp1 = 0, brdisp = 0, flg = 0, mstat = 0;
+uint32 va = 0, iad = 0;
+int32 opnd[OPND_SIZE];                                  /* operand queue */
 
-if ((r = build_dib_tab ()) != SCPE_OK)                  /* build, chk dib_tab */
-    return r;
+if ((ret = build_dib_tab ()) != SCPE_OK)                /* build, chk dib_tab */
+    return ret;
 if ((PSL & PSL_MBZ) ||                                  /* validate PSL<mbz> */
     ((PSL & PSL_CM) && BadCmPSL (PSL)) ||               /* validate PSL<cm> */
     ((PSL_GETCUR (PSL) != KERN) &&                      /* esu => is, ipl = 0 */
@@ -579,12 +586,7 @@ else if (abortval < 0) {                                /* mm or rsrv or int */
 /* Main instruction loop */
 
 for ( ;; ) {
-
-    int32 spec, disp, rn, index, numspec;
-    int32 vfldrp1, brdisp, flg, mstat;
-    int32 i, j, r, rh, temp;
-    uint32 va, iad;
-    int32 opnd[OPND_SIZE];                              /* operand queue */
+    int32 i, j;
 
 /* Optionally record instruction history results from prior instruction */
 
@@ -703,7 +705,8 @@ for ( ;; ) {
         ABORT (STOP_IBKPT);                             /* stop simulation */
         }
 
-    sim_interval = sim_interval - 1;                    /* count instr */
+    sim_interval = sim_interval - (1 + (extra_bytes>>5));/* count instr */
+    extra_bytes = 0;                                    /* digest string count */
     GET_ISTR (opc, L_BYTE);                             /* get opcode */
     if (opc == 0xFD) {                                  /* 2 byte op? */
         GET_ISTR (opc, L_BYTE);                         /* get second byte */
@@ -713,6 +716,7 @@ for ( ;; ) {
     if (PSL & PSL_FPD) {
         if ((numspec & DR_F) == 0)
             RSVD_INST_FAULT;
+        j = 0;                                          /* no operands */
         }
     else {
         numspec = numspec & DR_NSPMASK;                 /* get # specifiers */
@@ -2587,12 +2591,10 @@ for ( ;; ) {
     case HALT:
         if (PSL & PSL_CUR)                              /* not kern? rsvd inst */
             RSVD_INST_FAULT;
-        else if (cpu_unit.flags & UNIT_CONH)            /* halt to console? */
-            cc = con_halt (CON_HLTINS, cc);             /* enter firmware */
         else {
             /* allow potentially pending I/O (console output, 
-               or other devices) to complete before dropping 
-               back to scp */
+               or other devices) to complete before taking
+               the appropriate halt action */
             while ((sim_clock_queue != QUEUE_LIST_END) &&
                    ((sim_clock_queue->flags & UNIT_IDLE) == 0)) {
                 sim_interval = 0;
@@ -2601,7 +2603,10 @@ for ( ;; ) {
                     ABORT (temp);
                 SET_IRQL;                               /* update interrupts */
                 }
-            ABORT (STOP_HALT);                          /* halt to simulator */
+            if (cpu_unit.flags & UNIT_CONH)             /* halt to console? */
+                cc = con_halt (CON_HLTINS, cc);         /* enter firmware */
+            else
+                ABORT (STOP_HALT);                      /* halt to simulator */
             }
 
     case NOP:
@@ -3176,20 +3181,11 @@ opnd[j++] = Read (va + 12, L_LONG, acc);
 return j;
 }
 
-/* Schedule idle before the next instruction */
+/* Idle before the next instruction */
 
 void cpu_idle (void)
 {
-sim_activate (&cpu_unit, 0);
-return;
-}
-
-/* Idle service */
-
-t_stat cpu_idle_svc (UNIT *uptr)
-{
 sim_idle (TMR_CLK, TRUE);
-return SCPE_OK;
 }
 
 /* Reset */
@@ -3527,9 +3523,9 @@ for (i = 1, j = 0, more = FALSE; i <= numspec; i++) {   /* loop thru specs */
     disp = drom[h->opc][i];                             /* specifier type */
     if (disp == RG)                                     /* fix specials */
         disp = RQ;
-    else if (disp >= BB)
-        break;                         /* ignore branches */
-    else switch (disp & (DR_LNMASK|DR_ACMASK)) {
+    if (disp >= BB)                                     /* ignore branches */
+        break;
+    switch (disp & (DR_LNMASK|DR_ACMASK)) {
 
     case RB: case RW: case RL:                          /* read */
     case AB: case AW: case AL: case AQ: case AO:        /* address */

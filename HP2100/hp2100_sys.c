@@ -1,6 +1,7 @@
 /* hp2100_sys.c: HP 2100 simulator interface
 
    Copyright (c) 1993-2016, Robert M. Supnik
+   Copyright (c) 2017       J. David Bryan
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -23,6 +24,10 @@
    used in advertising or otherwise to promote the sale, use or other dealings
    in this Software without prior written authorization from Robert M Supnik.
 
+   15-Jan-17    JDB     Corrected HLT decoding to add the 1060xx and 1070xx ranges
+                        Corrected SFB decoding
+   14-Jan-17    JDB     Removed use of Fprintf functions for version 4.x and on
+   30-Dec-16    JDB     Corrected parsing of memory reference instructions
    13-May-16    JDB     Modified for revised SCP API function parameter types
    19-Jun-15    JDB     Conditionally use Fprintf function for version 4.x and on
    18-Jun-15    JDB     Added cast to int for isspace parameter
@@ -68,13 +73,6 @@
 #include <ctype.h>
 #include "hp2100_defs.h"
 #include "hp2100_cpu.h"
-
-
-#if (SIM_MAJOR >= 4)
-  #define fprintf       Fprintf
-  #define fputs(_s,_f)  Fprintf (_f, "%s", _s)
-  #define fputc(_c,_f)  Fprintf (_f, "%c", _c)
-#endif
 
 
 extern DEVICE mp_dev;
@@ -298,7 +296,7 @@ static const char *opcode[] = {
  "FAD", "FSB", "FMP", "FDV",
  "FIX", "FLT",
  "STO", "CLO", "SOC", "SOS",
- "HLT", "STF", "CLF",
+ "HLT", "HLT", "STF", "CLF",                    /* 2nd HLT is 1060xx and 1070xx ranges */
  "SFC", "SFS", "MIA", "MIB",
  "LIA", "LIB", "OTA", "OTB",
  "STC", "CLC",
@@ -323,7 +321,7 @@ static const char *opcode[] = {
  "CYA", "CYB", "LDY",
  "ADY", "XAY", "XBY",
  "ISX", "DSX", "JLY", "LBT",
- "SBT", "MBT", "CBT", "SBT",
+ "SBT", "MBT", "CBT", "SFB",
  "ISY", "DSY", "JPY", "SBS",
  "CBS", "TBS", "CMW", "MVW",
  NULL,                                                  /* decode only */
@@ -357,7 +355,7 @@ static const int32 opc_val[] = {
  0105000+I_EMR, 0105020+I_EMR, 0105040+I_EMR, 0105060+I_EMR,
  0105100+I_NPN, 0105120+I_NPN,
  0102101+I_NPN, 0103101+I_NPN, 0102201+I_NPC, 0102301+I_NPC,
- 0102000+I_IO1, 0102100+I_IO2, 0103100+I_IO2,
+ 0102000+I_IO1, 0106000+I_IO1, 0102100+I_IO2, 0103100+I_IO2,
  0102200+I_IO1, 0102300+I_IO1, 0102400+I_IO1, 0106400+I_IO1,
  0102500+I_IO1, 0106500+I_IO1, 0102600+I_IO1, 0106600+I_IO1,
  0102700+I_IO1, 0106700+I_IO1,
@@ -656,21 +654,35 @@ if (opcode[i]) {                                        /* found opcode? */
 
     case I_V_MRF:                                       /* mem ref */
         cptr = get_glyph (cptr, gbuf, 0);               /* get next field */
-        k = strcmp (gbuf, "C");
-        if (k == 0) {                                   /* C specified? */
-            val[0] = val[0] | I_CP;
-            cptr = get_glyph (cptr, gbuf, 0);
+
+        if (gbuf [0] == 'C' && gbuf [1] == '\0') {      /* if the C modifier was specified */
+            val[0] = val[0] | I_CP;                     /*   then add the current-page flag */
+            cptr = get_glyph (cptr, gbuf, 0);           /*     and get the address */
+            k = 0;                                      /* clear the implicit-page flag */
             }
-        else {
-            k = strcmp (gbuf, "Z");
-            if (k == 0)                                 /* Z specified? */
-                cptr = get_glyph (cptr, gbuf, ',');
+
+        else if (gbuf [0] == 'Z' && gbuf [1] == '\0') { /* otherwise if the Z modifier was specified */
+            cptr = get_glyph (cptr, gbuf, 0);           /*   then get the address */
+            k = 0;                                      /*     and clear the implicit-page flag */
             }
-        if ((d = get_addr (gbuf)) < 0) return SCPE_ARG;
-        if ((d & VAMASK) <= I_DISP) val[0] = val[0] | d;
-        else if (cflag && !k && (((addr ^ d) & I_PAGENO) == 0))
-            val[0] = val[0] | (d & (I_IA | I_DISP)) | I_CP;
-        else return SCPE_ARG;
+
+        else                                            /* otherwise neither modifier is present */
+            k = 1;                                      /*   so set the flag to allow implicit-page addressing */
+
+        d = get_addr (gbuf);                            /* parse the address and optional indirection indicator */
+
+        if (d < 0)                                      /* if a parse error occurred */
+            return SCPE_ARG;                            /*   then return an invalid argument error */
+
+        if ((d & VAMASK) <= I_DISP)                     /* if a base-page address was given */
+            val[0] = val[0] | d;                        /*   then merge the offset into the instruction */
+
+        else if (cflag && k                                 /* otherwise if an implicit-page address is allowed */
+          && ((addr ^ d) & I_PAGENO) == 0)                  /*   and the target is in the current page */
+            val[0] = val[0] | d & (I_IA | I_DISP) | I_CP;   /*     then merge the offset with the current-page flag */
+
+        else                                            /* otherwise the address cannot be reached */
+            return SCPE_ARG;                            /*   from the current instruction's location */
         break;
 
     case I_V_ESH:                                       /* extended shift */
