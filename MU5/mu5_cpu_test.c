@@ -4752,7 +4752,7 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_0);
     cpu_selftest_load_16_bit_literal(n);
 	cpu_selftest_setup_default_segment();
-    sac_write_64_bit_word(ZERO_OFFSET_64(n), cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin)); /* TODO: use offset macro, check all these calls */
+    sac_write_64_bit_word(ZERO_OFFSET_64(n), cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0x00000000AAAABBBB);
     cpu_selftest_run_code();
