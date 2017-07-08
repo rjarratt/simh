@@ -2430,7 +2430,7 @@ static t_uint64 cpu_get_operand(uint16 order)
                     sim_debug(LOG_CPU_DECODE, &cpu_dev, "V-S ");
                     addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64, &is64bit);
                     addr = addr >> 1; /* considered a 64-bit address? */
-                    uint8 block = (addr >> 8) & MASK_8;
+                    uint8 block = (addr >> 8) & 0x7F; /* There are 128 blocks and SN must be ignored, in fact in the real machine the SN lines were forced to 8192 as V-Store access went through SAC */
                     uint8 line = addr & MASK_8;
                     if (cpu_is_executive_mode())
                     {

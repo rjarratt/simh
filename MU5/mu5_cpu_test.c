@@ -3897,7 +3897,7 @@ static void cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_PRIVILEGED, NP_NB);
     cpu_selftest_load_16_bit_literal(0);
     cpu_selftest_setup_vstore_test_location();
-    cpu_selftest_set_register(REG_NB, base);
+	cpu_selftest_setup_name_base(base);
     sac_write_v_store(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_set_executive_mode();
     cpu_selftest_run_code();
@@ -3911,8 +3911,8 @@ static void cpu_selftest_load_operand_privileged_generates_interrupt_in_user_mod
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_PRIVILEGED, NP_NB);
     cpu_selftest_load_16_bit_literal(0);
     cpu_selftest_setup_vstore_test_location();
-    cpu_selftest_set_register(REG_NB, base);
-    sac_write_v_store(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0xAAAABBBBCCCCDDDD);
+	cpu_selftest_setup_name_base(base);
+	sac_write_v_store(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_set_user_mode();
     cpu_selftest_run_code();
     cpu_selftest_assert_illegal_v_store_access_interrupt();
@@ -4971,8 +4971,8 @@ static void cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mo
     cpu_selftest_setup_vstore_test_location();
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0xAAAABBBBCCCCDDDD);
-    cpu_selftest_set_register(REG_NB, base);
-    cpu_selftest_set_executive_mode();
+	cpu_selftest_setup_name_base(base);
+	cpu_selftest_set_executive_mode();
     cpu_selftest_run_code();
     cpu_selftest_assert_no_interrupt();
     cpu_selftest_assert_v_store_contents(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0xAAAABBBBCCCCDDDD);
@@ -4985,8 +4985,8 @@ static void cpu_selftest_store_operand_privileged_generates_interrupt_in_user_mo
     cpu_selftest_load_16_bit_literal(0);
     cpu_selftest_setup_vstore_test_location();
     cpu_selftest_set_register(REG_A, 0xAAAABBBBCCCCDDDD);
-    cpu_selftest_set_register(REG_NB, base);
-    sac_write_v_store(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0x000000000000);
+	cpu_selftest_setup_name_base(base);
+	sac_write_v_store(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0x000000000000);
     cpu_selftest_set_user_mode();
     cpu_selftest_run_code();
     cpu_selftest_assert_illegal_v_store_access_interrupt();
