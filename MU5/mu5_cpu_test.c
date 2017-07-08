@@ -260,13 +260,16 @@ in this Software without prior written authorization from Robert Jarratt.
 #define SN_BASE            0x10000
 #define NB_DEFAULT          0x00F0
 #define SF_DEFAULT          0x00F8
+#define XNB_DEFAULT        (SN_BASE + NB_DEFAULT)
+#define VEC_ORIGIN_DEFAULT  0x01F0
+
 #define NAME_SEGMENT_DEFAULT_BASE_32 (SN_BASE + NB_DEFAULT)
 #define NAME_SEGMENT_DEFAULT_BASE_64 (SN_BASE + (NB_DEFAULT * 2))
 #define NAME_SEGMENT_DEFAULT_STACK_BASE_32 (SN_BASE + SF_DEFAULT)
 #define NAME_SEGMENT_OFFSET_32(n) (NAME_SEGMENT_DEFAULT_BASE_32 + n)
 #define NAME_SEGMENT_OFFSET_64(n) (NAME_SEGMENT_DEFAULT_BASE_32 + (2 * n)) /* TODO: check why base is not 64 */
-#define XNB_DEFAULT        (SN_BASE + NB_DEFAULT)
-#define VEC_ORIGIN_DEFAULT  0x01F0
+#define NAME_SEGMENT_STACK_OFFSET_32(n) (NAME_SEGMENT_DEFAULT_STACK_BASE_32 + n)
+#define NAME_SEGMENT_STACK_OFFSET_64(n) (NAME_SEGMENT_DEFAULT_STACK_BASE_32 + (2 * n)) /* TODO: check why base is not 64 */
 
 typedef struct
 {
@@ -3285,7 +3288,7 @@ static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_sf(TE
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_SF);
     cpu_selftest_load_16_bit_literal(n);
-    sac_write_32_bit_word(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + n, 0xAAAABBBB);
+    sac_write_32_bit_word(NAME_SEGMENT_STACK_OFFSET_32(n), 0xAAAABBBB);
 	cpu_selftest_setup_default_stack_base();
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAABBBB);
@@ -3372,7 +3375,7 @@ static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_sf(TE
     uint16 n = 0x1;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V64, NP_SF);
     cpu_selftest_load_16_bit_literal(n);
-    sac_write_64_bit_word(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + (n * 2), 0xAAAABBBBCCCCDDDD);
+    sac_write_64_bit_word(NAME_SEGMENT_STACK_OFFSET_64(n), 0xAAAABBBBCCCCDDDD);
     cpu_selftest_setup_default_stack_base();
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBBCCCCDDDD);
@@ -3464,7 +3467,7 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_valu
     cpu_selftest_load_16_bit_literal(n);
 	cpu_selftest_setup_default_stack_base();
     cpu_selftest_set_register(REG_B, vecoffset);
-    sac_write_64_bit_word(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
+    sac_write_64_bit_word(NAME_SEGMENT_STACK_OFFSET_64(n), cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
     cpu_selftest_load_32_bit_value_to_descriptor_location(vecorigin, vecoffset, 0xAAAABBBB);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAABBBB);
@@ -3480,7 +3483,7 @@ static void cpu_selftest_load_operand_extended_b_relative_descriptor_32_bit_valu
     cpu_selftest_load_16_bit_literal(n);
 	cpu_selftest_setup_default_stack_base();
 	cpu_selftest_set_register(REG_B, vecoffset);
-    sac_write_64_bit_word(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
+    sac_write_64_bit_word(NAME_SEGMENT_STACK_OFFSET_64(n), cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
     cpu_selftest_load_32_bit_value_to_descriptor_location(vecorigin, vecoffset, 0xAAAABBBB);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAABBBB);
@@ -3695,7 +3698,7 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_32_bit_v
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_S0, NP_SF);
     cpu_selftest_load_16_bit_literal(n);
 	cpu_selftest_setup_default_stack_base();
-    sac_write_64_bit_word(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
+    sac_write_64_bit_word(NAME_SEGMENT_STACK_OFFSET_64(n), cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
     cpu_selftest_load_32_bit_value_to_descriptor_location(vecorigin, 0, 0xAAAABBBB);
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_A, 0x00000000AAAABBBB);
@@ -4306,7 +4309,7 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_sf(T
     cpu_selftest_set_register(REG_A, 0xFFFFFFFFAAAABBBB);
 	cpu_selftest_setup_default_stack_base();
     cpu_selftest_run_code();
-    cpu_selftest_assert_memory_contents_32_bit(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + n, 0xAAAABBBB);
+    cpu_selftest_assert_memory_contents_32_bit(NAME_SEGMENT_STACK_OFFSET_32(n), 0xAAAABBBB);
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -4356,7 +4359,7 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_from_stack(TESTC
     cpu_selftest_set_register(REG_A, 0xFFFFFFFFAAAABBBB);
 	cpu_selftest_setup_default_stack_base();
     cpu_selftest_run_code();
-    cpu_selftest_assert_memory_contents_32_bit(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + 1, 0xAAAABBBB);
+    cpu_selftest_assert_memory_contents_32_bit(NAME_SEGMENT_STACK_OFFSET_32(1), 0xAAAABBBB);
     cpu_selftest_assert_reg_equals(REG_SF, SF_DEFAULT - 2);
     cpu_selftest_assert_no_interrupt();
 }
@@ -4401,7 +4404,7 @@ static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_sf(T
     cpu_selftest_set_register(REG_A, 0xAAAABBBBCCCCDDDD);
 	cpu_selftest_setup_default_stack_base();
     cpu_selftest_run_code();
-    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + (n * 2), 0xAAAABBBBCCCCDDDD);
+    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_STACK_OFFSET_64(n), 0xAAAABBBBCCCCDDDD);
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -4495,7 +4498,7 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_val
     cpu_selftest_load_16_bit_literal(n);
 	cpu_selftest_setup_default_stack_base();
     cpu_selftest_set_register(REG_B, vecoffset);
-    sac_write_64_bit_word(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
+    sac_write_64_bit_word(NAME_SEGMENT_STACK_OFFSET_64(n), cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0x00000000AAAABBBB);
     cpu_selftest_run_code();
@@ -4512,7 +4515,7 @@ static void cpu_selftest_store_operand_extended_b_relative_descriptor_32_bit_val
     cpu_selftest_load_16_bit_literal(n);
 	cpu_selftest_setup_default_stack_base();
     cpu_selftest_set_register(REG_B, vecoffset);
-    sac_write_64_bit_word(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
+    sac_write_64_bit_word(NAME_SEGMENT_STACK_OFFSET_64(n), cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0x00000000AAAABBBB);
     cpu_selftest_run_code();
@@ -4740,7 +4743,7 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_32_bit_
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_S0, NP_SF);
     cpu_selftest_load_16_bit_literal(n);
 	cpu_selftest_setup_default_stack_base();
-    sac_write_64_bit_word(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + 2 * n, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
+    sac_write_64_bit_word(NAME_SEGMENT_STACK_OFFSET_64(n), cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_32_BIT, 2, vecorigin));
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0x00000000AAAABBBB);
     cpu_selftest_run_code();
@@ -5016,7 +5019,7 @@ static void cpu_selftest_sts1_stack_stacks_operand(TESTCONTEXT *testContext)
     cpu_selftest_load_64_bit_literal(0xBBBBBBBBFFFFFFFF);
 	cpu_selftest_setup_default_stack_base();
     cpu_selftest_run_code();
-    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + 2, 0xBBBBBBBBFFFFFFFF);
+    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_STACK_OFFSET_32(2), 0xBBBBBBBBFFFFFFFF);
     cpu_selftest_assert_reg_equals(REG_SF, SF_DEFAULT + 2);
     cpu_selftest_assert_no_interrupt();
 }
@@ -5896,7 +5899,7 @@ static void cpu_selftest_sts2_d_stack_load_stacks_D_loads_new_D(TESTCONTEXT *tes
     cpu_selftest_run_code();
     cpu_selftest_assert_reg_equals(REG_SF, SF_DEFAULT + 2);
     cpu_selftest_assert_reg_equals(REG_D, 0xCCCCCCCCFFFFFFFF);
-    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + 2, 0xAAAAAAAABBBBBBBB);
+    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_STACK_OFFSET_32(2), 0xAAAAAAAABBBBBBBB);
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -6522,7 +6525,7 @@ static void cpu_selftest_b_stack_and_load_stacks_B_and_loads_B(TESTCONTEXT *test
 	cpu_selftest_setup_default_stack_base();
     cpu_selftest_set_register(REG_B, 0xAAAAAAAA);
     cpu_selftest_run_code();
-    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + 2, 0x00000000AAAAAAAA);
+    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_STACK_OFFSET_32(2), 0x00000000AAAAAAAA);
     cpu_selftest_assert_reg_equals(REG_SF, SF_DEFAULT + 2);
     cpu_selftest_assert_reg_equals(REG_B, 0xFFFFFFFF);
     cpu_selftest_assert_no_interrupt();
@@ -6761,7 +6764,7 @@ static void cpu_selftest_x_stack_and_load_stacks_X_and_loads_X(TESTCONTEXT *test
 	cpu_selftest_setup_default_stack_base();
     cpu_selftest_set_register(REG_X, 0xAAAAAAAA);
     cpu_selftest_run_code();
-    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + 2, 0x00000000AAAAAAAA);
+    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_STACK_OFFSET_32(2), 0x00000000AAAAAAAA);
     cpu_selftest_assert_reg_equals(REG_SF, SF_DEFAULT + 2);
     cpu_selftest_assert_reg_equals(REG_X, 0xFFFFFFFF);
     cpu_selftest_assert_no_interrupt();
@@ -7020,7 +7023,7 @@ static void cpu_selftest_a_stack_and_load_stacks_AOD_and_loads_AOD(TESTCONTEXT *
 	cpu_selftest_setup_default_stack_base();
     cpu_selftest_set_register(REG_AOD, 0xBBBBBBBBFFFFFEDC);
     cpu_selftest_run_code();
-    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + 2, 0x0000000000001EDC);
+    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_STACK_OFFSET_32(2), 0x0000000000001EDC);
     cpu_selftest_assert_reg_equals(REG_SF, SF_DEFAULT + 2);
     cpu_selftest_assert_reg_equals(REG_AOD, 0x0000000000001FFF);
     cpu_selftest_assert_no_interrupt();
@@ -7176,7 +7179,7 @@ static void cpu_selftest_dec_stack_and_load_stacks_AEX_and_loads_AEX(TESTCONTEXT
 	cpu_selftest_setup_default_stack_base();
     cpu_selftest_set_register(REG_AEX, 0xAAAAAAAABBBBBBBB);
     cpu_selftest_run_code();
-    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + 2, 0xAAAAAAAABBBBBBBB);
+    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_STACK_OFFSET_32(2), 0xAAAAAAAABBBBBBBB);
     cpu_selftest_assert_reg_equals(REG_SF, SF_DEFAULT + 2);
     cpu_selftest_assert_reg_equals(REG_AEX, 0xCCCCCCCCFFFFFFFF);
     cpu_selftest_assert_no_interrupt();
@@ -7242,7 +7245,7 @@ static void cpu_selftest_flt_stack_and_load_stacks_A_and_loads_A_32_bits(TESTCON
 	cpu_selftest_setup_default_stack_base();
     cpu_selftest_set_register(REG_A, 0xAAAAAAAABBBBBBBB);
     cpu_selftest_run_code();
-    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + 2, 0x00000000AAAAAAAA);
+    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_STACK_OFFSET_32(2), 0x00000000AAAAAAAA);
     cpu_selftest_assert_reg_equals(REG_SF, SF_DEFAULT + 2);
     cpu_selftest_assert_reg_equals(REG_A, 0xFFFFFFFF00000000);
     cpu_selftest_assert_no_interrupt();
@@ -7256,7 +7259,7 @@ static void cpu_selftest_flt_stack_and_load_stacks_A_and_loads_A_64_bits(TESTCON
 	cpu_selftest_setup_default_stack_base();
     cpu_selftest_set_register(REG_A, 0xAAAAAAAABBBBBBBB);
     cpu_selftest_run_code();
-    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + 2, 0xAAAAAAAABBBBBBBB);
+    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_STACK_OFFSET_32(2), 0xAAAAAAAABBBBBBBB);
     cpu_selftest_assert_reg_equals(REG_SF, SF_DEFAULT + 2);
     cpu_selftest_assert_reg_equals(REG_A, 0xCCCCCCCCFFFFFFFF);
     cpu_selftest_assert_no_interrupt();
@@ -7442,9 +7445,9 @@ static void cpu_selftest_org_XCn_stacks_operand_and_jumps_to_offset_n(TESTCONTEX
         cpu_selftest_load_organisational_order_extended(F_XC0 + i, KP_LITERAL, NP_64_BIT_LITERAL);
         cpu_selftest_load_64_bit_literal(0xAAAABBBBCCCCDDDD);
 	    cpu_selftest_setup_default_stack_base();
-        sac_write_64_bit_word(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + 2, 0x0000000000000000);
+        sac_write_64_bit_word(NAME_SEGMENT_STACK_OFFSET_32(2), 0x0000000000000000);
         cpu_selftest_run_code();
-        cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + 2, 0xAAAABBBBCCCCDDDD);
+        cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_STACK_OFFSET_32(2), 0xAAAABBBBCCCCDDDD);
         cpu_selftest_assert_reg_equals(REG_CO, 0x20010000 | (uint8)i);
         cpu_selftest_assert_no_interrupt();
     }
@@ -7472,7 +7475,7 @@ static void cpu_selftest_org_stacklink_puts_link_on_stack_adding_operand_to_stac
     cpu_selftest_set_register(REG_MS, 0xAA24);
     cpu_selftest_set_register(REG_NB, 0xBBBA);
     cpu_selftest_run_code_from_location(10);
-    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + 2, 0xAA24BBBA00000014);
+    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_STACK_OFFSET_32(2), 0xAA24BBBA00000014);
     cpu_selftest_assert_reg_equals(REG_SF, SF_DEFAULT + 2);
     cpu_selftest_assert_no_interrupt();
 }
@@ -7491,7 +7494,7 @@ static void cpu_selftest_org_stacklink_treats_operand_as_signed(TESTCONTEXT *tes
     cpu_selftest_load_32_bit_literal(0xFFFFFFFE);
 	cpu_selftest_setup_default_stack_base();
     cpu_selftest_run_code_from_location(10);
-    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_DEFAULT_STACK_BASE_32 + 2, (initMs << 48) | 0x0000000000000008);
+    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_STACK_OFFSET_32(2), (initMs << 48) | 0x0000000000000008);
     cpu_selftest_assert_no_interrupt();
 }
 
