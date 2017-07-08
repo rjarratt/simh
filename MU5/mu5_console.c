@@ -56,6 +56,9 @@ static void console_schedule_next_poll(UNIT *uptr);
 
 static t_uint64 console_read_console_interrupt_callback(uint8 line);
 static void console_write_console_interrupt_callback(uint8 line, t_uint64 value);
+static t_uint64 console_read_time_upper_callback(uint8 line);
+static t_uint64 console_read_time_lower_callback(uint8 line);
+static t_uint64 console_read_date_lower_callback(uint8 line);
 static t_uint64 console_read_date_upper_hooter_callback(uint8 line);
 static void console_write_date_upper_hooter_callback(uint8 line, t_uint64 value);
 static t_uint64 console_read_teletype_data_callback(uint8 line);
@@ -65,6 +68,9 @@ static void console_write_teletype_control_callback(uint8 line, t_uint64 value);
 static t_uint64 console_read_engineers_handswitches_callback(uint8 line);
 static void console_write_engineers_handswitches_callback(uint8 line, t_uint64 value);
 
+static uint8 console_convert_to_bcd(uint8 n);
+static struct tm *console_get_local_time(void);
+
 static t_stat StartAudioOutput(void);
 static void StopAudioOutput(void);
 
@@ -73,6 +79,7 @@ static uint8 TeletypeData;
 static uint8 TeletypeControl;
 static int TeletypeOperationInProgress;
 static uint16 EngineersHandswitches;
+static uint16 TimeLower;
 static volatile uint8 ConsoleHoot;
 
 static volatile int terminate_thread = 0;
@@ -171,8 +178,11 @@ void console_reset_state(void)
     TeletypeControl = 0;
     TeletypeOperationInProgress = 0;
     sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_CONSOLE_INTERRUPT, console_read_console_interrupt_callback, console_write_console_interrupt_callback);
+	sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TIME_UPPER, console_read_time_upper_callback, NULL);
+	sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TIME_LOWER, console_read_time_lower_callback, NULL);
+	sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_DATE_LOWER, console_read_date_lower_callback, NULL);
 	sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_DATE_UPPER_HOOTER, console_read_date_upper_hooter_callback, console_write_date_upper_hooter_callback);
-    sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TELETYPE_DATA, console_read_teletype_data_callback, console_write_teletype_data_callback);
+	sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TELETYPE_DATA, console_read_teletype_data_callback, console_write_teletype_data_callback);
 	sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TELETYPE_CONTROL, console_read_teletype_control_callback, console_write_teletype_control_callback);
 	sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_ENGINEERS_HANDSWITCHES, console_read_engineers_handswitches_callback, console_write_engineers_handswitches_callback);
 }
@@ -215,10 +225,35 @@ static void console_write_console_interrupt_callback(uint8 line, t_uint64 value)
     }
 }
 
+static t_uint64 console_read_time_upper_callback(uint8 line)
+{
+	t_uint64 result;
+	struct tm *t = console_get_local_time();
+	result = console_convert_to_bcd(t->tm_hour) << 8 | console_convert_to_bcd(t->tm_min);
+	TimeLower = console_convert_to_bcd(t->tm_sec) << 8; /* TODO: milleseconds */
+	return result;
+}
+
+static t_uint64 console_read_time_lower_callback(uint8 line)
+{
+	return TimeLower;
+}
+
+static t_uint64 console_read_date_lower_callback(uint8 line)
+{
+	t_uint64 result;
+	struct tm *t = console_get_local_time();
+	result = console_convert_to_bcd(t->tm_mon + 1) << 8 | console_convert_to_bcd(t->tm_mday);
+	return result;
+}
+
 static t_uint64 console_read_date_upper_hooter_callback(uint8 line)
 {
-	// TODO: not implemented yet
-	return 0;
+	t_uint64 result;
+	/* assume we are in the early 2000's when 50 years is close to the time when MU5 existed. 50 years is a span where the years share the same days of the week for the same dates */
+	uint8 year = (console_get_local_time()->tm_year - 50) % 100;
+	result = console_convert_to_bcd(year);
+	return result;
 }
 
 static void console_write_date_upper_hooter_callback(uint8 line, t_uint64 value)
@@ -265,6 +300,20 @@ static t_uint64 console_read_engineers_handswitches_callback(uint8 line)
 static void console_write_engineers_handswitches_callback(uint8 line, t_uint64 value)
 {
 	EngineersHandswitches = value & MASK_16;
+}
+
+static uint8 console_convert_to_bcd(uint8 n)
+{
+	uint8 result = (n / 10) << 4 | (n % 10);
+	return result;
+}
+
+static struct tm *console_get_local_time(void)
+{
+	time_t now;
+	time(&now);
+	/* assume we are in the early 2000's when 50 years is close to the time when MU5 existed. 50 years is a span where the years share the same days of the week for the same dates */
+	return localtime(&now);
 }
 
 /* TODO: Audio code still has a crackle, possibly because at buffer changeover the old buffer has finished playing before the new one is queued */

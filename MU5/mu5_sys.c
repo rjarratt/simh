@@ -67,11 +67,7 @@ static t_stat mu5_vstore_cmd(int32 flag, CONST char *ptr)
     t_uint64 value;
 
     ptr = get_glyph(ptr, gbuf, 0);
-    if (gbuf[0] && strcmp(gbuf, "SET"))
-    {
-        result = SCPE_ARG;
-    }
-    else
+    if (gbuf[0] && strcmp(gbuf, "SET")==0)
     {
         ptr = get_glyph(ptr, gbuf, 0);
         block = (uint8)get_uint(gbuf, 16, 7, &result);
@@ -91,7 +87,26 @@ static t_stat mu5_vstore_cmd(int32 flag, CONST char *ptr)
             sac_write_v_store(block, line, value);
         }
     }
-    return result;
+	else if (gbuf[0] && strcmp(gbuf, "GET") == 0)
+	{
+		ptr = get_glyph(ptr, gbuf, 0);
+		block = (uint8)get_uint(gbuf, 16, 7, &result);
+		if (result == SCPE_OK)
+		{
+			ptr = get_glyph(ptr, gbuf, 0);
+			line = (uint8)get_uint(gbuf, 16, 255, &result);
+		}
+
+		if (result == SCPE_OK)
+		{
+			printf("%016llX\n", sac_read_v_store(block, line));
+		}
+	}
+	else
+	{
+		result = SCPE_ARG;
+	}
+	return result;
 }
 
 
