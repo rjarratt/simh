@@ -3024,9 +3024,6 @@ static void cpu_selftest_load_operand_64_bit_variable(TESTCONTEXT *testContext)
     cpu_selftest_assert_no_interrupt();
 }
 
-// TODO: p17 SN interrupt on overflow
-// TODO: p17 long instruction offset is signed (?)
-
 static void cpu_selftest_load_operand_b_relative_descriptor_loads_D(TESTCONTEXT *testContext)
 {
     uint32 vecorigin = cpu_selftest_byte_address_from_word_address(VEC_ORIGIN_DEFAULT);
