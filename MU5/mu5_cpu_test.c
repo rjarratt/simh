@@ -331,6 +331,7 @@ static void cpu_selftest_run_continue(void);
 static REG *cpu_selftest_find_register(char *name);
 static t_uint64 cpu_selftest_get_register(char *name);
 static void cpu_selftest_set_register(char *name, t_uint64 value);
+static void cpu_selftest_setup_default_segment(void);
 static void cpu_selftest_setup_name_base(uint16 base);
 static void cpu_selftest_setup_default_name_base(void);
 static void cpu_selftest_setup_stack_base(uint16 base);
@@ -2061,9 +2062,14 @@ static void cpu_selftest_set_register(char *name, t_uint64 value)
     mu5_selftest_set_register(localTestContext, &cpu_dev, name, value);
 }
 
-static void cpu_selftest_setup_name_base(uint16 base)
+static void cpu_selftest_setup_default_segment(void)
 {
 	cpu_selftest_set_register(REG_SN, SN_DEFAULT);
+}
+
+static void cpu_selftest_setup_name_base(uint16 base)
+{
+	cpu_selftest_setup_default_segment();
 	cpu_selftest_set_register(REG_NB, base);
 }
 
@@ -2074,7 +2080,7 @@ static void cpu_selftest_setup_default_name_base(void)
 
 static void cpu_selftest_setup_stack_base(uint16 base)
 {
-	cpu_selftest_set_register(REG_SN, SN_DEFAULT);
+	cpu_selftest_setup_default_segment();
 	cpu_selftest_set_register(REG_SF, base);
 }
 
@@ -7695,12 +7701,13 @@ static void cpu_selftest_org_xnb_plus_generates_system_error_interrupt_if_segmen
 
 static void cpu_selftest_org_xnb_store_stores_XNB(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
+    int8 n = 1;
     cpu_selftest_load_organisational_order_extended(F_XNB_STORE, K_V64, NP_0);
-    cpu_selftest_load_16_bit_literal(base);
+    cpu_selftest_load_16_bit_literal(n);
+	cpu_selftest_setup_default_segment();
     cpu_selftest_set_register(REG_XNB, 0xBBBBAAAA);
     cpu_selftest_run_code();
-    cpu_selftest_assert_memory_contents_64_bit(base * 2, 0x00000000BBBBAAAA); /* TODO: need zero offset setup */
+    cpu_selftest_assert_memory_contents_64_bit(ZERO_OFFSET_64(n), 0x00000000BBBBAAAA);
     cpu_selftest_assert_no_interrupt();
 }
 
