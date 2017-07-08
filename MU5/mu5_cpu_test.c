@@ -261,6 +261,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define NB_DEFAULT          0x00F0
 #define SF_DEFAULT          0x00F8
 #define NAME_SEGMENT_DEFAULT_BASE (SN_BASE + NB_DEFAULT)
+#define NAME_SEGMENT_DEFAULT_BASE_64 (SN_BASE + (NB_DEFAULT * 2))
 #define NAME_SEGMENT_DEFAULT_STACK_BASE (SN_BASE + SF_DEFAULT)
 #define XNB_DEFAULT        (SN_BASE + NB_DEFAULT)
 #define VEC_ORIGIN_DEFAULT  0x01F0
@@ -7600,14 +7601,13 @@ static void cpu_selftest_org_spm_dummy(TESTCONTEXT *testContext)
 
 static void cpu_selftest_org_setlink_stores_link(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
     cpu_selftest_set_load_location(10);
     cpu_selftest_load_organisational_order_extended(F_SETLINK, K_V64, NP_0);
-    cpu_selftest_load_16_bit_literal(base);
+    cpu_selftest_load_16_bit_literal(NB_DEFAULT);
     cpu_selftest_set_register(REG_MS, 0xAA24);
     cpu_selftest_setup_name_base(0xBBBB);
     cpu_selftest_run_code_from_location(10);
-    cpu_selftest_assert_memory_contents_64_bit(SN_BASE + (base * 2), 0xAA24BBBB0000000A);
+    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_DEFAULT_BASE_64, 0xAA24BBBB0000000A);
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -7795,12 +7795,12 @@ static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_unde
 
 static void cpu_selftest_org_sf_store_stores_SF(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
     cpu_selftest_load_organisational_order_extended(F_SF_STORE, K_V64, NP_0);
-    cpu_selftest_load_16_bit_literal(base);
-    cpu_selftest_set_register(REG_SF, 0xAAAA); /* TODO: fix this one for SN */
-    cpu_selftest_run_code();
-    cpu_selftest_assert_memory_contents_64_bit(base * 2, 0x000000000000AAAA);
+    cpu_selftest_load_16_bit_literal(NB_DEFAULT);
+	cpu_selftest_setup_default_name_base();
+	cpu_selftest_setup_stack_base(0xAAAA);
+	cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_DEFAULT_BASE_64, 0x000000000000AAAA);
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -7879,12 +7879,11 @@ static void cpu_selftest_org_nb_plus_generates_interrupt_on_segment_underflow(TE
 
 static void cpu_selftest_org_nb_store_stores_SN_and_NB(TESTCONTEXT *testContext)
 {
-    uint32 base = NB_DEFAULT;
     cpu_selftest_load_organisational_order_extended(F_NB_STORE, K_V64, NP_0);
-    cpu_selftest_load_16_bit_literal(base);
+    cpu_selftest_load_16_bit_literal(NB_DEFAULT);
 	cpu_selftest_setup_name_base(0xBBBA);
     cpu_selftest_run_code();
-    cpu_selftest_assert_memory_contents_64_bit(SN_BASE + (base * 2), 0x000000000001BBBA);
+    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_DEFAULT_BASE_64, 0x000000000001BBBA);
     cpu_selftest_assert_no_interrupt();
 }
 
