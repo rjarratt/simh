@@ -266,10 +266,12 @@ in this Software without prior written authorization from Robert Jarratt.
 #define NAME_SEGMENT_DEFAULT_BASE_32 (SN_BASE + NB_DEFAULT)
 #define NAME_SEGMENT_DEFAULT_BASE_64 (SN_BASE + (NB_DEFAULT * 2))
 #define NAME_SEGMENT_DEFAULT_STACK_BASE_32 (SN_BASE + SF_DEFAULT)
+#define ZERO_OFFSET_32(n) (SN_BASE + n)
+#define ZERO_OFFSET_64(n) (SN_BASE + (2 * n))
 #define NAME_SEGMENT_OFFSET_32(n) (NAME_SEGMENT_DEFAULT_BASE_32 + n)
-#define NAME_SEGMENT_OFFSET_64(n) (NAME_SEGMENT_DEFAULT_BASE_32 + (2 * n)) /* TODO: check why base is not 64 */
+#define NAME_SEGMENT_OFFSET_64(n) (NAME_SEGMENT_DEFAULT_BASE_32 + (2 * n))
 #define NAME_SEGMENT_STACK_OFFSET_32(n) (NAME_SEGMENT_DEFAULT_STACK_BASE_32 + n)
-#define NAME_SEGMENT_STACK_OFFSET_64(n) (NAME_SEGMENT_DEFAULT_STACK_BASE_32 + (2 * n)) /* TODO: check why base is not 64 */
+#define NAME_SEGMENT_STACK_OFFSET_64(n) (NAME_SEGMENT_DEFAULT_STACK_BASE_32 + (2 * n))
 
 typedef struct
 {
@@ -7606,13 +7608,14 @@ static void cpu_selftest_org_spm_dummy(TESTCONTEXT *testContext)
 
 static void cpu_selftest_org_setlink_stores_link(TESTCONTEXT *testContext)
 {
-    cpu_selftest_set_load_location(10);
+	int8 n = 0x1;
+	cpu_selftest_set_load_location(10);
     cpu_selftest_load_organisational_order_extended(F_SETLINK, K_V64, NP_0);
-    cpu_selftest_load_16_bit_literal(NB_DEFAULT);
+    cpu_selftest_load_16_bit_literal(n);
     cpu_selftest_set_register(REG_MS, 0xAA24);
     cpu_selftest_setup_name_base(0xBBBB);
     cpu_selftest_run_code_from_location(10);
-    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_DEFAULT_BASE_64, 0xAA24BBBB0000000A);
+    cpu_selftest_assert_memory_contents_64_bit(ZERO_OFFSET_64(n), 0xAA24BBBB0000000A);
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -7800,12 +7803,13 @@ static void cpu_selftest_org_sf_load_nb_plus_generates_interrupt_on_segment_unde
 
 static void cpu_selftest_org_sf_store_stores_SF(TESTCONTEXT *testContext)
 {
-    cpu_selftest_load_organisational_order_extended(F_SF_STORE, K_V64, NP_0);
-    cpu_selftest_load_16_bit_literal(NB_DEFAULT);
+	int8 n = 0x1;
+	cpu_selftest_load_organisational_order_extended(F_SF_STORE, K_V64, NP_0);
+    cpu_selftest_load_16_bit_literal(n);
 	cpu_selftest_setup_default_name_base();
 	cpu_selftest_setup_stack_base(0xAAAA);
 	cpu_selftest_run_code();
-    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_DEFAULT_BASE_64, 0x000000000000AAAA);
+    cpu_selftest_assert_memory_contents_64_bit(ZERO_OFFSET_64(n), 0x000000000000AAAA);
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -7884,11 +7888,12 @@ static void cpu_selftest_org_nb_plus_generates_interrupt_on_segment_underflow(TE
 
 static void cpu_selftest_org_nb_store_stores_SN_and_NB(TESTCONTEXT *testContext)
 {
-    cpu_selftest_load_organisational_order_extended(F_NB_STORE, K_V64, NP_0);
-    cpu_selftest_load_16_bit_literal(NB_DEFAULT);
+	int8 n = 0x1;
+	cpu_selftest_load_organisational_order_extended(F_NB_STORE, K_V64, NP_0);
+    cpu_selftest_load_16_bit_literal(n);
 	cpu_selftest_setup_name_base(0xBBBA);
     cpu_selftest_run_code();
-    cpu_selftest_assert_memory_contents_64_bit(NAME_SEGMENT_DEFAULT_BASE_64, 0x000000000001BBBA);
+    cpu_selftest_assert_memory_contents_64_bit(ZERO_OFFSET_64(n), 0x000000000001BBBA);
     cpu_selftest_assert_no_interrupt();
 }
 
