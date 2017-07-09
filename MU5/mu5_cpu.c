@@ -32,14 +32,11 @@ byte address and shift it right by 1 bit.
 
 Known Limitations
 -----------------
-Z register is not implemented.
-B DIV implementation is a guess (not defined in MU5 Basic Programming Manual)
+Z register is not implemented as a register.
 No floating point orders
 No decimal orders
-Interrupt processing is incomplete, all the points where an interrupt is generated need to record the cause, other details also incomplete.
 Type 3 descriptors not implemented yet.
 Read only descriptors (1978 manual), RNI email of 4/3/17 says write access to these should generate illegal order interrupt
-No instruction counter
 
 To Do
 -----
@@ -4196,8 +4193,8 @@ static void cpu_execute_fp_signed_compare(uint16 order, DISPATCH_ENTRY *innerTab
 static void cpu_execute_fp_signed_convert(uint16 order, DISPATCH_ENTRY *innerTable)
 {
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "X CONV ");
-    /* TODO: Implement convert to floating point */
-    cpu_set_illegal_order_interrupt(0);
+	/* TODO: Implement convert to floating point */
+	cpu_set_illegal_order_interrupt(0);
 }
 
 static void cpu_execute_fp_signed_reverse_div(uint16 order, DISPATCH_ENTRY *innerTable)

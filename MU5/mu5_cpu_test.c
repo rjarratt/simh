@@ -1349,7 +1349,6 @@ static UNITTEST tests[] =
     { "SMOD scales the modifier for type 0 descriptors", cpu_selftest_sts1_smod_scales_modifier_for_type_0 },
     { "SMOD scales the modifier for type 1 descriptors", cpu_selftest_sts1_smod_scales_modifier_for_type_1 },
     { "SMOD scales the modifier for type 2 descriptors", cpu_selftest_sts1_smod_scales_modifier_for_type_2 },
-        /* TODO: add tests for type 3 descriptors */
     { "SMOD does not scale the modifier for type 0 descriptors when US set", cpu_selftest_sts1_smod_does_not_scale_modifier_for_type_0_when_US_set },
     { "SMOD does not scale the modifier for type 2 descriptors when US set", cpu_selftest_sts1_smod_does_not_scale_modifier_for_type_2_when_US_set },
     { "SMOD does not check bounds", cpu_selftest_sts1_smod_does_not_check_bounds },
