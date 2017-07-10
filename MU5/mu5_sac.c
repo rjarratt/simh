@@ -59,8 +59,6 @@ Known Limitations
 -----------------
 The following V Store lines are not implemented: CPR X FIELD, SAC PARITY, SAC MODE, UNIT STATUS, 1905E INTERRUPT.
 
-TODO: Real address line bits concatenated
-
 */
 
 #include <assert.h>
