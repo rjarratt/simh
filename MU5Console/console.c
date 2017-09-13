@@ -50,12 +50,7 @@ const char *sim_config =
             "MU5-PANEL.ini";
 
 /* Registers visible on the Front Panel */
-unsigned int CO, DL, FP, AP, PSL, R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, atPC;
-unsigned int PCQ[32];
-
-int PSL_bits[32];
-int PC_bits[32];
-int PC_indirect_bits[32];
+unsigned int CO, DL;
 
 int update_display = 1;
 
@@ -160,18 +155,18 @@ if ((f = fopen (sim_config, "w"))) {
 #elif defined(__APPLE__)
     fprintf (f, "! osascript -e 'tell application \"Terminal\" to do script \"telnet localhost 1927; exit\"'\n");
 #endif
-	fprintf(f, "vstore set 4 4 0FFFFFF0 ; CPR IGNORE");
-	fprintf(f, "dep cpr[0]  00000000E3000004");
-	fprintf(f, "dep cpr[1]  00001000F3010004");
-	fprintf(f, "dep cpr[2]  00002000E3020004");
-	fprintf(f, "dep cpr[3]  00003000E3030004");
-	fprintf(f, "dep cpu ms 0014");
-	fprintf(f, "load MU5ELR.bin");
-	fprintf(f, "dep cpu ms 0000");
-	fprintf(f, "dep cpu ms 0014");
-	fprintf(f, "load console.bin");
-	fprintf(f, "dep co 20000");
-	//fprintf(f, "go");
+	fprintf(f, "vstore set 4 4 0FFFFFF0 ; CPR IGNORE\n");
+	fprintf(f, "dep cpr[0]  00000000E3000004\n");
+	fprintf(f, "dep cpr[1]  00001000F3010004\n");
+	fprintf(f, "dep cpr[2]  00002000E3020004\n");
+	fprintf(f, "dep cpr[3]  00003000E3030004\n");
+	fprintf(f, "dep cpu ms 0014\n");
+	fprintf(f, "load MU5ELR.bin\n");
+	fprintf(f, "dep cpu ms 0000\n");
+	fprintf(f, "dep cpu ms 0014\n");
+	fprintf(f, "load console.bin\n");
+	fprintf(f, "dep co 20000\n");
+//	fprintf(f, "go\n");
 	fclose(f);
     }
 
