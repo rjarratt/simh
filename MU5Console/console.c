@@ -185,6 +185,7 @@ if (!panel) {
 if (debug) {
     sim_panel_set_debug_mode (panel, DBG_XMT|DBG_RCV|DBG_REQ|DBG_RSP);
     }
+
 //tape = sim_panel_add_device_panel (panel, "TAPE DRIVE");
 //
 //if (!tape) {
@@ -240,19 +241,19 @@ if (sim_panel_add_register (panel, "DL",  NULL, sizeof(DL), &DL)) {
 //        goto Done;
 //        }
 //    }
-//if (sim_panel_get_registers (panel, NULL)) {
-//    printf ("Error getting register data: %s\n", sim_panel_get_error());
-//    goto Done;
-//    }
-//if (sim_panel_set_display_callback_interval (panel, &DisplayCallback, NULL, 200000)) {
-//    printf ("Error setting automatic display callback: %s\n", sim_panel_get_error());
-//    goto Done;
-//    }
-//if (!sim_panel_get_registers (panel, NULL)) {
-//    printf ("Unexpected success getting register data: %s\n", sim_panel_get_error());
-//    goto Done;
-//    }
-//sim_panel_clear_error ();
+if (sim_panel_get_registers (panel, NULL)) {
+    printf ("Error getting register data: %s\n", sim_panel_get_error());
+    goto Done;
+    }
+if (sim_panel_set_display_callback_interval (panel, &DisplayCallback, NULL, 200000)) {
+    printf ("Error setting automatic display callback: %s\n", sim_panel_get_error());
+    goto Done;
+    }
+if (!sim_panel_get_registers (panel, NULL)) {
+    printf ("Unexpected success getting register data: %s\n", sim_panel_get_error());
+    goto Done;
+    }
+sim_panel_clear_error ();
 //if (!sim_panel_dismount (panel, "RL0")) {
 //    printf ("Unexpected success while dismounting media file from non mounted RL0: %s\n", sim_panel_get_error());
 //    goto Done;
