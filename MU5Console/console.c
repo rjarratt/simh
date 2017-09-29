@@ -66,11 +66,14 @@ DisplayRegisters (PANEL *panel)
 char buf1[100], buf2[100], buf3[100], buf4[100];
 static const char *states[] = {"Halt", "Run "};
 
-if (!update_display)
-    return;
+//if (!update_display)
+//    return;
 update_display = 0;
 buf1[sizeof(buf1)-1] = buf2[sizeof(buf2)-1] = buf3[sizeof(buf3)-1] = 0;
-sprintf (buf1, "%s CO: %08X   DL: %08X\r\n", states[sim_panel_get_state (panel)], CO, DL);
+sprintf(buf1, "%s\r\n", states[sim_panel_get_state(panel)]);
+sprintf(buf2, "CO: %08X\r\n", CO);
+sprintf(buf3, "DL: %08X\r\n", DL);
+buf4[0] = '\0';
 #if defined(_WIN32)
 if (1) {
     static HANDLE out = NULL;
@@ -357,7 +360,7 @@ while (1) {
         }
     while (sim_panel_get_state (panel) == Run) {
         usleep (100);
-        if (update_display)
+        //if (update_display)
             DisplayRegisters(panel);
         if (halt_cpu) {
             halt_cpu = 0;

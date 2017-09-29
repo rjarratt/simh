@@ -730,7 +730,7 @@ if (!simulator_panel) {
     StartupInfo.hStdInput = INVALID_HANDLE_VALUE;
     StartupInfo.hStdOutput = INVALID_HANDLE_VALUE;
     StartupInfo.hStdError = INVALID_HANDLE_VALUE;
-    if (CreateProcessA(NULL, cmd, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &StartupInfo, &ProcessInfo)) {
+    if (CreateProcessA(NULL, cmd, NULL, NULL, FALSE, CREATE_NEW_CONSOLE/*CREATE_NO_WINDOW*/, NULL, NULL, &StartupInfo, &ProcessInfo)) {
         CloseHandle (ProcessInfo.hThread);
         p->hProcess = ProcessInfo.hProcess;
         }
@@ -1999,7 +1999,7 @@ while ((p->sock != INVALID_SOCKET) &&
             *e = ':';
             /* Unexpected Register Data Found (or other output containing a : character) */
             }
-        if (!strcmp (s + strlen (sim_prompt), register_repeat_echo)) {
+        if (!strncmp (s + strlen (sim_prompt), register_repeat_echo, strlen(register_repeat_echo))) {
             if (p->callback) {
                 pthread_mutex_unlock (&p->io_lock);
                 p->callback (p, p->simulation_time, p->callback_context);
