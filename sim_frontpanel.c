@@ -2000,7 +2000,7 @@ while ((p->sock != INVALID_SOCKET) &&
             *e = ':';
             /* Unexpected Register Data Found (or other output containing a : character) */
             }
-        if (!strcmp (s + strlen (sim_prompt), register_repeat_echo)) {
+        if (!strncmp (s + strlen (sim_prompt), register_repeat_echo, strlen(register_repeat_echo))) {
             if (p->callback) {
                 pthread_mutex_unlock (&p->io_lock);
                 p->callback (p, p->simulation_time, p->callback_context);
