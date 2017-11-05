@@ -35,6 +35,8 @@
 
 #### CDC 1700 simulator from John Forecast
 
+#### Hans-Åke Lund has implemented an SCELBI (SCientic-ELectronics-BIology) simulator.
+
 ### New Host Platform support - HP-UX and AIX
 
 ### Simulator Front Panel API
@@ -317,8 +319,8 @@ Built In variables %DATE%, %TIME%, %DATETIME%, %LDATE%, %LTIME%, %CTIME%, %DATE_
    Token %n (n being a single digit) expands to the n'th argument
    Token %* expands to the whole set of arguments (%1 ... %9)
 
-   The input sequence "\%" represents a literal "%", and "\\" represents a
-   literal "\".  All other character combinations are rendered literally.
+   The input sequence "%%" represents a literal "%".  All other 
+   character combinations are rendered literally.
 
    Omitted parameters result in null-string substitutions.
 
