@@ -228,13 +228,13 @@ DEVICE sim_con_telnet = {
     "CON-TELNET", sim_con_units, sim_con_reg, sim_con_mod, 
     2, 0, 0, 0, 0, 0, 
     NULL, NULL, sim_con_reset, NULL, sim_con_attach, sim_con_detach, 
-    NULL, DEV_DEBUG, 0, sim_con_debug,
+    NULL, DEV_DEBUG | DEV_NOSAVE, 0, sim_con_debug,
     NULL, NULL, NULL, NULL, NULL, sim_con_telnet_description};
 TMLN sim_con_ldsc = { 0 };                                          /* console line descr */
 TMXR sim_con_tmxr = { 1, 0, 0, &sim_con_ldsc, NULL, &sim_con_telnet };/* console line mux */
 
 
-SEND sim_con_send = {SEND_DEFAULT_DELAY, &sim_con_telnet, DBG_SND};
+SEND sim_con_send = {0, &sim_con_telnet, DBG_SND};
 EXPECT sim_con_expect = {&sim_con_telnet, DBG_EXP};
 
 static t_bool sim_con_console_port = TRUE;
@@ -1916,6 +1916,7 @@ if (sim_rem_master_mode) {
     sim_printf ("Command input starting on Master Remote Console Session\n");
     stat = sim_run_boot_prep (0);
     sim_rem_master_was_enabled = TRUE;
+    sim_last_cmd_stat = SCPE_OK;
     while (sim_rem_master_mode) {
         sim_rem_consoles[0].single_mode = FALSE;
         sim_cancel (rem_con_data_unit);
@@ -1925,8 +1926,14 @@ if (sim_rem_master_mode) {
             stat_nomessage = stat & SCPE_NOMESSAGE;         /* extract possible message supression flag */
             stat = _sim_rem_message ("RUN", stat);
             }
+        sim_debug (DBG_MOD, &sim_remote_console, "Master Session Returned: Status - %d Active_Line: %d, Mode: %s, Active Cmd: %s\n", stat, sim_rem_cmd_active_line, sim_rem_consoles[0].single_mode ? "Single" : "^E Stopped", sim_rem_active_command ? sim_rem_active_command->name : "");
         if (stat == SCPE_EXIT)
             sim_rem_master_mode = FALSE;
+        sim_rem_cmd_active_line = 0;                    /* Make it look like */
+        sim_rem_consoles[0].single_mode = FALSE;
+        if (stat != SCPE_STEP)
+            sim_rem_active_command = &allowed_single_remote_cmds[0];/* Dummy */
+        sim_last_cmd_stat = SCPE_BARE_STATUS(stat);     /* make exit status available to remote console */
         }
     sim_rem_master_was_enabled = FALSE;
     sim_rem_master_was_connected = FALSE;
@@ -2645,7 +2652,10 @@ if (!sim_rem_master_mode) {
     if ((sim_con_ldsc.rxbps) &&                             /* rate limiting && */
         (sim_gtime () < sim_con_ldsc.rxnexttime))           /* too soon? */
         return SCPE_OK;                                     /* not yet */
-    c = sim_os_poll_kbd ();                                 /* get character */
+    if (sim_ttisatty ())
+        c = sim_os_poll_kbd ();                             /* get character */
+    else
+        c = SCPE_OK;
     if (c == SCPE_STOP) {                                   /* ^E */
         stop_cpu = 1;                                       /* Force a stop (which is picked up by sim_process_event */
         return SCPE_OK;
@@ -2984,7 +2994,11 @@ return r2;
 
 t_bool sim_ttisatty (void)
 {
-return sim_os_ttisatty ();
+static int answer = -1;
+
+if (answer == -1)
+    answer = sim_os_ttisatty ();
+return (t_bool)answer;
 }
 
 
@@ -3220,13 +3234,14 @@ return SCPE_OK;
 
 static t_stat sim_os_ttrun (void)
 {
-if ((std_input) &&                                      /* If Not Background process? */
+if ((sim_ttisatty ()) &&
+    (std_input) &&                                      /* If Not Background process? */
     (std_input != INVALID_HANDLE_VALUE)) {
     if (!GetConsoleMode(std_input, &saved_input_mode))
-        return SCPE_TTYERR;
+        return sim_messagef (SCPE_TTYERR, "GetConsoleMode() error: 0x%X\n", (unsigned int)GetLastError ());
     if ((!SetConsoleMode(std_input, ENABLE_VIRTUAL_TERMINAL_INPUT)) &&
         (!SetConsoleMode(std_input, RAW_MODE)))
-        return SCPE_TTYERR;
+        return sim_messagef (SCPE_TTYERR, "SetConsoleMode() error: 0x%X\n", (unsigned int)GetLastError ());
     }
 if ((std_output) &&                                     /* If Not Background process? */
     (std_output != INVALID_HANDLE_VALUE)) {
@@ -3249,7 +3264,8 @@ if (sim_log) {
     _setmode (_fileno (sim_log), _O_TEXT);
     }
 sim_os_set_thread_priority (PRIORITY_NORMAL);
-if ((std_input) &&                                      /* If Not Background process? */
+if ((sim_ttisatty ()) &&
+    (std_input) &&                                      /* If Not Background process? */
     (std_input != INVALID_HANDLE_VALUE) &&
     (!SetConsoleMode(std_input, saved_input_mode)))     /* Restore Normal mode */
     return SCPE_TTYERR;
@@ -3886,7 +3902,7 @@ static t_bool sim_os_poll_kbd_ready (int ms_timeout)
 fd_set readfds;
 struct timeval timeout;
 
-if (!sim_os_ttisatty()) {                   /* skip if !tty */
+if (!sim_ttisatty()) {                      /* skip if !tty */
     sim_os_ms_sleep (ms_timeout);
     return FALSE;
     }
@@ -3960,7 +3976,8 @@ else {
                               (sim_switches & SWMASK ('I')) ? "" : "\n");
     free (mbuf);
     mbuf = sim_encode_quoted_string ((uint8 *)mbuf2, strlen (mbuf2));
-    sim_exp_set (&sim_con_expect, mbuf, 0, sim_con_expect.after, EXP_TYP_PERSIST, NULL);
+    sim_switches = EXP_TYP_PERSIST;
+    sim_set_expect (&sim_con_expect, mbuf);
     free (mbuf);
     free (mbuf2);
     }
@@ -3983,7 +4000,7 @@ else {
 
     rbuf = (uint8 *)malloc (1 + strlen(cptr));
 
-    decode ((char *)rbuf, cptr);                        /* decod string */
+    decode ((char *)rbuf, cptr);                        /* decode string */
     sim_send_input (&sim_con_send, rbuf, strlen((char *)rbuf), 0, 0); /* queue it for output */
     free (rbuf);
     }
@@ -4002,9 +4019,12 @@ if (cptr == NULL || *cptr == 0)                         /* no argument string? *
     return SCPE_2FARG;                                  /* need an argument */
 
 val = (int32) get_uint (cptr, 10, INT_MAX, &r);         /* parse the argument */
+if (r == SCPE_OK) {                                     /* parse OK? */
+    char gbuf[CBUFSIZE];
 
-if (r == SCPE_OK)                                       /* parse OK? */
-    sim_con_expect.after = val;                         /* save the delay value */
+    snprintf (gbuf, sizeof (gbuf), "HALTAFTER=%d", val);
+    expect_cmd (1, gbuf);
+    }
 
 return r;
 }
