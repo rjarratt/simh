@@ -767,12 +767,11 @@ if (!simulator_panel) {
 
     memset (&ProcessInfo, 0, sizeof(ProcessInfo));
     memset (&StartupInfo, 0, sizeof(StartupInfo));
-	/* TODO: Put back the commented code below */
-    //StartupInfo.dwFlags = STARTF_USESTDHANDLES;
-    //StartupInfo.hStdInput = INVALID_HANDLE_VALUE;
-    //StartupInfo.hStdOutput = INVALID_HANDLE_VALUE;
-    //StartupInfo.hStdError = INVALID_HANDLE_VALUE;
-    if (CreateProcessA(NULL, cmd, NULL, NULL, FALSE, CREATE_NEW_CONSOLE /*CREATE_NO_WINDOW*/, NULL, NULL, &StartupInfo, &ProcessInfo)) {
+    StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+    StartupInfo.hStdInput = INVALID_HANDLE_VALUE;
+    StartupInfo.hStdOutput = INVALID_HANDLE_VALUE;
+    StartupInfo.hStdError = INVALID_HANDLE_VALUE;
+    if (CreateProcessA(NULL, cmd, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &StartupInfo, &ProcessInfo)) {
         CloseHandle (ProcessInfo.hThread);
         p->hProcess = ProcessInfo.hProcess;
         }
