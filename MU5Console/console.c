@@ -66,8 +66,8 @@ DisplayRegisters (PANEL *panel)
 char buf1[100], buf2[100], buf3[100], buf4[100];
 static const char *states[] = {"Halt", "Run "};
 
-//if (!update_display)
-//    return;
+if (!update_display)
+    return;
 update_display = 0;
 buf1[sizeof(buf1)-1] = buf2[sizeof(buf2)-1] = buf3[sizeof(buf3)-1] = 0;
 sprintf(buf1, "%s\r\n", states[sim_panel_get_state(panel)]);
@@ -115,7 +115,7 @@ printf (CSI "H");   /* Position to Top of Screen (1,1) */
 printf (CSI "2J");  /* Clear Screen */
 #endif
 printf ("\n\n\n\n");
-printf ("^C to Halt, Commands: BOOT, CONT, EXIT\n");
+printf ("^C to Halt, Commands: BOOT, CONT, STEP, EXIT\n");
 }
 
 volatile int halt_cpu = 0;
@@ -127,6 +127,27 @@ signal (SIGINT, halt_handler);      /* Re-establish handler for some platforms t
 halt_cpu = 1;
 sim_panel_flush_debug (panel);
 return;
+}
+
+int my_boot(PANEL *panel)
+{
+	UINT64 cpr0 = 0x00000000E3000004;
+	UINT64 cpr1 = 0x00001000F3010004;
+	UINT64 cpr2 = 0x00002000E3020004;
+	UINT64 cpr3 = 0x00003000E3030004;
+	UINT16 ms = 0x0014;
+	UINT32 co = 0x20000;
+	//_panel_sendf (panel, NULL, NULL, "vstore set 4 4 0FFFFFF0 ; CPR IGNORE\n");
+	sim_panel_gen_deposit(panel, "cpr[0]", sizeof(cpr0), &cpr0);
+	sim_panel_gen_deposit(panel, "cpr[1]", sizeof(cpr1), &cpr1);
+	sim_panel_gen_deposit(panel, "cpr[2]", sizeof(cpr2), &cpr2);
+	sim_panel_gen_deposit(panel, "cpr[3]", sizeof(cpr3), &cpr3);
+	sim_panel_gen_deposit(panel, "MS", sizeof(ms), &ms);
+	//_panel_sendf (panel, NULL, NULL, "load MU5ELR.bin\n");
+	//_panel_sendf (panel, NULL, NULL, "load console.bin\n");
+	sim_panel_gen_deposit(panel, "CO", sizeof(co), &co);
+	sim_panel_exec_run(panel);
+	return 0;
 }
 
 int
@@ -141,13 +162,15 @@ if ((argc > 1) && ((!strcmp("-d", argv[1])) || (!strcmp("-D", argv[1])) || (!str
 if ((f = fopen (sim_config, "w"))) {
     if (debug) {
         fprintf (f, "set verbose\n");
-        fprintf (f, "set debug -n -a simulator.dbg\n");
-        fprintf (f, "set cpu conhalt\n");
+		fprintf (f, "set debug -n -a simulator.dbg\n");
+		fprintf (f, "set cpu conhalt\n");
         fprintf (f, "set remote telnet=2226\n");
         fprintf (f, "set rem-con debug=XMT;RCV;MODE;REPEAT;CMD\n");
         fprintf (f, "set remote notelnet\n");
         }
-    fprintf (f, "set console telnet=buffered\n");
+	//fprintf(f, "set debug stdout\n");
+	//fprintf(f, "set cpu debug=decode\n");
+	fprintf (f, "set console telnet=buffered\n");
     fprintf (f, "set console -u telnet=1927\n");
     /* Start a terminal emulator for the console port */
 #if defined(_WIN32)
@@ -165,7 +188,6 @@ if ((f = fopen (sim_config, "w"))) {
 	fprintf(f, "dep cpr[3]  00003000E3030004\n");
 	fprintf(f, "dep cpu ms 0014\n");
 	fprintf(f, "load MU5ELR.bin\n");
-	fprintf(f, "dep cpu ms 0000\n");
 	fprintf(f, "dep cpu ms 0014\n");
 	fprintf(f, "load console.bin\n");
 	fprintf(f, "dep co 20000\n");
@@ -342,8 +364,9 @@ while (1) {
                 cmd[i] = toupper(cmd[i]);
             }
         if (!memcmp("BOOT", cmd, 4)) {
-            if (sim_panel_exec_boot (panel, cmd + 4))
-                break;
+			//if (sim_panel_exec_boot(panel, cmd + 4))
+			if (my_boot(panel))
+				break;
             }
         else if (!strcmp("STEP", cmd)) {
             if (sim_panel_exec_step (panel))
@@ -360,7 +383,7 @@ while (1) {
         }
     while (sim_panel_get_state (panel) == Run) {
         usleep (100);
-        //if (update_display)
+        if (update_display)
             DisplayRegisters(panel);
         if (halt_cpu) {
             halt_cpu = 0;
