@@ -457,6 +457,7 @@ static void sac_selftest_write_to_read_only_page_generates_access_violation(TEST
 
 static void sac_selftest_write_that_generates_access_violation_does_not_modify_memory(TESTCONTEXT *testContext)
 {
+	sac_write_32_bit_word_real_address(RA_LOCAL(0x11), 0);
 	sac_selftest_clear_bcpr();
 	mu5_selftest_setup_cpr(0, CPR_VA(0xF, 0, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x10, 0));
 	sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
@@ -892,9 +893,12 @@ static void sac_selftest_can_bypass_access_check_if_override_set(TESTCONTEXT *te
 
 static void sac_selftest_cannot_bypass_access_check_if_override_clear(TESTCONTEXT *testContext)
 {
-	sac_clear_loading();
+	sac_set_loading();
 	mu5_selftest_clear_bcpr(testContext, &cpu_dev);
 	mu5_selftest_set_executive_mode(testContext, &cpu_dev);
+	sac_write_32_bit_word(0x20010000, 0x00000000);
+
+	sac_clear_loading();
 	sac_write_32_bit_word(0x20010000, 0x12332105);
 	sac_selftest_assert_memory_contents(0x20010000, 0);
 }
