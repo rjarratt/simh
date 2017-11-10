@@ -56,6 +56,7 @@ CTAB mu5_cmd[] = {
 static void VMInit()
 {
     sim_vm_cmd = mu5_cmd;
+	sim_dflt_dev = &cpu_dev;
 }
 
 static t_stat mu5_vstore_cmd(int32 flag, CONST char *ptr)
