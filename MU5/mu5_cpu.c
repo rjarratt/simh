@@ -93,202 +93,6 @@ to set the MS register to some appropriate setting.
 #define LOG_CPU_PERF            (1 << 0)
 #define LOG_CPU_DECODE          (1 << 1)
 
-static int cpu_stopped = 0;
-
-int32 sim_emax;
-
-static UNIT cpu_unit =
-{
-    UDATA(NULL, UNIT_FIX | UNIT_BINK, MAX_LOCAL_MEMORY)
-};
-
-BITFIELD aod_bits[] = {
-    BIT(DBLLEN),  /* Double length +/- */
-    BIT(IROUND),  /* Inhibit rounding */
-    BIT(ZDIV),    /* Zero divide indicator */
-    BIT(DECOVF),  /* Decimal overflow indicator */
-    BIT(FXPOVF),  /* Fixed point overflow indicator */
-    BIT(FLPUNF),  /* Floating point underflow indicator */
-    BIT(FLPOVF),  /* Floating point overflow indicator */
-    BIT(IZDIV),   /* Inhibit zero divide interrupt */
-    BIT(IDECOVF), /* Inhibit decimal overflow interrupt */
-    BIT(IFXPOVF), /* Inhibit fixed point overflow interrupt */
-    BIT(IFLPUNF), /* Inhibit floating point underflow interrupt */
-    BIT(IFLPOVF), /* Inhibit floating point overflow interrupt */
-    BIT(OPSIZ64), /* Operand size (0/1 meaning 32/64 bits */
-    BITNCF(51),
-    ENDBITS
-};
-
-static t_uint64 mask_aod         = 0x0000000000001FFF;
-static t_uint64 mask_aod_zdiv    = 0x0000000000000004;
-static t_uint64 mask_aod_decovf  = 0x0000000000000008;
-static t_uint64 mask_aod_fxpovf  = 0x0000000000000010;
-static t_uint64 mask_aod_flpudf  = 0x0000000000000020;
-static t_uint64 mask_aod_flpovf  = 0x0000000000000040;
-static t_uint64 mask_aod_izdiv   = 0x0000000000000080;
-static t_uint64 mask_aod_idecovf = 0x0000000000000100;
-static t_uint64 mask_aod_ifxpovf = 0x0000000000000200;
-static t_uint64 mask_aod_iflpudf = 0x0000000000000400;
-static t_uint64 mask_aod_iflpovf = 0x0000000000000800;
-static t_uint64 mask_aod_opsiz64 = 0x0000000000001000;
-
-BITFIELD bod_bits[] = {
-    BITNCF(26),
-    BIT(BOVF),   /* B Overflow */
-    BITNCF(4),
-    BIT(IBOVF),  /* Inhibit B overflow interrupt */
-    ENDBITS
-};
-
-static uint32 mask_bod_bovf  = 0x04000000;
-static uint32 mask_bod_ibovf = 0x80000000;
-
-BITFIELD ms_bits[] = {
-    BIT(L0IF),    /* Level 0 interrupt flip-flop */
-    BIT(L1IF),    /* Level 1 interrupt flip-flop */
-    BIT(EXEC),    /* Exec Mode flip-flop */
-    BIT(AF),      /* A faults to System Error in Exec Mode */
-    BIT(BDF),     /* B and D faults to System Error in Exec Mode */
-    BIT(ICI),     /* Instruction counter inhibit */
-    BIT(BNS),     /* Bypass name store */
-    BIT(BCPR),    /* Bypass CPRs */
-
-    BIT(BN),      /* Boolean */
-    BIT(T2),      /* T2 - less than 0 */
-    BIT(T1),      /* T1 - not equal 0 */
-    BIT(T0),      /* T0 - overflow */
-    BITNCF(2),    /* Spare in section 6, SPM & Spare in section 7 */
-    BIT(IPF),     /* Inhibit program fault interrupts */
-    BIT(DS),      /* Force DR instead of S */
-    ENDBITS
-};
-
-static uint16 mask_ms_exec = MS_MASK_EXEC;
-static uint16 mask_ms_bcpr = MS_MASK_BCPR;
-static uint16 mask_ms_b_d_sys_err_exec = MS_MASK_B_D_SYS_ERR_EXEC;
-static uint16 mask_ms_a_sys_err_exec = MS_MASK_A_SYS_ERR_EXEC;
-static uint16 mask_ms_bn = 0x0100;
-static uint16 mask_ms_t2   = 0x0200;
-static uint16 mask_ms_t1   = 0x0400;
-static uint16 mask_ms_t0   = 0x0800;
-
-BITFIELD dod_bits[] = {
-    BIT(XCH),  /* XCHK digit */
-    BIT(ITS),  /* Illegal Type/Size */
-    BIT(EMS),  /* Excutive Mode Subtype used in non-executive mode */
-    BIT(SSS),  /* Short Source String in store to store order */
-    BIT(NZT), /* Non-Zero Truncation when storing secondary operand */
-    BIT(BCH),  /* Bound Check Fail during secondary operand access */
-    BIT(SSSI), /* SSS Interrupt Inhibit */
-    BIT(NZTI), /* NZT Interrupt Inhibit */
-    BIT(BCHI), /* BCH Interrupt Inhibit */
-    BITNCF(23),
-    ENDBITS
-};
-
-static uint32 mask_dod_xch  = 0x00000001;
-static uint32 mask_dod_its  = 0x00000002;
-static uint32 mask_dod_ems  = 0x00000004;
-static uint32 mask_dod_sss  = 0x00000008;
-static uint32 mask_dod_nzt  = 0x00000010;
-static uint32 mask_dod_bch  = 0x00000020;
-static uint32 mask_dod_sssi = 0x00000040;
-static uint32 mask_dod_nzti = 0x00000080;
-static uint32 mask_dod_bchi = 0x00000100;
-static uint32 mask_dod_wro  = 0x00000200;
-
-/* Register backing values */
-static uint32                    reg_b_backing_value;     /* B register */
-static uint32_register_backing   reg_bod_backing_value;   /* BOD register */
-static t_uint64                  reg_a_backing_value;     /* A register */
-static t_uint64_register_backing reg_aod_backing_value;   /* AOD register */
-static t_uint64                  reg_aex_backing_value;   /* AEX register */
-static uint32                    reg_x_backing_value;     /* X register */
-static uint16                    reg_ms_backing_value;    /* MS register */
-static uint16                    reg_nb_backing_value;    /* NB register */
-static uint32                    reg_xnb_backing_value;   /* XNB register */
-static uint16                    reg_sn_backing_value;    /* SN register */
-static uint16                    reg_sf_backing_value;    /* SF register */
-static uint32                    reg_co_backing_value;    /* CO Register */
-static t_uint64                  reg_d_backing_value;     /* D Register */
-static t_uint64                  reg_xd_backing_value;    /* XD Register */
-static uint32_register_backing   reg_dod_backing_value;   /* DOD Register */
-static uint32                    reg_dt_backing_value;    /* DT Register */
-static uint32                    reg_xdt_backing_value;   /* XDT Register */
-static uint32                    reg_dl_backing_value;    /* Pseudo register for display lamps */
-
-static REG cpu_reg[] =
-{
-    { HRDATAD(B,    reg_b_backing_value,       32,    "B register") },
-    { GRDATADF(BOD, reg_bod_backing_value, 16, 32, 0, "BOD register", bod_bits), REG_CALLBACK },
-    { HRDATAD(A,    reg_a_backing_value,       64,    "Accumulator") },
-    { GRDATADF(AOD, reg_aod_backing_value, 16, 64, 0, "AOD register", aod_bits), REG_CALLBACK },
-    { HRDATAD(AEX,  reg_aex_backing_value,     64,    "Accumulator extension") },
-    { HRDATAD(X,    reg_x_backing_value,       32,    "X register") },
-    { GRDATADF(MS,  reg_ms_backing_value, 16,  16, 0, "Machine status register", ms_bits) },
-    { HRDATAD(NB,   reg_nb_backing_value,      16,    "Name Base register") },
-    { HRDATAD(XNB,  reg_xnb_backing_value,     32,    "X register") },
-    { HRDATAD(SN,   reg_sn_backing_value,      16,    "Name Segment Number register") },
-    { HRDATAD(SF,   reg_sf_backing_value,      16,    "Stack Front register") },
-    { HRDATAD(CO,   reg_co_backing_value,      32,    "Program counter") },
-    { HRDATAD(D,    reg_d_backing_value,       64,    "Data descriptor register") },
-    { HRDATAD(XD,   reg_xd_backing_value,      64,    "XD register") },
-    { GRDATADF(DOD, reg_dod_backing_value, 16, 32, 0, "DOD register", dod_bits), REG_CALLBACK },
-    { HRDATAD(DT,   reg_dt_backing_value,      32,    "DT register") },
-    { HRDATAD(XDT,  reg_xdt_backing_value,     32,    "XDT register") },
-    { HRDATAD(DL,   reg_dl_backing_value,      32,    "Pseudo register for display lamps") },
-    { NULL }
-};
-
-REG *reg_b    = &cpu_reg[0];
-REG *reg_bod  = &cpu_reg[1];
-REG *reg_a    = &cpu_reg[2];
-REG *reg_aod  = &cpu_reg[3];
-REG *reg_aex  = &cpu_reg[4];
-REG *reg_x    = &cpu_reg[5];
-REG *reg_ms   = &cpu_reg[6];
-REG *reg_nb   = &cpu_reg[7];
-REG *reg_xnb  = &cpu_reg[8];
-REG *reg_sn   = &cpu_reg[9];
-REG *reg_sf   = &cpu_reg[10];
-REG *reg_co   = &cpu_reg[11];
-REG *reg_d    = &cpu_reg[12];
-REG *reg_xd   = &cpu_reg[13];
-REG *reg_dod  = &cpu_reg[14];
-REG *reg_dt   = &cpu_reg[15];
-REG *reg_xdt  = &cpu_reg[16];
-REG *reg_dl   = &cpu_reg[17];
-
-static uint8 interrupt;
-REG *sim_PC = &cpu_reg[11];
-
-static MTAB cpu_mod[] =
-{
-    { 0 }
-};
-
-/* Debug Flags */
-static DEBTAB cpu_debtab[] =
-{
-    { "PERF",           LOG_CPU_PERF,             "CPU performance" },
-    { "EVENT",          SIM_DBG_EVENT,            "event dispatch activities" },
-    { "DECODE",         LOG_CPU_DECODE,           "decode instructions" },
-    { "SELFTEST",       LOG_SELFTEST,         "self test summary output" },
-    { "SELFTESTDETAIL", LOG_SELFTEST_DETAIL,  "self test detailed output" },
-    { "SELFTESTFAIL",   LOG_SELFTEST_FAIL,    "self test failure output" },
-    { NULL,             0 }
-};
-
-static const char* cpu_description(DEVICE *dptr) {
-    return "Central Processing Unit";
-}
-
-uint8 PROPProcessNumber;
-static uint16 PROPProgramFaultStatus;
-static uint16 PROPSystemErrorStatus;
-static uint16 PROPInstructionCounter;
-
 t_stat sim_instr(void);
 
 static t_stat cpu_ex(t_value *vptr, t_addr addr, UNIT *uptr, int32 sw);
@@ -317,9 +121,9 @@ static void cpu_set_xnb(uint32 value);
 static void cpu_set_sf(uint16 value);
 static void cpu_set_co(uint32 value);
 static void cpu_set_ms_bn(int value);
-static void cpu_aod_callback(t_uint64 old_value, t_uint64 new_value);
-static void cpu_bod_callback(uint32 old_value, uint32 new_value);
-static void cpu_dod_callback(uint32 old_value, uint32 new_value);
+static void cpu_aod_callback(t_value old_value, struct REG *reg, int idx);
+static void cpu_bod_callback(t_value old_value, struct REG *reg, int idx);
+static void cpu_dod_callback(t_value old_value, struct REG *reg, int idx);
 static uint32 cpu_co_add(uint32 co, t_int64 operand);
 static t_uint64 cpu_get_link(void);
 static void cpu_set_link(t_uint64 link);
@@ -555,6 +359,202 @@ static void cpu_execute_flp_unsigned_xor(uint16 order, DISPATCH_ENTRY *innerTabl
 static void cpu_execute_flp_unsigned_or(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_flp_shift_circ(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_execute_flp_unsigned_and(uint16 order, DISPATCH_ENTRY *innerTable);
+
+static int cpu_stopped = 0;
+
+int32 sim_emax;
+
+static UNIT cpu_unit =
+{
+    UDATA(NULL, UNIT_FIX | UNIT_BINK, MAX_LOCAL_MEMORY)
+};
+
+BITFIELD aod_bits[] = {
+    BIT(DBLLEN),  /* Double length +/- */
+    BIT(IROUND),  /* Inhibit rounding */
+    BIT(ZDIV),    /* Zero divide indicator */
+    BIT(DECOVF),  /* Decimal overflow indicator */
+    BIT(FXPOVF),  /* Fixed point overflow indicator */
+    BIT(FLPUNF),  /* Floating point underflow indicator */
+    BIT(FLPOVF),  /* Floating point overflow indicator */
+    BIT(IZDIV),   /* Inhibit zero divide interrupt */
+    BIT(IDECOVF), /* Inhibit decimal overflow interrupt */
+    BIT(IFXPOVF), /* Inhibit fixed point overflow interrupt */
+    BIT(IFLPUNF), /* Inhibit floating point underflow interrupt */
+    BIT(IFLPOVF), /* Inhibit floating point overflow interrupt */
+    BIT(OPSIZ64), /* Operand size (0/1 meaning 32/64 bits */
+    BITNCF(51),
+    ENDBITS
+};
+
+static t_uint64 mask_aod = 0x0000000000001FFF;
+static t_uint64 mask_aod_zdiv = 0x0000000000000004;
+static t_uint64 mask_aod_decovf = 0x0000000000000008;
+static t_uint64 mask_aod_fxpovf = 0x0000000000000010;
+static t_uint64 mask_aod_flpudf = 0x0000000000000020;
+static t_uint64 mask_aod_flpovf = 0x0000000000000040;
+static t_uint64 mask_aod_izdiv = 0x0000000000000080;
+static t_uint64 mask_aod_idecovf = 0x0000000000000100;
+static t_uint64 mask_aod_ifxpovf = 0x0000000000000200;
+static t_uint64 mask_aod_iflpudf = 0x0000000000000400;
+static t_uint64 mask_aod_iflpovf = 0x0000000000000800;
+static t_uint64 mask_aod_opsiz64 = 0x0000000000001000;
+
+BITFIELD bod_bits[] = {
+    BITNCF(26),
+    BIT(BOVF),   /* B Overflow */
+    BITNCF(4),
+    BIT(IBOVF),  /* Inhibit B overflow interrupt */
+    ENDBITS
+};
+
+static uint32 mask_bod_bovf = 0x04000000;
+static uint32 mask_bod_ibovf = 0x80000000;
+
+BITFIELD ms_bits[] = {
+    BIT(L0IF),    /* Level 0 interrupt flip-flop */
+    BIT(L1IF),    /* Level 1 interrupt flip-flop */
+    BIT(EXEC),    /* Exec Mode flip-flop */
+    BIT(AF),      /* A faults to System Error in Exec Mode */
+    BIT(BDF),     /* B and D faults to System Error in Exec Mode */
+    BIT(ICI),     /* Instruction counter inhibit */
+    BIT(BNS),     /* Bypass name store */
+    BIT(BCPR),    /* Bypass CPRs */
+
+    BIT(BN),      /* Boolean */
+    BIT(T2),      /* T2 - less than 0 */
+    BIT(T1),      /* T1 - not equal 0 */
+    BIT(T0),      /* T0 - overflow */
+    BITNCF(2),    /* Spare in section 6, SPM & Spare in section 7 */
+    BIT(IPF),     /* Inhibit program fault interrupts */
+    BIT(DS),      /* Force DR instead of S */
+    ENDBITS
+};
+
+static uint16 mask_ms_exec = MS_MASK_EXEC;
+static uint16 mask_ms_bcpr = MS_MASK_BCPR;
+static uint16 mask_ms_b_d_sys_err_exec = MS_MASK_B_D_SYS_ERR_EXEC;
+static uint16 mask_ms_a_sys_err_exec = MS_MASK_A_SYS_ERR_EXEC;
+static uint16 mask_ms_bn = 0x0100;
+static uint16 mask_ms_t2 = 0x0200;
+static uint16 mask_ms_t1 = 0x0400;
+static uint16 mask_ms_t0 = 0x0800;
+
+BITFIELD dod_bits[] = {
+    BIT(XCH),  /* XCHK digit */
+    BIT(ITS),  /* Illegal Type/Size */
+    BIT(EMS),  /* Excutive Mode Subtype used in non-executive mode */
+    BIT(SSS),  /* Short Source String in store to store order */
+    BIT(NZT), /* Non-Zero Truncation when storing secondary operand */
+    BIT(BCH),  /* Bound Check Fail during secondary operand access */
+    BIT(SSSI), /* SSS Interrupt Inhibit */
+    BIT(NZTI), /* NZT Interrupt Inhibit */
+    BIT(BCHI), /* BCH Interrupt Inhibit */
+    BITNCF(23),
+    ENDBITS
+};
+
+static uint32 mask_dod_xch = 0x00000001;
+static uint32 mask_dod_its = 0x00000002;
+static uint32 mask_dod_ems = 0x00000004;
+static uint32 mask_dod_sss = 0x00000008;
+static uint32 mask_dod_nzt = 0x00000010;
+static uint32 mask_dod_bch = 0x00000020;
+static uint32 mask_dod_sssi = 0x00000040;
+static uint32 mask_dod_nzti = 0x00000080;
+static uint32 mask_dod_bchi = 0x00000100;
+static uint32 mask_dod_wro = 0x00000200;
+
+/* Register backing values */
+static uint32   reg_b_backing_value;     /* B register */
+static uint32   reg_bod_backing_value;   /* BOD register */
+static t_uint64 reg_a_backing_value;     /* A register */
+static t_uint64 reg_aod_backing_value;   /* AOD register */
+static t_uint64 reg_aex_backing_value;   /* AEX register */
+static uint32   reg_x_backing_value;     /* X register */
+static uint16   reg_ms_backing_value;    /* MS register */
+static uint16   reg_nb_backing_value;    /* NB register */
+static uint32   reg_xnb_backing_value;   /* XNB register */
+static uint16   reg_sn_backing_value;    /* SN register */
+static uint16   reg_sf_backing_value;    /* SF register */
+static uint32   reg_co_backing_value;    /* CO Register */
+static t_uint64 reg_d_backing_value;     /* D Register */
+static t_uint64 reg_xd_backing_value;    /* XD Register */
+static uint32   reg_dod_backing_value;   /* DOD Register */
+static uint32   reg_dt_backing_value;    /* DT Register */
+static uint32   reg_xdt_backing_value;   /* XDT Register */
+static uint32   reg_dl_backing_value;    /* Pseudo register for display lamps */
+
+static REG cpu_reg[] =
+{
+    { HRDATAD(B,     reg_b_backing_value,       32,    "B register") },
+    { GRDATADFC(BOD, reg_bod_backing_value, 16, 32, 0, "BOD register", bod_bits, cpu_bod_callback) },
+    { HRDATAD(A,     reg_a_backing_value,       64,    "Accumulator") },
+    { GRDATADFC(AOD, reg_aod_backing_value, 16, 64, 0, "AOD register", aod_bits, cpu_aod_callback) },
+    { HRDATAD(AEX,   reg_aex_backing_value,     64,    "Accumulator extension") },
+    { HRDATAD(X,     reg_x_backing_value,       32,    "X register") },
+    { GRDATADF(MS,   reg_ms_backing_value, 16,  16, 0, "Machine status register", ms_bits) },
+    { HRDATAD(NB,    reg_nb_backing_value,      16,    "Name Base register") },
+    { HRDATAD(XNB,   reg_xnb_backing_value,     32,    "X register") },
+    { HRDATAD(SN,    reg_sn_backing_value,      16,    "Name Segment Number register") },
+    { HRDATAD(SF,    reg_sf_backing_value,      16,    "Stack Front register") },
+    { HRDATAD(CO,    reg_co_backing_value,      32,    "Program counter") },
+    { HRDATAD(D,     reg_d_backing_value,       64,    "Data descriptor register") },
+    { HRDATAD(XD,    reg_xd_backing_value,      64,    "XD register") },
+    { GRDATADFC(DOD, reg_dod_backing_value, 16, 32, 0, "DOD register", dod_bits, cpu_dod_callback) },
+    { HRDATAD(DT,    reg_dt_backing_value,      32,    "DT register") },
+    { HRDATAD(XDT,   reg_xdt_backing_value,     32,    "XDT register") },
+    { HRDATAD(DL,    reg_dl_backing_value,      32,    "Pseudo register for display lamps") },
+    { NULL }
+};
+
+REG *reg_b = &cpu_reg[0];
+REG *reg_bod = &cpu_reg[1];
+REG *reg_a = &cpu_reg[2];
+REG *reg_aod = &cpu_reg[3];
+REG *reg_aex = &cpu_reg[4];
+REG *reg_x = &cpu_reg[5];
+REG *reg_ms = &cpu_reg[6];
+REG *reg_nb = &cpu_reg[7];
+REG *reg_xnb = &cpu_reg[8];
+REG *reg_sn = &cpu_reg[9];
+REG *reg_sf = &cpu_reg[10];
+REG *reg_co = &cpu_reg[11];
+REG *reg_d = &cpu_reg[12];
+REG *reg_xd = &cpu_reg[13];
+REG *reg_dod = &cpu_reg[14];
+REG *reg_dt = &cpu_reg[15];
+REG *reg_xdt = &cpu_reg[16];
+REG *reg_dl = &cpu_reg[17];
+
+static uint8 interrupt;
+REG *sim_PC = &cpu_reg[11];
+
+static MTAB cpu_mod[] =
+{
+    { 0 }
+};
+
+/* Debug Flags */
+static DEBTAB cpu_debtab[] =
+{
+    { "PERF",           LOG_CPU_PERF,             "CPU performance" },
+    { "EVENT",          SIM_DBG_EVENT,            "event dispatch activities" },
+    { "DECODE",         LOG_CPU_DECODE,           "decode instructions" },
+    { "SELFTEST",       LOG_SELFTEST,         "self test summary output" },
+    { "SELFTESTDETAIL", LOG_SELFTEST_DETAIL,  "self test detailed output" },
+    { "SELFTESTFAIL",   LOG_SELFTEST_FAIL,    "self test failure output" },
+    { NULL,             0 }
+};
+
+static const char* cpu_description(DEVICE *dptr) {
+    return "Central Processing Unit";
+}
+
+uint8 PROPProcessNumber;
+static uint16 PROPProgramFaultStatus;
+static uint16 PROPSystemErrorStatus;
+static uint16 PROPInstructionCounter;
 
 DEVICE cpu_dev = {
     "CPU",            /* name */
@@ -1072,42 +1072,42 @@ static SIM_INLINE t_uint64 cpu_set_value_bit_64(t_uint64 value, t_uint64 mask, i
 static SIM_INLINE void cpu_set_register_16(REG *reg, uint16 value)
 {
     uint16 old_value;
-    uint16_register_backing *backing;
+    uint16 *backing;
     assert(reg->width == 16);
     backing = reg->loc;
-    old_value = backing->backing_value;
-    backing->backing_value = value;
-    if (reg->flags & REG_CALLBACK)
+    old_value = *backing;
+    *backing = value;
+    if (reg->callback != NULL)
     {
-        backing->callback(old_value, backing->backing_value);
+        reg->callback(old_value, reg, 0);
     }
 }
 
 static SIM_INLINE void cpu_set_register_32(REG *reg, uint32 value)
 {
     uint32 old_value;
-    uint32_register_backing *backing;
+    uint32 *backing;
     assert(reg->width == 32);
     backing = reg->loc;
-    old_value = backing->backing_value;
-    backing->backing_value = value;
-    if (reg->flags & REG_CALLBACK)
+    old_value = *backing;
+    *backing = value;
+    if (reg->callback != NULL)
     {
-        backing->callback(old_value, backing->backing_value);
+        reg->callback(old_value, reg, 0);
     }
 }
 
 static SIM_INLINE void cpu_set_register_64(REG *reg, t_uint64 value)
 {
     t_uint64 old_value;
-    t_uint64_register_backing *backing;
+    t_uint64 *backing;
     assert(reg->width == 64);
     backing = reg->loc;
-	old_value = backing->backing_value;
-    backing->backing_value = value;
-    if (reg->flags & REG_CALLBACK)
+	old_value = *backing;
+    *backing = value;
+    if (reg->callback != NULL)
     {
-        backing->callback(old_value, backing->backing_value);
+        reg->callback(old_value, reg, 0);
     }
 }
 
@@ -1246,20 +1246,21 @@ static void cpu_set_ms_bn(int value)
     cpu_set_register_bit_16(reg_ms, mask_ms_bn, value);
 }
 
-static void cpu_aod_callback(t_uint64 old_value, t_uint64 new_value)
+static void cpu_aod_callback(t_value old_value, struct REG *reg, int idx)
 {
+    t_uint64 new_value = cpu_get_register_64(reg);
 	if ((old_value & 0xFFF) != (new_value & 0xFFF))
 	{
 		cpu_evaluate_interrupts();
 	}
 }
 
-static void cpu_bod_callback(uint32 old_value, uint32 new_value)
+static void cpu_bod_callback(t_value old_value, struct REG *reg, int idx)
 {
     cpu_evaluate_interrupts();
 }
 
-static void cpu_dod_callback(uint32 old_value, uint32 new_value)
+static void cpu_dod_callback(t_value old_value, struct REG *reg, int idx)
 {
     cpu_evaluate_interrupts();
 }
@@ -1340,19 +1341,15 @@ static int cpu_is_executive_mode(void)
 
 void cpu_reset_state(void)
 {
-    reg_aod_backing_value.callback = cpu_aod_callback;
-    reg_bod_backing_value.callback = cpu_bod_callback;
-    reg_dod_backing_value.callback = cpu_dod_callback;
-
     PROPProcessNumber = 0;
     PROPInstructionCounter = 0;
     PROPProgramFaultStatus = 0;
     PROPSystemErrorStatus = 0;
     cpu_clear_all_interrupts();
     reg_b_backing_value = 0x0;
-    reg_bod_backing_value.backing_value = 0x0;
+    reg_bod_backing_value = 0x0;
     reg_a_backing_value = 0x0;
-    reg_aod_backing_value.backing_value = 0x0;
+    reg_aod_backing_value = 0x0;
     reg_aex_backing_value = 0x0;
     reg_x_backing_value = 0x0;
     reg_ms_backing_value = mask_ms_bcpr | mask_ms_exec; /* initialise in executive mode using real addresses */
@@ -1363,7 +1360,7 @@ void cpu_reset_state(void)
     reg_co_backing_value = 0x0; /* TODO: probably needs to be reset to start of OS (upper half of memory) */
     reg_d_backing_value = 0x0;
     reg_xd_backing_value = 0x0;
-    reg_dod_backing_value.backing_value = 0x0;
+    reg_dod_backing_value = 0x0;
     reg_dt_backing_value = 0x0;
     reg_xdt_backing_value = 0x0;
     reg_dl_backing_value = 0x0;

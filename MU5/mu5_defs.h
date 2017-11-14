@@ -47,9 +47,6 @@ in this Software without prior written authorization from Robert Jarratt.
 #define REG_CO "CO"
 #define REG_DL "DL"
 
-/* flag used to mark a register as needing a callback when it is written*/
-#define REG_CALLBACK 0x8000000
-
 /* Debug flags */
 #define LOG_ERROR           (1 << 12)
 #define LOG_SELFTEST        (1 << 13)
@@ -105,21 +102,3 @@ in this Software without prior written authorization from Robert Jarratt.
 #define RA_LOCAL(address) ((UNIT_LOCAL_STORE << 20) | (address & 0xFFFFF))
 #define RA_MASS(address) ((UNIT_MASS_STORE << 20) | (address & 0xFFFFF))
 #define RA_LOCAL_BYTE(address) ((UNIT_LOCAL_STORE << 22) | (address & 0xFFFFF))
-
-typedef struct
-{
-	uint16 backing_value;
-	void(*callback)(uint16 old_value, uint16 new_value);
-} uint16_register_backing;
-
-typedef struct
-{
-	uint32 backing_value;
-	void(*callback)(uint32 old_value, uint32 new_value);
-} uint32_register_backing;
-
-typedef struct
-{
-	t_uint64 backing_value;
-	void(*callback)(t_uint64 old_value, t_uint64 new_value);
-} t_uint64_register_backing;
