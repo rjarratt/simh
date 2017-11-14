@@ -7626,70 +7626,108 @@ return SCPE_OK;
         none
 */
 
-void put_rval (REG *rptr, uint32 idx, t_value val)
+void put_rval(REG *rptr, uint32 idx, t_value val)
 {
-size_t sz;
-t_value mask;
-uint32 *ptr;
+    size_t sz;
+    t_value mask;
+    t_value old_val;
+    uint32 *ptr;
 
 #define PUT_RVAL(sz,rp,id,v,m) \
     *(((sz *) rp->loc) + id) = \
             (sz)((*(((sz *) rp->loc) + id) & \
             ~((m) << (rp)->offset)) | ((v) << (rp)->offset))
 
-if (rptr == sim_PC)
-    sim_brk_npc (0);
-sz = SZ_R (rptr);
-mask = width_mask[rptr->width];
-if ((rptr->depth > 1) && (rptr->flags & REG_CIRC)) {
-    idx = idx + rptr->qptr;
-    if (idx >= rptr->depth)
-        idx = idx - rptr->depth;
+    if (rptr == sim_PC)
+        sim_brk_npc(0);
+    sz = SZ_R(rptr);
+    mask = width_mask[rptr->width];
+    if ((rptr->depth > 1) && (rptr->flags & REG_CIRC)) {
+        idx = idx + rptr->qptr;
+        if (idx >= rptr->depth)
+            idx = idx - rptr->depth;
     }
-if ((rptr->depth > 1) && (rptr->flags & REG_UNIT)) {
-    ptr = (uint32 *)(((UNIT *) rptr->loc) + idx);
+    if ((rptr->depth > 1) && (rptr->flags & REG_UNIT)) {
+        ptr = (uint32 *)(((UNIT *)rptr->loc) + idx);
 #if defined (USE_INT64)
-    if (sz <= sizeof (uint32))
+        if (sz <= sizeof(uint32))
+        {
+            old_val = *((uint32 *)ptr);
+        }
+        else
+        {
+            old_val = *((t_uint64 *)ptr);
+        }
+        if (sz <= sizeof(uint32))
+            *ptr = (*ptr &
+                ~(((uint32)mask) << rptr->offset)) |
+                (((uint32)val) << rptr->offset);
+        else *((t_uint64 *)ptr) = (*((t_uint64 *)ptr)
+            & ~(mask << rptr->offset)) | (val << rptr->offset);
+#else
+        old_val = *ptr;
         *ptr = (*ptr &
-        ~(((uint32) mask) << rptr->offset)) |
-        (((uint32) val) << rptr->offset);
-    else *((t_uint64 *) ptr) = (*((t_uint64 *) ptr)
-        & ~(mask << rptr->offset)) | (val << rptr->offset);
-#else
-    *ptr = (*ptr &
-        ~(((uint32) mask) << rptr->offset)) |
-        (((uint32) val) << rptr->offset);
+            ~(((uint32)mask) << rptr->offset)) |
+            (((uint32)val) << rptr->offset);
 #endif
     }
-else if ((rptr->depth > 1) && (rptr->flags & REG_STRUCT)) {
-    ptr = (uint32 *)(((size_t) rptr->loc) + (idx * rptr->str_size));
+    else if ((rptr->depth > 1) && (rptr->flags & REG_STRUCT)) {
+        ptr = (uint32 *)(((size_t)rptr->loc) + (idx * rptr->str_size));
 #if defined (USE_INT64)
-    if (sz <= sizeof (uint32))
-        *((uint32 *) ptr) = (*((uint32 *) ptr) &
-        ~(((uint32) mask) << rptr->offset)) |
-        (((uint32) val) << rptr->offset);
-    else *((t_uint64 *) ptr) = (*((t_uint64 *) ptr)
-        & ~(mask << rptr->offset)) | (val << rptr->offset);
+        if (sz <= sizeof(uint32))
+        {
+            old_val = *((uint32 *)ptr);
+        }
+        else
+        {
+            old_val = *((t_uint64 *)ptr);
+        }
+        if (sz <= sizeof(uint32))
+            *((uint32 *)ptr) = (*((uint32 *)ptr) &
+                ~(((uint32)mask) << rptr->offset)) |
+                (((uint32)val) << rptr->offset);
+        else *((t_uint64 *)ptr) = (*((t_uint64 *)ptr)
+            & ~(mask << rptr->offset)) | (val << rptr->offset);
 #else
-    *ptr = (*ptr &
-        ~(((uint32) mask) << rptr->offset)) |
-        (((uint32) val) << rptr->offset);
+        old_val = *ptr;
+        *ptr = (*ptr &
+            ~(((uint32)mask) << rptr->offset)) |
+            (((uint32)val) << rptr->offset);
 #endif
     }
-else if (((rptr->depth > 1) || (rptr->flags & REG_FIT)) &&
-    (sz == sizeof (uint8)))
-    PUT_RVAL (uint8, rptr, idx, (uint32) val, (uint32) mask);
-else if (((rptr->depth > 1) || (rptr->flags & REG_FIT)) &&
-    (sz == sizeof (uint16)))
-    PUT_RVAL (uint16, rptr, idx, (uint32) val, (uint32) mask);
+    else if (((rptr->depth > 1) || (rptr->flags & REG_FIT)) && (sz == sizeof(uint8)))
+    {
+        old_val = *((uint8 *)rptr->loc + idx);
+        PUT_RVAL(uint8, rptr, idx, (uint32)val, (uint32)mask);
+    }
+    else if (((rptr->depth > 1) || (rptr->flags & REG_FIT)) && (sz == sizeof(uint16)))
+    {
+        old_val = *((uint16 *)rptr->loc + idx);
+        PUT_RVAL(uint16, rptr, idx, (uint32)val, (uint32)mask);
+    }
 #if defined (USE_INT64)
-else if (sz <= sizeof (uint32))
-    PUT_RVAL (uint32, rptr, idx, (int32) val, (uint32) mask);
-else PUT_RVAL (t_uint64, rptr, idx, val, mask);
+    else if (sz <= sizeof(uint32))
+    {
+        old_val = *((uint32 *)rptr->loc + idx);
+        PUT_RVAL(uint32, rptr, idx, (int32)val, (uint32)mask);
+    }
+    else
+    {
+        old_val = *((t_uint64 *)rptr->loc + idx);
+        PUT_RVAL(t_uint64, rptr, idx, val, mask);
+    }
 #else
-else PUT_RVAL (uint32, rptr, idx, val, mask);
+    else
+    {
+        old_val = *((uint32 *)rptr->loc + idx);
+        PUT_RVAL(uint32, rptr, idx, val, mask);
+    }
 #endif
-return;
+    if (rptr->callback != NULL)
+    {
+        rptr->callback(old_val, rptr, idx);
+    }
+    return;
 }
 
 /* Examine address routine

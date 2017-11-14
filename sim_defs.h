@@ -651,6 +651,7 @@ struct REG {
     uint32              flags;                          /* flags */
     uint32              qptr;                           /* circ q ptr */
     size_t              str_size;                       /* structure size */
+	void                (*callback)(t_value old_value, struct REG *rptr, int idx); /* if not NULL, called when register is written */
     };
 
 /* Register flags */
@@ -894,6 +895,15 @@ struct MEMFILE {
 #define FLDATADF(nm,loc,pos,desc,flds) #nm, &(loc), 2, 1, (pos), 1, (desc), (flds)
 #define GRDATADF(nm,loc,rdx,wd,pos,desc,flds) #nm, &(loc), (rdx), (wd), (pos), 1, (desc), (flds)
 #define BRDATADF(nm,loc,rdx,wd,dep,desc,flds) #nm, (loc), (rdx), (wd), 0, (dep), (desc), (flds)
+/* Arbitrary location and Radix Register with description initializer, bitfields and callback */
+#define GRDATADFC(nm,loc,rdx,wd,pos,desc,flds,cbk) #nm, &(loc), (rdx), (wd), (pos), 1, (desc), (flds), 0, 0, 0, (cbk)
+/* Hexadecimal register with description initializer and callback */
+#define HRDATADC(nm,loc,wd,desc,cbk) #nm, &(loc), 16, (wd), 0, 1, (desc), NULL, 0, 0, 0, (cbk)
+/* Arrayed register with description initializer and callback */
+#define BRDATADC(nm,loc,rdx,wd,dep,desc,cbk) #nm, (loc), (rdx), (wd), 0, (dep), (desc), NULL, 0, 0, 0, (cbk)
+/* Arrayed register whose data is part of an arbitrary structure with description and callback */
+#define STRDATADC(nm,loc,rdx,wd,off,dep,siz,desc,cbk) #nm, (loc), (rdx), (wd), (off), (dep), (desc), NULL, REG_STRUCT, 0, (siz), (cbk)
+
 #define BIT(nm)              {#nm, 0xffffffff, 1}             /* Single Bit definition */
 #define BITNC                {"",  0xffffffff, 1}             /* Don't care Bit definition */
 #define BITF(nm,sz)          {#nm, 0xffffffff, sz}            /* Bit Field definition */
