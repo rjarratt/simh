@@ -137,14 +137,15 @@ int my_boot(PANEL *panel)
 	UINT64 cpr3 = 0x00003000E3030004;
 	UINT16 ms = 0x0014;
 	UINT32 co = 0x20000;
-	//_panel_sendf (panel, NULL, NULL, "vstore set 4 4 0FFFFFF0 ; CPR IGNORE\n");
-	sim_panel_gen_deposit(panel, "cpr[0]", sizeof(cpr0), &cpr0);
-	sim_panel_gen_deposit(panel, "cpr[1]", sizeof(cpr1), &cpr1);
+    UINT32 cpr_ignore = 0x0FFFFFF0;
+    UINT32 engineers_handkeys = 0x8000
+    sim_panel_gen_deposit(panel, "sac v[4]", sizeof(cpr0), &cpr_ignore);
+    sim_panel_gen_deposit(panel, "cpr[0]", sizeof(cpr0), &cpr0);
+    sim_panel_gen_deposit(panel, "cpr[1]", sizeof(cpr1), &cpr1);
 	sim_panel_gen_deposit(panel, "cpr[2]", sizeof(cpr2), &cpr2);
 	sim_panel_gen_deposit(panel, "cpr[3]", sizeof(cpr3), &cpr3);
-	sim_panel_gen_deposit(panel, "MS", sizeof(ms), &ms);
-	//_panel_sendf (panel, NULL, NULL, "load MU5ELR.bin\n");
-	//_panel_sendf (panel, NULL, NULL, "load console.bin\n");
+    sim_panel_gen_deposit(panel, "con v[11]", sizeof(engineers_handkeys), &engineers_handkeys);
+    sim_panel_gen_deposit(panel, "MS", sizeof(ms), &ms);
 	sim_panel_gen_deposit(panel, "CO", sizeof(co), &co);
 	sim_panel_exec_run(panel);
 	return 0;
@@ -165,7 +166,7 @@ if ((f = fopen (sim_config, "w"))) {
 		fprintf (f, "set debug -n -a simulator.dbg\n");
 		fprintf (f, "set cpu conhalt\n");
         fprintf (f, "set remote telnet=2226\n");
-        fprintf (f, "set rem-con debug=XMT;RCV;MODE;REPEAT;CMD\n");
+        //fprintf (f, "set rem-con debug=XMT;RCV;MODE;REPEAT;CMD\n");
         fprintf (f, "set remote notelnet\n");
         }
 	//fprintf(f, "set debug stdout\n");
@@ -181,17 +182,14 @@ if ((f = fopen (sim_config, "w"))) {
 #elif defined(__APPLE__)
     fprintf (f, "! osascript -e 'tell application \"Terminal\" to do script \"telnet localhost 1927; exit\"'\n");
 #endif
-	fprintf(f, "vstore set 4 4 0FFFFFF0 ; CPR IGNORE\n");
+	fprintf(f, "dep sac v[4] 0FFFFFF0\n"); /* CPR IGNORE */
 	fprintf(f, "dep cpr[0]  00000000E3000004\n");
 	fprintf(f, "dep cpr[1]  00001000F3010004\n");
 	fprintf(f, "dep cpr[2]  00002000E3020004\n");
 	fprintf(f, "dep cpr[3]  00003000E3030004\n");
 	fprintf(f, "dep cpu ms 0014\n");
 	fprintf(f, "load MU5ELR.bin\n");
-	fprintf(f, "dep cpu ms 0014\n");
-	fprintf(f, "load console.bin\n");
-	fprintf(f, "dep co 20000\n");
-//	fprintf(f, "go\n");
+	fprintf(f, "load idle.bin\n");
 	fclose(f);
     }
 

@@ -104,6 +104,7 @@ static UNIT console_unit =
 
 static REG console_reg[] =
 {
+    { STRDATADC(V, VStore[CONSOLE_V_STORE_BLOCK], 16, 64, 0, V_STORE_BLOCK_SIZE, sizeof(VSTORE_LINE), "V Store", sac_v_store_register_callback) },
     { NULL }
 };
 
@@ -125,7 +126,7 @@ static const char* console_description(DEVICE *dptr) {
 }
 
 DEVICE console_dev = {
-    "TTY",                /* name */
+    "CON",                /* name */
     &console_unit,        /* units */
     console_reg,          /* registers */
     console_mod,          /* modifiers */

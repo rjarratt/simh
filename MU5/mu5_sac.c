@@ -67,8 +67,6 @@ The following V Store lines are not implemented: CPR X FIELD, SAC PARITY, SAC MO
 #include "mu5_sac.h"
 
 #define NUM_CPRS 32
-#define V_STORE_BLOCKS 8
-#define V_STORE_BLOCK_SIZE 256
 #define CPR_VA_MASK 0x3FFFFFFF
 #define CPR_VA_P_MASK (0xF << 26)
 #define CPR_VA_X_MASK (0xFFF)
@@ -82,77 +80,9 @@ The following V Store lines are not implemented: CPR X FIELD, SAC PARITY, SAC MO
 
 #define LOG_SAC_REAL_ACCESSES   (1 << 0)
 #define LOG_SAC_MEMORY_TRACE    (1 << 1)
+#define LOG_SAC_CPR_ERROR       (1 << 2)
 
 #define CPR_MASK(n) (0x80000000 >> n)
-
-typedef struct VSTORE_LINE
-{
-    t_uint64(*ReadCallback)(uint8 line);
-    void(*WriteCallback)(uint8 line, t_uint64 value);
-} VSTORE_LINE;
-
-static uint32 LocalStore[MAX_LOCAL_MEMORY];
-static uint32 MassStore[MAX_MASS_MEMORY];
-static VSTORE_LINE VStore[V_STORE_BLOCKS][V_STORE_BLOCK_SIZE];
-
-static UNIT sac_unit =
-{
-    UDATA(NULL, UNIT_FIX | UNIT_BINK, MAX_LOCAL_MEMORY)
-};
-
-extern uint8 PROPProcessNumber;
-static uint8 CPRNumber;
-static uint32 CPRFind;
-static uint32 CPRFindMask;
-static uint32 CPRIgnore;
-static uint32 CPRAltered;
-static uint32 CPRReferenced;
-static uint32 CPRNotEquivalencePSX;
-static uint16 CPRNotEquivalenceS;
-static uint8 AccessViolation;
-static uint8 SystemErrorInterrupt;
-
-static int OverrideAccessCheck;
-
-static t_uint64 cpr[NUM_CPRS];
-
-BITFIELD cpr_bits[] = {
-    BITF(LZ,4),        /* RA page size as a number of mask bits 0-12 */
-    BITF(ADDRESS,19),  /* RA address */
-    BIT(V),            /* RA Address V-Store Bit*/
-    BITF(UNIT,4),      /* RA unit part of address */
-    BITF(ACCESS,4),    /* RA Access permissions */
-    BITF(X,12),        /* VA X */
-    BITF(SEGMENT,14),  /* VA Segment */
-    BITF(PROCESS,4),   /* VA Process */
-    BITNCF(2),
-    ENDBITS
-};
-
-static REG sac_reg[] =
-{
-    { BRDATADF(CPR, cpr, 16, 64, NUM_CPRS, "CPR register", cpr_bits) },
-    { NULL }
-};
-
-static MTAB sac_mod[] =
-{
-    { 0 }
-};
-
-static DEBTAB sac_debtab[] =
-{
-    { "EVENT",          SIM_DBG_EVENT,     "event dispatch activities" },
-    { "SELFTESTDETAIL", LOG_SELFTEST_DETAIL,  "self test detailed output" },
-    { "SELFTESTFAIL",   LOG_SELFTEST_FAIL,  "self test failure output" },
-	{ "ERROR",          LOG_ERROR, "significant errors" },
-	{ "REAL",           LOG_SAC_REAL_ACCESSES, "real address accesses" },
-	{ NULL,           0 }
-};
-
-static const char* sac_description(DEVICE *dptr) {
-    return "Store Access Control Unit";
-}
 
 static t_stat sac_reset(DEVICE *dptr);
 
@@ -190,6 +120,71 @@ static uint32 sac_read_local_store(t_addr address);
 static void sac_write_local_store(t_addr address, uint32 value);
 static uint32 sac_read_mass_store(t_addr address);
 static void sac_write_mass_store(t_addr address, uint32 value);
+
+static uint32 LocalStore[MAX_LOCAL_MEMORY];
+static uint32 MassStore[MAX_MASS_MEMORY];
+VSTORE_LINE VStore[V_STORE_BLOCKS][V_STORE_BLOCK_SIZE];
+
+static UNIT sac_unit =
+{
+    UDATA(NULL, UNIT_FIX | UNIT_BINK, MAX_LOCAL_MEMORY)
+};
+
+extern uint8 PROPProcessNumber;
+static uint8 CPRNumber;
+static uint32 CPRFind;
+static uint32 CPRFindMask;
+static uint32 CPRIgnore;
+static uint32 CPRAltered;
+static uint32 CPRReferenced;
+static uint32 CPRNotEquivalencePSX;
+static uint16 CPRNotEquivalenceS;
+static uint8 AccessViolation;
+static uint8 SystemErrorInterrupt;
+
+static int OverrideAccessCheck;
+
+static t_uint64 cpr[NUM_CPRS];
+
+BITFIELD cpr_bits[] = {
+    BITF(LZ,4),        /* RA page size as a number of mask bits 0-12 */
+    BITF(ADDRESS,19),  /* RA address */
+    BIT(V),            /* RA Address V-Store Bit*/
+    BITF(UNIT,4),      /* RA unit part of address */
+    BITF(ACCESS,4),    /* RA Access permissions */
+    BITF(X,12),        /* VA X */
+    BITF(SEGMENT,14),  /* VA Segment */
+    BITF(PROCESS,4),   /* VA Process */
+    BITNCF(2),
+    ENDBITS
+};
+
+static REG sac_reg[] =
+{
+	{ BRDATADF(CPR, cpr, 16, 64, NUM_CPRS, "CPR register", cpr_bits) },
+	{ STRDATADC(V, VStore[SAC_V_STORE_BLOCK], 16, 64, 0, V_STORE_BLOCK_SIZE, sizeof(VSTORE_LINE), "V Store", sac_v_store_register_callback) },
+	{ NULL }
+};
+
+static MTAB sac_mod[] =
+{
+    { 0 }
+};
+
+static DEBTAB sac_debtab[] =
+{
+    { "EVENT",          SIM_DBG_EVENT,     "event dispatch activities" },
+    { "SELFTESTDETAIL", LOG_SELFTEST_DETAIL,  "self test detailed output" },
+    { "SELFTESTFAIL",   LOG_SELFTEST_FAIL,  "self test failure output" },
+	{ "ERROR",          LOG_ERROR, "significant errors" },
+	{ "REAL",           LOG_SAC_REAL_ACCESSES, "real address accesses" },
+    { "CPR",            LOG_SAC_CPR_ERROR, "CPR errors" },
+	{ NULL,           0 }
+};
+
+static const char* sac_description(DEVICE *dptr) {
+    return "Store Access Control Unit";
+}
 
 DEVICE sac_dev = {
     "SAC",            /* name */
@@ -495,6 +490,13 @@ t_uint64 sac_read_v_store(uint8 block, uint8 line)
     return result;
 }
 
+void sac_v_store_register_callback(t_value old_val, struct REG *reg, int index)
+{
+    assert(reg->width == 64);
+    //sac_write_v_store(SAC_V_STORE_BLOCK, index, *((t_uint64 *)reg->loc + index)); /* TODO: make sure modified value gets stored in register */
+    sac_write_v_store(SAC_V_STORE_BLOCK, index, ((VSTORE_LINE *)reg->loc + index)->value); /* TODO: make sure modified value gets stored in register */
+}
+
 static void sac_write_cpr_search_callback(uint8 line, t_uint64 value)
 {
     uint32 mask = CPRFindMask & CPR_FIND_MASK_S_MASK;
@@ -685,6 +687,10 @@ static uint32 sac_match_cprs(uint32 va, int *numMatches, int *firstMatchIndex, u
 		  	{
 		  		firstMatchIndexResult = i;
 		  	}
+            else
+            {
+                sim_debug(LOG_SAC_CPR_ERROR, &sac_dev, "CPR multiple equivalence with CPR %d and CPR %d for virtual address 0x%08X\n", firstMatchIndexResult, i, va);
+            }
 
 		  	*segmentMask = mask;
 		  }
@@ -764,6 +770,7 @@ static int sac_map_address(t_addr address, uint8 access, t_addr *mappedAddress)
         }
         else if (numMatches == 0)
         {
+            sim_debug(LOG_SAC_CPR_ERROR, &sac_dev, "CPR non-equivalence for virtual address 0x%08X\n", va);
             CPRNotEquivalencePSX = va;
             CPRNotEquivalenceS = seg;
             cpu_set_cpr_non_equivalence_interrupt();

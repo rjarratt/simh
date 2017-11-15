@@ -93,6 +93,9 @@ static void sac_selftest_user_mode_access_to_executive_mode_page_generates_acces
 static void sac_selftest_reading_write_only_vstore_line_returns_zeroes(TESTCONTEXT *testContext);
 static void sac_selftest_writing_read_only_vstore_line_does_nothing(TESTCONTEXT *testContext);
 static void sac_selftest_read_write_vstore_location_can_be_read_back_after_write(TESTCONTEXT *testContext);
+static void sac_selftest_write_v_register_can_be_read_back_from_vstore(TESTCONTEXT *testContext);
+static void sac_selftest_vstore_write_can_be_read_back_from_v_register(TESTCONTEXT *testContext);
+
 static void sac_selftest_can_write_real_address_to_cpr(TESTCONTEXT *testContext);
 static void sac_selftest_writing_real_address_to_reserved_cpr_has_no_effect(TESTCONTEXT *testContext);
 static void sac_selftest_can_read_real_address_from_cpr(TESTCONTEXT *testContext);
@@ -163,6 +166,9 @@ static UNITTEST tests[] =
     { "Reading a write-only V-Store line returns zeroes", sac_selftest_reading_write_only_vstore_line_returns_zeroes },
     { "Writing a read-only V-Store line does nothing", sac_selftest_writing_read_only_vstore_line_does_nothing },
     { "A read/write V-Store line can be read back after writing", sac_selftest_read_write_vstore_location_can_be_read_back_after_write },
+    { "A V-Store register write can be read back from the V-Store", sac_selftest_write_v_register_can_be_read_back_from_vstore },
+    { "A V-Store write can be read back from the V-Store register", sac_selftest_vstore_write_can_be_read_back_from_v_register },
+
 	{ "Can write a real address to a CPR", sac_selftest_can_write_real_address_to_cpr },
 	{ "Writing a real address to a reserved CPR has no effect", sac_selftest_writing_real_address_to_reserved_cpr_has_no_effect },
 	{ "Can read a real address from a CPR", sac_selftest_can_read_real_address_from_cpr },
@@ -622,6 +628,18 @@ static void sac_selftest_read_write_vstore_location_can_be_read_back_after_write
     sac_setup_v_store_location(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, mu5_selftest_read_callback_for_static_64_bit_location, mu5_selftest_write_callback_for_static_64_bit_location);
     sac_write_v_store(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, ~0);
     sac_selftest_assert_vstore_contents(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, ~0);
+}
+
+static void sac_selftest_write_v_register_can_be_read_back_from_vstore(TESTCONTEXT *testContext)
+{
+    exdep_cmd(EX_D, "sac v[4] A8A8A8A8");
+    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, 4, 0xA8A8A8A8);
+}
+
+static void sac_selftest_vstore_write_can_be_read_back_from_v_register(TESTCONTEXT *testContext)
+{
+    sac_write_v_store(SAC_V_STORE_BLOCK, 4, 0xA8A8A8A8);
+    mu5_selftest_assert_fail(testContext);
 }
 
 static void sac_selftest_can_write_real_address_to_cpr(TESTCONTEXT *testContext)

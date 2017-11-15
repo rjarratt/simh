@@ -33,6 +33,9 @@ in this Software without prior written authorization from Robert Jarratt.
 #define SAC_ALL_EXEC_ACCESS 0x7
 #define SAC_ALL_ACCESS 0xF
 
+#define V_STORE_BLOCKS 8
+#define V_STORE_BLOCK_SIZE 256
+
 #define SYSTEM_V_STORE_BLOCK 0
 #define PROP_V_STORE_BLOCK 1
 #define CONSOLE_V_STORE_BLOCK 3
@@ -66,6 +69,13 @@ in this Software without prior written authorization from Robert Jarratt.
 #define SAC_V_STORE_ACCESS_VIOLATION 22
 #define SAC_V_STORE_SYSTEM_ERROR_INTERRUPTS 23
 
+typedef struct VSTORE_LINE
+{
+    t_uint64 value;
+    t_uint64(*ReadCallback)(uint8 line);
+    void(*WriteCallback)(uint8 line, t_uint64 value);
+} VSTORE_LINE;
+
 void sac_reset_state(void);
 void sac_set_loading(void);
 void sac_clear_loading(void);
@@ -84,6 +94,9 @@ uint32 sac_read_32_bit_word_real_address(t_addr address);
 void sac_write_32_bit_word_real_address(t_addr address, uint32 value);
 void sac_write_8_bit_word_real_address(t_addr address, uint8 value);
 
+void sac_v_store_register_callback(t_value old_val, struct REG *reg, int index);
 void sac_setup_v_store_location(uint8 block, uint8 line, t_uint64(*readCallback)(uint8), void(*writeCallback)(uint8,t_uint64));
 void sac_write_v_store(uint8 block, uint8 line, t_uint64 value);
 t_uint64 sac_read_v_store(uint8 block, uint8 line);
+
+extern VSTORE_LINE VStore[V_STORE_BLOCKS][V_STORE_BLOCK_SIZE];
