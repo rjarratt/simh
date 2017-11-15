@@ -1068,7 +1068,6 @@ static SIM_INLINE t_uint64 cpu_set_value_bit_64(t_uint64 value, t_uint64 mask, i
     return result;
 }
 
-
 static SIM_INLINE void cpu_set_register_16(REG *reg, uint16 value)
 {
     uint16 old_value;
