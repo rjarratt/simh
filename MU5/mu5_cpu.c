@@ -132,6 +132,7 @@ static t_addr cpu_get_name_segment_address_from_addr(t_addr base, int16 offset, 
 static uint16 cpu_calculate_base_offset_from_reg_16(REG *reg, t_int64 offset, uint8 scale);
 static uint32 cpu_calculate_base_offset_from_reg_32(REG *reg, t_int64 offset, uint8 scale);
 static t_addr cpu_get_name_segment_address_from_reg(REG *reg, int16 offset, uint8 scale);
+static void cpu_get_vstore_address_parts(t_addr addr, uint8 *block, uint8 *line);
 static int cpu_is_executive_mode(void);
 
 static void cpu_clear_interrupt(uint8 number);
@@ -1331,6 +1332,13 @@ static t_addr cpu_get_name_segment_address_from_reg(REG *reg, int16 offset, uint
     return result;
 }
 
+static void cpu_get_vstore_address_parts(t_addr addr, uint8 *block, uint8 *line)
+{
+    addr = addr >> 1; /* 64-bit address? */
+    *block = (addr >> 8) & 0x7F; /* There are 128 blocks and SN must be ignored, in fact in the real machine the SN lines were forced to 8192 as V-Store access went through SAC */
+    *line = addr & MASK_8;
+}
+
 static int cpu_is_executive_mode(void)
 {
     uint16 ms = cpu_get_register_16(reg_ms);
@@ -2420,11 +2428,11 @@ static t_uint64 cpu_get_operand(uint16 order)
                 }
                 case 7:
                 {
+                    uint8 block;
+                    uint8 line;
                     sim_debug(LOG_CPU_DECODE, &cpu_dev, "V-S ");
                     addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64, &is64bit);
-                    addr = addr >> 1; /* considered a 64-bit address? */
-                    uint8 block = (addr >> 8) & 0x7F; /* There are 128 blocks and SN must be ignored, in fact in the real machine the SN lines were forced to 8192 as V-Store access went through SAC */
-                    uint8 line = addr & MASK_8;
+                    cpu_get_vstore_address_parts(addr, &block, &line);
                     if (cpu_is_executive_mode())
                     {
 						result = sac_read_v_store(block, line);
@@ -2550,9 +2558,7 @@ static void cpu_set_operand(uint16 order, t_uint64 value)
                     uint8 line;
                     sim_debug(LOG_CPU_DECODE, &cpu_dev, "V-S ");
                     addr = cpu_get_operand_extended_variable_address(order, instructionAddress, &instructionLength, SCALE_64, &is64bit);
-                    addr = addr >> 1; /* 64-bit address? */
-                    block = (addr >> 8) & MASK_8;
-                    line = addr & MASK_8;
+                    cpu_get_vstore_address_parts(addr, &block, &line);
 					if (cpu_is_executive_mode())
 					{
 						sac_write_v_store(block, line, value);

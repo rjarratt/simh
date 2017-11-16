@@ -530,7 +530,8 @@ static void cpu_selftest_load_operand_extended_zero_relative_descriptor_8_bit_va
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_4_bit_value_from_nb(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_zero_relative_descriptor_1_bit_value_from_nb(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_with_invalid_descriptor_element_size_generates_its_interrupt(TESTCONTEXT *testContext);
-static void cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode_using_zero_address(TESTCONTEXT *testContext);
+static void cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode_using_nb_address(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_privileged_generates_interrupt_in_user_mode(TESTCONTEXT *testContext);
 
 static void cpu_selftest_store_operand_6_bit_literal_generates_interrupt(TESTCONTEXT *testContext);
@@ -617,7 +618,8 @@ static void cpu_selftest_store_operand_extended_zero_relative_descriptor_8_bit_v
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_4_bit_value_from_nb(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_value_from_nb(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_with_invalid_descriptor_element_size_generates_its_interrupt(TESTCONTEXT *testContext);
-static void cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mode(TESTCONTEXT *testContext);
+static void cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mode_using_zero_address(TESTCONTEXT *testContext);
+static void cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mode_using_nb_address(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_privileged_generates_interrupt_in_user_mode(TESTCONTEXT *testContext);
 
 static void cpu_selftest_any_descriptor_modify_generates_its_interrupt_if_descriptor_has_invalid_size(TESTCONTEXT *testContext);
@@ -1243,7 +1245,8 @@ static UNITTEST tests[] =
     { "Load operand 4-bit extended from 0-relative descriptor from NB", cpu_selftest_load_operand_extended_zero_relative_descriptor_4_bit_value_from_nb },
     { "Load operand 1-bit extended from 0-relative descriptor from NB", cpu_selftest_load_operand_extended_zero_relative_descriptor_1_bit_value_from_nb },
     { "Load operand with invalid descriptor element size generates ITS interrupt", cpu_selftest_load_operand_with_invalid_descriptor_element_size_generates_its_interrupt },
-    { "Load privileged operand reads the V-Store in executive mode", cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode },
+    { "Load privileged operand reads the V-Store in executive mode using zero address", cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode_using_zero_address },
+    { "Load privileged operand reads the V-Store in executive mode using NB address", cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode_using_nb_address },
     { "Load privileged operand generates interrupt in user mode", cpu_selftest_load_operand_privileged_generates_interrupt_in_user_mode },
 
     { "Store operand 6-bit literal generates interrupt", cpu_selftest_store_operand_6_bit_literal_generates_interrupt },
@@ -1331,7 +1334,8 @@ static UNITTEST tests[] =
     { "Store operand 4-bit extended from 0-relative descriptor from NB", cpu_selftest_store_operand_extended_zero_relative_descriptor_4_bit_value_from_nb },
     { "Store operand 1-bit extended from 0-relative descriptor from NB", cpu_selftest_store_operand_extended_zero_relative_descriptor_1_bit_value_from_nb },
     { "Store operand with invalid descriptor element size generates ITS interrupt", cpu_selftest_store_operand_with_invalid_descriptor_element_size_generates_its_interrupt },
-    { "Store privileged operand storess the V-Store in executive mode", cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mode },
+    { "Store privileged operand storess the V-Store in executive mode using zero address", cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mode_using_zero_address },
+    { "Store privileged operand storess the V-Store in executive mode using NB address", cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mode_using_nb_address },
     { "Store privileged operand generates interrupt in user mode", cpu_selftest_store_operand_privileged_generates_interrupt_in_user_mode },
 
     { "Any descriptor modify generates an ITS interrupt if the descriptor has an invalid size", cpu_selftest_any_descriptor_modify_generates_its_interrupt_if_descriptor_has_invalid_size },
@@ -3892,13 +3896,26 @@ static void cpu_selftest_load_operand_with_invalid_descriptor_element_size_gener
     cpu_selftest_assert_its_interrupt_as_system_error();
 }
 
-static void cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode(TESTCONTEXT *testContext)
+static void cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode_using_zero_address(TESTCONTEXT *testContext)
 {
-    uint32 base = (TEST_V_STORE_LOCATION_BLOCK *256 + TEST_V_STORE_LOCATION_LINE) << 1; /* multiply by 2 because it is treated as 64-bit address and scaled like one */
+    uint32 v_addr = TEST_V_STORE_LOCATION_BLOCK * 256 + TEST_V_STORE_LOCATION_LINE;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_PRIVILEGED, NP_0);
+    cpu_selftest_load_16_bit_literal(v_addr);
+    cpu_selftest_setup_vstore_test_location();
+    sac_write_v_store(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0xAAAABBBBCCCCDDDD);
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBBCCCCDDDD);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode_using_nb_address(TESTCONTEXT *testContext)
+{
+    uint32 base = (TEST_V_STORE_LOCATION_BLOCK * 256 + TEST_V_STORE_LOCATION_LINE) << 1; /* multiply by 2 because it is treated as 64-bit address and scaled like one */
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_PRIVILEGED, NP_NB);
     cpu_selftest_load_16_bit_literal(0);
     cpu_selftest_setup_vstore_test_location();
-	cpu_selftest_setup_name_base(base);
+    cpu_selftest_setup_name_base(base);
     sac_write_v_store(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0xAAAABBBBCCCCDDDD);
     cpu_selftest_set_executive_mode();
     cpu_selftest_run_code();
@@ -3908,7 +3925,7 @@ static void cpu_selftest_load_operand_privileged_reads_v_store_in_executive_mode
 
 static void cpu_selftest_load_operand_privileged_generates_interrupt_in_user_mode(TESTCONTEXT *testContext)
 {
-    uint32 base = TEST_V_STORE_LOCATION_BLOCK * 256 + TEST_V_STORE_LOCATION_LINE;
+    uint32 base = (TEST_V_STORE_LOCATION_BLOCK * 256 + TEST_V_STORE_LOCATION_LINE) << 1; /* multiply by 2 because it is treated as 64-bit address and scaled like one */
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_PRIVILEGED, NP_NB);
     cpu_selftest_load_16_bit_literal(0);
     cpu_selftest_setup_vstore_test_location();
@@ -4943,16 +4960,30 @@ static void cpu_selftest_store_operand_with_invalid_descriptor_element_size_gene
     cpu_selftest_assert_its_interrupt_as_system_error();
 }
 
-static void cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mode(TESTCONTEXT *testContext)
+static void cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mode_using_zero_address(TESTCONTEXT *testContext)
 {
-    uint32 base = TEST_V_STORE_LOCATION_BLOCK * 256 + TEST_V_STORE_LOCATION_LINE;
-    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_PRIVILEGED, NP_NB);
-    cpu_selftest_load_16_bit_literal(0);
+    uint32 v_addr = TEST_V_STORE_LOCATION_BLOCK * 256 + TEST_V_STORE_LOCATION_LINE;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_PRIVILEGED, NP_0);
+    cpu_selftest_load_16_bit_literal(v_addr);
     cpu_selftest_setup_vstore_test_location();
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0xAAAABBBBCCCCDDDD);
-	cpu_selftest_setup_name_base(base);
-	cpu_selftest_set_executive_mode();
+    cpu_selftest_set_executive_mode();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_no_interrupt();
+    cpu_selftest_assert_v_store_contents(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0xAAAABBBBCCCCDDDD);
+}
+
+static void cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mode_using_nb_address(TESTCONTEXT *testContext)
+{
+    uint32 base = (TEST_V_STORE_LOCATION_BLOCK * 256 + TEST_V_STORE_LOCATION_LINE) << 1; /* multiply by 2 because it is treated as 64-bit address and scaled like one */
+    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_PRIVILEGED, NP_NB);
+    cpu_selftest_load_16_bit_literal(0);
+    cpu_selftest_setup_vstore_test_location();
+    cpu_selftest_setup_name_base(base);
+    cpu_selftest_set_aod_operand_64_bit();
+    cpu_selftest_set_register(REG_A, 0xAAAABBBBCCCCDDDD);
+    cpu_selftest_set_executive_mode();
     cpu_selftest_run_code();
     cpu_selftest_assert_no_interrupt();
     cpu_selftest_assert_v_store_contents(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0xAAAABBBBCCCCDDDD);
@@ -4960,13 +4991,13 @@ static void cpu_selftest_store_operand_privileged_stores_v_store_in_executive_mo
 
 static void cpu_selftest_store_operand_privileged_generates_interrupt_in_user_mode(TESTCONTEXT *testContext)
 {
-    uint32 base = TEST_V_STORE_LOCATION_BLOCK * 256 + TEST_V_STORE_LOCATION_LINE;
+    uint32 base = (TEST_V_STORE_LOCATION_BLOCK * 256 + TEST_V_STORE_LOCATION_LINE) << 1; /* multiply by 2 because it is treated as 64-bit address and scaled like one */
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_PRIVILEGED, NP_NB);
     cpu_selftest_load_16_bit_literal(0);
     cpu_selftest_setup_vstore_test_location();
     cpu_selftest_set_register(REG_A, 0xAAAABBBBCCCCDDDD);
-	cpu_selftest_setup_name_base(base);
-	sac_write_v_store(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0x000000000000);
+    cpu_selftest_setup_name_base(base);
+    sac_write_v_store(TEST_V_STORE_LOCATION_BLOCK, TEST_V_STORE_LOCATION_LINE, 0x000000000000);
     cpu_selftest_set_user_mode();
     cpu_selftest_run_code();
     cpu_selftest_assert_illegal_v_store_access_interrupt();
