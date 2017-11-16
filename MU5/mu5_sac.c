@@ -461,7 +461,10 @@ void sac_setup_v_store_location(uint8 block, uint8 line, t_uint64(*readCallback)
 
 void sac_write_v_store(uint8 block, uint8 line, t_uint64 value)
 {
-    VSTORE_LINE *l = &VStore[block][line];
+    VSTORE_LINE *l;
+    assert(block < V_STORE_BLOCKS);
+    assert(line < V_STORE_BLOCK_SIZE);
+    l = &VStore[block][line];
 	if (block == SYSTEM_V_STORE_BLOCK)
 	{
 		t_addr addr = addr = 0x20000000 | (block << 9) | (line << 1); /* 64-bit address so  block and line shifted left by 1 */
@@ -476,7 +479,10 @@ void sac_write_v_store(uint8 block, uint8 line, t_uint64 value)
 t_uint64 sac_read_v_store(uint8 block, uint8 line)
 {
     t_uint64 result = 0;
-    VSTORE_LINE *l = &VStore[block][line];
+    VSTORE_LINE *l;
+    assert(block < V_STORE_BLOCKS);
+    assert(line < V_STORE_BLOCK_SIZE);
+    l = &VStore[block][line];
 	if (block == SYSTEM_V_STORE_BLOCK)
 	{
 		t_addr addr = addr = 0x20000000 | (block << 9) | (line << 1); /* 64-bit address so  block and line shifted left by 1 */
@@ -493,7 +499,6 @@ t_uint64 sac_read_v_store(uint8 block, uint8 line)
 void sac_v_store_register_callback(t_value old_val, struct REG *reg, int index)
 {
     assert(reg->width == 64);
-    //sac_write_v_store(SAC_V_STORE_BLOCK, index, *((t_uint64 *)reg->loc + index)); /* TODO: make sure modified value gets stored in register */
     sac_write_v_store(SAC_V_STORE_BLOCK, index, ((VSTORE_LINE *)reg->loc + index)->value); /* TODO: make sure modified value gets stored in register */
 }
 
