@@ -32,6 +32,7 @@ Only does Teletype output.
 
 */
 
+#include <assert.h>
 #include "mu5_defs.h"
 #include "mu5_sac.h"
 #include "mu5_console.h"
@@ -104,7 +105,7 @@ static UNIT console_unit =
 
 static REG console_reg[] =
 {
-    { STRDATADC(V, VStore[CONSOLE_V_STORE_BLOCK], 16, 64, 0, V_STORE_BLOCK_SIZE, sizeof(VSTORE_LINE), "V Store", sac_v_store_register_callback) },
+    { STRDATADC(V, VStore[CONSOLE_V_STORE_BLOCK], 16, 64, 0, V_STORE_BLOCK_SIZE, sizeof(VSTORE_LINE), "V Store", console_v_store_register_callback) },
     { NULL }
 };
 
@@ -315,6 +316,12 @@ static struct tm *console_get_local_time(void)
 	time(&now);
 	/* assume we are in the early 2000's when 50 years is close to the time when MU5 existed. 50 years is a span where the years share the same days of the week for the same dates */
 	return localtime(&now);
+}
+
+void console_v_store_register_callback(t_value old_val, struct REG *reg, int index)
+{
+    assert(reg->width == 64);
+    sac_write_v_store(CONSOLE_V_STORE_BLOCK, index, ((VSTORE_LINE *)reg->loc + index)->value); /* TODO: make sure modified value gets stored in register */
 }
 
 /* TODO: Audio code still has a crackle, possibly because at buffer changeover the old buffer has finished playing before the new one is queued */

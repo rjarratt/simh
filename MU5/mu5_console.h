@@ -27,3 +27,6 @@ in this Software without prior written authorization from Robert Jarratt.
 #include "sim_defs.h"
 
 void console_reset_state(void);
+
+void console_v_store_register_callback(t_value old_val, struct REG *reg, int index);
+
