@@ -135,15 +135,21 @@ int my_boot(PANEL *panel)
 	UINT64 cpr1 = 0x00001000F3010004;
 	UINT64 cpr2 = 0x00002000E3020004;
 	UINT64 cpr3 = 0x00003000E3030004;
-	UINT16 ms = 0x0014;
-	UINT32 co = 0x20000;
-    UINT32 cpr_ignore = 0x0FFFFFF0;
-    UINT32 engineers_handkeys = 0x8000
+    UINT64 cpr4 = 0x00006000F3040004;
+    UINT64 cpr5 = 0x00006010F3050004;
+    UINT64 cpr6 = 0x00006020F3050004;
+    UINT16 ms = 0x000C;
+	UINT32 co = 0xC0000;
+    UINT32 cpr_ignore = 0x01FFFFF0;
+    UINT32 engineers_handkeys = 0xA000;
     sim_panel_gen_deposit(panel, "sac v[4]", sizeof(cpr0), &cpr_ignore);
     sim_panel_gen_deposit(panel, "cpr[0]", sizeof(cpr0), &cpr0);
     sim_panel_gen_deposit(panel, "cpr[1]", sizeof(cpr1), &cpr1);
 	sim_panel_gen_deposit(panel, "cpr[2]", sizeof(cpr2), &cpr2);
-	sim_panel_gen_deposit(panel, "cpr[3]", sizeof(cpr3), &cpr3);
+    sim_panel_gen_deposit(panel, "cpr[3]", sizeof(cpr3), &cpr3);
+    sim_panel_gen_deposit(panel, "cpr[4]", sizeof(cpr4), &cpr4);
+    sim_panel_gen_deposit(panel, "cpr[5]", sizeof(cpr5), &cpr5);
+    sim_panel_gen_deposit(panel, "cpr[6]", sizeof(cpr6), &cpr6);
     sim_panel_gen_deposit(panel, "con v[11]", sizeof(engineers_handkeys), &engineers_handkeys);
     sim_panel_gen_deposit(panel, "MS", sizeof(ms), &ms);
 	sim_panel_gen_deposit(panel, "CO", sizeof(co), &co);
@@ -182,11 +188,15 @@ if ((f = fopen (sim_config, "w"))) {
 #elif defined(__APPLE__)
     fprintf (f, "! osascript -e 'tell application \"Terminal\" to do script \"telnet localhost 1927; exit\"'\n");
 #endif
-	fprintf(f, "dep sac v[4] 0FFFFFF0\n"); /* CPR IGNORE */
+	fprintf(f, "dep sac v[4] 01FFFFF0\n"); /* CPR IGNORE */
 	fprintf(f, "dep cpr[0]  00000000E3000004\n");
 	fprintf(f, "dep cpr[1]  00001000F3010004\n");
 	fprintf(f, "dep cpr[2]  00002000E3020004\n");
 	fprintf(f, "dep cpr[3]  00003000E3030004\n");
+    fprintf(f, "dep cpr[4]  00006000F3040004\n");
+    fprintf(f, "dep cpr[5]  00006010F3050004\n");
+    fprintf(f, "dep cpr[6]  00006020F3050004\n");
+
 	fprintf(f, "dep cpu ms 0014\n");
 	fprintf(f, "load MU5ELR.bin\n");
 	fprintf(f, "load idle.bin\n");

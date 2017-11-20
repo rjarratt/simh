@@ -49,3 +49,4 @@ Visual Studio Projects/*
 doc/*.pdf
 !MU5ELR.bin
 
+*.dbg
