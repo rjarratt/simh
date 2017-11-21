@@ -1075,10 +1075,11 @@ static const char simh_help[] =
 #define HLP_SET_CONSOLE "*Commands SET CONSOLE"
       "3Console\n"
       "+set console arg{,arg...}    set console options\n"
-      "+set console WRU             specify console drop to simh character\n"
-      "+set console BRK             specify console Break character\n"
-      "+set console DEL             specify console delete character\n"
-      "+set console PCHAR           specify console printable characters\n"
+      "+set console WRU=value       specify console drop to simh character\n"
+      "+set console BRK=value       specify console Break character\n"
+      "+set console DEL=value       specify console delete character\n"
+      "+set console PCHAR=bitmask   bit mask of printable characters in\n"
+      "++++++++                     range [31,0]\n"
       "+set console SPEED=speed{*factor}\n"
       "++++++++                     specify console input data rate\n"
       "+set console TELNET=port     specify console telnet port\n"
@@ -1372,7 +1373,8 @@ static const char simh_help[] =
       " %%CTIME%%, %%DATE_YYYY%%, %%DATE_YY%%, %%DATE_YC%%, %%DATE_MM%%, %%DATE_MMM%%,\n"
       " %%DATE_MONTH%%, %%DATE_DD%%, %%DATE_D%%, %%DATE_WYYYY%%, %%DATE_WW%%,\n"
       " %%TIME_HH%%, %%TIME_MM%%, %%TIME_SS%%, %%STATUS%%, %%TSTATUS%%, %%SIM_VERIFY%%,\n"
-      " %%SIM_QUIET%%, %%SIM_MESSAGE%%\n\n"
+      " %%SIM_QUIET%%, %%SIM_MESSAGE%% %%SIM_MESSAGE%%\n"
+      " %%SIM_NAME%%, %%SIM_BIN_NAME%%, %%SIM_BIN_PATH%%m %%SIM_OSTYPE%%\n\n"
       "+Token %%0 expands to the command file name.\n"
       "+Token %%n (n being a single digit) expands to the n'th argument\n"
       "+Token %%* expands to the whole set of arguments (%%1 ... %%9)\n\n"
@@ -1411,7 +1413,11 @@ static const char simh_help[] =
       "++%%SIM_VERIFY%%        The Verify/Verbose mode of the current Do command file\n"
       "++%%SIM_VERBOSE%%       The Verify/Verbose mode of the current Do command file\n"
       "++%%SIM_QUIET%%         The Quiet mode of the current Do command file\n"
-      "++%%SIM_MESSAGE%%       The message display status of the current Do command file\n\n"
+      "++%%SIM_MESSAGE%%       The message display status of the current Do command file\n"
+      "++%%SIM_NAME%%          The name of the current simulator\n"
+      "++%%SIM_BIN_NAME%%      The program name of the current simulator\n"
+      "++%%SIM_BIN_PATH%%      The program path that invoked the current simulator\n"
+      "++%%SIM_OSTYPE%%        The Operating System running the current simulator\n\n"
       "+Environment variable lookups are done first with the precise name between\n"
       "+the %% characters and if that fails, then the name between the %% characters\n"
       "+is upcased and a lookup of that valus is attempted.\n\n"
@@ -1782,7 +1788,8 @@ ASSERT      failure have several different actions:
       " Pause for NUMBER seconds.  SUFFIX may be 's' for seconds (the default),\n"
       " 'm' for minutes, 'h' for hours or 'd' for days.  NUMBER may be an\n"
       " arbitrary floating point number.  Given two or more arguments, pause\n"
-      " for the amount of time specified by the sum of their values.\n\n"
+      " for the amount of time specified by the sum of their values.\n"
+      " NOTE: A SLEEP command is interruptable with SIGINT (^C).\n\n"
       /***************** 80 character line width template *************************/
 #define HLP_ASSERT      "*Commands Executing_Command_Files Testing_Simulator_State"
 #define HLP_IF          "*Commands Executing_Command_Files Testing_Simulator_State"
@@ -2150,7 +2157,7 @@ for (i = 1; i < argc; i++) {                            /* loop thru args */
             return 0;
             }
         if (*cbuf)                                      /* concat args */
-            strlcat (cbuf, " ", sizeof(cbuf)); 
+            strlcat (cbuf, " ", sizeof (cbuf)); 
         sprintf(&cbuf[strlen(cbuf)], "%s%s%s", strchr(argv[i], ' ') ? "\"" : "", argv[i], strchr(argv[i], ' ') ? "\"" : "");
         lookswitch = FALSE;                             /* no more switches */
         }
@@ -2199,6 +2206,7 @@ if (!sim_quiet) {
     printf ("\n");
     show_version (stdout, NULL, NULL, 0, NULL);
     }
+show_version (stdnul, NULL, NULL, 1, NULL);             /* Quietly set SIM_OSTYPE */
 if (sim_dflt_dev == NULL)                               /* if no default */
     sim_dflt_dev = sim_devices[0];
 if (((sim_dflt_dev->flags & DEV_DEBUG) == 0) &&         /* default device without debug? */
@@ -2243,7 +2251,7 @@ else if (*argv[0]) {                                    /* sim name arg? */
     strncpy (nbuf + 1, argv[0], PATH_MAX + 1);          /* copy sim name */
     if ((np = (char *)match_ext (nbuf, "EXE")))         /* remove .exe */
         *np = 0;
-    strlcat (nbuf, ".ini\"", sizeof(nbuf));         /* add .ini" */
+    strlcat (nbuf, ".ini\"", sizeof (nbuf));            /* add .ini" */
     stat = do_cmd (-1, nbuf) & ~SCPE_NOMESSAGE;         /* proc default cmd file */
     if (stat == SCPE_OPENERR) {                         /* didn't exist/can't open? */
         np = strrchr (nbuf, '/');                       /* stript path and try again in cwd */
@@ -3961,6 +3969,8 @@ t_stat sleep_cmd (int32 flag, CONST char *cptr)
 char *tptr;
 double wait;
 
+stop_cpu = 0;
+signal (SIGINT, int_handler);
 while (*cptr) {
     wait = strtod (cptr, &tptr);
     switch (*tptr) {
@@ -3988,15 +3998,18 @@ while (*cptr) {
             wait *= (24.0*60.0*60.0);
             break;
         default:
+            signal (SIGINT, SIG_DFL);                               /* cancel WRU */
             return sim_messagef (SCPE_ARG, "Invalid Sleep unit '%c'\n", *cptr);
         }
     wait *= 1000.0;                             /* Convert to Milliseconds */
     cptr = tptr;
-    while (wait > 1000.0)
+    while ((wait > 1000.0) && (!stop_cpu))
         wait -= sim_os_ms_sleep (1000);
-    if (wait > 0.0)
+    if ((wait > 0.0) && (!stop_cpu))
         sim_os_ms_sleep ((unsigned)wait);
     }
+signal (SIGINT, SIG_DFL);                               /* cancel WRU */
+stop_cpu = 0;
 return SCPE_OK;
 }
 
@@ -4834,6 +4847,7 @@ fprintf (st, " %s", SIM_VERSION_MODE);
 if (flag) {
     t_bool idle_capable;
     uint32 os_ms_sleep_1, os_tick_size;
+    char os_type[128] = "Unknown";
 
     fprintf (st, "\n    Simulator Framework Capabilities:");
     fprintf (st, "\n        %s", sim_si64);
@@ -4927,6 +4941,8 @@ if (flag) {
 #else
             "VAX";
 #endif
+        strlcpy (os_type, "OpenVMS ", sizeof (os_type));
+        strlcat (os_type, arch, sizeof (os_type));
         fprintf (st, "\n        OS: OpenVMS %s %s", arch, __VMS_VERSION);
         }
 #elif defined(_WIN32)
@@ -4952,6 +4968,7 @@ if (flag) {
         fprintf (st, "\n        OS: %s", osversion);
         fprintf (st, "\n        Architecture: %s%s%s, Processors: %s", arch, proc_arch3264 ? " on " : "", proc_arch3264 ? proc_arch3264  : "", procs);
         fprintf (st, "\n        Processor Id: %s, Level: %s, Revision: %s", proc_id ? proc_id : "", proc_level ? proc_level : "", proc_rev ? proc_rev : "");
+        strlcpy (os_type, "Windows", sizeof (os_type));
         }
 #else
     if (1) {
@@ -4959,17 +4976,29 @@ if (flag) {
         FILE *f;
         
         if ((f = popen ("uname -a", "r"))) {
-            memset (osversion, 0, sizeof(osversion));
+            memset (osversion, 0, sizeof (osversion));
             do {
-                if (NULL == fgets (osversion, sizeof(osversion)-1, f))
+                if (NULL == fgets (osversion, sizeof (osversion)-1, f))
                     break;
                 sim_trim_endspc (osversion);
                 } while (osversion[0] == '\0');
             pclose (f);
             }
         fprintf (st, "\n        OS: %s", osversion);
+        if ((f = popen ("uname", "r"))) {
+            memset (os_type, 0, sizeof (os_type));
+            do {
+                if (NULL == fgets (os_type, sizeof (os_type)-1, f))
+                    break;
+                sim_trim_endspc (os_type);
+                } while (os_type[0] == '\0');
+            pclose (f);
+            }
         }
 #endif
+    if ((!strcmp (os_type, "Unknown")) && (getenv ("OSTYPE")))
+        strlcpy (os_type, getenv ("OSTYPE"), sizeof (os_type));
+    setenv ("SIM_OSTYPE", os_type, 1);
     }
 #if defined(SIM_GIT_COMMIT_ID)
 #define S_xstr(a) S_str(a)
@@ -5387,19 +5416,19 @@ strlcpy (WildName, cptr, sizeof(WildName));
 cptr = WildName;
 sim_trim_endspc (WildName);
 if ((!stat (WildName, &filestat)) && (filestat.st_mode & S_IFDIR))
-    strlcat (WildName, "/*", sizeof(WildName));
+    strlcat (WildName, "/*", sizeof (WildName));
 if ((*cptr != '/') || (0 == memcmp (cptr, "./", 2)) || (0 == memcmp (cptr, "../", 3))) {
 #if defined (VMS)
-    getcwd (WholeName, sizeof(WholeName)-1, 0);
+    getcwd (WholeName, sizeof (WholeName)-1, 0);
 #else
-    getcwd (WholeName, sizeof(WholeName)-1);
+    getcwd (WholeName, sizeof (WholeName)-1);
 #endif
-    strlcat (WholeName, "/", sizeof(WholeName));
-    strlcat (WholeName, cptr, sizeof(WholeName));
+    strlcat (WholeName, "/", sizeof (WholeName));
+    strlcat (WholeName, cptr, sizeof (WholeName));
     sim_trim_endspc (WholeName);
     }
 else
-    strlcpy (WholeName, cptr, sizeof(WholeName));
+    strlcpy (WholeName, cptr, sizeof (WholeName));
 while ((c = strstr (WholeName, "/./")))
     memmove (c + 1, c + 3, 1 + strlen (c + 3));
 while ((c = strstr (WholeName, "//")))
@@ -5420,14 +5449,14 @@ if (c) {
     }
 else {
 #if defined (VMS)
-    getcwd (WholeName, sizeof(WholeName)-1, 0);
+    getcwd (WholeName, sizeof (WholeName)-1, 0);
 #else
-    getcwd (WholeName, sizeof(WholeName)-1);
+    getcwd (WholeName, sizeof (WholeName)-1);
 #endif
     }
 cptr = WholeName;
 #if defined (HAVE_GLOB)
-memset (&paths, 0, sizeof(paths));
+memset (&paths, 0, sizeof (paths));
 if (0 == glob (cptr, 0, NULL, &paths)) {
 #else
 dir = opendir(DirName[0] ? DirName : "/.");
@@ -7626,108 +7655,75 @@ return SCPE_OK;
         none
 */
 
-void put_rval(REG *rptr, uint32 idx, t_value val)
+void put_rval (REG *rptr, uint32 idx, t_value val)
 {
-    size_t sz;
-    t_value mask;
-    t_value old_val;
-    uint32 *ptr;
+size_t sz;
+t_value mask;
+t_value old_val;
+uint32 *ptr;
 
 #define PUT_RVAL(sz,rp,id,v,m) \
     *(((sz *) rp->loc) + id) = \
             (sz)((*(((sz *) rp->loc) + id) & \
             ~((m) << (rp)->offset)) | ((v) << (rp)->offset))
 
-    if (rptr == sim_PC)
-        sim_brk_npc(0);
-    sz = SZ_R(rptr);
-    mask = width_mask[rptr->width];
-    if ((rptr->depth > 1) && (rptr->flags & REG_CIRC)) {
-        idx = idx + rptr->qptr;
-        if (idx >= rptr->depth)
-            idx = idx - rptr->depth;
+if (rptr->write_callback)
+    old_val = get_rval (rptr, idx);
+if (rptr == sim_PC)
+    sim_brk_npc (0);
+sz = SZ_R (rptr);
+mask = width_mask[rptr->width];
+if ((rptr->depth > 1) && (rptr->flags & REG_CIRC)) {
+    idx = idx + rptr->qptr;
+    if (idx >= rptr->depth)
+        idx = idx - rptr->depth;
     }
-    if ((rptr->depth > 1) && (rptr->flags & REG_UNIT)) {
-        ptr = (uint32 *)(((UNIT *)rptr->loc) + idx);
+if ((rptr->depth > 1) && (rptr->flags & REG_UNIT)) {
+    ptr = (uint32 *)(((UNIT *) rptr->loc) + idx);
 #if defined (USE_INT64)
-        if (sz <= sizeof(uint32))
-        {
-            old_val = *((uint32 *)ptr);
-        }
-        else
-        {
-            old_val = *((t_uint64 *)ptr);
-        }
-        if (sz <= sizeof(uint32))
-            *ptr = (*ptr &
-                ~(((uint32)mask) << rptr->offset)) |
-                (((uint32)val) << rptr->offset);
-        else *((t_uint64 *)ptr) = (*((t_uint64 *)ptr)
-            & ~(mask << rptr->offset)) | (val << rptr->offset);
-#else
-        old_val = *ptr;
+    if (sz <= sizeof (uint32))
         *ptr = (*ptr &
-            ~(((uint32)mask) << rptr->offset)) |
-            (((uint32)val) << rptr->offset);
-#endif
-    }
-    else if ((rptr->depth > 1) && (rptr->flags & REG_STRUCT)) {
-        ptr = (uint32 *)(((size_t)rptr->loc) + (idx * rptr->str_size));
-#if defined (USE_INT64)
-        if (sz <= sizeof(uint32))
-        {
-            old_val = *((uint32 *)ptr);
-        }
-        else
-        {
-            old_val = *((t_uint64 *)ptr);
-        }
-        if (sz <= sizeof(uint32))
-            *((uint32 *)ptr) = (*((uint32 *)ptr) &
-                ~(((uint32)mask) << rptr->offset)) |
-                (((uint32)val) << rptr->offset);
-        else *((t_uint64 *)ptr) = (*((t_uint64 *)ptr)
-            & ~(mask << rptr->offset)) | (val << rptr->offset);
+        ~(((uint32) mask) << rptr->offset)) |
+        (((uint32) val) << rptr->offset);
+    else *((t_uint64 *) ptr) = (*((t_uint64 *) ptr)
+        & ~(mask << rptr->offset)) | (val << rptr->offset);
 #else
-        old_val = *ptr;
-        *ptr = (*ptr &
-            ~(((uint32)mask) << rptr->offset)) |
-            (((uint32)val) << rptr->offset);
+    *ptr = (*ptr &
+        ~(((uint32) mask) << rptr->offset)) |
+        (((uint32) val) << rptr->offset);
 #endif
     }
-    else if (((rptr->depth > 1) || (rptr->flags & REG_FIT)) && (sz == sizeof(uint8)))
-    {
-        old_val = *((uint8 *)rptr->loc + idx);
-        PUT_RVAL(uint8, rptr, idx, (uint32)val, (uint32)mask);
-    }
-    else if (((rptr->depth > 1) || (rptr->flags & REG_FIT)) && (sz == sizeof(uint16)))
-    {
-        old_val = *((uint16 *)rptr->loc + idx);
-        PUT_RVAL(uint16, rptr, idx, (uint32)val, (uint32)mask);
-    }
+else if ((rptr->depth > 1) && (rptr->flags & REG_STRUCT)) {
+    ptr = (uint32 *)(((size_t) rptr->loc) + (idx * rptr->str_size));
 #if defined (USE_INT64)
-    else if (sz <= sizeof(uint32))
-    {
-        old_val = *((uint32 *)rptr->loc + idx);
-        PUT_RVAL(uint32, rptr, idx, (int32)val, (uint32)mask);
-    }
-    else
-    {
-        old_val = *((t_uint64 *)rptr->loc + idx);
-        PUT_RVAL(t_uint64, rptr, idx, val, mask);
-    }
+    if (sz <= sizeof (uint32))
+        *((uint32 *) ptr) = (*((uint32 *) ptr) &
+        ~(((uint32) mask) << rptr->offset)) |
+        (((uint32) val) << rptr->offset);
+    else *((t_uint64 *) ptr) = (*((t_uint64 *) ptr)
+        & ~(mask << rptr->offset)) | (val << rptr->offset);
 #else
-    else
-    {
-        old_val = *((uint32 *)rptr->loc + idx);
-        PUT_RVAL(uint32, rptr, idx, val, mask);
-    }
+    *ptr = (*ptr &
+        ~(((uint32) mask) << rptr->offset)) |
+        (((uint32) val) << rptr->offset);
 #endif
-    if (rptr->callback != NULL)
-    {
-        rptr->callback(old_val, rptr, idx);
     }
-    return;
+else if (((rptr->depth > 1) || (rptr->flags & REG_FIT)) &&
+    (sz == sizeof (uint8)))
+    PUT_RVAL (uint8, rptr, idx, (uint32) val, (uint32) mask);
+else if (((rptr->depth > 1) || (rptr->flags & REG_FIT)) &&
+    (sz == sizeof (uint16)))
+    PUT_RVAL (uint16, rptr, idx, (uint32) val, (uint32) mask);
+#if defined (USE_INT64)
+else if (sz <= sizeof (uint32))
+    PUT_RVAL (uint32, rptr, idx, (int32) val, (uint32) mask);
+else PUT_RVAL (t_uint64, rptr, idx, val, mask);
+#else
+else PUT_RVAL (uint32, rptr, idx, val, mask);
+#endif
+if ((rptr->write_callback) && (!(sim_switches & SIM_SW_REST)))
+    rptr->write_callback (old_val, rptr, idx);
+return;
 }
 
 /* Examine address routine

@@ -4,6 +4,8 @@
 
 ### New Simulators
 
+#### Seth Morabito has implemented a AT&T 3B2 simulator.
+
 #### Leonid Broukhis and Serge Vakulenko have implemented a simulator for the Soviet mainframe BESM-6 computer.
 
 #### Matt Burke has implemented new VAX model simulators:
@@ -304,6 +306,7 @@ The EXPECT command now exists to provide a means of reacting to simulator output
     NEXT                             Step across a subroutine call or step a single instruction.
     EXPECT                           React to output produced by a simulated system
     SEND                             Inject input to a simulated system's console
+    SLEEP time                       Pause command execution for specified time
     SCREENSHOT                       Snapshot the current video display window
     RUN UNTIL breakpoint             Establish the breakpoiunt specified and run until it is encountered
     RUN UNTIL "output-string" ...    Establish the specified "output-string" as an EXPECT and run until it is encountered.
