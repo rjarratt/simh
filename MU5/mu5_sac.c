@@ -131,16 +131,18 @@ static UNIT sac_unit =
 };
 
 extern uint8 PROPProcessNumber;
-static uint8 CPRNumber;
-static uint32 CPRFind;
-static uint32 CPRFindMask;
-static uint32 CPRIgnore;
-static uint32 CPRAltered;
-static uint32 CPRReferenced;
-static uint32 CPRNotEquivalencePSX;
-static uint16 CPRNotEquivalenceS;
-static uint8 AccessViolation;
-static uint8 SystemErrorInterrupt;
+static t_uint64 *CPRNumber;
+static t_uint64 *CPRRa;
+static t_uint64 *CPRVa;
+static t_uint64 *CPRFind;
+static t_uint64 *CPRFindMask;
+static t_uint64 *CPRIgnore;
+static t_uint64 *CPRAltered;
+static t_uint64 *CPRReferenced;
+static t_uint64 *CPRNotEquivalencePSX;
+static t_uint64 *CPRNotEquivalenceS;
+static t_uint64 *AccessViolation;
+static t_uint64 *SystemErrorInterrupt;
 
 static int OverrideAccessCheck;
 
@@ -162,7 +164,7 @@ BITFIELD cpr_bits[] = {
 static REG sac_reg[] =
 {
 	{ BRDATADF(CPR, cpr, 16, 64, NUM_CPRS, "CPR register", cpr_bits) },
-	{ STRDATADC(V, VStore[SAC_V_STORE_BLOCK], 16, 64, 0, V_STORE_BLOCK_SIZE, sizeof(VSTORE_LINE), "V Store", sac_v_store_register_callback) },
+    { STRDATADFC(V, VStore[SAC_V_STORE_BLOCK], 16, 64, 0, V_STORE_BLOCK_SIZE, sizeof(VSTORE_LINE), 0, "V Store", NULL, sac_v_store_register_read_callback, sac_v_store_register_write_callback) },
 	{ NULL }
 };
 
@@ -255,28 +257,28 @@ void sac_reset_state(void)
 	cpr[31] = ((t_uint64)CPR_VA(0x0, 8300, 0x0) << 32) | CPR_RA_MASS(SAC_ALL_EXEC_ACCESS, 0x00000, 0xC);  /* Mass store (less frequently used tables locked in slow core) (Item 4 in the list above)*/
 
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, NULL, sac_write_cpr_search_callback);
-    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, NULL, sac_write_cpr_number_callback);
-    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, sac_read_cpr_ra_callback, sac_write_cpr_ra_callback);
-    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, sac_read_cpr_va_callback, sac_write_cpr_va_callback);
-    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, sac_read_cpr_ignore_callback, sac_write_cpr_ignore_callback);
-    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, sac_read_cpr_find_callback, sac_write_cpr_find_callback);
-    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_ALTERED, sac_read_cpr_altered_callback, sac_write_cpr_altered_callback);
-    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_REFERENCED, sac_read_cpr_referenced_callback, sac_write_cpr_referenced_callback);
-    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, NULL, sac_write_cpr_find_mask_callback);
-    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NOT_EQUIVALENCE_PSX, sac_read_cpr_not_equivalence_psx_callback, sac_write_cpr_not_equivalence_psx_callback);
-    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NOT_EQUIVALENCE_S, sac_read_cpr_not_equivalence_s_callback, NULL);
-    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_ACCESS_VIOLATION, sac_read_access_violation_callback, sac_write_access_violation_callback);
-    sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_SYSTEM_ERROR_INTERRUPTS, sac_read_system_error_interrupts_callback, sac_write_system_error_interrupts_callback);
-    CPRNumber = 0;
-    CPRFind = 0;
-    CPRFindMask = 0;
-    CPRIgnore = 0xFFFFFFF0; /* Enable the reserved CPRs 28-31 */
-    CPRAltered = 0;
-    CPRReferenced = 0;
-    CPRNotEquivalencePSX = 0;
-    CPRNotEquivalenceS = 0;
-    AccessViolation = 0;
-    SystemErrorInterrupt = 0;
+    CPRNumber = sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, NULL, sac_write_cpr_number_callback);
+    CPRRa = sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_RA, sac_read_cpr_ra_callback, sac_write_cpr_ra_callback);
+    CPRVa = sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, sac_read_cpr_va_callback, sac_write_cpr_va_callback);
+    CPRIgnore = sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_IGNORE, sac_read_cpr_ignore_callback, sac_write_cpr_ignore_callback);
+    CPRFind = sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND, sac_read_cpr_find_callback, sac_write_cpr_find_callback);
+    CPRAltered = sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_ALTERED, sac_read_cpr_altered_callback, sac_write_cpr_altered_callback);
+    CPRReferenced = sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_REFERENCED, sac_read_cpr_referenced_callback, sac_write_cpr_referenced_callback);
+    CPRFindMask = sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_FIND_MASK, NULL, sac_write_cpr_find_mask_callback);
+    CPRNotEquivalencePSX = sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NOT_EQUIVALENCE_PSX, sac_read_cpr_not_equivalence_psx_callback, sac_write_cpr_not_equivalence_psx_callback);
+    CPRNotEquivalenceS = sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NOT_EQUIVALENCE_S, sac_read_cpr_not_equivalence_s_callback, NULL);
+    AccessViolation = sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_ACCESS_VIOLATION, sac_read_access_violation_callback, sac_write_access_violation_callback);
+    SystemErrorInterrupt = sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_SYSTEM_ERROR_INTERRUPTS, sac_read_system_error_interrupts_callback, sac_write_system_error_interrupts_callback);
+    *CPRNumber = 0;
+    *CPRFind = 0;
+    *CPRFindMask = 0;
+    *CPRIgnore = 0xFFFFFFF0; /* Enable the reserved CPRs 28-31 */
+    *CPRAltered = 0;
+    *CPRReferenced = 0;
+    *CPRNotEquivalencePSX = 0;
+    *CPRNotEquivalenceS = 0;
+    *AccessViolation = 0;
+    *SystemErrorInterrupt = 0;
 
 	OverrideAccessCheck = 0;
 }
@@ -452,11 +454,12 @@ void sac_write_8_bit_word_real_address(t_addr address, uint8 value)
     sac_write_32_bit_word_real_address(address >> 2, fullWord);
 }
 
-void sac_setup_v_store_location(uint8 block, uint8 line, t_uint64(*readCallback)(uint8), void(*writeCallback)(uint8,t_uint64))
+t_uint64 *sac_setup_v_store_location(uint8 block, uint8 line, t_uint64(*readCallback)(uint8), void(*writeCallback)(uint8,t_uint64))
 {
     VSTORE_LINE *l = &VStore[block][line];
     l->ReadCallback = readCallback;
     l->WriteCallback = writeCallback;
+    return &l->value;
 }
 
 void sac_write_v_store(uint8 block, uint8 line, t_uint64 value)
@@ -496,148 +499,156 @@ t_uint64 sac_read_v_store(uint8 block, uint8 line)
     return result;
 }
 
-void sac_v_store_register_callback(t_value old_val, struct REG *reg, int index)
+void sac_v_store_register_read_callback(struct REG *reg, int index)
 {
     assert(reg->width == 64);
-    sac_write_v_store(SAC_V_STORE_BLOCK, index, ((VSTORE_LINE *)reg->loc + index)->value); /* TODO: make sure modified value gets stored in register */
+    sac_read_v_store(SAC_V_STORE_BLOCK, index);
+}
+
+void sac_v_store_register_write_callback(t_value old_val, struct REG *reg, int index)
+{
+    assert(reg->width == 64);
+    sac_write_v_store(SAC_V_STORE_BLOCK, index, ((VSTORE_LINE *)reg->loc + index)->value);
 }
 
 static void sac_write_cpr_search_callback(uint8 line, t_uint64 value)
 {
-    uint32 mask = CPRFindMask & CPR_FIND_MASK_S_MASK;
-    if (CPRFindMask & CPR_FIND_MASK_P_MASK)
+    uint32 mask = *CPRFindMask & CPR_FIND_MASK_S_MASK;
+    if (*CPRFindMask & CPR_FIND_MASK_P_MASK)
     {
         mask = mask | CPR_VA_P_MASK;
     }
-    if (CPRFindMask & CPR_FIND_MASK_X_MASK)
+    if (*CPRFindMask & CPR_FIND_MASK_X_MASK)
     {
         mask = mask | CPR_VA_X_MASK;
     }
 
-    CPRFind |= sac_search_cprs(mask, value & CPR_VA_MASK);
+    *CPRFind |= sac_search_cprs(mask, value & CPR_VA_MASK);
 }
 
 static void sac_write_cpr_number_callback(uint8 line, t_uint64 value)
 {
-    CPRNumber = value & 0x1F;
+    *CPRNumber = value & 0x1F;
 }
 
 static t_uint64 sac_read_cpr_ra_callback(uint8 line)
 {
-    return cpr[CPRNumber] & CPR_RA_MASK;
+    *CPRRa = cpr[*CPRNumber] & CPR_RA_MASK;
+    return *CPRRa;
 }
 
 static void sac_write_cpr_ra_callback(uint8 line, t_uint64 value)
 {
-	if (CPRNumber < 28)
+	if (*CPRNumber < 28)
 	{
-		cpr[CPRNumber] = (cpr[CPRNumber] & 0xFFFFFFFF00000000) | (value & CPR_RA_MASK);
+		cpr[*CPRNumber] = (cpr[*CPRNumber] & 0xFFFFFFFF00000000) | (value & CPR_RA_MASK);
 	}
 }
 
 static t_uint64 sac_read_cpr_va_callback(uint8 line)
 {
-    return (cpr[CPRNumber] >> 32) & CPR_VA_MASK;
+    *CPRVa = (cpr[*CPRNumber] >> 32) & CPR_VA_MASK;
+    return *CPRVa;
 }
 
 static void sac_write_cpr_va_callback(uint8 line, t_uint64 value)
 {
-	if (CPRNumber < 28)
+	if (*CPRNumber < 28)
 	{
-		cpr[CPRNumber] = ((value & CPR_VA_MASK) << 32) | (cpr[CPRNumber] & CPR_RA_MASK);
-		sac_reset_cpr(CPRNumber);
+		cpr[*CPRNumber] = ((value & CPR_VA_MASK) << 32) | (cpr[*CPRNumber] & CPR_RA_MASK);
+		sac_reset_cpr((uint8)(*CPRNumber));
 	}
 }
 
 static t_uint64 sac_read_cpr_ignore_callback(uint8 line)
 {
-    return CPRIgnore & 0xFFFFFFFF;
+    return *CPRIgnore & 0xFFFFFFFF;
 }
 
 static void sac_write_cpr_ignore_callback(uint8 line, t_uint64 value)
 {
-    CPRIgnore = value & 0xFFFFFFFF;
+    *CPRIgnore = value & 0xFFFFFFFF;
 }
 
 static t_uint64 sac_read_cpr_find_callback(uint8 line)
 {
-    return CPRFind;
+    return *CPRFind;
 }
 
 static void sac_write_cpr_find_callback(uint8 line, t_uint64 value)
 {
     /* this action is not documented in the MU5 Programming Manual, but the line is marked R/W. In emails with RNI he believes that anything written
        to this line would cause a reset because the CPR FIND line is *updated* by CPR SEARCH not re-written */
-    CPRFind = 0;
+    *CPRFind = 0;
 }
 
 static t_uint64 sac_read_cpr_altered_callback(uint8 line)
 {
-    return CPRAltered;
+    return *CPRAltered;
 }
 
 static void sac_write_cpr_altered_callback(uint8 line, t_uint64 value)
 {
-    CPRAltered = value & 0xFFFFFFFF;
+    *CPRAltered = value & 0xFFFFFFFF;
 }
 
 static t_uint64 sac_read_cpr_referenced_callback(uint8 line)
 {
-    return CPRReferenced;
+    return *CPRReferenced;
 }
 static void sac_write_cpr_referenced_callback(uint8 line, t_uint64 value)
 {
-    CPRReferenced = value & 0xFFFFFFFF;
+    *CPRReferenced = value & 0xFFFFFFFF;
 }
 
 static void sac_write_cpr_find_mask_callback(uint8 line, t_uint64 value)
 {
-    CPRFindMask = value & 0x7FFFFFF;
+    *CPRFindMask = value & 0x7FFFFFF;
 }
 
 static t_uint64 sac_read_access_violation_callback(uint8 line)
 {
-    return AccessViolation;
+    return *AccessViolation;
 }
 
 static void sac_write_access_violation_callback(uint8 line, t_uint64 value)
 {
-    AccessViolation = 0;
+    *AccessViolation = 0;
 }
 
 static t_uint64 sac_read_system_error_interrupts_callback(uint8 line)
 {
-    return SystemErrorInterrupt;
+    return *SystemErrorInterrupt;
 }
 
 static void sac_write_system_error_interrupts_callback(uint8 line, t_uint64 value)
 {
-    SystemErrorInterrupt = SystemErrorInterrupt & 0x20; /* bit 58 cannot be reset */
+    *SystemErrorInterrupt = *SystemErrorInterrupt & 0x20; /* bit 58 cannot be reset */
 }
 
 static t_uint64 sac_read_cpr_not_equivalence_psx_callback(uint8 line)
 {
-    return CPRNotEquivalencePSX & 0x3FFFFFFF;
+    return *CPRNotEquivalencePSX & 0x3FFFFFFF;
 }
 
 static void sac_write_cpr_not_equivalence_psx_callback(uint8 line, t_uint64 value)
 {
-    CPRNotEquivalencePSX = 0;
-    CPRNotEquivalenceS = 0;
+    *CPRNotEquivalencePSX = 0;
+    *CPRNotEquivalenceS = 0;
 }
 
 static t_uint64 sac_read_cpr_not_equivalence_s_callback(uint8 line)
 {
-    return CPRNotEquivalenceS & 0x3FFF;
+    return *CPRNotEquivalenceS & 0x3FFF;
 }
 
 
 static void sac_reset_cpr(uint8 n)
 {
-    CPRIgnore &= ~CPR_MASK(n);
-    CPRAltered &= ~CPR_MASK(n);
-    CPRReferenced &= ~CPR_MASK(n);
-    CPRFind &= ~CPR_MASK(n);
+    *CPRIgnore &= ~CPR_MASK(n);
+    *CPRAltered &= ~CPR_MASK(n);
+    *CPRReferenced &= ~CPR_MASK(n);
+    *CPRFind &= ~CPR_MASK(n);
 }
 
 static int sac_match_cpr(int cpr_num, uint32 *mask, uint32 va, uint32 *match_result)
@@ -645,7 +656,7 @@ static int sac_match_cpr(int cpr_num, uint32 *mask, uint32 va, uint32 *match_res
 	int result = 0;
 	uint32 result_mask = CPR_MASK(cpr_num);
 
-	if (!(CPRIgnore & result_mask))
+	if (!(*CPRIgnore & result_mask))
 	{
 		if (cpr_num == 31)
 		{
@@ -759,11 +770,11 @@ static int sac_map_address(t_addr address, uint8 access, t_addr *mappedAddress)
             {
                 if (access & SAC_OBEY_ACCESS)
                 {
-                    AccessViolation |= 0x6;
+                    *AccessViolation |= 0x6;
                 }
                 else
                 {
-                    AccessViolation |= 0x2;
+                    *AccessViolation |= 0x2;
                 }
 
                 cpu_set_access_violation_interrupt();
@@ -776,23 +787,23 @@ static int sac_map_address(t_addr address, uint8 access, t_addr *mappedAddress)
         else if (numMatches == 0)
         {
             sim_debug(LOG_SAC_CPR_ERROR, &sac_dev, "CPR non-equivalence for virtual address 0x%08X\n", va);
-            CPRNotEquivalencePSX = va;
-            CPRNotEquivalenceS = seg;
+            *CPRNotEquivalencePSX = va;
+            *CPRNotEquivalenceS = seg;
             cpu_set_cpr_non_equivalence_interrupt();
         }
         else
         {
             cpu_set_cpr_multiple_equivalence_interrupt();
-            SystemErrorInterrupt |= 0x40; // TODO: check this in light of interrupt or-tree work.
+            *SystemErrorInterrupt |= 0x40; // TODO: check this in light of interrupt or-tree work.
         }
 
         if (access & (SAC_OBEY_ACCESS | SAC_READ_ACCESS))
         {
-            CPRReferenced |= matchMask;
+            *CPRReferenced |= matchMask;
         }
         else if (access & SAC_WRITE_ACCESS)
         {
-            CPRAltered |= matchMask;
+            *CPRAltered |= matchMask;
         }
     }
 

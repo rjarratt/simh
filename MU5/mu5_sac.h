@@ -94,8 +94,9 @@ uint32 sac_read_32_bit_word_real_address(t_addr address);
 void sac_write_32_bit_word_real_address(t_addr address, uint32 value);
 void sac_write_8_bit_word_real_address(t_addr address, uint8 value);
 
-void sac_v_store_register_callback(t_value old_val, struct REG *reg, int index);
-void sac_setup_v_store_location(uint8 block, uint8 line, t_uint64(*readCallback)(uint8), void(*writeCallback)(uint8,t_uint64));
+void sac_v_store_register_read_callback(struct REG *reg, int index);
+void sac_v_store_register_write_callback(t_value old_val, struct REG *reg, int index);
+t_uint64 *sac_setup_v_store_location(uint8 block, uint8 line, t_uint64(*readCallback)(uint8), void(*writeCallback)(uint8,t_uint64));
 void sac_write_v_store(uint8 block, uint8 line, t_uint64 value);
 t_uint64 sac_read_v_store(uint8 block, uint8 line);
 
