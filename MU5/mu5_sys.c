@@ -43,13 +43,11 @@ const char *sim_stop_messages[] =
 };
 
 static void VMInit(void);
-static t_stat mu5_vstore_cmd(int32 flag, CONST char *ptr);
 
 void(*sim_vm_init)(void) = &VMInit;
 
 
 CTAB mu5_cmd[] = {
-    { "VSTORE", &mu5_vstore_cmd, 0, "vs{tore}                   V-Store access\n", NULL, NULL },
     { NULL }
 };
 
@@ -59,56 +57,6 @@ static void VMInit()
 	sim_dflt_dev = &cpu_dev;
 }
 
-static t_stat mu5_vstore_cmd(int32 flag, CONST char *ptr)
-{
-    char gbuf[CBUFSIZE];
-    t_stat result = SCPE_OK;
-    uint8 block;
-    uint8 line;
-    t_uint64 value;
-
-    ptr = get_glyph(ptr, gbuf, 0);
-    if (gbuf[0] && strcmp(gbuf, "SET")==0)
-    {
-        ptr = get_glyph(ptr, gbuf, 0);
-        block = (uint8)get_uint(gbuf, 16, 7, &result);
-        if (result == SCPE_OK)
-        {
-            ptr = get_glyph(ptr, gbuf, 0);
-            line = (uint8)get_uint(gbuf, 16, 255, &result);
-        }
-        if (result == SCPE_OK)
-        {
-            ptr = get_glyph(ptr, gbuf, 0);
-            value = (t_uint64)get_uint(gbuf, 16, 0xFFFFFFFFFFFFFFFF, &result);
-        }
-
-        if (result == SCPE_OK)
-        {
-            sac_write_v_store(block, line, value);
-        }
-    }
-	else if (gbuf[0] && strcmp(gbuf, "GET") == 0)
-	{
-		ptr = get_glyph(ptr, gbuf, 0);
-		block = (uint8)get_uint(gbuf, 16, 7, &result);
-		if (result == SCPE_OK)
-		{
-			ptr = get_glyph(ptr, gbuf, 0);
-			line = (uint8)get_uint(gbuf, 16, 255, &result);
-		}
-
-		if (result == SCPE_OK)
-		{
-			printf("%016llX\n", sac_read_v_store(block, line));
-		}
-	}
-	else
-	{
-		result = SCPE_ARG;
-	}
-	return result;
-}
 
 
 
