@@ -121,9 +121,9 @@ static void cpu_set_xnb(uint32 value);
 static void cpu_set_sf(uint16 value);
 static void cpu_set_co(uint32 value);
 static void cpu_set_ms_bn(int value);
-static void cpu_aod_callback(t_value old_value, struct REG *reg, int idx);
-static void cpu_bod_callback(t_value old_value, struct REG *reg, int idx);
-static void cpu_dod_callback(t_value old_value, struct REG *reg, int idx);
+static void cpu_aod_write_callback(t_value old_value, struct REG *reg, int idx);
+static void cpu_bod_write_callback(t_value old_value, struct REG *reg, int idx);
+static void cpu_dod_write_callback(t_value old_value, struct REG *reg, int idx);
 static uint32 cpu_co_add(uint32 co, t_int64 operand);
 static t_uint64 cpu_get_link(void);
 static void cpu_set_link(t_uint64 link);
@@ -489,9 +489,9 @@ static uint32   reg_dl_backing_value;    /* Pseudo register for display lamps */
 static REG cpu_reg[] =
 {
     { HRDATAD(B,     reg_b_backing_value,       32,    "B register") },
-    { GRDATADFC(BOD, reg_bod_backing_value, 16, 32, 0, "BOD register", bod_bits, cpu_bod_callback) },
+    { GRDATADFC(BOD, reg_bod_backing_value, 16, 32, 0, "BOD register", bod_bits, NULL, cpu_bod_write_callback) },
     { HRDATAD(A,     reg_a_backing_value,       64,    "Accumulator") },
-    { GRDATADFC(AOD, reg_aod_backing_value, 16, 64, 0, "AOD register", aod_bits, cpu_aod_callback) },
+    { GRDATADFC(AOD, reg_aod_backing_value, 16, 64, 0, "AOD register", aod_bits, NULL, cpu_aod_write_callback) },
     { HRDATAD(AEX,   reg_aex_backing_value,     64,    "Accumulator extension") },
     { HRDATAD(X,     reg_x_backing_value,       32,    "X register") },
     { GRDATADF(MS,   reg_ms_backing_value, 16,  16, 0, "Machine status register", ms_bits) },
@@ -502,7 +502,7 @@ static REG cpu_reg[] =
     { HRDATAD(CO,    reg_co_backing_value,      32,    "Program counter") },
     { HRDATAD(D,     reg_d_backing_value,       64,    "Data descriptor register") },
     { HRDATAD(XD,    reg_xd_backing_value,      64,    "XD register") },
-    { GRDATADFC(DOD, reg_dod_backing_value, 16, 32, 0, "DOD register", dod_bits, cpu_dod_callback) },
+    { GRDATADFC(DOD, reg_dod_backing_value, 16, 32, 0, "DOD register", dod_bits, NULL, cpu_dod_write_callback) },
     { HRDATAD(DT,    reg_dt_backing_value,      32,    "DT register") },
     { HRDATAD(XDT,   reg_xdt_backing_value,     32,    "XDT register") },
     { HRDATAD(DL,    reg_dl_backing_value,      32,    "Pseudo register for display lamps") },
@@ -1077,9 +1077,9 @@ static SIM_INLINE void cpu_set_register_16(REG *reg, uint16 value)
     backing = reg->loc;
     old_value = *backing;
     *backing = value;
-    if (reg->callback != NULL)
+    if (reg->write_callback != NULL)
     {
-        reg->callback(old_value, reg, 0);
+        reg->write_callback(old_value, reg, 0);
     }
 }
 
@@ -1091,9 +1091,9 @@ static SIM_INLINE void cpu_set_register_32(REG *reg, uint32 value)
     backing = reg->loc;
     old_value = *backing;
     *backing = value;
-    if (reg->callback != NULL)
+    if (reg->write_callback != NULL)
     {
-        reg->callback(old_value, reg, 0);
+        reg->write_callback(old_value, reg, 0);
     }
 }
 
@@ -1105,9 +1105,9 @@ static SIM_INLINE void cpu_set_register_64(REG *reg, t_uint64 value)
     backing = reg->loc;
 	old_value = *backing;
     *backing = value;
-    if (reg->callback != NULL)
+    if (reg->write_callback != NULL)
     {
-        reg->callback(old_value, reg, 0);
+        reg->write_callback(old_value, reg, 0);
     }
 }
 
@@ -1246,7 +1246,7 @@ static void cpu_set_ms_bn(int value)
     cpu_set_register_bit_16(reg_ms, mask_ms_bn, value);
 }
 
-static void cpu_aod_callback(t_value old_value, struct REG *reg, int idx)
+static void cpu_aod_write_callback(t_value old_value, struct REG *reg, int idx)
 {
     t_uint64 new_value = cpu_get_register_64(reg);
 	if ((old_value & 0xFFF) != (new_value & 0xFFF))
@@ -1255,12 +1255,12 @@ static void cpu_aod_callback(t_value old_value, struct REG *reg, int idx)
 	}
 }
 
-static void cpu_bod_callback(t_value old_value, struct REG *reg, int idx)
+static void cpu_bod_write_callback(t_value old_value, struct REG *reg, int idx)
 {
     cpu_evaluate_interrupts();
 }
 
-static void cpu_dod_callback(t_value old_value, struct REG *reg, int idx)
+static void cpu_dod_write_callback(t_value old_value, struct REG *reg, int idx)
 {
     cpu_evaluate_interrupts();
 }
