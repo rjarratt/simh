@@ -55,6 +55,9 @@ static t_stat console_detach(UNIT* uptr);
 static t_stat console_svc(UNIT *uptr);
 static void console_schedule_next_poll(UNIT *uptr);
 
+static void console_v_store_register_read_callback(struct REG *reg, int index);
+static void console_v_store_register_write_callback(t_value old_val, struct REG *reg, int index);
+
 static t_uint64 console_read_console_interrupt_callback(uint8 line);
 static void console_write_console_interrupt_callback(uint8 line, t_uint64 value);
 static t_uint64 console_read_time_upper_callback(uint8 line);
@@ -75,13 +78,16 @@ static struct tm *console_get_local_time(void);
 static t_stat StartAudioOutput(void);
 static void StopAudioOutput(void);
 
-static uint8 ConsoleInterrupt;
-static uint8 TeletypeData;
-static uint8 TeletypeControl;
 static int TeletypeOperationInProgress;
-static uint16 EngineersHandswitches;
-static uint16 TimeLower;
-static volatile uint8 ConsoleHoot;
+static t_uint64 *ConsoleInterrupt;
+static t_uint64 *TeletypeData;
+static t_uint64 *TeletypeControl;
+static t_uint64 *EngineersHandswitches;
+static t_uint64 *TimeLower;
+static t_uint64 *TimeUpper;
+static t_uint64 *DateLower;
+static t_uint64 *DateUpper;
+static t_uint64 *ConsoleHoot;
 
 static volatile int terminate_thread = 0;
 
@@ -105,7 +111,7 @@ static UNIT console_unit =
 
 static REG console_reg[] =
 {
-    { STRDATADC(V, VStore[CONSOLE_V_STORE_BLOCK], 16, 64, 0, V_STORE_BLOCK_SIZE, sizeof(VSTORE_LINE), "V Store", console_v_store_register_callback) },
+    { STRDATADFC(V, VStore[CONSOLE_V_STORE_BLOCK], 16, 64, 0, V_STORE_BLOCK_SIZE, sizeof(VSTORE_LINE), 0, "V Store", NULL, console_v_store_register_read_callback, console_v_store_register_write_callback) },
     { NULL }
 };
 
@@ -160,8 +166,8 @@ static t_stat console_reset(DEVICE *dptr)
 {
     t_stat result = SCPE_OK;
 	StopAudioOutput();
-	StartAudioOutput();
     console_reset_state();
+	StartAudioOutput();
 	sim_cancel(&console_unit);
 	sim_activate(&console_unit, 1);
 	return result;
@@ -175,28 +181,28 @@ static t_stat console_detach(UNIT* uptr)
 
 void console_reset_state(void)
 {
-    ConsoleInterrupt = 0;
-    TeletypeData = 0;
-    TeletypeControl = 0;
     TeletypeOperationInProgress = 0;
-    sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_CONSOLE_INTERRUPT, console_read_console_interrupt_callback, console_write_console_interrupt_callback);
-	sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TIME_UPPER, console_read_time_upper_callback, NULL);
-	sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TIME_LOWER, console_read_time_lower_callback, NULL);
-	sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_DATE_LOWER, console_read_date_lower_callback, NULL);
-	sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_DATE_UPPER_HOOTER, console_read_date_upper_hooter_callback, console_write_date_upper_hooter_callback);
-	sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TELETYPE_DATA, console_read_teletype_data_callback, console_write_teletype_data_callback);
-	sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TELETYPE_CONTROL, console_read_teletype_control_callback, console_write_teletype_control_callback);
-	sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_ENGINEERS_HANDSWITCHES, console_read_engineers_handswitches_callback, console_write_engineers_handswitches_callback);
+    ConsoleInterrupt = sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_CONSOLE_INTERRUPT, console_read_console_interrupt_callback, console_write_console_interrupt_callback);
+	TimeUpper = sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TIME_UPPER, console_read_time_upper_callback, NULL);
+	TimeLower = sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TIME_LOWER, console_read_time_lower_callback, NULL);
+	DateLower = sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_DATE_LOWER, console_read_date_lower_callback, NULL);
+    DateUpper = ConsoleHoot = sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_DATE_UPPER_HOOTER, console_read_date_upper_hooter_callback, console_write_date_upper_hooter_callback);
+    TeletypeData = sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TELETYPE_DATA, console_read_teletype_data_callback, console_write_teletype_data_callback);
+    TeletypeControl = sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TELETYPE_CONTROL, console_read_teletype_control_callback, console_write_teletype_control_callback);
+    EngineersHandswitches = sac_setup_v_store_location(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_ENGINEERS_HANDSWITCHES, console_read_engineers_handswitches_callback, console_write_engineers_handswitches_callback);
+    *ConsoleInterrupt = 0;
+    *TeletypeData = 0;
+    *TeletypeControl = 0;
 }
 
 static t_stat console_svc(UNIT *uptr)
 {
 	if (TeletypeOperationInProgress)
 	{
-		if (!(TeletypeControl & MASK_TTY_INPUT))
+		if (!(*TeletypeControl & MASK_TTY_INPUT))
 		{
-			sim_putchar(TeletypeData);
-			ConsoleInterrupt |= MASK_TCI;
+			sim_putchar((int32)(*TeletypeData));
+			*ConsoleInterrupt |= MASK_TCI;
 			/* TODO actually set interrupt here, for now just enable polling */
 		}
 		TeletypeOperationInProgress = 0;
@@ -212,88 +218,86 @@ static void console_schedule_next_poll(UNIT *uptr)
 
 static t_uint64 console_read_console_interrupt_callback(uint8 line)
 {
-    return ConsoleInterrupt & 0xF;
+    return *ConsoleInterrupt & 0xF;
 }
 
 static void console_write_console_interrupt_callback(uint8 line, t_uint64 value)
 {
     if (value & MASK_TCI)
     {
-        ConsoleInterrupt &= ~MASK_TCI;
+        *ConsoleInterrupt &= ~MASK_TCI;
     }
     else if (value & MASK_FCI)
     {
-        ConsoleInterrupt &= ~(MASK_SCI | MASK_FCI);
+        *ConsoleInterrupt &= ~(MASK_SCI | MASK_FCI);
     }
 }
 
 static t_uint64 console_read_time_upper_callback(uint8 line)
 {
-	t_uint64 result;
 	struct tm *t = console_get_local_time();
-	result = console_convert_to_bcd(t->tm_hour) << 8 | console_convert_to_bcd(t->tm_min);
-	TimeLower = console_convert_to_bcd(t->tm_sec) << 8; /* TODO: milleseconds */
-	return result;
+    *TimeUpper = console_convert_to_bcd(t->tm_hour) << 8 | console_convert_to_bcd(t->tm_min);
+	*TimeLower = console_convert_to_bcd(t->tm_sec) << 8; /* TODO: milleseconds */
+	return *TimeUpper;
 }
 
 static t_uint64 console_read_time_lower_callback(uint8 line)
 {
-	return TimeLower;
+	return *TimeLower;
 }
 
 static t_uint64 console_read_date_lower_callback(uint8 line)
 {
-	t_uint64 result;
 	struct tm *t = console_get_local_time();
-	result = console_convert_to_bcd(t->tm_mon + 1) << 8 | console_convert_to_bcd(t->tm_mday);
-	return result;
+	*DateLower = console_convert_to_bcd(t->tm_mon + 1) << 8 | console_convert_to_bcd(t->tm_mday);
+
+	return *DateLower;
 }
 
 static t_uint64 console_read_date_upper_hooter_callback(uint8 line)
 {
-	t_uint64 result;
 	/* assume we are in the early 2000's when 50 years is close to the time when MU5 existed. 50 years is a span where the years share the same days of the week for the same dates */
 	uint8 year = (console_get_local_time()->tm_year - 50) % 100;
-	result = console_convert_to_bcd(year);
-	return result;
+	*DateUpper = console_convert_to_bcd(year);
+	return *DateUpper;
 }
 
 static void console_write_date_upper_hooter_callback(uint8 line, t_uint64 value)
 {
 	if ((value & 0x1) == 0)
 	{
-		ConsoleHoot = 0;
+		*ConsoleHoot = 0;
 	}
 	else
 	{
-		ConsoleHoot = 255;
+		*ConsoleHoot = 255;
 	}
 }
 
 static t_uint64 console_read_teletype_data_callback(uint8 line)
 {
-    return TeletypeData;
+    return *TeletypeData;
 }
 
 static void console_write_teletype_data_callback(uint8 line, t_uint64 value)
 {
-    TeletypeData = value & MASK_8;
+    *TeletypeData = value & MASK_8;
     TeletypeOperationInProgress = 1;
 }
 
 static t_uint64 console_read_teletype_control_callback(uint8 line)
 {
-    return TeletypeControl;
+    return *TeletypeControl;
 }
 
 static void console_write_teletype_control_callback(uint8 line, t_uint64 value)
 {
-    TeletypeControl = value & MASK_8;
+    *TeletypeControl = value & MASK_8;
 }
 
 static t_uint64 console_read_engineers_handswitches_callback(uint8 line)
 {
-	return EngineersHandswitches;
+	return *EngineersHandswitches;
 }
 
 /* The real machine does NOT support writing to this V-Store location, but this is a mechanism for the handswitches to be set from the ini file without a special command
@@ -301,7 +305,7 @@ static t_uint64 console_read_engineers_handswitches_callback(uint8 line)
 */
 static void console_write_engineers_handswitches_callback(uint8 line, t_uint64 value)
 {
-	EngineersHandswitches = value & MASK_16;
+	*EngineersHandswitches = value & MASK_16;
 }
 
 static uint8 console_convert_to_bcd(uint8 n)
@@ -314,14 +318,20 @@ static struct tm *console_get_local_time(void)
 {
 	time_t now;
 	time(&now);
-	/* assume we are in the early 2000's when 50 years is close to the time when MU5 existed. 50 years is a span where the years share the same days of the week for the same dates */
 	return localtime(&now);
 }
 
-void console_v_store_register_callback(t_value old_val, struct REG *reg, int index)
+static void console_v_store_register_read_callback(struct REG *reg, int index)
 {
     assert(reg->width == 64);
-    sac_write_v_store(CONSOLE_V_STORE_BLOCK, index, ((VSTORE_LINE *)reg->loc + index)->value); /* TODO: make sure modified value gets stored in register */
+    sac_read_v_store(CONSOLE_V_STORE_BLOCK, index);
+
+}
+
+static void console_v_store_register_write_callback(t_value old_val, struct REG *reg, int index)
+{
+    assert(reg->width == 64);
+    sac_write_v_store(CONSOLE_V_STORE_BLOCK, index, ((VSTORE_LINE *)reg->loc + index)->value);
 }
 
 /* TODO: Audio code still has a crackle, possibly because at buffer changeover the old buffer has finished playing before the new one is queued */
@@ -409,7 +419,7 @@ static int AudioThreadFunction(void *data)
 			countDiff = currentCount - lastSampleCount;
 			if (countDiff > countsPerSample)
 			{
-				buffer[i++] = ConsoleHoot;
+				buffer[i++] = (uint8)(*ConsoleHoot);
 				lastSampleCount += countsPerSample;
 				countDiff -= countsPerSample;
 				if (i >= AUDIO_OUT_BUFFER_SIZE)
@@ -530,7 +540,7 @@ static DWORD WINAPI audio_thread_function(void *param)
 			countDiff = currentCount.QuadPart - lastSampleCount.QuadPart;
 			if (countDiff > countsPerSample)
 			{
-				currentWaveHdr->lpData[i++] = ConsoleHoot;
+				currentWaveHdr->lpData[i++] = *ConsoleHoot;
 				lastSampleCount.QuadPart += countsPerSample;
 				countDiff -= countsPerSample;
 				if (i >= AUDIO_OUT_BUFFER_SIZE)
