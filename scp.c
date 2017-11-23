@@ -476,8 +476,10 @@ typedef enum {
 SWITCH_PARSE get_switches (const char *cptr, int32 *sw_val, int32 *sw_number);
 CONST char *get_sim_sw (CONST char *cptr);
 t_stat get_aval (t_addr addr, DEVICE *dptr, UNIT *uptr);
-t_value get_rval (REG *rptr, uint32 idx);
-void put_rval (REG *rptr, uint32 idx, t_value val);
+t_value get_rval(REG *rptr, uint32 idx);
+t_value get_rval_raw(REG *rptr, uint32 idx);
+void put_rval(REG *rptr, uint32 idx, t_value val);
+void put_rval_raw(REG *rptr, uint32 idx, t_value val);
 void fprint_help (FILE *st);
 void fprint_stopped (FILE *st, t_stat r);
 void fprint_capac (FILE *st, DEVICE *dptr, UNIT *uptr);
@@ -7545,50 +7547,70 @@ return SCPE_OK;
 
 t_value get_rval (REG *rptr, uint32 idx)
 {
-size_t sz;
-t_value val;
-uint32 *ptr;
+    t_value val;
+    if (rptr->read_callback)
+    {
+        rptr->read_callback(rptr, idx);
+    }
+    val = get_rval_raw(rptr, idx);
+    return val;
+}
 
-sz = SZ_R (rptr);
-if ((rptr->depth > 1) && (rptr->flags & REG_CIRC)) {
-    idx = idx + rptr->qptr;
-    if (idx >= rptr->depth) idx = idx - rptr->depth;
+/* Get register value, just gets the value, no other processing
+
+Inputs:
+rptr    =       pointer to register descriptor
+idx     =       index
+Outputs:
+return  =       register value
+*/
+
+t_value get_rval_raw(REG *rptr, uint32 idx)
+{
+    size_t sz;
+    t_value val;
+    uint32 *ptr;
+
+    sz = SZ_R(rptr);
+    if ((rptr->depth > 1) && (rptr->flags & REG_CIRC)) {
+        idx = idx + rptr->qptr;
+        if (idx >= rptr->depth) idx = idx - rptr->depth;
     }
-if ((rptr->depth > 1) && (rptr->flags & REG_UNIT)) {
-    ptr = (uint32 *)(((UNIT *) rptr->loc) + idx);
+    if ((rptr->depth > 1) && (rptr->flags & REG_UNIT)) {
+        ptr = (uint32 *)(((UNIT *)rptr->loc) + idx);
 #if defined (USE_INT64)
-    if (sz <= sizeof (uint32))
+        if (sz <= sizeof(uint32))
+            val = *ptr;
+        else val = *((t_uint64 *)ptr);
+#else
         val = *ptr;
-    else val = *((t_uint64 *) ptr);
-#else
-    val = *ptr;
 #endif
     }
-else if ((rptr->depth > 1) && (rptr->flags & REG_STRUCT)) {
-    ptr = (uint32 *)(((size_t) rptr->loc) + (idx * rptr->str_size));
+    else if ((rptr->depth > 1) && (rptr->flags & REG_STRUCT)) {
+        ptr = (uint32 *)(((size_t)rptr->loc) + (idx * rptr->str_size));
 #if defined (USE_INT64)
-    if (sz <= sizeof (uint32))
+        if (sz <= sizeof(uint32))
+            val = *ptr;
+        else val = *((t_uint64 *)ptr);
+#else
         val = *ptr;
-    else val = *((t_uint64 *) ptr);
-#else
-    val = *ptr;
 #endif
     }
-else if (((rptr->depth > 1) || (rptr->flags & REG_FIT)) &&
-    (sz == sizeof (uint8)))
-    val = *(((uint8 *) rptr->loc) + idx);
-else if (((rptr->depth > 1) || (rptr->flags & REG_FIT)) &&
-    (sz == sizeof (uint16)))
-    val = *(((uint16 *) rptr->loc) + idx);
+    else if (((rptr->depth > 1) || (rptr->flags & REG_FIT)) &&
+        (sz == sizeof(uint8)))
+        val = *(((uint8 *)rptr->loc) + idx);
+    else if (((rptr->depth > 1) || (rptr->flags & REG_FIT)) &&
+        (sz == sizeof(uint16)))
+        val = *(((uint16 *)rptr->loc) + idx);
 #if defined (USE_INT64)
-else if (sz <= sizeof (uint32))
-     val = *(((uint32 *) rptr->loc) + idx);
-else val = *(((t_uint64 *) rptr->loc) + idx);
+    else if (sz <= sizeof(uint32))
+        val = *(((uint32 *)rptr->loc) + idx);
+    else val = *(((t_uint64 *)rptr->loc) + idx);
 #else
-else val = *(((uint32 *) rptr->loc) + idx);
+    else val = *(((uint32 *)rptr->loc) + idx);
 #endif
-val = (val >> rptr->offset) & width_mask[rptr->width];
-return val;
+    val = (val >> rptr->offset) & width_mask[rptr->width];
+    return val;
 }
 
 /* Deposit register routine
@@ -7657,73 +7679,90 @@ return SCPE_OK;
 
 void put_rval (REG *rptr, uint32 idx, t_value val)
 {
-size_t sz;
-t_value mask;
 t_value old_val;
-uint32 *ptr;
+
+if (rptr->write_callback)
+    old_val = get_rval_raw (rptr, idx);
+if (rptr == sim_PC)
+    sim_brk_npc (0);
+put_rval_raw(rptr, idx, val);
+if ((rptr->write_callback) && (!(sim_switches & SIM_SW_REST)))
+    rptr->write_callback (old_val, rptr, idx);
+return;
+}
+
+/* Put register value, just sets the value, no other processing
+
+Inputs:
+rptr    =       pointer to register descriptor
+idx     =       index
+val     =       new value
+mask    =       mask
+Outputs:
+none
+*/
+
+void put_rval_raw(REG *rptr, uint32 idx, t_value val)
+{
+    size_t sz;
+    t_value mask;
+    uint32 *ptr;
 
 #define PUT_RVAL(sz,rp,id,v,m) \
     *(((sz *) rp->loc) + id) = \
             (sz)((*(((sz *) rp->loc) + id) & \
             ~((m) << (rp)->offset)) | ((v) << (rp)->offset))
 
-if (rptr->write_callback)
-    old_val = get_rval (rptr, idx);
-if (rptr == sim_PC)
-    sim_brk_npc (0);
-sz = SZ_R (rptr);
-mask = width_mask[rptr->width];
-if ((rptr->depth > 1) && (rptr->flags & REG_CIRC)) {
-    idx = idx + rptr->qptr;
-    if (idx >= rptr->depth)
-        idx = idx - rptr->depth;
+    sz = SZ_R(rptr);
+    mask = width_mask[rptr->width];
+    if ((rptr->depth > 1) && (rptr->flags & REG_CIRC)) {
+        idx = idx + rptr->qptr;
+        if (idx >= rptr->depth)
+            idx = idx - rptr->depth;
     }
-if ((rptr->depth > 1) && (rptr->flags & REG_UNIT)) {
-    ptr = (uint32 *)(((UNIT *) rptr->loc) + idx);
+    if ((rptr->depth > 1) && (rptr->flags & REG_UNIT)) {
+        ptr = (uint32 *)(((UNIT *)rptr->loc) + idx);
 #if defined (USE_INT64)
-    if (sz <= sizeof (uint32))
+        if (sz <= sizeof(uint32))
+            *ptr = (*ptr &
+                ~(((uint32)mask) << rptr->offset)) |
+                (((uint32)val) << rptr->offset);
+        else *((t_uint64 *)ptr) = (*((t_uint64 *)ptr)
+            & ~(mask << rptr->offset)) | (val << rptr->offset);
+#else
         *ptr = (*ptr &
-        ~(((uint32) mask) << rptr->offset)) |
-        (((uint32) val) << rptr->offset);
-    else *((t_uint64 *) ptr) = (*((t_uint64 *) ptr)
-        & ~(mask << rptr->offset)) | (val << rptr->offset);
-#else
-    *ptr = (*ptr &
-        ~(((uint32) mask) << rptr->offset)) |
-        (((uint32) val) << rptr->offset);
+            ~(((uint32)mask) << rptr->offset)) |
+            (((uint32)val) << rptr->offset);
 #endif
     }
-else if ((rptr->depth > 1) && (rptr->flags & REG_STRUCT)) {
-    ptr = (uint32 *)(((size_t) rptr->loc) + (idx * rptr->str_size));
+    else if ((rptr->depth > 1) && (rptr->flags & REG_STRUCT)) {
+        ptr = (uint32 *)(((size_t)rptr->loc) + (idx * rptr->str_size));
 #if defined (USE_INT64)
-    if (sz <= sizeof (uint32))
-        *((uint32 *) ptr) = (*((uint32 *) ptr) &
-        ~(((uint32) mask) << rptr->offset)) |
-        (((uint32) val) << rptr->offset);
-    else *((t_uint64 *) ptr) = (*((t_uint64 *) ptr)
-        & ~(mask << rptr->offset)) | (val << rptr->offset);
+        if (sz <= sizeof(uint32))
+            *((uint32 *)ptr) = (*((uint32 *)ptr) &
+                ~(((uint32)mask) << rptr->offset)) |
+                (((uint32)val) << rptr->offset);
+        else *((t_uint64 *)ptr) = (*((t_uint64 *)ptr)
+            & ~(mask << rptr->offset)) | (val << rptr->offset);
 #else
-    *ptr = (*ptr &
-        ~(((uint32) mask) << rptr->offset)) |
-        (((uint32) val) << rptr->offset);
+        *ptr = (*ptr &
+            ~(((uint32)mask) << rptr->offset)) |
+            (((uint32)val) << rptr->offset);
 #endif
     }
-else if (((rptr->depth > 1) || (rptr->flags & REG_FIT)) &&
-    (sz == sizeof (uint8)))
-    PUT_RVAL (uint8, rptr, idx, (uint32) val, (uint32) mask);
-else if (((rptr->depth > 1) || (rptr->flags & REG_FIT)) &&
-    (sz == sizeof (uint16)))
-    PUT_RVAL (uint16, rptr, idx, (uint32) val, (uint32) mask);
+    else if (((rptr->depth > 1) || (rptr->flags & REG_FIT)) &&
+        (sz == sizeof(uint8)))
+        PUT_RVAL(uint8, rptr, idx, (uint32)val, (uint32)mask);
+    else if (((rptr->depth > 1) || (rptr->flags & REG_FIT)) &&
+        (sz == sizeof(uint16)))
+        PUT_RVAL(uint16, rptr, idx, (uint32)val, (uint32)mask);
 #if defined (USE_INT64)
-else if (sz <= sizeof (uint32))
-    PUT_RVAL (uint32, rptr, idx, (int32) val, (uint32) mask);
-else PUT_RVAL (t_uint64, rptr, idx, val, mask);
+    else if (sz <= sizeof(uint32))
+        PUT_RVAL(uint32, rptr, idx, (int32)val, (uint32)mask);
+    else PUT_RVAL(t_uint64, rptr, idx, val, mask);
 #else
-else PUT_RVAL (uint32, rptr, idx, val, mask);
+    else PUT_RVAL(uint32, rptr, idx, val, mask);
 #endif
-if ((rptr->write_callback) && (!(sim_switches & SIM_SW_REST)))
-    rptr->write_callback (old_val, rptr, idx);
-return;
 }
 
 /* Examine address routine
