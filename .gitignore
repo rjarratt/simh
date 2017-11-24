@@ -50,3 +50,4 @@ doc/*.pdf
 !MU5ELR.bin
 
 *.dbg
+*.ini-Panel*
