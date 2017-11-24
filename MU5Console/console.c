@@ -32,6 +32,8 @@
 #include <string.h>
 #include "sim_frontpanel.h"
 #include <signal.h>
+#define SDL_MAIN_HANDLED
+#include <SDL.h>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -39,6 +41,11 @@
 #else
 #include <unistd.h>
 #endif
+
+#define WIDTH   800
+#define HEIGHT  450
+#define DEPTH   32
+
 const char *sim_path = 
 #if defined(_WIN32)
             "mu5.exe";
@@ -49,10 +56,19 @@ const char *sim_path =
 const char *sim_config = 
             "MU5-PANEL.ini";
 
+static SDL_Window *sdlWindow;
+static SDL_Renderer *sdlRenderer;
+static SDL_Texture *sdlTexture;
+static SDL_Surface *screen;
+
 /* Registers visible on the Front Panel */
 unsigned int CO, DL;
 
 int update_display = 1;
+
+static void UpdateWholeScreen(void);
+static void DrawRegisters(void);
+static void DrawRegister(int hpos, int vpos, UINT64 value, UINT8 width);
 
 static void
 DisplayCallback (PANEL *panel, unsigned long long simulation_time, void *context)
@@ -63,51 +79,244 @@ update_display = 1;
 static void
 DisplayRegisters (PANEL *panel)
 {
-char buf1[100], buf2[100], buf3[100], buf4[100];
-static const char *states[] = {"Halt", "Run "};
+//char buf1[100], buf2[100], buf3[100], buf4[100];
+//static const char *states[] = {"Halt", "Run "};
 
 if (!update_display)
     return;
 update_display = 0;
-buf1[sizeof(buf1)-1] = buf2[sizeof(buf2)-1] = buf3[sizeof(buf3)-1] = 0;
-sprintf(buf1, "%s\r\n", states[sim_panel_get_state(panel)]);
-sprintf(buf2, "CO: %08X\r\n", CO);
-sprintf(buf3, "DL: %08X\r\n", DL);
-buf4[0] = '\0';
-#if defined(_WIN32)
-if (1) {
-    static HANDLE out = NULL;
-    CONSOLE_SCREEN_BUFFER_INFO info;
-    static COORD origin;
-    int written;
+//buf1[sizeof(buf1)-1] = buf2[sizeof(buf2)-1] = buf3[sizeof(buf3)-1] = 0;
+//sprintf(buf1, "%s\r\n", states[sim_panel_get_state(panel)]);
+//sprintf(buf2, "CO: %08X\r\n", CO);
+//sprintf(buf3, "DL: %08X\r\n", DL);
+//buf4[0] = '\0';
+DrawRegisters();
+UpdateWholeScreen();
+//#if defined(_WIN32)
+//if (1) {
+//    static HANDLE out = NULL;
+//    CONSOLE_SCREEN_BUFFER_INFO info;
+//    static COORD origin;
+//    int written;
+//
+//    if (out == NULL)
+//        out = GetStdHandle (STD_OUTPUT_HANDLE);
+//    GetConsoleScreenBufferInfo (out, &info);
+//    SetConsoleCursorPosition (out, origin);
+//    WriteConsoleA(out, buf1, strlen(buf1), &written, NULL);
+//    WriteConsoleA(out, buf2, strlen(buf2), &written, NULL);
+//    WriteConsoleA(out, buf3, strlen(buf3), &written, NULL);
+//    WriteConsoleA(out, buf4, strlen(buf4), &written, NULL);
+//    SetConsoleCursorPosition (out, info.dwCursorPosition);
+//    }
+//#else
+//#define ESC "\033"
+//#define CSI ESC "["
+//printf (CSI "s");   /* Save Cursor Position */
+//printf (CSI "H");   /* Position to Top of Screen (1,1) */
+//printf ("%s", buf1);
+//printf ("%s", buf2);
+//printf ("%s", buf3);
+//printf ("%s", buf4);
+//printf (CSI "s");   /* Restore Cursor Position */
+//printf ("\r\n");
+//#endif
+}
 
-    if (out == NULL)
-        out = GetStdHandle (STD_OUTPUT_HANDLE);
-    GetConsoleScreenBufferInfo (out, &info);
-    SetConsoleCursorPosition (out, origin);
-    WriteConsoleA(out, buf1, strlen(buf1), &written, NULL);
-    WriteConsoleA(out, buf2, strlen(buf2), &written, NULL);
-    WriteConsoleA(out, buf3, strlen(buf3), &written, NULL);
-    WriteConsoleA(out, buf4, strlen(buf4), &written, NULL);
-    SetConsoleCursorPosition (out, info.dwCursorPosition);
+static void DrawRegisters(void)
+{
+    DrawRegister(0, 20, CO, 32);
+    DrawRegister(0, 50, DL, 32);
+}
+
+static SDL_Surface *sprite_from_data(int width, int height,
+    const unsigned char *data)
+{
+    SDL_Surface *sprite;
+    unsigned *s, r, g, b;
+    int y, x;
+
+    sprite = SDL_CreateRGBSurface(SDL_SWSURFACE,
+        width, height, DEPTH, 0, 0, 0, 0);
+    /*
+    SDL_Surface *optimized = SDL_DisplayFormat (sprite);
+    SDL_FreeSurface (sprite);
+    sprite = optimized;
+    */
+    SDL_LockSurface(sprite);
+    for (y = 0; y<height; ++y) {
+        s = (unsigned*)((char*)sprite->pixels + y * sprite->pitch);
+        for (x = 0; x<width; ++x) {
+            r = *data++;
+            g = *data++;
+            b = *data++;
+            *s++ = SDL_MapRGB(sprite->format, r, g, b);
+        }
     }
-#else
-#define ESC "\033"
-#define CSI ESC "["
-printf (CSI "s");   /* Save Cursor Position */
-printf (CSI "H");   /* Position to Top of Screen (1,1) */
-printf ("%s", buf1);
-printf ("%s", buf2);
-printf ("%s", buf3);
-printf ("%s", buf4);
-printf (CSI "s");   /* Restore Cursor Position */
-printf ("\r\n");
-#endif
+    SDL_UnlockSurface(sprite);
+    return sprite;
+}
+
+/*
+* Drawing a neon light.
+*/
+static void draw_lamp(int left, int top, int on)
+{
+    /* Images created by GIMP: save as C file without alpha channel. */
+    static const int lamp_width = 12;
+    static const int lamp_height = 12;
+    static const unsigned char lamp_on[12 * 12 * 3 + 1] =
+        "\0\0\0\0\0\0\0\0\0\13\2\2-\14\14e\31\31e\31\31-\14\14\13\2\2\0\0\0\0\0\0"
+        "\0\0\0\0\0\0\0\0\0D\20\20\313,,\377??\377CC\377CC\377DD\31333D\21\21\0\0"
+        "\0\0\0\0\0\0\0D\20\20\357LL\377\243\243\376~~\37699\376@@\376@@\377AA\357"
+        "<<D\21\21\0\0\0\13\2\2\313,,\377\243\243\377\373\373\377\356\356\377NN\377"
+        ">>\377@@\377@@\377AA\31333\13\2\2-\14\14\377??\376~~\377\356\356\377\321"
+        "\321\377<<\377??\377@@\377@@\376@@\377DD-\14\14e\31\31\377CC\37699\377NN"
+        "\377<<\377??\377@@\377@@\377@@\376??\377CCe\31\31e\31\31\377CC\376@@\377"
+        ">>\377??\377@@\377@@\377@@\377@@\376??\377CCe\31\31-\14\14\377DD\376@@\377"
+        "@@\377@@\377@@\377@@\377@@\377@@\376@@\377DD-\14\14\13\2\2\31333\377AA\377"
+        "@@\377@@\377@@\377@@\377@@\377@@\377AA\31333\13\2\2\0\0\0D\21\21\357<<\377"
+        "AA\376@@\376??\376??\376@@\377AA\357<<D\21\21\0\0\0\0\0\0\0\0\0D\21\21\313"
+        "33\377DD\377CC\377CC\377DD\31333D\21\21\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\13"
+        "\2\2-\14\14e\31\31e\31\31-\14\14\13\2\2\0\0\0\0\0\0\0\0\0";
+    static const unsigned char lamp_off[12 * 12 * 3 + 1] =
+        "\0\0\0\0\0\0\0\0\0\0\0\0\14\2\2\14\2\2\14\2\2\14\2\2\0\0\0\0\0\0\0\0\0\0"
+        "\0\0\0\0\0\0\0\0\25\5\5A\21\21h\32\32c\30\30c\30\30h\32\32A\21\21\25\5\5"
+        "\0\0\0\0\0\0\0\0\0\25\5\5\\\30\30""8\16\16\0\0\0\0\0\0\0\0\0\0\0\0""8\16"
+        "\16\\\30\30\25\5\5\0\0\0\0\0\0A\21\21""8\16\16\0\0\0\0\0\0\0\0\0\0\0\0\0"
+        "\0\0\0\0\0""8\16\16A\21\21\0\0\0\14\2\2h\32\32\0\0\0\0\0\0\0\0\0\0\0\0\0"
+        "\0\0\0\0\0\0\0\0\0\0\0h\32\32\14\2\2\14\2\2c\30\30\0\0\0\0\0\0\0\0\0\0\0"
+        "\0\0\0\0\0\0\0\0\0\0\0\0\0c\30\30\14\2\2\14\2\2c\30\30\0\0\0\0\0\0\0\0\0"
+        "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0c\30\30\14\2\2\14\2\2h\32\32\0\0\0\0\0\0\0"
+        "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0h\32\32\14\2\2\0\0\0A\21\21""8\16\16\0"
+        "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0""8\16\16A\21\21\0\0\0\0\0\0\25\5\5\\\30"
+        "\30""8\16\16\0\0\0\0\0\0\0\0\0\0\0\0""8\16\16\\\30\30\25\5\5\0\0\0\0\0\0"
+        "\0\0\0\25\5\5A\21\21h\32\32c\30\30c\30\30h\32\32A\21\21\25\5\5\0\0\0\0\0"
+        "\0\0\0\0\0\0\0\0\0\0\0\0\0\14\2\2\14\2\2\14\2\2\14\2\2\0\0\0\0\0\0\0\0\0"
+        "\0\0\0";
+
+    static unsigned char lamp_mid[sizeof(lamp_on)];
+    static SDL_Surface * sprites[3];
+    SDL_Rect area;
+    int i;
+
+    if (!sprites[0]) {
+        sprites[0] = sprite_from_data(lamp_width, lamp_height,
+            lamp_off);
+    }
+    if (!sprites[1]) {
+        for (i = 0; i < sizeof(lamp_mid); ++i)
+            lamp_mid[i] = (lamp_on[i] + lamp_off[i] + 1) / 2;
+        sprites[1] = sprite_from_data(lamp_width, lamp_height,
+            lamp_mid);
+    }
+    if (!sprites[2]) {
+        sprites[2] = sprite_from_data(lamp_width, lamp_height,
+            lamp_on);
+    }
+
+    area.x = left;
+    area.y = top;
+    area.w = lamp_width;
+    area.h = lamp_height;
+    SDL_BlitSurface(sprites[on], 0, screen, &area);
+}
+
+static void DrawRegister(int hpos, int vpos, UINT64 value, UINT8 width)
+{
+    int i;
+    int on;
+    for (i = width - 1; i >= 0; i--)
+    {
+        on = (value & (1 << i)) != 0;
+        draw_lamp(hpos + (width - i) * 14, vpos, on);
+    }
+}
+
+static void UpdateWholeScreen()
+{
+    SDL_UpdateTexture(sdlTexture, NULL, screen->pixels, screen->pitch);
+    SDL_RenderClear(sdlRenderer);
+    SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
+    SDL_RenderPresent(sdlRenderer);
+}
+
+void CreatePanel()
+{
+    if (SDL_Init(SDL_INIT_VIDEO) < 0)
+    {
+        printf("SDL: unable to init: %s\n", SDL_GetError());
+    }
+    sdlWindow = SDL_CreateWindow("MU5 panel",
+        SDL_WINDOWPOS_UNDEFINED,
+        SDL_WINDOWPOS_UNDEFINED,
+        WIDTH, HEIGHT, 0 /* regular window */);
+    if (!sdlWindow) {
+        printf("SDL: unable to set %dx%d mode: %s\n", WIDTH, HEIGHT, SDL_GetError());
+    }
+
+    sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, 0);
+    /* Make black background */
+    SDL_SetRenderDrawColor(sdlRenderer, 0, 0, 0, 255);
+    SDL_RenderClear(sdlRenderer);
+
+    ///* Initialize the TTF library */
+    //if (TTF_Init() < 0) {
+    //    t_stat ret = sim_messagef(SCPE_OPENERR, "SDL: couldn't initialize TTF: %s\n",
+    //        SDL_GetError());
+    //    SDL_Quit();
+    //    return ret;
+    //}
+
+    ///* Font colors */
+    //background = black;
+    //foreground = cyan;
+
+    ///* Open the font file with the requested point size */
+    //font_big = TTF_OpenFont(QUOTE(FONTFILE), 16);
+    //font_small = TTF_OpenFont(QUOTE(FONTFILE), 9);
+    //if (!font_big || !font_small) {
+    //    t_stat ret = sim_messagef(SCPE_OPENERR, "SDL: couldn't load font %s: %s\n",
+    //        QUOTE(FONTFILE), SDL_GetError());
+    //    besm6_close_panel(u, val, cptr, desc);
+    //    return ret;
+    //}
+
+    screen = SDL_CreateRGBSurface(0, WIDTH, HEIGHT, 32,
+        0x00FF0000,
+        0x0000FF00,
+        0x000000FF,
+        0xFF000000);
+
+    sdlTexture = SDL_CreateTexture(sdlRenderer,
+        SDL_PIXELFORMAT_ARGB8888,
+        SDL_TEXTUREACCESS_STATIC,
+        WIDTH, HEIGHT);
+
+    DrawRegisters();
+    ///* Drawing the static part of the BESM-6 panel */
+    //draw_modifiers_static(0, 24, 10);
+    //draw_modifiers_static(1, 400, 10);
+    //draw_prp_static(24, 170);
+    //draw_counters_static(24 + 32 * STEPX, 170);
+    //draw_grp_static(24, 230);
+    //draw_brz_static(24, 280);
+
+    ///* Make sure all lights are updated */
+    //memset(M_lamps, ~0, sizeof(M_lamps));
+    //memset(BRZ_lamps, ~0, sizeof(BRZ_lamps));
+    //memset(GRP_lamps, ~0, sizeof(GRP_lamps));
+    //memset(PRP_lamps, ~0, sizeof(PRP_lamps));
+    //memset(PC_lamps, ~0, sizeof(PC_lamps));
+    //besm6_draw_panel(1);
+
+    UpdateWholeScreen();
 }
 
 static
 void InitDisplay (void)
 {
+    CreatePanel();
 #if defined(_WIN32)
 system ("cls");
 #else
@@ -158,7 +367,7 @@ int my_boot(PANEL *panel)
 }
 
 int
-main (int argc, char **argv)
+main (int argc, char *argv[])
 {
 FILE *f;
 int debug = 0;
@@ -219,21 +428,10 @@ if (debug) {
     sim_panel_set_debug_mode (panel, DBG_XMT|DBG_RCV|DBG_REQ|DBG_RSP);
     }
 
-//tape = sim_panel_add_device_panel (panel, "TAPE DRIVE");
-//
-//if (!tape) {
-//    printf ("Error adding tape device to simulator: %s\n", sim_panel_get_error());
-//    goto Done;
-//    }
-//
 if (sim_panel_add_register (panel, "CO",  NULL, sizeof(CO), &CO)) {
     printf ("Error adding register 'CO': %s\n", sim_panel_get_error());
     goto Done;
     }
-//if (sim_panel_add_register_indirect (panel, "CO",  NULL, sizeof(atPC), &atPC)) {
-//    printf ("Error adding register indirect 'CO': %s\n", sim_panel_get_error());
-//    goto Done;
-//    }
 if (sim_panel_add_register (panel, "DL",  NULL, sizeof(DL), &DL)) {
     printf ("Error adding register 'DL': %s\n", sim_panel_get_error());
     goto Done;
@@ -287,71 +485,7 @@ if (!sim_panel_get_registers (panel, NULL)) {
     goto Done;
     }
 sim_panel_clear_error ();
-//if (!sim_panel_dismount (panel, "RL0")) {
-//    printf ("Unexpected success while dismounting media file from non mounted RL0: %s\n", sim_panel_get_error());
-//    goto Done;
-//    }
-//if (sim_panel_mount (panel, "RL0", "-N", "TEST-RL.DSK")) {
-//    printf ("Error while mounting media file TEST-RL.DSK on RL0: %s\n", sim_panel_get_error());
-//    goto Done;
-//    }
-//if (sim_panel_dismount (panel, "RL0")) {
-//    printf ("Error while dismounting media file from RL0: %s\n", sim_panel_get_error());
-//    goto Done;
-//    }
-//remove ("TEST-RL.DSK");
-//if (sim_panel_break_set (panel, "400")) {
-//    printf ("Unexpected error establishing a breakpoint: %s\n", sim_panel_get_error());
-//    goto Done;
-//    }
-//if (sim_panel_break_clear (panel, "400")) {
-//    printf ("Unexpected error clearing a breakpoint: %s\n", sim_panel_get_error());
-//    goto Done;
-//    }
-//if (sim_panel_break_output_set (panel, "\"32..31..30\"")) {
-//    printf ("Unexpected error establishing an output breakpoint: %s\n", sim_panel_get_error());
-//    goto Done;
-//    }
-//if (sim_panel_break_output_clear (panel, "\"32..31..30\"")) {
-//    printf ("Unexpected error clearing an output breakpoint: %s\n", sim_panel_get_error());
-//    goto Done;
-//    }
-//if (sim_panel_break_output_set (panel, "-P \"Normal operation not possible.\"")) {
-//    printf ("Unexpected error establishing an output breakpoint: %s\n", sim_panel_get_error());
-//    goto Done;
-//    }
-//if (sim_panel_break_output_set (panel, "-P \"Device? [XQA0]: \"")) {
-//    printf ("Unexpected error establishing an output breakpoint: %s\n", sim_panel_get_error());
-//    goto Done;
-//    }
-//if (!sim_panel_set_sampling_parameters (panel, 0, 199)) {
-//    printf ("Unexpected success setting sampling parameters to 0, 199\n");
-//    goto Done;
-//    }
-//if (!sim_panel_set_sampling_parameters (panel, 199, 0)) {
-//    printf ("Unexpected success setting sampling parameters to 199, 0\n");
-//    goto Done;
-//    }
-//if (!sim_panel_add_register_bits (panel, "PSL",  NULL, 32, PSL_bits)) {
-//    printf ("Unexpected success setting PSL bits before setting sampling parameters\n");
-//    goto Done;
-//    }
-//if (sim_panel_set_sampling_parameters (panel, 500, 100)) {
-//    printf ("Unexpected error setting sampling parameters to 200, 100: %s\n", sim_panel_get_error());
-//    goto Done;
-//    }
-//if (sim_panel_add_register_indirect_bits (panel, "CO",  NULL, 32, PC_indirect_bits)) {
-//    printf ("Error adding register 'PSL' bits: %s\n", sim_panel_get_error());
-//    goto Done;
-//    }
-//if (sim_panel_add_register_bits (panel, "PSL",  NULL, 32, PSL_bits)) {
-//    printf ("Error adding register 'PSL' bits: %s\n", sim_panel_get_error());
-//    goto Done;
-//    }
-//if (sim_panel_add_register_bits (panel, "CO",  NULL, 32, PC_bits)) {
-//    printf ("Error adding register 'PSL' bits: %s\n", sim_panel_get_error());
-//    goto Done;
-//    }
+
 
 sim_panel_clear_error ();
 while (1) {
