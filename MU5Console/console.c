@@ -85,42 +85,8 @@ DisplayRegisters(PANEL *panel)
     if (!update_display)
         return;
     update_display = 0;
-    //buf1[sizeof(buf1)-1] = buf2[sizeof(buf2)-1] = buf3[sizeof(buf3)-1] = 0;
-    //sprintf(buf1, "%s\r\n", states[sim_panel_get_state(panel)]);
-    //sprintf(buf2, "CO: %08X\r\n", CO);
-    //sprintf(buf3, "DL: %08X\r\n", DL);
-    //buf4[0] = '\0';
     DrawRegisters();
     UpdateWholeScreen();
-    //#if defined(_WIN32)
-    //if (1) {
-    //    static HANDLE out = NULL;
-    //    CONSOLE_SCREEN_BUFFER_INFO info;
-    //    static COORD origin;
-    //    int written;
-    //
-    //    if (out == NULL)
-    //        out = GetStdHandle (STD_OUTPUT_HANDLE);
-    //    GetConsoleScreenBufferInfo (out, &info);
-    //    SetConsoleCursorPosition (out, origin);
-    //    WriteConsoleA(out, buf1, strlen(buf1), &written, NULL);
-    //    WriteConsoleA(out, buf2, strlen(buf2), &written, NULL);
-    //    WriteConsoleA(out, buf3, strlen(buf3), &written, NULL);
-    //    WriteConsoleA(out, buf4, strlen(buf4), &written, NULL);
-    //    SetConsoleCursorPosition (out, info.dwCursorPosition);
-    //    }
-    //#else
-    //#define ESC "\033"
-    //#define CSI ESC "["
-    //printf (CSI "s");   /* Save Cursor Position */
-    //printf (CSI "H");   /* Position to Top of Screen (1,1) */
-    //printf ("%s", buf1);
-    //printf ("%s", buf2);
-    //printf ("%s", buf3);
-    //printf ("%s", buf4);
-    //printf (CSI "s");   /* Restore Cursor Position */
-    //printf ("\r\n");
-    //#endif
 }
 
 static void DrawRegisters(void)
@@ -196,7 +162,7 @@ static void draw_lamp(int left, int top, int on)
         "\0\0\0";
 
     static unsigned char lamp_mid[sizeof(lamp_on)];
-    static SDL_Surface * sprites[3];
+    static SDL_Surface * sprites[2];
     SDL_Rect area;
     int i;
 
@@ -205,13 +171,7 @@ static void draw_lamp(int left, int top, int on)
             lamp_off);
     }
     if (!sprites[1]) {
-        for (i = 0; i < sizeof(lamp_mid); ++i)
-            lamp_mid[i] = (lamp_on[i] + lamp_off[i] + 1) / 2;
         sprites[1] = sprite_from_data(lamp_width, lamp_height,
-            lamp_mid);
-    }
-    if (!sprites[2]) {
-        sprites[2] = sprite_from_data(lamp_width, lamp_height,
             lamp_on);
     }
 
@@ -233,7 +193,7 @@ static void DrawRegister(int hpos, int vpos, UINT64 value, UINT8 width)
     }
 }
 
-static void UpdateWholeScreen()
+static void UpdateWholeScreen(void)
 {
     SDL_UpdateTexture(sdlTexture, NULL, screen->pixels, screen->pitch);
     SDL_RenderClear(sdlRenderer);
@@ -241,76 +201,84 @@ static void UpdateWholeScreen()
     SDL_RenderPresent(sdlRenderer);
 }
 
-void CreatePanel()
+int CreatePanel()
 {
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
+    int result = 0;
+    if (SDL_Init(SDL_INIT_VIDEO) != 0)
     {
         printf("SDL: unable to init: %s\n", SDL_GetError());
     }
-    sdlWindow = SDL_CreateWindow("MU5 panel",
-        SDL_WINDOWPOS_UNDEFINED,
-        SDL_WINDOWPOS_UNDEFINED,
-        WIDTH, HEIGHT, 0 /* regular window */);
-    if (!sdlWindow) {
-        printf("SDL: unable to set %dx%d mode: %s\n", WIDTH, HEIGHT, SDL_GetError());
+    else
+    {
+        sdlWindow = SDL_CreateWindow("MU5 Console", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_RESIZABLE);
+        if (!sdlWindow)
+        {
+            SDL_LogError("SDL: unable to create window: %s\n",SDL_GetError());
+        }
+        else
+        {
+
+            sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, 0);
+            /* Make grey console background */
+            SDL_SetRenderDrawColor(sdlRenderer, 114, 111, 104, 255);
+            //SDL_RenderClear(sdlRenderer);
+
+            ///* Initialize the TTF library */
+            //if (TTF_Init() < 0) {
+            //    t_stat ret = sim_messagef(SCPE_OPENERR, "SDL: couldn't initialize TTF: %s\n",
+            //        SDL_GetError());
+            //    SDL_Quit();
+            //    return ret;
+            //}
+
+            ///* Font colors */
+            //background = black;
+            //foreground = cyan;
+
+            ///* Open the font file with the requested point size */
+            //font_big = TTF_OpenFont(QUOTE(FONTFILE), 16);
+            //font_small = TTF_OpenFont(QUOTE(FONTFILE), 9);
+            //if (!font_big || !font_small) {
+            //    t_stat ret = sim_messagef(SCPE_OPENERR, "SDL: couldn't load font %s: %s\n",
+            //        QUOTE(FONTFILE), SDL_GetError());
+            //    besm6_close_panel(u, val, cptr, desc);
+            //    return ret;
+            //}
+
+            screen = SDL_CreateRGBSurface(0, WIDTH, HEIGHT, 32,
+                0x00FF0000,
+                0x0000FF00,
+                0x000000FF,
+                0xFF000000);
+
+            sdlTexture = SDL_CreateTexture(sdlRenderer,
+                SDL_PIXELFORMAT_ARGB8888,
+                SDL_TEXTUREACCESS_STATIC,
+                WIDTH, HEIGHT);
+
+            DrawRegisters();
+            ///* Drawing the static part of the BESM-6 panel */
+            //draw_modifiers_static(0, 24, 10);
+            //draw_modifiers_static(1, 400, 10);
+            //draw_prp_static(24, 170);
+            //draw_counters_static(24 + 32 * STEPX, 170);
+            //draw_grp_static(24, 230);
+            //draw_brz_static(24, 280);
+
+            ///* Make sure all lights are updated */
+            //memset(M_lamps, ~0, sizeof(M_lamps));
+            //memset(BRZ_lamps, ~0, sizeof(BRZ_lamps));
+            //memset(GRP_lamps, ~0, sizeof(GRP_lamps));
+            //memset(PRP_lamps, ~0, sizeof(PRP_lamps));
+            //memset(PC_lamps, ~0, sizeof(PC_lamps));
+            //besm6_draw_panel(1);
+
+            UpdateWholeScreen();
+            result = 1;
+        }
     }
 
-    sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, 0);
-    /* Make black background */
-    SDL_SetRenderDrawColor(sdlRenderer, 0, 0, 0, 255);
-    SDL_RenderClear(sdlRenderer);
-
-    ///* Initialize the TTF library */
-    //if (TTF_Init() < 0) {
-    //    t_stat ret = sim_messagef(SCPE_OPENERR, "SDL: couldn't initialize TTF: %s\n",
-    //        SDL_GetError());
-    //    SDL_Quit();
-    //    return ret;
-    //}
-
-    ///* Font colors */
-    //background = black;
-    //foreground = cyan;
-
-    ///* Open the font file with the requested point size */
-    //font_big = TTF_OpenFont(QUOTE(FONTFILE), 16);
-    //font_small = TTF_OpenFont(QUOTE(FONTFILE), 9);
-    //if (!font_big || !font_small) {
-    //    t_stat ret = sim_messagef(SCPE_OPENERR, "SDL: couldn't load font %s: %s\n",
-    //        QUOTE(FONTFILE), SDL_GetError());
-    //    besm6_close_panel(u, val, cptr, desc);
-    //    return ret;
-    //}
-
-    screen = SDL_CreateRGBSurface(0, WIDTH, HEIGHT, 32,
-        0x00FF0000,
-        0x0000FF00,
-        0x000000FF,
-        0xFF000000);
-
-    sdlTexture = SDL_CreateTexture(sdlRenderer,
-        SDL_PIXELFORMAT_ARGB8888,
-        SDL_TEXTUREACCESS_STATIC,
-        WIDTH, HEIGHT);
-
-    DrawRegisters();
-    ///* Drawing the static part of the BESM-6 panel */
-    //draw_modifiers_static(0, 24, 10);
-    //draw_modifiers_static(1, 400, 10);
-    //draw_prp_static(24, 170);
-    //draw_counters_static(24 + 32 * STEPX, 170);
-    //draw_grp_static(24, 230);
-    //draw_brz_static(24, 280);
-
-    ///* Make sure all lights are updated */
-    //memset(M_lamps, ~0, sizeof(M_lamps));
-    //memset(BRZ_lamps, ~0, sizeof(BRZ_lamps));
-    //memset(GRP_lamps, ~0, sizeof(GRP_lamps));
-    //memset(PRP_lamps, ~0, sizeof(PRP_lamps));
-    //memset(PC_lamps, ~0, sizeof(PC_lamps));
-    //besm6_draw_panel(1);
-
-    UpdateWholeScreen();
+    return result;
 }
 
 static
