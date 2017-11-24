@@ -46,15 +46,15 @@
 #define HEIGHT  450
 #define DEPTH   32
 
-const char *sim_path = 
+const char *sim_path =
 #if defined(_WIN32)
-            "mu5.exe";
+"mu5.exe";
 #else
-            "mu5";
+"mu5";
 #endif
 
-const char *sim_config = 
-            "MU5-PANEL.ini";
+const char *sim_config =
+"MU5-PANEL.ini";
 
 static SDL_Window *sdlWindow;
 static SDL_Renderer *sdlRenderer;
@@ -71,56 +71,56 @@ static void DrawRegisters(void);
 static void DrawRegister(int hpos, int vpos, UINT64 value, UINT8 width);
 
 static void
-DisplayCallback (PANEL *panel, unsigned long long simulation_time, void *context)
+DisplayCallback(PANEL *panel, unsigned long long simulation_time, void *context)
 {
-update_display = 1;
+    update_display = 1;
 }
 
 static void
-DisplayRegisters (PANEL *panel)
+DisplayRegisters(PANEL *panel)
 {
-//char buf1[100], buf2[100], buf3[100], buf4[100];
-//static const char *states[] = {"Halt", "Run "};
+    //char buf1[100], buf2[100], buf3[100], buf4[100];
+    //static const char *states[] = {"Halt", "Run "};
 
-if (!update_display)
-    return;
-update_display = 0;
-//buf1[sizeof(buf1)-1] = buf2[sizeof(buf2)-1] = buf3[sizeof(buf3)-1] = 0;
-//sprintf(buf1, "%s\r\n", states[sim_panel_get_state(panel)]);
-//sprintf(buf2, "CO: %08X\r\n", CO);
-//sprintf(buf3, "DL: %08X\r\n", DL);
-//buf4[0] = '\0';
-DrawRegisters();
-UpdateWholeScreen();
-//#if defined(_WIN32)
-//if (1) {
-//    static HANDLE out = NULL;
-//    CONSOLE_SCREEN_BUFFER_INFO info;
-//    static COORD origin;
-//    int written;
-//
-//    if (out == NULL)
-//        out = GetStdHandle (STD_OUTPUT_HANDLE);
-//    GetConsoleScreenBufferInfo (out, &info);
-//    SetConsoleCursorPosition (out, origin);
-//    WriteConsoleA(out, buf1, strlen(buf1), &written, NULL);
-//    WriteConsoleA(out, buf2, strlen(buf2), &written, NULL);
-//    WriteConsoleA(out, buf3, strlen(buf3), &written, NULL);
-//    WriteConsoleA(out, buf4, strlen(buf4), &written, NULL);
-//    SetConsoleCursorPosition (out, info.dwCursorPosition);
-//    }
-//#else
-//#define ESC "\033"
-//#define CSI ESC "["
-//printf (CSI "s");   /* Save Cursor Position */
-//printf (CSI "H");   /* Position to Top of Screen (1,1) */
-//printf ("%s", buf1);
-//printf ("%s", buf2);
-//printf ("%s", buf3);
-//printf ("%s", buf4);
-//printf (CSI "s");   /* Restore Cursor Position */
-//printf ("\r\n");
-//#endif
+    if (!update_display)
+        return;
+    update_display = 0;
+    //buf1[sizeof(buf1)-1] = buf2[sizeof(buf2)-1] = buf3[sizeof(buf3)-1] = 0;
+    //sprintf(buf1, "%s\r\n", states[sim_panel_get_state(panel)]);
+    //sprintf(buf2, "CO: %08X\r\n", CO);
+    //sprintf(buf3, "DL: %08X\r\n", DL);
+    //buf4[0] = '\0';
+    DrawRegisters();
+    UpdateWholeScreen();
+    //#if defined(_WIN32)
+    //if (1) {
+    //    static HANDLE out = NULL;
+    //    CONSOLE_SCREEN_BUFFER_INFO info;
+    //    static COORD origin;
+    //    int written;
+    //
+    //    if (out == NULL)
+    //        out = GetStdHandle (STD_OUTPUT_HANDLE);
+    //    GetConsoleScreenBufferInfo (out, &info);
+    //    SetConsoleCursorPosition (out, origin);
+    //    WriteConsoleA(out, buf1, strlen(buf1), &written, NULL);
+    //    WriteConsoleA(out, buf2, strlen(buf2), &written, NULL);
+    //    WriteConsoleA(out, buf3, strlen(buf3), &written, NULL);
+    //    WriteConsoleA(out, buf4, strlen(buf4), &written, NULL);
+    //    SetConsoleCursorPosition (out, info.dwCursorPosition);
+    //    }
+    //#else
+    //#define ESC "\033"
+    //#define CSI ESC "["
+    //printf (CSI "s");   /* Save Cursor Position */
+    //printf (CSI "H");   /* Position to Top of Screen (1,1) */
+    //printf ("%s", buf1);
+    //printf ("%s", buf2);
+    //printf ("%s", buf3);
+    //printf ("%s", buf4);
+    //printf (CSI "s");   /* Restore Cursor Position */
+    //printf ("\r\n");
+    //#endif
 }
 
 static void DrawRegisters(void)
@@ -144,9 +144,9 @@ static SDL_Surface *sprite_from_data(int width, int height,
     sprite = optimized;
     */
     SDL_LockSurface(sprite);
-    for (y = 0; y<height; ++y) {
+    for (y = 0; y < height; ++y) {
         s = (unsigned*)((char*)sprite->pixels + y * sprite->pitch);
-        for (x = 0; x<width; ++x) {
+        for (x = 0; x < width; ++x) {
             r = *data++;
             g = *data++;
             b = *data++;
@@ -314,229 +314,202 @@ void CreatePanel()
 }
 
 static
-void InitDisplay (void)
+void InitDisplay(void)
 {
     CreatePanel();
 #if defined(_WIN32)
-system ("cls");
+    system("cls");
 #else
-printf (CSI "H");   /* Position to Top of Screen (1,1) */
-printf (CSI "2J");  /* Clear Screen */
+    printf(CSI "H");   /* Position to Top of Screen (1,1) */
+    printf(CSI "2J");  /* Clear Screen */
 #endif
-printf ("\n\n\n\n");
-printf ("^C to Halt, Commands: BOOT, CONT, STEP, EXIT\n");
+    printf("\n\n\n\n");
+    printf("^C to Halt, Commands: BOOT, CONT, STEP, EXIT\n");
 }
 
 volatile int halt_cpu = 0;
 PANEL *panel, *tape;
 
-void halt_handler (int sig)
+void halt_handler(int sig)
 {
-signal (SIGINT, halt_handler);      /* Re-establish handler for some platforms that implement ONESHOT signal dispatch */
-halt_cpu = 1;
-sim_panel_flush_debug (panel);
-return;
+    signal(SIGINT, halt_handler);      /* Re-establish handler for some platforms that implement ONESHOT signal dispatch */
+    halt_cpu = 1;
+    sim_panel_flush_debug(panel);
+    return;
 }
 
 int my_boot(PANEL *panel)
 {
-	UINT64 cpr0 = 0x00000000E3000004;
-	UINT64 cpr1 = 0x00001000F3010004;
-	UINT64 cpr2 = 0x00002000E3020004;
-	UINT64 cpr3 = 0x00003000E3030004;
+    UINT64 cpr0 = 0x00000000E3000004;
+    UINT64 cpr1 = 0x00001000F3010004;
+    UINT64 cpr2 = 0x00002000E3020004;
+    UINT64 cpr3 = 0x00003000E3030004;
     UINT64 cpr4 = 0x00006000F3040004;
     UINT64 cpr5 = 0x00006010F3050004;
     UINT64 cpr6 = 0x00006020F3050004;
     UINT16 ms = 0x000C;
-	UINT32 co = 0xC0000;
+    UINT32 co = 0xC0000;
     UINT32 cpr_ignore = 0x01FFFFF0;
     UINT32 engineers_handkeys = 0xA000;
     sim_panel_gen_deposit(panel, "sac v[4]", sizeof(cpr0), &cpr_ignore);
     sim_panel_gen_deposit(panel, "cpr[0]", sizeof(cpr0), &cpr0);
     sim_panel_gen_deposit(panel, "cpr[1]", sizeof(cpr1), &cpr1);
-	sim_panel_gen_deposit(panel, "cpr[2]", sizeof(cpr2), &cpr2);
+    sim_panel_gen_deposit(panel, "cpr[2]", sizeof(cpr2), &cpr2);
     sim_panel_gen_deposit(panel, "cpr[3]", sizeof(cpr3), &cpr3);
     sim_panel_gen_deposit(panel, "cpr[4]", sizeof(cpr4), &cpr4);
     sim_panel_gen_deposit(panel, "cpr[5]", sizeof(cpr5), &cpr5);
     sim_panel_gen_deposit(panel, "cpr[6]", sizeof(cpr6), &cpr6);
     sim_panel_gen_deposit(panel, "con v[11]", sizeof(engineers_handkeys), &engineers_handkeys);
     sim_panel_gen_deposit(panel, "MS", sizeof(ms), &ms);
-	sim_panel_gen_deposit(panel, "CO", sizeof(co), &co);
-	sim_panel_exec_run(panel);
-	return 0;
+    sim_panel_gen_deposit(panel, "CO", sizeof(co), &co);
+    sim_panel_exec_run(panel);
+    return 0;
 }
 
 int
-main (int argc, char *argv[])
+main(int argc, char *argv[])
 {
-FILE *f;
-int debug = 0;
+    SDL_Event e;
+    FILE *f;
+    int debug = 0;
 
-if ((argc > 1) && ((!strcmp("-d", argv[1])) || (!strcmp("-D", argv[1])) || (!strcmp("-debug", argv[1]))))
-    debug = 1;
-/* Create pseudo config file for a test */
-if ((f = fopen (sim_config, "w"))) {
-    if (debug) {
-        fprintf (f, "set verbose\n");
-		fprintf (f, "set debug -n -a simulator.dbg\n");
-		fprintf (f, "set cpu conhalt\n");
-        fprintf (f, "set remote telnet=2226\n");
-        //fprintf (f, "set rem-con debug=XMT;RCV;MODE;REPEAT;CMD\n");
-        fprintf (f, "set remote notelnet\n");
+    if ((argc > 1) && ((!strcmp("-d", argv[1])) || (!strcmp("-D", argv[1])) || (!strcmp("-debug", argv[1]))))
+        debug = 1;
+    /* Create pseudo config file for a test */
+    if ((f = fopen(sim_config, "w"))) {
+        fprintf(f, "set remote telnet=2226\n");
+        if (debug) {
+            fprintf(f, "set verbose\n");
+            fprintf(f, "set debug -n -a simulator.dbg\n");
+            //fprintf (f, "set rem-con debug=XMT;RCV;MODE;REPEAT;CMD\n");
+            fprintf(f, "set remote notelnet\n");
         }
-	//fprintf(f, "set debug stdout\n");
-	//fprintf(f, "set cpu debug=decode\n");
-	fprintf (f, "set console telnet=buffered\n");
-    fprintf (f, "set console -u telnet=1927\n");
-    /* Start a terminal emulator for the console port */
+        //fprintf(f, "set debug stdout\n");
+        //fprintf(f, "set cpu debug=decode\n");
+        fprintf(f, "set console telnet=buffered\n");
+        fprintf(f, "set console -u telnet=1927\n");
+        /* Start a terminal emulator for the console port */
 #if defined(_WIN32)
-    fprintf (f, "set env PATH=%%PATH%%;%%ProgramFiles%%\\PuTTY;%%ProgramFiles(x86)%%\\PuTTY\n");
-    fprintf (f, "! start PuTTY telnet://localhost:1927\n");
+        fprintf(f, "set env PATH=%%PATH%%;%%ProgramFiles%%\\PuTTY;%%ProgramFiles(x86)%%\\PuTTY\n");
+        fprintf(f, "! start PuTTY telnet://localhost:1927\n");
 #elif defined(__linux) || defined(__linux__)
-    fprintf (f, "! nohup xterm -e 'telnet localhost 1927' &\n");
+        fprintf(f, "! nohup xterm -e 'telnet localhost 1927' &\n");
 #elif defined(__APPLE__)
-    fprintf (f, "! osascript -e 'tell application \"Terminal\" to do script \"telnet localhost 1927; exit\"'\n");
+        fprintf(f, "! osascript -e 'tell application \"Terminal\" to do script \"telnet localhost 1927; exit\"'\n");
 #endif
-	fprintf(f, "dep sac v[4] 01FFFFF0\n"); /* CPR IGNORE */
-	fprintf(f, "dep cpr[0]  00000000E3000004\n");
-	fprintf(f, "dep cpr[1]  00001000F3010004\n");
-	fprintf(f, "dep cpr[2]  00002000E3020004\n");
-	fprintf(f, "dep cpr[3]  00003000E3030004\n");
-    fprintf(f, "dep cpr[4]  00006000F3040004\n");
-    fprintf(f, "dep cpr[5]  00006010F3050004\n");
-    fprintf(f, "dep cpr[6]  00006020F3050004\n");
+        fprintf(f, "dep sac v[4] 01FFFFF0\n"); /* CPR IGNORE */
+        fprintf(f, "dep cpr[0]  00000000E3000004\n");
+        fprintf(f, "dep cpr[1]  00001000F3010004\n");
+        fprintf(f, "dep cpr[2]  00002000E3020004\n");
+        fprintf(f, "dep cpr[3]  00003000E3030004\n");
+        fprintf(f, "dep cpr[4]  00006000F3040004\n");
+        fprintf(f, "dep cpr[5]  00006010F3050004\n");
+        fprintf(f, "dep cpr[6]  00006020F3050004\n");
 
-	fprintf(f, "dep cpu ms 0014\n");
-	fprintf(f, "load MU5ELR.bin\n");
-	fprintf(f, "load idle.bin\n");
-	fclose(f);
+        fprintf(f, "dep cpu ms 0014\n");
+        fprintf(f, "load MU5ELR.bin\n");
+        fprintf(f, "load idle.bin\n");
+        fclose(f);
     }
 
-InitDisplay();
-signal (SIGINT, halt_handler);
-panel = sim_panel_start_simulator_debug (sim_path,
-                                         sim_config,
-                                         2,
-                                         debug? "frontpanel.dbg" : NULL);
+    InitDisplay();
+    signal(SIGINT, halt_handler);
+    panel = sim_panel_start_simulator_debug(sim_path,
+        sim_config,
+        2,
+        debug ? "frontpanel.dbg" : NULL);
 
-if (!panel) {
-    printf ("Error starting simulator %s with config %s: %s\n", sim_path, sim_config, sim_panel_get_error());
-    goto Done;
-    }
-
-if (debug) {
-    sim_panel_set_debug_mode (panel, DBG_XMT|DBG_RCV|DBG_REQ|DBG_RSP);
+    if (!panel) {
+        printf("Error starting simulator %s with config %s: %s\n", sim_path, sim_config, sim_panel_get_error());
+        goto Done;
     }
 
-if (sim_panel_add_register (panel, "CO",  NULL, sizeof(CO), &CO)) {
-    printf ("Error adding register 'CO': %s\n", sim_panel_get_error());
-    goto Done;
+    if (debug) {
+        sim_panel_set_debug_mode(panel, DBG_XMT | DBG_RCV | DBG_REQ | DBG_RSP);
     }
-if (sim_panel_add_register (panel, "DL",  NULL, sizeof(DL), &DL)) {
-    printf ("Error adding register 'DL': %s\n", sim_panel_get_error());
-    goto Done;
+
+    if (sim_panel_add_register(panel, "CO", NULL, sizeof(CO), &CO)) {
+        printf("Error adding register 'CO': %s\n", sim_panel_get_error());
+        goto Done;
     }
-//
-//if (sim_panel_get_registers (panel, NULL)) {
-//    printf ("Error getting register data: %s\n", sim_panel_get_error());
-//    goto Done;
-//    }
-//if (1) {
-//    long deadbeef = 0xdeadbeef, beefdead = 0xbeefdead, addr200 = 0x00000200, beefdata;
-//
-//    if (sim_panel_set_register_value (panel, "R0", "DEADBEEF")) {
-//        printf ("Error setting R0 to DEADBEEF: %s\n", sim_panel_get_error());
-//        goto Done;
-//        }
-//    if (sim_panel_gen_deposit (panel, "R1", sizeof(deadbeef), &deadbeef)) {
-//        printf ("Error setting R1 to DEADBEEF: %s\n", sim_panel_get_error());
-//        goto Done;
-//        }
-//    if (sim_panel_mem_deposit (panel, sizeof(addr200), &addr200, sizeof(deadbeef), &deadbeef)) {
-//        printf ("Error setting 00000200 to DEADBEEF: %s\n", sim_panel_get_error());
-//        goto Done;
-//        }
-//    beefdata = 0;
-//    if (sim_panel_gen_examine (panel, "200", sizeof(beefdata), &beefdata)) {
-//        printf ("Error getting contents of memory location 200: %s\n", sim_panel_get_error());
-//        goto Done;
-//        }
-//    beefdata = 0;
-//    if (sim_panel_mem_examine (panel, sizeof (addr200), &addr200, sizeof (beefdata), &beefdata)) {
-//        printf ("Error getting contents of memory location 200: %s\n", sim_panel_get_error());
-//        goto Done;
-//        }
-//    beefdata = 0;
-//    if (!sim_panel_gen_examine (panel, "20000000", sizeof(beefdata), &beefdata)) {
-//        printf ("Unexpected success getting contents of memory location 20000000: %s\n", sim_panel_get_error());
-//        goto Done;
-//        }
-//    }
-if (sim_panel_get_registers (panel, NULL)) {
-    printf ("Error getting register data: %s\n", sim_panel_get_error());
-    goto Done;
+    if (sim_panel_add_register(panel, "DL", NULL, sizeof(DL), &DL)) {
+        printf("Error adding register 'DL': %s\n", sim_panel_get_error());
+        goto Done;
     }
-if (sim_panel_set_display_callback_interval (panel, &DisplayCallback, NULL, 200000)) {
-    printf ("Error setting automatic display callback: %s\n", sim_panel_get_error());
-    goto Done;
+
+    if (sim_panel_get_registers(panel, NULL)) {
+        printf("Error getting register data: %s\n", sim_panel_get_error());
+        goto Done;
     }
-if (!sim_panel_get_registers (panel, NULL)) {
-    printf ("Unexpected success getting register data: %s\n", sim_panel_get_error());
-    goto Done;
+    if (sim_panel_set_display_callback_interval(panel, &DisplayCallback, NULL, 10000)) {
+        printf("Error setting automatic display callback: %s\n", sim_panel_get_error());
+        goto Done;
     }
-sim_panel_clear_error ();
+    if (!sim_panel_get_registers(panel, NULL)) {
+        printf("Unexpected success getting register data: %s\n", sim_panel_get_error());
+        goto Done;
+    }
 
 
-sim_panel_clear_error ();
-while (1) {
-    size_t i;
-    char cmd[512];
+    sim_panel_clear_error();
+    while (1) {
+        size_t i;
+        char cmd[512];
 
-    while (sim_panel_get_state (panel) == Halt) {
-        DisplayRegisters (panel);
-        printf ("SIM> ");
-        if (!fgets (cmd, sizeof(cmd)-1, stdin))
-            break;
-        while (strlen(cmd) && isspace(cmd[strlen(cmd)-1]))
-            cmd[strlen(cmd)-1] = '\0';
-        while (isspace(cmd[0]))
-            memmove (cmd, cmd+1, strlen(cmd));
-        for (i=0; i<strlen(cmd); i++) {
-            if (islower(cmd[i]))
-                cmd[i] = toupper(cmd[i]);
-            }
-        if (!memcmp("BOOT", cmd, 4)) {
-			//if (sim_panel_exec_boot(panel, cmd + 4))
-			if (my_boot(panel))
-				break;
-            }
-        else if (!strcmp("STEP", cmd)) {
-            if (sim_panel_exec_step (panel))
-                break;
-            }
-        else if (!strcmp("CONT", cmd)) {
-            if (sim_panel_exec_run (panel))
-                break;
-            }
-        else if (!strcmp("EXIT", cmd))
-            goto Done;
-        else
-            printf ("Huh? %s\r\n", cmd);
-        }
-    while (sim_panel_get_state (panel) == Run) {
-        usleep (100);
-        if (update_display)
+        while (sim_panel_get_state(panel) == Halt) {
             DisplayRegisters(panel);
-        if (halt_cpu) {
-            halt_cpu = 0;
-            sim_panel_exec_halt (panel);
+            printf("SIM> ");
+            if (!fgets(cmd, sizeof(cmd) - 1, stdin))
+                break;
+            while (strlen(cmd) && isspace(cmd[strlen(cmd) - 1]))
+                cmd[strlen(cmd) - 1] = '\0';
+            while (isspace(cmd[0]))
+                memmove(cmd, cmd + 1, strlen(cmd));
+            for (i = 0; i < strlen(cmd); i++) {
+                if (islower(cmd[i]))
+                    cmd[i] = toupper(cmd[i]);
+            }
+            if (!memcmp("BOOT", cmd, 4)) {
+                //if (sim_panel_exec_boot(panel, cmd + 4))
+                if (my_boot(panel))
+                    break;
+            }
+            else if (!strcmp("STEP", cmd)) {
+                if (sim_panel_exec_step(panel))
+                    break;
+            }
+            else if (!strcmp("CONT", cmd)) {
+                if (sim_panel_exec_run(panel))
+                    break;
+            }
+            else if (!strcmp("EXIT", cmd))
+                goto Done;
+            else
+                printf("Huh? %s\r\n", cmd);
+        }
+        while (sim_panel_get_state(panel) == Run)
+        {
+            SDL_PollEvent(&e);
+            if (e.type == SDL_QUIT)
+            {
+                SDL_Log("Program quit after %i ticks", e.quit.timestamp);
+                halt_cpu = 1;
+            }
+            if (update_display)
+            {
+                DisplayRegisters(panel);
+            }
+            if (halt_cpu)
+            {
+                halt_cpu = 0;
+                sim_panel_exec_halt(panel);
             }
         }
     }
 
 Done:
-sim_panel_destroy (panel);
+    sim_panel_destroy(panel);
 
-/* Get rid of pseudo config file created above */
-remove (sim_config);
+    /* Get rid of pseudo config file created above */
+    remove(sim_config);
 }
