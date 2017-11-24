@@ -42,8 +42,8 @@
 #include <unistd.h>
 #endif
 
-#define WIDTH   800
-#define HEIGHT  450
+#define WIDTH   1200
+#define HEIGHT  400
 #define DEPTH   32
 
 const char *sim_path =
@@ -210,18 +210,18 @@ int CreatePanel()
     }
     else
     {
-        sdlWindow = SDL_CreateWindow("MU5 Console", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_RESIZABLE);
-        if (!sdlWindow)
+        if (SDL_CreateWindowAndRenderer(WIDTH, HEIGHT, SDL_WINDOW_RESIZABLE, &sdlWindow, &sdlRenderer) != 0)
         {
-            SDL_LogError("SDL: unable to create window: %s\n",SDL_GetError());
+            SDL_LogError("SDL: unable to create window and renderer: %s\n",SDL_GetError());
         }
         else
         {
 
-            sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, 0);
+            SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");  // make the scaled rendering look smoother.
+            SDL_RenderSetLogicalSize(sdlRenderer, WIDTH, HEIGHT);
             /* Make grey console background */
             SDL_SetRenderDrawColor(sdlRenderer, 114, 111, 104, 255);
-            //SDL_RenderClear(sdlRenderer);
+            SDL_RenderClear(sdlRenderer);
 
             ///* Initialize the TTF library */
             //if (TTF_Init() < 0) {
