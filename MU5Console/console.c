@@ -42,9 +42,21 @@
 #include <unistd.h>
 #endif
 
-#define WIDTH   1200
+#define WIDTH   1365
 #define HEIGHT  400
 #define DEPTH   32
+#define LAMP_HEIGHT 12
+#define LAMP_WIDTH 4
+#define LAMP_HORIZONTAL_SPACING 12
+#define LAMP_VERTICAL_SPACING 42
+#define LAMP_OFF_COLOUR 97, 83, 74
+#define LAMP_ON_COLOUR 254, 254, 190
+#define LINE_COLOUR 98, 85, 76
+#define LINE_THICKNESS 2
+#define LAMP_ROWS 6
+#define LAMPS_PER_ROW 40
+#define LAMP_PANEL_X 848
+#define LAMP_PANEL_Y 40
 
 const char *sim_path =
 #if defined(_WIN32)
@@ -65,8 +77,9 @@ unsigned int CO, DL;
 int update_display = 1;
 
 static void UpdateWholeScreen(void);
-static void DrawRegisters(void);
-static void DrawRegister(int hpos, int vpos, UINT64 value, UINT8 width);
+static void DrawLamp(int row, int column, int on);
+static void DrawLampPanel(void);
+static void DrawRegister(int row, int column, UINT64 value, UINT8 width);
 
 static void
 DisplayCallback(PANEL *panel, unsigned long long simulation_time, void *context)
@@ -80,111 +93,85 @@ DisplayRegisters(PANEL *panel)
     //char buf1[100], buf2[100], buf3[100], buf4[100];
     //static const char *states[] = {"Halt", "Run "};
 
-    if (!update_display)
-        return;
-    update_display = 0;
-    DrawRegisters();
-    UpdateWholeScreen();
+    if (update_display)
+    {
+        update_display = 0;
+        DrawRegister(4, 4, DL, 32);
+        DrawRegister(5, 5, CO, 32);
+        UpdateWholeScreen();
+    }
 }
 
-static void DrawRegisters(void)
+static void DrawLampPanel(void)
 {
-    DrawRegister(0, 20, CO, 32);
-    DrawRegister(0, 50, DL, 32);
-}
-
-static SDL_Texture *sprite_from_data(int width, int height, const unsigned char *data)
-{
-    SDL_Surface *spriteSurface;
-    SDL_Texture *spriteTexture;
-    unsigned *s, r, g, b;
-    int y, x;
-
-    spriteSurface = SDL_CreateRGBSurface(SDL_SWSURFACE,
-        width, height, DEPTH, 0, 0, 0, 0);
-    SDL_LockSurface(spriteSurface);
-    for (y = 0; y < height; ++y) {
-        s = (unsigned*)((char*)spriteSurface->pixels + y * spriteSurface->pitch);
-        for (x = 0; x < width; ++x) {
-            r = *data++;
-            g = *data++;
-            b = *data++;
-            *s++ = SDL_MapRGB(spriteSurface->format, r, g, b);
+    int row;
+    int column;
+    for (row = 0; row < LAMP_ROWS; row++)
+    {
+        for (column = 0; column < LAMPS_PER_ROW; column++)
+        {
+            DrawLamp(row, column, 0);
         }
     }
-    SDL_UnlockSurface(spriteSurface);
-    spriteTexture = SDL_CreateTextureFromSurface(sdlRenderer, spriteSurface);
-    SDL_FreeSurface(spriteSurface);
-    return spriteTexture;
 }
 
-/*
-* Drawing a neon light.
-*/
-static void draw_lamp(int left, int top, int on)
-{
-    /* Images created by GIMP: save as C file without alpha channel. */
-    static const int lamp_width = 12;
-    static const int lamp_height = 12;
-    static const unsigned char lamp_on[12 * 12 * 3 + 1] =
-        "\0\0\0\0\0\0\0\0\0\13\2\2-\14\14e\31\31e\31\31-\14\14\13\2\2\0\0\0\0\0\0"
-        "\0\0\0\0\0\0\0\0\0D\20\20\313,,\377??\377CC\377CC\377DD\31333D\21\21\0\0"
-        "\0\0\0\0\0\0\0D\20\20\357LL\377\243\243\376~~\37699\376@@\376@@\377AA\357"
-        "<<D\21\21\0\0\0\13\2\2\313,,\377\243\243\377\373\373\377\356\356\377NN\377"
-        ">>\377@@\377@@\377AA\31333\13\2\2-\14\14\377??\376~~\377\356\356\377\321"
-        "\321\377<<\377??\377@@\377@@\376@@\377DD-\14\14e\31\31\377CC\37699\377NN"
-        "\377<<\377??\377@@\377@@\377@@\376??\377CCe\31\31e\31\31\377CC\376@@\377"
-        ">>\377??\377@@\377@@\377@@\377@@\376??\377CCe\31\31-\14\14\377DD\376@@\377"
-        "@@\377@@\377@@\377@@\377@@\377@@\376@@\377DD-\14\14\13\2\2\31333\377AA\377"
-        "@@\377@@\377@@\377@@\377@@\377@@\377AA\31333\13\2\2\0\0\0D\21\21\357<<\377"
-        "AA\376@@\376??\376??\376@@\377AA\357<<D\21\21\0\0\0\0\0\0\0\0\0D\21\21\313"
-        "33\377DD\377CC\377CC\377DD\31333D\21\21\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\13"
-        "\2\2-\14\14e\31\31e\31\31-\14\14\13\2\2\0\0\0\0\0\0\0\0\0";
-    static const unsigned char lamp_off[12 * 12 * 3 + 1] =
-        "\0\0\0\0\0\0\0\0\0\0\0\0\14\2\2\14\2\2\14\2\2\14\2\2\0\0\0\0\0\0\0\0\0\0"
-        "\0\0\0\0\0\0\0\0\25\5\5A\21\21h\32\32c\30\30c\30\30h\32\32A\21\21\25\5\5"
-        "\0\0\0\0\0\0\0\0\0\25\5\5\\\30\30""8\16\16\0\0\0\0\0\0\0\0\0\0\0\0""8\16"
-        "\16\\\30\30\25\5\5\0\0\0\0\0\0A\21\21""8\16\16\0\0\0\0\0\0\0\0\0\0\0\0\0"
-        "\0\0\0\0\0""8\16\16A\21\21\0\0\0\14\2\2h\32\32\0\0\0\0\0\0\0\0\0\0\0\0\0"
-        "\0\0\0\0\0\0\0\0\0\0\0h\32\32\14\2\2\14\2\2c\30\30\0\0\0\0\0\0\0\0\0\0\0"
-        "\0\0\0\0\0\0\0\0\0\0\0\0\0c\30\30\14\2\2\14\2\2c\30\30\0\0\0\0\0\0\0\0\0"
-        "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0c\30\30\14\2\2\14\2\2h\32\32\0\0\0\0\0\0\0"
-        "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0h\32\32\14\2\2\0\0\0A\21\21""8\16\16\0"
-        "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0""8\16\16A\21\21\0\0\0\0\0\0\25\5\5\\\30"
-        "\30""8\16\16\0\0\0\0\0\0\0\0\0\0\0\0""8\16\16\\\30\30\25\5\5\0\0\0\0\0\0"
-        "\0\0\0\25\5\5A\21\21h\32\32c\30\30c\30\30h\32\32A\21\21\25\5\5\0\0\0\0\0"
-        "\0\0\0\0\0\0\0\0\0\0\0\0\0\14\2\2\14\2\2\14\2\2\14\2\2\0\0\0\0\0\0\0\0\0"
-        "\0\0\0";
 
-    static unsigned char lamp_mid[sizeof(lamp_on)];
+SDL_Texture *DrawFilledRectangle(int width, int height, int r, int g, int b)
+{
+    SDL_Surface *tempSurface;
+    SDL_Texture *result;
+
+    tempSurface = SDL_CreateRGBSurface(0, width, height, 32, 0, 0, 0, 0);
+    SDL_FillRect(tempSurface, NULL, SDL_MapRGB(tempSurface->format, r, g, b));
+    result = SDL_CreateTextureFromSurface(sdlRenderer, tempSurface);
+    SDL_FreeSurface(tempSurface);
+    return result;
+}
+
+static void DrawLamp(int row, int column, int on)
+{
     static SDL_Texture * sprites[2];
     SDL_Rect area;
     int i;
 
-    if (!sprites[0]) {
-        sprites[0] = sprite_from_data(lamp_width, lamp_height,
-            lamp_off);
+    if (!sprites[0])
+    {
+        sprites[0] = DrawFilledRectangle(LAMP_WIDTH, LAMP_HEIGHT, LAMP_OFF_COLOUR);
     }
-    if (!sprites[1]) {
-        sprites[1] = sprite_from_data(lamp_width, lamp_height,
-            lamp_on);
+    if (!sprites[1])
+    {
+        sprites[1] = DrawFilledRectangle(LAMP_WIDTH, LAMP_HEIGHT, LAMP_ON_COLOUR);
     }
 
-    area.x = left;
-    area.y = top;
-    area.w = lamp_width;
-    area.h = lamp_height;
+    area.y = LAMP_PANEL_Y + row * LAMP_VERTICAL_SPACING;
+    if (row < (LAMP_ROWS - 1))
+    {
+        if (column >= 20)
+        {
+            area.x = LAMP_PANEL_X + (column + 2) * LAMP_HORIZONTAL_SPACING;
+        }
+        else
+        {
+            area.x = LAMP_PANEL_X + column * LAMP_HORIZONTAL_SPACING;
+        }
+    }
+    else
+    {
+        area.x = LAMP_PANEL_X + (column + 1) * LAMP_HORIZONTAL_SPACING;
+    }
+    area.w = LAMP_WIDTH;
+    area.h = LAMP_HEIGHT;
     SDL_RenderCopy(sdlRenderer, sprites[on], NULL, &area);
 }
 
-static void DrawRegister(int hpos, int vpos, UINT64 value, UINT8 width)
+static void DrawRegister(int row, int column, UINT64 value, UINT8 width)
 {
     int i;
     int on;
     for (i = width - 1; i >= 0; i--)
     {
         on = (value & (1 << i)) != 0;
-        draw_lamp(hpos + (width - i) * 14, vpos, on);
+        DrawLamp(row, column + (width - i), on);
     }
 }
 
@@ -237,7 +224,7 @@ int CreatePanel()
             //    return ret;
             //}
 
-            DrawRegisters();
+            DrawLampPanel();
             ///* Drawing the static part of the BESM-6 panel */
             //draw_modifiers_static(0, 24, 10);
             //draw_modifiers_static(1, 400, 10);
