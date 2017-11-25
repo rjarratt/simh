@@ -58,8 +58,6 @@ const char *sim_config =
 
 static SDL_Window *sdlWindow;
 static SDL_Renderer *sdlRenderer;
-static SDL_Texture *sdlTexture;
-static SDL_Surface *screen;
 
 /* Registers visible on the Front Panel */
 unsigned int CO, DL;
@@ -95,32 +93,29 @@ static void DrawRegisters(void)
     DrawRegister(0, 50, DL, 32);
 }
 
-static SDL_Surface *sprite_from_data(int width, int height,
-    const unsigned char *data)
+static SDL_Texture *sprite_from_data(int width, int height, const unsigned char *data)
 {
-    SDL_Surface *sprite;
+    SDL_Surface *spriteSurface;
+    SDL_Texture *spriteTexture;
     unsigned *s, r, g, b;
     int y, x;
 
-    sprite = SDL_CreateRGBSurface(SDL_SWSURFACE,
+    spriteSurface = SDL_CreateRGBSurface(SDL_SWSURFACE,
         width, height, DEPTH, 0, 0, 0, 0);
-    /*
-    SDL_Surface *optimized = SDL_DisplayFormat (sprite);
-    SDL_FreeSurface (sprite);
-    sprite = optimized;
-    */
-    SDL_LockSurface(sprite);
+    SDL_LockSurface(spriteSurface);
     for (y = 0; y < height; ++y) {
-        s = (unsigned*)((char*)sprite->pixels + y * sprite->pitch);
+        s = (unsigned*)((char*)spriteSurface->pixels + y * spriteSurface->pitch);
         for (x = 0; x < width; ++x) {
             r = *data++;
             g = *data++;
             b = *data++;
-            *s++ = SDL_MapRGB(sprite->format, r, g, b);
+            *s++ = SDL_MapRGB(spriteSurface->format, r, g, b);
         }
     }
-    SDL_UnlockSurface(sprite);
-    return sprite;
+    SDL_UnlockSurface(spriteSurface);
+    spriteTexture = SDL_CreateTextureFromSurface(sdlRenderer, spriteSurface);
+    SDL_FreeSurface(spriteSurface);
+    return spriteTexture;
 }
 
 /*
@@ -162,7 +157,7 @@ static void draw_lamp(int left, int top, int on)
         "\0\0\0";
 
     static unsigned char lamp_mid[sizeof(lamp_on)];
-    static SDL_Surface * sprites[2];
+    static SDL_Texture * sprites[2];
     SDL_Rect area;
     int i;
 
@@ -179,7 +174,7 @@ static void draw_lamp(int left, int top, int on)
     area.y = top;
     area.w = lamp_width;
     area.h = lamp_height;
-    SDL_BlitSurface(sprites[on], 0, screen, &area);
+    SDL_RenderCopy(sdlRenderer, sprites[on], NULL, &area);
 }
 
 static void DrawRegister(int hpos, int vpos, UINT64 value, UINT8 width)
@@ -195,9 +190,6 @@ static void DrawRegister(int hpos, int vpos, UINT64 value, UINT8 width)
 
 static void UpdateWholeScreen(void)
 {
-    SDL_UpdateTexture(sdlTexture, NULL, screen->pixels, screen->pitch);
-    SDL_RenderClear(sdlRenderer);
-    SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
     SDL_RenderPresent(sdlRenderer);
 }
 
@@ -244,17 +236,6 @@ int CreatePanel()
             //    besm6_close_panel(u, val, cptr, desc);
             //    return ret;
             //}
-
-            screen = SDL_CreateRGBSurface(0, WIDTH, HEIGHT, 32,
-                0x00FF0000,
-                0x0000FF00,
-                0x000000FF,
-                0xFF000000);
-
-            sdlTexture = SDL_CreateTexture(sdlRenderer,
-                SDL_PIXELFORMAT_ARGB8888,
-                SDL_TEXTUREACCESS_STATIC,
-                WIDTH, HEIGHT);
 
             DrawRegisters();
             ///* Drawing the static part of the BESM-6 panel */
