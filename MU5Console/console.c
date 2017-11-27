@@ -55,6 +55,7 @@
 #define PANEL_BACKGROUND_COLOUR 114, 111, 104
 #define LINE_COLOUR 98, 85, 76
 #define LINE_THICKNESS 2
+#define LINE_SUB_DIVIDER_THICKNESS 1
 #define LAMP_ROWS 6
 #define LAMPS_PER_ROW 40
 #define LAMP_PANEL_X 800
@@ -79,10 +80,12 @@ unsigned int CO[32], DL[32],MS[16],SE[16],Interrupt[8];
 int update_display = 1;
 
 static void UpdateWholeScreen(void);
+static int CalculateLampX(int row, int column);
 static void DrawLamp(int row, int column, int level);
 static void DrawLampPanel(void);
 SDL_Texture *DrawFilledRectangle(int width, int height, int r, int g, int b);
 static void DrawLampPanelOverlayLine(int width, int height, int x, int y);
+static void DrawLampRegisterDivider(int row, int column);
 static void DrawLampPanelOverlay(void);
 static void DrawRegister(int row, int column, unsigned int bits[], UINT8 width);
 
@@ -101,7 +104,7 @@ DisplayRegisters(PANEL *panel)
     if (update_display)
     {
         update_display = 0;
-        DrawRegister(5, 5, CO, 32);
+        DrawRegister(5, 4, CO, 32);
         DrawRegister(4, 4, DL, 32);
         DrawRegister(3, 0, MS, 16);
         DrawRegister(3, 16, Interrupt, 8);
@@ -134,6 +137,12 @@ static void DrawLampPanelOverlayLine(int width, int height, int x, int y)
     SDL_RenderCopy(sdlRenderer, DrawFilledRectangle(width, height, LINE_COLOUR), NULL, &dstArea);
 }
 
+static void DrawLampRegisterDivider(int row, int column)
+{
+    int panelY = LAMP_PANEL_Y - (LAMP_VERTICAL_SPACING / 2);
+    DrawLampPanelOverlayLine(LINE_THICKNESS, LAMP_VERTICAL_SPACING, CalculateLampX(row, column) - LAMP_WIDTH, panelY + (row * LAMP_VERTICAL_SPACING));
+}
+
 static void DrawLampPanelOverlay(void)
 {
     int i;
@@ -141,12 +150,28 @@ static void DrawLampPanelOverlay(void)
     int panelHeight = LAMP_VERTICAL_SPACING * LAMP_ROWS;
     int panelX = LAMP_PANEL_X - LAMP_HORIZONTAL_SPACING;
     int panelY = LAMP_PANEL_Y - (LAMP_VERTICAL_SPACING / 2);
+
+    /* Outer borders and main row dividers */
     for (i = 0; i <= LAMP_ROWS; i++)
     {
+        DrawLampPanelOverlayLine(panelWidth, LINE_SUB_DIVIDER_THICKNESS, panelX, panelY + (i * LAMP_VERTICAL_SPACING) - (LAMP_HEIGHT/2));
         DrawLampPanelOverlayLine(panelWidth, LINE_THICKNESS, panelX, panelY + (i * LAMP_VERTICAL_SPACING));
     }
     DrawLampPanelOverlayLine(LINE_THICKNESS, panelHeight, panelX, panelY);
     DrawLampPanelOverlayLine(LINE_THICKNESS, panelHeight, panelX + panelWidth, panelY);
+
+    /* row 4 */
+    DrawLampRegisterDivider(3, 16);
+    DrawLampRegisterDivider(3, 24);
+
+    /* row 5 */
+    DrawLampRegisterDivider(4, 4);
+    DrawLampRegisterDivider(4, 36);
+
+    /* row 6 */
+    DrawLampRegisterDivider(5, 4);
+    DrawLampRegisterDivider(5, 36);
+    DrawLampRegisterDivider(5, 37);
 }
 
 SDL_Texture *DrawFilledRectangle(int width, int height, int r, int g, int b)
@@ -158,6 +183,29 @@ SDL_Texture *DrawFilledRectangle(int width, int height, int r, int g, int b)
     result = SDL_CreateTextureFromSurface(sdlRenderer, tempSurface);
     SDL_FreeSurface(tempSurface);
     return result;
+}
+
+static int CalculateLampX(int row, int column)
+{
+    int x;
+
+    if (row < (LAMP_ROWS - 1))
+    {
+        if (column >= 20)
+        {
+            x = LAMP_PANEL_X + (column + 2) * LAMP_HORIZONTAL_SPACING;
+        }
+        else
+        {
+            x = LAMP_PANEL_X + column * LAMP_HORIZONTAL_SPACING;
+        }
+    }
+    else
+    {
+        x = LAMP_PANEL_X + (column + 1) * LAMP_HORIZONTAL_SPACING;
+    }
+
+    return x;
 }
 
 static void DrawLamp(int row, int column, int level)
@@ -182,21 +230,7 @@ static void DrawLamp(int row, int column, int level)
     }
 
     area.y = LAMP_PANEL_Y + row * LAMP_VERTICAL_SPACING;
-    if (row < (LAMP_ROWS - 1))
-    {
-        if (column >= 20)
-        {
-            area.x = LAMP_PANEL_X + (column + 2) * LAMP_HORIZONTAL_SPACING;
-        }
-        else
-        {
-            area.x = LAMP_PANEL_X + column * LAMP_HORIZONTAL_SPACING;
-        }
-    }
-    else
-    {
-        area.x = LAMP_PANEL_X + (column + 1) * LAMP_HORIZONTAL_SPACING;
-    }
+    area.x = CalculateLampX(row, column);
     area.w = LAMP_WIDTH;
     area.h = LAMP_HEIGHT;
     SDL_RenderCopy(sdlRenderer, sprites[level], NULL, &area);
@@ -207,7 +241,7 @@ static void DrawRegister(int row, int column, unsigned int bits[], UINT8 width)
     int i;
     for (i = width - 1; i >= 0; i--)
     {
-        DrawLamp(row, column + (width - i), bits[i]);
+        DrawLamp(row, column + (width - i - 1), bits[i]);
     }
 }
 
