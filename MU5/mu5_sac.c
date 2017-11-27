@@ -121,6 +121,9 @@ static void sac_write_local_store(t_addr address, uint32 value);
 static uint32 sac_read_mass_store(t_addr address);
 static void sac_write_mass_store(t_addr address, uint32 value);
 
+static void sac_v_store_register_read_callback(struct REG *reg, int index);
+static void sac_v_store_register_write_callback(t_value old_val, struct REG *reg, int index);
+
 static uint32 LocalStore[MAX_LOCAL_MEMORY];
 static uint32 MassStore[MAX_MASS_MEMORY];
 VSTORE_LINE VStore[V_STORE_BLOCKS][V_STORE_BLOCK_SIZE];
@@ -130,7 +133,7 @@ static UNIT sac_unit =
     UDATA(NULL, UNIT_FIX | UNIT_BINK, MAX_LOCAL_MEMORY)
 };
 
-extern uint8 PROPProcessNumber;
+extern t_uint64 *PROPProcessNumber;
 static t_uint64 *CPRNumber;
 static t_uint64 *CPRRa;
 static t_uint64 *CPRVa;
@@ -499,13 +502,13 @@ t_uint64 sac_read_v_store(uint8 block, uint8 line)
     return result;
 }
 
-void sac_v_store_register_read_callback(struct REG *reg, int index)
+static void sac_v_store_register_read_callback(struct REG *reg, int index)
 {
     assert(reg->width == 64);
     sac_read_v_store(SAC_V_STORE_BLOCK, index);
 }
 
-void sac_v_store_register_write_callback(t_value old_val, struct REG *reg, int index)
+static void sac_v_store_register_write_callback(t_value old_val, struct REG *reg, int index)
 {
     assert(reg->width == 64);
     sac_write_v_store(SAC_V_STORE_BLOCK, index, ((VSTORE_LINE *)reg->loc + index)->value);
