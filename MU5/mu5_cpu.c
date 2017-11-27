@@ -195,6 +195,9 @@ static void prop_write_system_error_status_callback(uint8 line, t_uint64 value);
 static t_uint64 prop_read_instruction_counter(uint8 line);
 static void prop_write_instruction_counter(uint8 line, t_uint64 value);
 
+void prop_v_store_register_read_callback(struct REG *reg, int index);
+void prop_v_store_register_write_callback(t_value old_val, struct REG *reg, int index);
+
 static void cpu_execute_dummy_order(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_start_interrupt_processing(void);
 
@@ -509,6 +512,12 @@ static REG cpu_reg[] =
     { NULL }
 };
 
+static REG prop_reg[] =
+{
+    { STRDATADFC(V, VStore[PROP_V_STORE_BLOCK], 16, 64, 0, V_STORE_BLOCK_SIZE, sizeof(VSTORE_LINE), 0, "V Store", NULL, prop_v_store_register_read_callback, prop_v_store_register_write_callback) },
+    { NULL }
+};
+
 REG *reg_b = &cpu_reg[0];
 REG *reg_bod = &cpu_reg[1];
 REG *reg_a = &cpu_reg[2];
@@ -552,10 +561,10 @@ static const char* cpu_description(DEVICE *dptr) {
     return "Central Processing Unit";
 }
 
-uint8 PROPProcessNumber;
-static uint16 PROPProgramFaultStatus;
-static uint16 PROPSystemErrorStatus;
-static uint16 PROPInstructionCounter;
+t_uint64 *PROPProcessNumber;
+static t_uint64 *PROPProgramFaultStatus;
+static t_uint64 *PROPSystemErrorStatus;
+static t_uint64 *PROPInstructionCounter;
 
 DEVICE cpu_dev = {
     "CPU",            /* name */
@@ -1348,10 +1357,6 @@ static int cpu_is_executive_mode(void)
 
 void cpu_reset_state(void)
 {
-    PROPProcessNumber = 0;
-    PROPInstructionCounter = 0;
-    PROPProgramFaultStatus = 0;
-    PROPSystemErrorStatus = 0;
     cpu_clear_all_interrupts();
     reg_b_backing_value = 0x0;
     reg_bod_backing_value = 0x0;
@@ -1372,10 +1377,10 @@ void cpu_reset_state(void)
     reg_xdt_backing_value = 0x0;
     reg_dl_backing_value = 0x0;
 
-    sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, prop_read_process_number_callback, prop_write_process_number_callback);
-    sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, prop_read_program_fault_status_callback, prop_write_program_fault_status_callback);
-    sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, prop_read_system_error_status_callback, prop_write_system_error_status_callback);
-    sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, prop_read_instruction_counter, prop_write_instruction_counter);
+    PROPProcessNumber = sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, prop_read_process_number_callback, prop_write_process_number_callback);
+    PROPProgramFaultStatus = sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, prop_read_program_fault_status_callback, prop_write_program_fault_status_callback);
+    PROPSystemErrorStatus = sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, prop_read_system_error_status_callback, prop_write_system_error_status_callback);
+    PROPInstructionCounter = sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, prop_read_instruction_counter, prop_write_instruction_counter);
 }
 
 void cpu_set_interrupt(uint8 number)
@@ -1463,9 +1468,9 @@ static void cpu_evaluate_interrupts(void)
 
 static void cpu_set_system_error_status_and_generate_interrupt(uint16 reason)
 {
-    int was_zero = PROPSystemErrorStatus == 0;
-    PROPSystemErrorStatus |= reason;
-    if (was_zero && PROPSystemErrorStatus != 0)
+    int was_zero = *PROPSystemErrorStatus == 0;
+    *PROPSystemErrorStatus |= reason;
+    if (was_zero && *PROPSystemErrorStatus != 0)
     {
         cpu_set_interrupt(INT_SYSTEM_ERROR);
     }
@@ -1473,12 +1478,12 @@ static void cpu_set_system_error_status_and_generate_interrupt(uint16 reason)
 
 static void cpu_set_program_fault_interrupt_status_and_generate_interrupt(uint16 reason)
 {
-    PROPProgramFaultStatus |= reason;
-    if ((PROPProgramFaultStatus & 0x03E0) != 0)
+    *PROPProgramFaultStatus |= reason;
+    if ((*PROPProgramFaultStatus & 0x03E0) != 0)
     {
         cpu_set_interrupt(INT_PROGRAM_FAULTS);
     }
-    if ((PROPProgramFaultStatus & 0xFC00) != 0)
+    if ((*PROPProgramFaultStatus & 0xFC00) != 0)
     {
         cpu_set_interrupt(INT_ILLEGAL_ORDERS);
     }
@@ -1487,7 +1492,7 @@ static void cpu_set_program_fault_interrupt_status_and_generate_interrupt(uint16
 static void cpu_set_illegal_order_interrupt(uint16 reason)
 {
     cpu_set_interrupt(INT_ILLEGAL_ORDERS);
-    PROPProgramFaultStatus |= reason;
+    *PROPProgramFaultStatus |= reason;
 }
 
 static void cpu_set_its_interrupt(void)
@@ -2653,10 +2658,10 @@ void cpu_execute_next_order(void)
         {
 			sim_debug(LOG_CPU_DECODE, &cpu_dev, "%08X: ", start_co);
 			cr = cpu_get_cr(order);
-            if ((cpu_get_ms() & MS_MASK_INH_INS_COUNT) == 0 && PROPInstructionCounter > 0)
+            if ((cpu_get_ms() & MS_MASK_INH_INS_COUNT) == 0 && *PROPInstructionCounter > 0)
             {
-                PROPInstructionCounter--;
-                if (PROPInstructionCounter == 0)
+                (*PROPInstructionCounter)--;
+                if (*PROPInstructionCounter == 0)
                 {
                     cpu_set_interrupt(INT_INSTRUCTION_COUNT_ZERO);
                 }
@@ -2678,43 +2683,55 @@ void cpu_execute_next_order(void)
 
 static t_uint64 prop_read_process_number_callback(uint8 line)
 {
-    return PROPProcessNumber & 0xF;
+    return *PROPProcessNumber & 0xF;
 }
 
 static void prop_write_process_number_callback(uint8 line, t_uint64 value)
 {
-    PROPProcessNumber = value & 0xF;
+    *PROPProcessNumber = value & 0xF;
 }
 
 static t_uint64 prop_read_program_fault_status_callback(uint8 line)
 {
-    return PROPProgramFaultStatus & 0xFFE0;
+    return *PROPProgramFaultStatus & 0xFFE0;
 }
 
 static void prop_write_program_fault_status_callback(uint8 line, t_uint64 value)
 {
-    PROPProgramFaultStatus = 0;
+    *PROPProgramFaultStatus = 0;
 }
 
 static t_uint64 prop_read_system_error_status_callback(uint8 line)
 {
-    return PROPSystemErrorStatus;
+    return *PROPSystemErrorStatus;
 }
 
 static void prop_write_system_error_status_callback(uint8 line, t_uint64 value)
 {
-    PROPSystemErrorStatus = 0;
+    *PROPSystemErrorStatus = 0;
     cpu_evaluate_interrupts(); // TODO: Not sure if this should be here.
 }
 
 static t_uint64 prop_read_instruction_counter(uint8 line)
 {
-    return PROPInstructionCounter;
+    return *PROPInstructionCounter;
 }
 
 static void prop_write_instruction_counter(uint8 line, t_uint64 value)
 {
-    PROPInstructionCounter = value & 0xFFFF;
+    *PROPInstructionCounter = value & 0xFFFF;
+}
+
+static void prop_v_store_register_read_callback(struct REG *reg, int index)
+{
+    assert(reg->width == 64);
+    sac_read_v_store(PROP_V_STORE_BLOCK, index);
+}
+
+static void prop_v_store_register_write_callback(t_value old_val, struct REG *reg, int index)
+{
+    assert(reg->width == 64);
+    sac_write_v_store(PROP_V_STORE_BLOCK, index, ((VSTORE_LINE *)reg->loc + index)->value);
 }
 
 static void cpu_execute_dummy_order(uint16 order, DISPATCH_ENTRY *innerTable)

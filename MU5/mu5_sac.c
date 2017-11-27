@@ -760,7 +760,7 @@ static int sac_map_address(t_addr address, uint8 access, t_addr *mappedAddress)
         uint32 segmentMask;
         if (seg < 8192)
         {
-            va = ((uint32)PROPProcessNumber << 26) | va;
+            va = ((uint32)(*PROPProcessNumber) << 26) | va;
         }
 
         matchMask = sac_match_cprs(va, &numMatches, &firstMatchIndex, &segmentMask);
