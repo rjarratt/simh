@@ -51,11 +51,12 @@
 #define LAMP_VERTICAL_SPACING 42
 #define LAMP_OFF_COLOUR 97, 83, 74
 #define LAMP_ON_COLOUR 254, 254, 190
+#define PANEL_BACKGROUND_COLOUR 114, 111, 104
 #define LINE_COLOUR 98, 85, 76
 #define LINE_THICKNESS 2
 #define LAMP_ROWS 6
 #define LAMPS_PER_ROW 40
-#define LAMP_PANEL_X 848
+#define LAMP_PANEL_X 800
 #define LAMP_PANEL_Y 40
 
 const char *sim_path =
@@ -79,6 +80,9 @@ int update_display = 1;
 static void UpdateWholeScreen(void);
 static void DrawLamp(int row, int column, int on);
 static void DrawLampPanel(void);
+SDL_Texture *DrawFilledRectangle(int width, int height, int r, int g, int b);
+static void DrawLampPanelOverlayLine(int width, int height, int x, int y);
+static void DrawLampPanelOverlay(void);
 static void DrawRegister(int row, int column, UINT64 value, UINT8 width);
 
 static void
@@ -106,6 +110,7 @@ static void DrawLampPanel(void)
 {
     int row;
     int column;
+    DrawLampPanelOverlay();
     for (row = 0; row < LAMP_ROWS; row++)
     {
         for (column = 0; column < LAMPS_PER_ROW; column++)
@@ -115,6 +120,30 @@ static void DrawLampPanel(void)
     }
 }
 
+static void DrawLampPanelOverlayLine(int width, int height, int x, int y)
+{
+    SDL_Rect dstArea;
+    dstArea.h = height;
+    dstArea.w = width;
+    dstArea.x = x;
+    dstArea.y = y;
+    SDL_RenderCopy(sdlRenderer, DrawFilledRectangle(width, height, LINE_COLOUR), NULL, &dstArea);
+}
+
+static void DrawLampPanelOverlay(void)
+{
+    int i;
+    int panelWidth = LAMP_HORIZONTAL_SPACING * (LAMPS_PER_ROW + 4);
+    int panelHeight = LAMP_VERTICAL_SPACING * LAMP_ROWS;
+    int panelX = LAMP_PANEL_X - LAMP_HORIZONTAL_SPACING;
+    int panelY = LAMP_PANEL_Y - (LAMP_VERTICAL_SPACING / 2);
+    for (i = 0; i <= LAMP_ROWS; i++)
+    {
+        DrawLampPanelOverlayLine(panelWidth, LINE_THICKNESS, panelX, panelY + (i * LAMP_VERTICAL_SPACING));
+    }
+    DrawLampPanelOverlayLine(LINE_THICKNESS, panelHeight, panelX, panelY);
+    DrawLampPanelOverlayLine(LINE_THICKNESS, panelHeight, panelX + panelWidth, panelY);
+}
 
 SDL_Texture *DrawFilledRectangle(int width, int height, int r, int g, int b)
 {
@@ -132,7 +161,6 @@ static void DrawLamp(int row, int column, int on)
 {
     static SDL_Texture * sprites[2];
     SDL_Rect area;
-    int i;
 
     if (!sprites[0])
     {
@@ -170,7 +198,7 @@ static void DrawRegister(int row, int column, UINT64 value, UINT8 width)
     int on;
     for (i = width - 1; i >= 0; i--)
     {
-        on = (value & (1 << i)) != 0;
+        on = (value & ((UINT64)1 << i)) != 0;
         DrawLamp(row, column + (width - i), on);
     }
 }
@@ -191,7 +219,7 @@ int CreatePanel()
     {
         if (SDL_CreateWindowAndRenderer(WIDTH, HEIGHT, SDL_WINDOW_RESIZABLE, &sdlWindow, &sdlRenderer) != 0)
         {
-            SDL_LogError("SDL: unable to create window and renderer: %s\n",SDL_GetError());
+            SDL_LogError(SDL_LOG_CATEGORY_ERROR, "SDL: unable to create window and renderer: %s\n",SDL_GetError());
         }
         else
         {
@@ -199,7 +227,7 @@ int CreatePanel()
             SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");  // make the scaled rendering look smoother.
             SDL_RenderSetLogicalSize(sdlRenderer, WIDTH, HEIGHT);
             /* Make grey console background */
-            SDL_SetRenderDrawColor(sdlRenderer, 114, 111, 104, 255);
+            SDL_SetRenderDrawColor(sdlRenderer, PANEL_BACKGROUND_COLOUR, 255);
             SDL_RenderClear(sdlRenderer);
 
             ///* Initialize the TTF library */
