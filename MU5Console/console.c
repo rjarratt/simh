@@ -51,6 +51,7 @@
 #define LAMP_VERTICAL_SPACING 42
 #define LAMP_OFF_COLOUR 97, 83, 74
 #define LAMP_ON_COLOUR 254, 254, 190
+#define LAMP_LEVELS 50
 #define PANEL_BACKGROUND_COLOUR 114, 111, 104
 #define LINE_COLOUR 98, 85, 76
 #define LINE_THICKNESS 2
@@ -73,17 +74,17 @@ static SDL_Window *sdlWindow;
 static SDL_Renderer *sdlRenderer;
 
 /* Registers visible on the Front Panel */
-unsigned int CO, DL;
+unsigned int CO[32], DL[32];
 
 int update_display = 1;
 
 static void UpdateWholeScreen(void);
-static void DrawLamp(int row, int column, int on);
+static void DrawLamp(int row, int column, int level);
 static void DrawLampPanel(void);
 SDL_Texture *DrawFilledRectangle(int width, int height, int r, int g, int b);
 static void DrawLampPanelOverlayLine(int width, int height, int x, int y);
 static void DrawLampPanelOverlay(void);
-static void DrawRegister(int row, int column, UINT64 value, UINT8 width);
+static void DrawRegister(int row, int column, unsigned int bits[], UINT8 width);
 
 static void
 DisplayCallback(PANEL *panel, unsigned long long simulation_time, void *context)
@@ -149,7 +150,6 @@ SDL_Texture *DrawFilledRectangle(int width, int height, int r, int g, int b)
 {
     SDL_Surface *tempSurface;
     SDL_Texture *result;
-
     tempSurface = SDL_CreateRGBSurface(0, width, height, 32, 0, 0, 0, 0);
     SDL_FillRect(tempSurface, NULL, SDL_MapRGB(tempSurface->format, r, g, b));
     result = SDL_CreateTextureFromSurface(sdlRenderer, tempSurface);
@@ -157,18 +157,25 @@ SDL_Texture *DrawFilledRectangle(int width, int height, int r, int g, int b)
     return result;
 }
 
-static void DrawLamp(int row, int column, int on)
+static void DrawLamp(int row, int column, int level)
 {
-    static SDL_Texture * sprites[2];
+    static SDL_Texture * sprites[LAMP_LEVELS + 1];
     SDL_Rect area;
+    int fullOff[3] = { LAMP_OFF_COLOUR };
+    int fullOn[3] = { LAMP_ON_COLOUR };
+    int i;
 
     if (!sprites[0])
     {
-        sprites[0] = DrawFilledRectangle(LAMP_WIDTH, LAMP_HEIGHT, LAMP_OFF_COLOUR);
-    }
-    if (!sprites[1])
-    {
-        sprites[1] = DrawFilledRectangle(LAMP_WIDTH, LAMP_HEIGHT, LAMP_ON_COLOUR);
+        for (i = 0; i <= LAMP_LEVELS; i++)
+        {
+            sprites[i] = DrawFilledRectangle(
+                LAMP_WIDTH,
+                LAMP_HEIGHT,
+                fullOff[0] + (i * ((fullOn[0] - fullOff[0]) / LAMP_LEVELS)),
+                fullOff[1] + (i * ((fullOn[1] - fullOff[1]) / LAMP_LEVELS)),
+                fullOff[2] + (i * ((fullOn[2] - fullOff[2]) / LAMP_LEVELS)));
+        }
     }
 
     area.y = LAMP_PANEL_Y + row * LAMP_VERTICAL_SPACING;
@@ -189,17 +196,15 @@ static void DrawLamp(int row, int column, int on)
     }
     area.w = LAMP_WIDTH;
     area.h = LAMP_HEIGHT;
-    SDL_RenderCopy(sdlRenderer, sprites[on], NULL, &area);
+    SDL_RenderCopy(sdlRenderer, sprites[level], NULL, &area);
 }
 
-static void DrawRegister(int row, int column, UINT64 value, UINT8 width)
+static void DrawRegister(int row, int column, unsigned int bits[], UINT8 width)
 {
     int i;
-    int on;
     for (i = width - 1; i >= 0; i--)
     {
-        on = (value & ((UINT64)1 << i)) != 0;
-        DrawLamp(row, column + (width - i), on);
+        DrawLamp(row, column + (width - i), bits[i]);
     }
 }
 
@@ -281,13 +286,6 @@ static
 void InitDisplay(void)
 {
     CreatePanel();
-#if defined(_WIN32)
-    system("cls");
-#else
-    printf(CSI "H");   /* Position to Top of Screen (1,1) */
-    printf(CSI "2J");  /* Clear Screen */
-#endif
-    printf("\n\n\n\n");
     printf("^C to Halt, Commands: BOOT, CONT, STEP, EXIT\n");
 }
 
@@ -392,11 +390,13 @@ main(int argc, char *argv[])
         sim_panel_set_debug_mode(panel, DBG_XMT | DBG_RCV | DBG_REQ | DBG_RSP);
     }
 
-    if (sim_panel_add_register(panel, "CO", NULL, sizeof(CO), &CO)) {
+    sim_panel_set_sampling_parameters(panel, 10, LAMP_LEVELS);
+
+    if (sim_panel_add_register_bits(panel, "CO", NULL, 32, CO)) {
         printf("Error adding register 'CO': %s\n", sim_panel_get_error());
         goto Done;
     }
-    if (sim_panel_add_register(panel, "DL", NULL, sizeof(DL), &DL)) {
+    if (sim_panel_add_register_bits(panel, "DL", NULL, 32, DL)) {
         printf("Error adding register 'DL': %s\n", sim_panel_get_error());
         goto Done;
     }
@@ -405,7 +405,7 @@ main(int argc, char *argv[])
         printf("Error getting register data: %s\n", sim_panel_get_error());
         goto Done;
     }
-    if (sim_panel_set_display_callback_interval(panel, &DisplayCallback, NULL, 10000)) {
+    if (sim_panel_set_display_callback_interval(panel, &DisplayCallback, NULL, 50000)) {
         printf("Error setting automatic display callback: %s\n", sim_panel_get_error());
         goto Done;
     }
