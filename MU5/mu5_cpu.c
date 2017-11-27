@@ -596,6 +596,45 @@ DEVICE cpu_dev = {
     NULL              /* brk_types */
 };
 
+static const char* prop_description(DEVICE *dptr) {
+    return "Primary Operand Unit";
+}
+
+static UNIT prop_unit =
+{
+    UDATA(NULL, UNIT_FIX | UNIT_BINK, MAX_LOCAL_MEMORY)
+};
+
+DEVICE prop_dev = {
+    "PROP",           /* name */
+    &prop_unit,       /* units */
+    prop_reg,         /* registers */
+    NULL,             /* modifiers */
+    1,                /* numunits */
+    16,               /* aradix */
+    32,               /* awidth */
+    1,                /* aincr */
+    16,               /* dradix */
+    32,               /* dwidth */
+    NULL,             /* examine */
+    NULL,             /* deposit */
+    NULL,             /* reset */
+    NULL,             /* boot */
+    NULL,             /* attach */
+    NULL,             /* detach */
+    NULL,             /* ctxt */
+    DEV_DEBUG,        /* flags */
+    0,                /* dctrl */
+    NULL,             /* debflags */
+    NULL,             /* msize */
+    NULL,             /* lname */
+    NULL,             /* help */
+    NULL,             /* attach_help */
+    NULL,             /* help_ctx */
+    &prop_description,/* description */
+    NULL              /* brk_types */
+};
+
 static DISPATCH_ENTRY organisationalDispatchTable[] =
 {
     { cpu_execute_organisational_relative_jump,         NULL }, /* 0 */

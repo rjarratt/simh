@@ -31,11 +31,12 @@ in this Software without prior written authorization from Robert Jarratt.
 char sim_name[] = "MU5";
 
 extern DEVICE cpu_dev;
+extern DEVICE prop_dev;
 extern DEVICE sac_dev;
 extern DEVICE console_dev;
 
 /* SAC first because it resets the V-Store callbacks which may be set by other devices */
-DEVICE *sim_devices[] = { &sac_dev, &cpu_dev, &console_dev, NULL };
+DEVICE *sim_devices[] = { &sac_dev, &cpu_dev, &prop_dev, &console_dev, NULL };
 
 const char *sim_stop_messages[] =
 {
