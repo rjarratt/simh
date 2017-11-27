@@ -50,7 +50,7 @@
 #define LAMP_HORIZONTAL_SPACING 12
 #define LAMP_VERTICAL_SPACING 42
 #define LAMP_OFF_COLOUR 97, 83, 74
-#define LAMP_ON_COLOUR 254, 254, 190
+#define LAMP_ON_COLOUR 242, 88, 60
 #define LAMP_LEVELS 50
 #define PANEL_BACKGROUND_COLOUR 114, 111, 104
 #define LINE_COLOUR 98, 85, 76
@@ -74,7 +74,7 @@ static SDL_Window *sdlWindow;
 static SDL_Renderer *sdlRenderer;
 
 /* Registers visible on the Front Panel */
-unsigned int CO[32], DL[32];
+unsigned int CO[32], DL[32],MS[16];
 
 int update_display = 1;
 
@@ -101,8 +101,9 @@ DisplayRegisters(PANEL *panel)
     if (update_display)
     {
         update_display = 0;
-        DrawRegister(4, 4, DL, 32);
         DrawRegister(5, 5, CO, 32);
+        DrawRegister(4, 4, DL, 32);
+        DrawRegister(3, 0, MS, 16);
         UpdateWholeScreen();
     }
 }
@@ -392,12 +393,19 @@ main(int argc, char *argv[])
 
     sim_panel_set_sampling_parameters(panel, 10, LAMP_LEVELS);
 
-    if (sim_panel_add_register_bits(panel, "CO", NULL, 32, CO)) {
+    if (sim_panel_add_register_bits(panel, "CO", NULL, 32, CO))
+    {
         printf("Error adding register 'CO': %s\n", sim_panel_get_error());
         goto Done;
     }
-    if (sim_panel_add_register_bits(panel, "DL", NULL, 32, DL)) {
+    if (sim_panel_add_register_bits(panel, "DL", NULL, 32, DL))
+    {
         printf("Error adding register 'DL': %s\n", sim_panel_get_error());
+        goto Done;
+    }
+    if (sim_panel_add_register_bits(panel, "MS", NULL, 16, MS))
+    {
+        printf("Error adding register 'MS': %s\n", sim_panel_get_error());
         goto Done;
     }
 
