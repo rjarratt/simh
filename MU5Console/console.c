@@ -74,7 +74,7 @@ static SDL_Window *sdlWindow;
 static SDL_Renderer *sdlRenderer;
 
 /* Registers visible on the Front Panel */
-unsigned int CO[32], DL[32],MS[16];
+unsigned int CO[32], DL[32],MS[16],SE[16],Interrupt[8];
 
 int update_display = 1;
 
@@ -104,6 +104,8 @@ DisplayRegisters(PANEL *panel)
         DrawRegister(5, 5, CO, 32);
         DrawRegister(4, 4, DL, 32);
         DrawRegister(3, 0, MS, 16);
+        DrawRegister(3, 16, Interrupt, 8);
+        DrawRegister(3, 24, SE, 16);
         UpdateWholeScreen();
     }
 }
@@ -393,19 +395,29 @@ main(int argc, char *argv[])
 
     sim_panel_set_sampling_parameters(panel, 10, LAMP_LEVELS);
 
-    if (sim_panel_add_register_bits(panel, "CO", NULL, 32, CO))
+    if (sim_panel_add_register_bits(panel, "CO", "CPU", 32, CO))
     {
         printf("Error adding register 'CO': %s\n", sim_panel_get_error());
         goto Done;
     }
-    if (sim_panel_add_register_bits(panel, "DL", NULL, 32, DL))
+    if (sim_panel_add_register_bits(panel, "DL", "CPU", 32, DL))
     {
         printf("Error adding register 'DL': %s\n", sim_panel_get_error());
         goto Done;
     }
-    if (sim_panel_add_register_bits(panel, "MS", NULL, 16, MS))
+    if (sim_panel_add_register_bits(panel, "MS", "CPU", 16, MS))
     {
         printf("Error adding register 'MS': %s\n", sim_panel_get_error());
+        goto Done;
+    }
+    //if (sim_panel_add_register_bits(panel, "V[1]", "PROP", 16, SE))
+    //{
+    //    printf("Error adding register 'PROP V[1]': %s\n", sim_panel_get_error());
+    //    goto Done;
+    //}
+    if (sim_panel_add_register_bits(panel, "INTERRUPT", "CPU", 8, Interrupt))
+    {
+        printf("Error adding register 'INTERRUPT': %s\n", sim_panel_get_error());
         goto Done;
     }
 
