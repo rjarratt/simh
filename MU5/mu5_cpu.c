@@ -489,26 +489,29 @@ static uint32   reg_dt_backing_value;    /* DT Register */
 static uint32   reg_xdt_backing_value;   /* XDT Register */
 static uint32   reg_dl_backing_value;    /* Pseudo register for display lamps */
 
+static uint8 interrupt;
+
 static REG cpu_reg[] =
 {
-    { HRDATAD(B,     reg_b_backing_value,       32,    "B register") },
-    { GRDATADFC(BOD, reg_bod_backing_value, 16, 32, 0, "BOD register", bod_bits, NULL, cpu_bod_write_callback) },
-    { HRDATAD(A,     reg_a_backing_value,       64,    "Accumulator") },
-    { GRDATADFC(AOD, reg_aod_backing_value, 16, 64, 0, "AOD register", aod_bits, NULL, cpu_aod_write_callback) },
-    { HRDATAD(AEX,   reg_aex_backing_value,     64,    "Accumulator extension") },
-    { HRDATAD(X,     reg_x_backing_value,       32,    "X register") },
-    { GRDATADF(MS,   reg_ms_backing_value, 16,  16, 0, "Machine status register", ms_bits) },
-    { HRDATAD(NB,    reg_nb_backing_value,      16,    "Name Base register") },
-    { HRDATAD(XNB,   reg_xnb_backing_value,     32,    "X register") },
-    { HRDATAD(SN,    reg_sn_backing_value,      16,    "Name Segment Number register") },
-    { HRDATAD(SF,    reg_sf_backing_value,      16,    "Stack Front register") },
-    { HRDATAD(CO,    reg_co_backing_value,      32,    "Program counter") },
-    { HRDATAD(D,     reg_d_backing_value,       64,    "Data descriptor register") },
-    { HRDATAD(XD,    reg_xd_backing_value,      64,    "XD register") },
-    { GRDATADFC(DOD, reg_dod_backing_value, 16, 32, 0, "DOD register", dod_bits, NULL, cpu_dod_write_callback) },
-    { HRDATAD(DT,    reg_dt_backing_value,      32,    "DT register") },
-    { HRDATAD(XDT,   reg_xdt_backing_value,     32,    "XDT register") },
-    { HRDATAD(DL,    reg_dl_backing_value,      32,    "Pseudo register for display lamps") },
+    { HRDATAD(B,         reg_b_backing_value,       32,    "B register") },
+    { GRDATADFC(BOD,     reg_bod_backing_value, 16, 32, 0, "BOD register", bod_bits, NULL, cpu_bod_write_callback) },
+    { HRDATAD(A,         reg_a_backing_value,       64,    "Accumulator") },
+    { GRDATADFC(AOD,     reg_aod_backing_value, 16, 64, 0, "AOD register", aod_bits, NULL, cpu_aod_write_callback) },
+    { HRDATAD(AEX,       reg_aex_backing_value,     64,    "Accumulator extension") },
+    { HRDATAD(X,         reg_x_backing_value,       32,    "X register") },
+    { GRDATADF(MS,       reg_ms_backing_value, 16,  16, 0, "Machine status register", ms_bits) },
+    { HRDATAD(NB,        reg_nb_backing_value,      16,    "Name Base register") },
+    { HRDATAD(XNB,       reg_xnb_backing_value,     32,    "X register") },
+    { HRDATAD(SN,        reg_sn_backing_value,      16,    "Name Segment Number register") },
+    { HRDATAD(SF,        reg_sf_backing_value,      16,    "Stack Front register") },
+    { HRDATAD(CO,        reg_co_backing_value,      32,    "Program counter") },
+    { HRDATAD(D,         reg_d_backing_value,       64,    "Data descriptor register") },
+    { HRDATAD(XD,        reg_xd_backing_value,      64,    "XD register") },
+    { GRDATADFC(DOD,     reg_dod_backing_value, 16, 32, 0, "DOD register", dod_bits, NULL, cpu_dod_write_callback) },
+    { HRDATAD(DT,        reg_dt_backing_value,      32,    "DT register") },
+    { HRDATAD(XDT,       reg_xdt_backing_value,     32,    "XDT register") },
+    { HRDATAD(DL,        reg_dl_backing_value,      32,    "Pseudo register for display lamps") },
+    { HRDATAD(INTERRUPT, interrupt,                  8,    "Pseudo register for interrupt entry") },
     { NULL }
 };
 
@@ -537,7 +540,6 @@ REG *reg_dt = &cpu_reg[15];
 REG *reg_xdt = &cpu_reg[16];
 REG *reg_dl = &cpu_reg[17];
 
-static uint8 interrupt;
 REG *sim_PC = &cpu_reg[11];
 
 static MTAB cpu_mod[] =
