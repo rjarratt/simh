@@ -58,8 +58,9 @@
 #define LINE_SUB_DIVIDER_THICKNESS 1
 #define LAMP_ROWS 6
 #define LAMPS_PER_ROW 40
-#define LAMP_PANEL_X 800
-#define LAMP_PANEL_Y 40
+/* Lamp Panel coordinates are the top left of the panel outline*/
+#define LAMP_PANEL_X 788
+#define LAMP_PANEL_Y 19
 
 const char *sim_path =
 #if defined(_WIN32)
@@ -139,8 +140,7 @@ static void DrawLampPanelOverlayLine(int width, int height, int x, int y)
 
 static void DrawLampRegisterDivider(int row, int column)
 {
-    int panelY = LAMP_PANEL_Y - (LAMP_VERTICAL_SPACING / 2);
-    DrawLampPanelOverlayLine(LINE_THICKNESS, LAMP_VERTICAL_SPACING, CalculateLampX(row, column) - LAMP_WIDTH, panelY + (row * LAMP_VERTICAL_SPACING));
+    DrawLampPanelOverlayLine(LINE_THICKNESS, LAMP_VERTICAL_SPACING, CalculateLampX(row, column) - LAMP_WIDTH, LAMP_PANEL_Y + (row * LAMP_VERTICAL_SPACING));
 }
 
 static void DrawLampPanelOverlay(void)
@@ -148,17 +148,18 @@ static void DrawLampPanelOverlay(void)
     int i;
     int panelWidth = LAMP_HORIZONTAL_SPACING * (LAMPS_PER_ROW + 4);
     int panelHeight = LAMP_VERTICAL_SPACING * LAMP_ROWS;
-    int panelX = LAMP_PANEL_X - LAMP_HORIZONTAL_SPACING;
-    int panelY = LAMP_PANEL_Y - (LAMP_VERTICAL_SPACING / 2);
 
     /* Outer borders and main row dividers */
     for (i = 0; i <= LAMP_ROWS; i++)
     {
-        DrawLampPanelOverlayLine(panelWidth, LINE_SUB_DIVIDER_THICKNESS, panelX, panelY + (i * LAMP_VERTICAL_SPACING) - (LAMP_HEIGHT/2));
-        DrawLampPanelOverlayLine(panelWidth, LINE_THICKNESS, panelX, panelY + (i * LAMP_VERTICAL_SPACING));
+        if (i != 0)
+        {
+            DrawLampPanelOverlayLine(panelWidth, LINE_SUB_DIVIDER_THICKNESS, LAMP_PANEL_X, LAMP_PANEL_Y + (i * LAMP_VERTICAL_SPACING) - (LAMP_HEIGHT / 2));
+        }
+        DrawLampPanelOverlayLine(panelWidth, LINE_THICKNESS, LAMP_PANEL_X, LAMP_PANEL_Y + (i * LAMP_VERTICAL_SPACING));
     }
-    DrawLampPanelOverlayLine(LINE_THICKNESS, panelHeight, panelX, panelY);
-    DrawLampPanelOverlayLine(LINE_THICKNESS, panelHeight, panelX + panelWidth, panelY);
+    DrawLampPanelOverlayLine(LINE_THICKNESS, panelHeight, LAMP_PANEL_X, LAMP_PANEL_Y);
+    DrawLampPanelOverlayLine(LINE_THICKNESS, panelHeight, LAMP_PANEL_X + panelWidth, LAMP_PANEL_Y);
 
     /* row 4 */
     DrawLampRegisterDivider(3, 16);
@@ -193,16 +194,16 @@ static int CalculateLampX(int row, int column)
     {
         if (column >= 20)
         {
-            x = LAMP_PANEL_X + (column + 2) * LAMP_HORIZONTAL_SPACING;
+            x = LAMP_PANEL_X + LAMP_HORIZONTAL_SPACING + (column + 2) * LAMP_HORIZONTAL_SPACING;
         }
         else
         {
-            x = LAMP_PANEL_X + column * LAMP_HORIZONTAL_SPACING;
+            x = LAMP_PANEL_X + LAMP_HORIZONTAL_SPACING + column * LAMP_HORIZONTAL_SPACING;
         }
     }
     else
     {
-        x = LAMP_PANEL_X + (column + 1) * LAMP_HORIZONTAL_SPACING;
+        x = LAMP_PANEL_X + LAMP_HORIZONTAL_SPACING + (column + 1) * LAMP_HORIZONTAL_SPACING;
     }
 
     return x;
@@ -229,7 +230,7 @@ static void DrawLamp(int row, int column, int level)
         }
     }
 
-    area.y = LAMP_PANEL_Y + row * LAMP_VERTICAL_SPACING;
+    area.y = LAMP_PANEL_Y + (row * LAMP_VERTICAL_SPACING) + (LAMP_VERTICAL_SPACING/2);
     area.x = CalculateLampX(row, column);
     area.w = LAMP_WIDTH;
     area.h = LAMP_HEIGHT;
