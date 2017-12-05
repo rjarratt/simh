@@ -63,6 +63,7 @@
 #define LAMP_PANEL_Y 19
 #define PANEL_WIDTH (LAMP_HORIZONTAL_SPACING * (LAMPS_PER_ROW + 4))
 #define PANEL_HEIGHT (LAMP_VERTICAL_SPACING * LAMP_ROWS)
+#define LABEL_BOX_HEIGHT (LAMP_HEIGHT/2)
 
 const char *sim_path =
 #if defined(_WIN32)
@@ -89,8 +90,11 @@ static void DrawLamp(int row, int column, int level);
 static void DrawLampPanel(void);
 SDL_Texture *DrawFilledRectangle(int width, int height, int r, int g, int b);
 static void DrawLampPanelOverlayLine(int width, int height, int x, int y);
-static void DrawLampRegisterNibbleDivider(int row, int column, int forColumns);
+static void DrawLampRegisterNibbleLabelDivider(int row, int column, int forColumns);
+static void DrawLampRegisterNibbleLabelBoundary(int row, int column);
+static void DrawLampRegisterHalfBoundaryToLabelDivider(int row, int column);
 static void DrawLampRegisterBoundaryToLabelDivider(int row, int column);
+static void DrawLampRegisterSubBoundaryToNibbleDivider(int row, int column);
 static void DrawLampRegisterSubBoundaryToLabelDivider(int row, int column);
 static void DrawLampRegisterBoundaryThick(int row, int column);
 static void DrawLampPanelOverlay(void);
@@ -144,19 +148,36 @@ static void DrawLampPanelOverlayLine(int width, int height, int x, int y)
     SDL_RenderCopy(sdlRenderer, DrawFilledRectangle(width, height, LINE_COLOUR), NULL, &dstArea);
 }
 
-static void DrawLampRegisterNibbleDivider(int row, int column, int forColumns)
+static void DrawLampRegisterNibbleLabelDivider(int row, int column, int forColumns)
 {
-    DrawLampPanelOverlayLine(forColumns * LAMP_HORIZONTAL_SPACING, LINE_SUB_DIVIDER_THICKNESS, CalculateLampCellX(row, column), LAMP_PANEL_Y + ((row + 1) * LAMP_VERTICAL_SPACING) - LAMP_HEIGHT);
+	int fromX = CalculateLampCellX(row, column);
+	int toX = CalculateLampCellX(row, column + forColumns);
+	DrawLampPanelOverlayLine(toX - fromX, LINE_SUB_DIVIDER_THICKNESS, fromX, LAMP_PANEL_Y + ((row + 1) * LAMP_VERTICAL_SPACING) - LAMP_HEIGHT);
+}
+
+static void DrawLampRegisterNibbleLabelBoundary(int row, int column)
+{
+	DrawLampPanelOverlayLine(LINE_SUB_DIVIDER_THICKNESS, LABEL_BOX_HEIGHT, CalculateLampX(row, column) - LAMP_WIDTH, LAMP_PANEL_Y + ((row + 1) * LAMP_VERTICAL_SPACING) - (LABEL_BOX_HEIGHT * 2));
+}
+
+static void DrawLampRegisterHalfBoundaryToLabelDivider(int row, int column)
+{
+	DrawLampPanelOverlayLine(LINE_SUB_DIVIDER_THICKNESS, LAMP_VERTICAL_SPACING - (LABEL_BOX_HEIGHT * 4), CalculateLampX(row, column) - LAMP_WIDTH, LAMP_PANEL_Y + (row * LAMP_VERTICAL_SPACING) + (LABEL_BOX_HEIGHT * 3));
 }
 
 static void DrawLampRegisterBoundaryToLabelDivider(int row, int column)
 {
-    DrawLampPanelOverlayLine(LINE_THICKNESS, LAMP_VERTICAL_SPACING - (LAMP_HEIGHT / 2), CalculateLampX(row, column) - LAMP_WIDTH, LAMP_PANEL_Y + (row * LAMP_VERTICAL_SPACING));
+	DrawLampPanelOverlayLine(LINE_THICKNESS, LAMP_VERTICAL_SPACING - LABEL_BOX_HEIGHT, CalculateLampX(row, column) - LAMP_WIDTH, LAMP_PANEL_Y + (row * LAMP_VERTICAL_SPACING));
+}
+
+static void DrawLampRegisterSubBoundaryToNibbleDivider(int row, int column)
+{
+	DrawLampPanelOverlayLine(LINE_SUB_DIVIDER_THICKNESS, LAMP_VERTICAL_SPACING - (LABEL_BOX_HEIGHT * 2), CalculateLampCellX(row, column), LAMP_PANEL_Y + (row * LAMP_VERTICAL_SPACING));
 }
 
 static void DrawLampRegisterSubBoundaryToLabelDivider(int row, int column)
 {
-    DrawLampPanelOverlayLine(LINE_SUB_DIVIDER_THICKNESS, LAMP_VERTICAL_SPACING - (LAMP_HEIGHT / 2), CalculateLampCellX(row, column), LAMP_PANEL_Y + (row * LAMP_VERTICAL_SPACING));
+    DrawLampPanelOverlayLine(LINE_SUB_DIVIDER_THICKNESS, LAMP_VERTICAL_SPACING - LABEL_BOX_HEIGHT, CalculateLampCellX(row, column), LAMP_PANEL_Y + (row * LAMP_VERTICAL_SPACING));
 }
 
 static void DrawLampRegisterBoundaryThick(int row, int column)
@@ -182,8 +203,8 @@ static void DrawLampPanelOverlay(void)
         }
         else if (i == 1)
         {
-            DrawLampPanelOverlayLine(LAMP_HORIZONTAL_SPACING * 8 + LAMP_HORIZONTAL_SPACING / 2 + LAMP_WIDTH / 2, LINE_SUB_DIVIDER_THICKNESS, LAMP_PANEL_X, LAMP_PANEL_Y + (i * LAMP_VERTICAL_SPACING) - (LAMP_HEIGHT / 2));
-            DrawLampPanelOverlayLine(LAMP_HORIZONTAL_SPACING * 34 + LAMP_HORIZONTAL_SPACING / 2, LINE_SUB_DIVIDER_THICKNESS, LAMP_PANEL_X + LAMP_HORIZONTAL_SPACING * 10 - LAMP_HORIZONTAL_SPACING/2 + LAMP_WIDTH / 2, LAMP_PANEL_Y + (i * LAMP_VERTICAL_SPACING) - (LAMP_HEIGHT / 2));
+            DrawLampPanelOverlayLine(LAMP_HORIZONTAL_SPACING * 8 + LAMP_HORIZONTAL_SPACING / 2 + LAMP_WIDTH / 2, LINE_SUB_DIVIDER_THICKNESS, LAMP_PANEL_X, LAMP_PANEL_Y + (i * LAMP_VERTICAL_SPACING) - LABEL_BOX_HEIGHT);
+            DrawLampPanelOverlayLine(LAMP_HORIZONTAL_SPACING * 34 + LAMP_HORIZONTAL_SPACING / 2, LINE_SUB_DIVIDER_THICKNESS, LAMP_PANEL_X + LAMP_HORIZONTAL_SPACING * 10 - LAMP_HORIZONTAL_SPACING/2 + LAMP_WIDTH / 2, LAMP_PANEL_Y + (i * LAMP_VERTICAL_SPACING) - LABEL_BOX_HEIGHT);
         }
         DrawLampPanelOverlayLine(PANEL_WIDTH, LINE_THICKNESS, LAMP_PANEL_X, LAMP_PANEL_Y + (i * LAMP_VERTICAL_SPACING));
     }
@@ -196,19 +217,36 @@ static void DrawLampPanelOverlay(void)
     DrawLampRegisterBoundaryThin(0, 14);
     DrawLampRegisterBoundaryThick(0, 20);
     DrawLampRegisterBoundaryThick(0, 29);
+	DrawLampRegisterHalfBoundaryToLabelDivider(0, 25);
 
     /* row 2 */
-    DrawLampRegisterNibbleDivider(1, 0, 16);
+    DrawLampRegisterNibbleLabelDivider(1, 0, 16);
     DrawLampRegisterBoundaryThin(1, 16);
     DrawLampRegisterBoundaryThick(1, 20);
     DrawLampRegisterBoundaryThick(1, 29);
+	DrawLampRegisterSubBoundaryToNibbleDivider(1, 3);
+	DrawLampRegisterSubBoundaryToNibbleDivider(1, 7);
+	DrawLampRegisterSubBoundaryToNibbleDivider(1, 10);
+	DrawLampRegisterSubBoundaryToNibbleDivider(1, 13);
+	DrawLampRegisterNibbleLabelBoundary(1, 4);
+	DrawLampRegisterNibbleLabelBoundary(1, 8);
+	DrawLampRegisterNibbleLabelBoundary(1, 12);
 
     /* row 3 */
-    DrawLampRegisterBoundaryThick(2, 20);
+	DrawLampRegisterNibbleLabelDivider(2, 0, 16);
+	DrawLampRegisterBoundaryThin(2, 16);
+	DrawLampRegisterBoundaryThick(2, 20);
     DrawLampRegisterSubBoundaryToLabelDivider(2, 20);
     DrawLampRegisterSubBoundaryToLabelDivider(2, 24);
     DrawLampRegisterSubBoundaryToLabelDivider(2, 28);
     DrawLampRegisterSubBoundaryToLabelDivider(2, 32);
+	DrawLampRegisterSubBoundaryToNibbleDivider(2, 3);
+	DrawLampRegisterSubBoundaryToNibbleDivider(2, 7);
+	DrawLampRegisterSubBoundaryToNibbleDivider(2, 10);
+	DrawLampRegisterSubBoundaryToNibbleDivider(2, 13);
+	DrawLampRegisterNibbleLabelBoundary(2, 4);
+	DrawLampRegisterNibbleLabelBoundary(2, 8);
+	DrawLampRegisterNibbleLabelBoundary(2, 12);
 
     /* row 4 */
     DrawLampRegisterBoundaryThick(3, 16);
@@ -217,7 +255,9 @@ static void DrawLampPanelOverlay(void)
     /* row 5 */
     DrawLampRegisterBoundaryThick(4, 4);
     DrawLampRegisterBoundaryThick(4, 36);
-    DrawLampRegisterSubBoundaryToLabelDivider(4, 8);
+	DrawLampRegisterSubBoundaryToNibbleDivider(5, 5);
+	DrawLampRegisterSubBoundaryToNibbleDivider(5, 19);
+	DrawLampRegisterSubBoundaryToLabelDivider(4, 8);
     DrawLampRegisterSubBoundaryToLabelDivider(4, 12);
     DrawLampRegisterSubBoundaryToLabelDivider(4, 16);
     DrawLampRegisterSubBoundaryToLabelDivider(4, 20);
@@ -226,11 +266,18 @@ static void DrawLampPanelOverlay(void)
     DrawLampRegisterSubBoundaryToLabelDivider(4, 32);
 
     /* row 6 */
-    DrawLampRegisterNibbleDivider(5, 4, 32);
+    DrawLampRegisterNibbleLabelDivider(5, 4, 32);
 //    DrawLampPanelOverlayLine(32 * LAMP_HORIZONTAL_SPACING, LINE_SUB_DIVIDER_THICKNESS, CalculateLampCellX(5, 4), LAMP_PANEL_Y + (6 * LAMP_VERTICAL_SPACING) - LAMP_HEIGHT);
     DrawLampRegisterBoundaryThick(5, 4);
     DrawLampRegisterBoundaryToLabelDivider(5, 36);
     DrawLampRegisterBoundaryToLabelDivider(5, 37);
+	DrawLampRegisterNibbleLabelBoundary(5, 8);
+	DrawLampRegisterNibbleLabelBoundary(5, 12);
+	DrawLampRegisterNibbleLabelBoundary(5, 16);
+	DrawLampRegisterNibbleLabelBoundary(5, 20);
+	DrawLampRegisterNibbleLabelBoundary(5, 24);
+	DrawLampRegisterNibbleLabelBoundary(5, 28);
+	DrawLampRegisterNibbleLabelBoundary(5, 32);
 }
 
 SDL_Texture *DrawFilledRectangle(int width, int height, int r, int g, int b)
@@ -272,11 +319,19 @@ static int CalculateLampX(int row, int column)
 static int CalculateLampCellX(int row, int column)
 {
     int x;
-    x = CalculateLampX(row, column) - LAMP_WIDTH;
-    if (row < (LAMP_ROWS - 1) && column == (LAMPS_PER_ROW / 2))
-    {
-        x = x - LAMP_HORIZONTAL_SPACING;
-    }
+	if (column == 0)
+	{
+		x = LAMP_PANEL_X;
+	}
+	else
+	{
+		x = CalculateLampX(row, column) - LAMP_WIDTH;
+		if (row < (LAMP_ROWS - 1) && column == (LAMPS_PER_ROW / 2))
+		{
+			x = x - LAMP_HORIZONTAL_SPACING;
+		}
+	}
+
     return x;
 }
 
