@@ -42,6 +42,8 @@
 #include <unistd.h>
 #endif
 
+#define INSTRUCTION_RATE 1000000 /* instructions per second */
+#define SCREEN_REFRESH_RATE 50 /* refreshes per second */
 #define WIDTH   1365
 #define HEIGHT  400
 #define DEPTH   32
@@ -109,9 +111,6 @@ DisplayCallback(PANEL *panel, unsigned long long simulation_time, void *context)
 static void
 DisplayRegisters(PANEL *panel)
 {
-    //char buf1[100], buf2[100], buf3[100], buf4[100];
-    //static const char *states[] = {"Halt", "Run "};
-
     if (update_display)
     {
         update_display = 0;
@@ -473,9 +472,9 @@ int my_boot(PANEL *panel)
     UINT64 cpr4 = 0x00006000F3040004;
     UINT64 cpr5 = 0x00006010F3050004;
     UINT64 cpr6 = 0x00006020F3050004;
-    UINT16 ms = 0x000C;
-    UINT32 co = 0xC0000;
-    UINT32 cpr_ignore = 0x01FFFFF0;
+	UINT16 ms = 0x000C;
+	UINT32 co = 0xC0000;
+	UINT32 cpr_ignore = 0x01FFFFF0;
     UINT32 engineers_handkeys = 0xA000;
     sim_panel_gen_deposit(panel, "sac v[4]", sizeof(cpr0), &cpr_ignore);
     sim_panel_gen_deposit(panel, "cpr[0]", sizeof(cpr0), &cpr0);
@@ -487,8 +486,8 @@ int my_boot(PANEL *panel)
     sim_panel_gen_deposit(panel, "cpr[6]", sizeof(cpr6), &cpr6);
     sim_panel_gen_deposit(panel, "con v[11]", sizeof(engineers_handkeys), &engineers_handkeys);
     sim_panel_gen_deposit(panel, "MS", sizeof(ms), &ms);
-    sim_panel_gen_deposit(panel, "CO", sizeof(co), &co);
-    sim_panel_exec_run(panel);
+	sim_panel_gen_deposit(panel, "CO", sizeof(co), &co);
+	sim_panel_exec_run(panel);
     return 0;
 }
 
@@ -530,12 +529,12 @@ main(int argc, char *argv[])
         fprintf(f, "dep cpr[3]  00003000E3030004\n");
         fprintf(f, "dep cpr[4]  00006000F3040004\n");
         fprintf(f, "dep cpr[5]  00006010F3050004\n");
-        fprintf(f, "dep cpr[6]  00006020F3050004\n");
+		fprintf(f, "dep cpr[6]  00006020F3050004\n");
 
         fprintf(f, "dep cpu ms 0014\n");
         fprintf(f, "load MU5ELR.bin\n");
-        fprintf(f, "load idle.bin\n");
-        fclose(f);
+		fprintf(f, "load idle.bin\n");
+		fclose(f);
     }
 
     InitDisplay();
@@ -554,7 +553,7 @@ main(int argc, char *argv[])
         sim_panel_set_debug_mode(panel, DBG_XMT | DBG_RCV | DBG_REQ | DBG_RSP);
     }
 
-    sim_panel_set_sampling_parameters(panel, 10, LAMP_LEVELS);
+    sim_panel_set_sampling_parameters(panel, INSTRUCTION_RATE / (SCREEN_REFRESH_RATE * LAMP_LEVELS), LAMP_LEVELS);
 
     if (sim_panel_add_register_bits(panel, "CO", "CPU", 32, CO))
     {
@@ -571,11 +570,11 @@ main(int argc, char *argv[])
         printf("Error adding register 'MS': %s\n", sim_panel_get_error());
         goto Done;
     }
-    //if (sim_panel_add_register_bits(panel, "V[1]", "PROP", 16, SE))
-    //{
-    //    printf("Error adding register 'PROP V[1]': %s\n", sim_panel_get_error());
-    //    goto Done;
-    //}
+    if (sim_panel_add_register_bits(panel, "SE", "PROP", 16, SE))
+    {
+        printf("Error adding register 'SE': %s\n", sim_panel_get_error());
+        goto Done;
+    }
     if (sim_panel_add_register_bits(panel, "INTERRUPT", "CPU", 8, Interrupt))
     {
         printf("Error adding register 'INTERRUPT': %s\n", sim_panel_get_error());
@@ -586,7 +585,7 @@ main(int argc, char *argv[])
         printf("Error getting register data: %s\n", sim_panel_get_error());
         goto Done;
     }
-    if (sim_panel_set_display_callback_interval(panel, &DisplayCallback, NULL, 50000)) {
+    if (sim_panel_set_display_callback_interval(panel, &DisplayCallback, NULL, 1000000/ SCREEN_REFRESH_RATE)) {
         printf("Error setting automatic display callback: %s\n", sim_panel_get_error());
         goto Done;
     }
