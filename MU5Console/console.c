@@ -34,6 +34,7 @@
 #include <signal.h>
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
+#include <SDL_ttf.h>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -44,27 +45,28 @@
 
 #define INSTRUCTION_RATE 1000000 /* instructions per second */
 #define SCREEN_REFRESH_RATE 50 /* refreshes per second */
-#define WIDTH   1365
-#define HEIGHT  400
+#define WIDTH   1900 /* reduced in size, aspect ratio should be about 3.4:1 */
+#define HEIGHT  800
 #define DEPTH   32
-#define LAMP_HEIGHT 12
-#define LAMP_WIDTH 4
-#define LAMP_HORIZONTAL_SPACING 12
-#define LAMP_VERTICAL_SPACING 42
+#define LAMP_HEIGHT 24
+#define LAMP_WIDTH 8
+#define LAMP_HORIZONTAL_SPACING (LAMP_WIDTH * 3)
+#define LAMP_VERTICAL_SPACING (LAMP_HEIGHT * 3 + LAMP_HEIGHT / 2)
+
 #define LAMP_OFF_COLOUR 97, 83, 74
 #define LAMP_ON_COLOUR 242, 88, 60
 #define LAMP_LEVELS 50
-#define PANEL_BACKGROUND_COLOUR 114, 111, 104
+#define PANEL_BACKGROUND_COLOUR 114, 111, 104 /* TODO: Use SDL_Color instead */
 #define LINE_COLOUR 98, 85, 76
 #define LINE_THICKNESS 2
 #define LINE_SUB_DIVIDER_THICKNESS 1
 #define LAMP_ROWS 6
 #define LAMPS_PER_ROW 40
 /* Lamp Panel coordinates are the top left of the panel outline*/
-#define LAMP_PANEL_X 788
-#define LAMP_PANEL_Y 19
 #define PANEL_WIDTH (LAMP_HORIZONTAL_SPACING * (LAMPS_PER_ROW + 4))
 #define PANEL_HEIGHT (LAMP_VERTICAL_SPACING * LAMP_ROWS)
+#define LAMP_PANEL_X (WIDTH - PANEL_WIDTH - (9 * LAMP_HORIZONTAL_SPACING))
+#define LAMP_PANEL_Y 19
 #define LABEL_BOX_HEIGHT (LAMP_HEIGHT/2)
 
 const char *sim_path =
@@ -79,6 +81,10 @@ const char *sim_config =
 
 static SDL_Window *sdlWindow;
 static SDL_Renderer *sdlRenderer;
+static TTF_Font *ttfLabel;
+static TTF_Font *ttfTime;
+static const SDL_Color white = { 255, 255, 255 };
+static const SDL_Color black = { 0,   0,   0 };
 
 /* Registers visible on the Front Panel */
 unsigned int CO[32], DL[32],MS[16],SE[16],Interrupt[8];
@@ -90,6 +96,7 @@ static int CalculateLampX(int row, int column);
 static int CalculateLampCellX(int row, int column);
 static void DrawLamp(int row, int column, int level);
 static void DrawLampPanel(void);
+static void DrawPanelText(int x, int y, char *text, TTF_Font *font);
 SDL_Texture *DrawFilledRectangle(int width, int height, int r, int g, int b);
 static void DrawLampPanelOverlayLine(int width, int height, int x, int y);
 static void DrawLampRegisterNibbleLabelDivider(int row, int column, int forColumns);
@@ -99,6 +106,7 @@ static void DrawLampRegisterBoundaryToLabelDivider(int row, int column);
 static void DrawLampRegisterSubBoundaryToNibbleDivider(int row, int column);
 static void DrawLampRegisterSubBoundaryToLabelDivider(int row, int column);
 static void DrawLampRegisterBoundaryThick(int row, int column);
+static void DrawPanelLowerLabel(int row, int column, char *text);
 static void DrawLampPanelOverlay(void);
 static void DrawRegister(int row, int column, unsigned int bits[], UINT8 width);
 
@@ -119,6 +127,7 @@ DisplayRegisters(PANEL *panel)
         DrawRegister(3, 0, MS, 16);
         DrawRegister(3, 16, Interrupt, 8);
         DrawRegister(3, 24, SE, 16);
+		DrawPanelText(0, 0, "00 00 00", ttfTime);
         UpdateWholeScreen();
     }
 }
@@ -137,14 +146,31 @@ static void DrawLampPanel(void)
     }
 }
 
+static void DrawPanelText(int x, int y, char *text, TTF_Font *font)
+{
+	SDL_Surface *surface = TTF_RenderText_Solid(font, text, black);
+	SDL_Texture *texture = SDL_CreateTextureFromSurface(sdlRenderer, surface);
+	SDL_Rect dstArea;
+	dstArea.h = surface->h;
+	dstArea.w = surface->w;
+	dstArea.x = x;
+	dstArea.y = y;
+	SDL_RenderCopy(sdlRenderer, texture, NULL, &dstArea);
+	SDL_FreeSurface(surface);
+	SDL_DestroyTexture(texture);
+}
+
 static void DrawLampPanelOverlayLine(int width, int height, int x, int y)
 {
     SDL_Rect dstArea;
+	SDL_Texture *texture;
     dstArea.h = height;
     dstArea.w = width;
     dstArea.x = x;
     dstArea.y = y;
-    SDL_RenderCopy(sdlRenderer, DrawFilledRectangle(width, height, LINE_COLOUR), NULL, &dstArea);
+	texture = DrawFilledRectangle(width, height, LINE_COLOUR);
+    SDL_RenderCopy(sdlRenderer, texture, NULL, &dstArea);
+	SDL_DestroyTexture(texture);
 }
 
 static void DrawLampRegisterNibbleLabelDivider(int row, int column, int forColumns)
@@ -187,6 +213,11 @@ static void DrawLampRegisterBoundaryThick(int row, int column)
 static void DrawLampRegisterBoundaryThin(int row, int column)
 {
     DrawLampPanelOverlayLine(LINE_SUB_DIVIDER_THICKNESS, LAMP_VERTICAL_SPACING, CalculateLampCellX(row, column), LAMP_PANEL_Y + (row * LAMP_VERTICAL_SPACING));
+}
+
+static void DrawPanelLowerLabel(int row, int column, char *text)
+{
+	DrawPanelText(CalculateLampCellX(row, column) + (LAMP_HORIZONTAL_SPACING / 2), LAMP_PANEL_Y + ((row + 1) * LAMP_VERTICAL_SPACING) - (LAMP_HEIGHT / 2), text, ttfLabel);
 }
 
 static void DrawLampPanelOverlay(void)
@@ -247,9 +278,15 @@ static void DrawLampPanelOverlay(void)
 	DrawLampRegisterNibbleLabelBoundary(2, 8);
 	DrawLampRegisterNibbleLabelBoundary(2, 12);
 
+	DrawPanelLowerLabel(2, 28, "TELETYPE BUFFER");
+
     /* row 4 */
     DrawLampRegisterBoundaryThick(3, 16);
     DrawLampRegisterBoundaryThick(3, 24);
+
+	DrawPanelLowerLabel(3, 5, "MACHINE STATUS");
+	DrawPanelLowerLabel(3, 19, "INTERRUPT ENTRY");
+	DrawPanelLowerLabel(3, 31, "SYSTEM ERROR");
 
     /* row 5 */
     DrawLampRegisterBoundaryThick(4, 4);
@@ -264,6 +301,8 @@ static void DrawLampPanelOverlay(void)
     DrawLampRegisterSubBoundaryToLabelDivider(4, 28);
     DrawLampRegisterSubBoundaryToLabelDivider(4, 32);
 
+	DrawPanelLowerLabel(4, 19, "DISPLAY (EDL)");
+
     /* row 6 */
     DrawLampRegisterNibbleLabelDivider(5, 4, 32);
 //    DrawLampPanelOverlayLine(32 * LAMP_HORIZONTAL_SPACING, LINE_SUB_DIVIDER_THICKNESS, CalculateLampCellX(5, 4), LAMP_PANEL_Y + (6 * LAMP_VERTICAL_SPACING) - LAMP_HEIGHT);
@@ -277,6 +316,9 @@ static void DrawLampPanelOverlay(void)
 	DrawLampRegisterNibbleLabelBoundary(5, 24);
 	DrawLampRegisterNibbleLabelBoundary(5, 28);
 	DrawLampRegisterNibbleLabelBoundary(5, 32);
+
+	DrawPanelLowerLabel(5, 0, "PROCESS NUMBER");
+	DrawPanelLowerLabel(5, 19, "CONTROL");
 }
 
 SDL_Texture *DrawFilledRectangle(int width, int height, int r, int g, int b)
@@ -378,67 +420,59 @@ static void UpdateWholeScreen(void)
 
 int CreatePanel()
 {
+	// TODO: Tidy up all the creation so anything that could fail or not be found is done first and clean up.
     int result = 0;
     if (SDL_Init(SDL_INIT_VIDEO) != 0)
     {
         printf("SDL: unable to init: %s\n", SDL_GetError());
     }
-    else
+	else
+	{
+		if (TTF_Init() < 0)
+		{
+			printf("SDL: couldn't initialize TTF: %s\n", SDL_GetError());
+		}
+		else
+		{
+			result = 1;
+		}
+	}
+
+	if (result)
     {
         if (SDL_CreateWindowAndRenderer(WIDTH, HEIGHT, SDL_WINDOW_RESIZABLE, &sdlWindow, &sdlRenderer) != 0)
         {
             SDL_LogError(SDL_LOG_CATEGORY_ERROR, "SDL: unable to create window and renderer: %s\n",SDL_GetError());
+			result = 0;
         }
         else
         {
 
             SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");  // make the scaled rendering look smoother.
             SDL_RenderSetLogicalSize(sdlRenderer, WIDTH, HEIGHT);
+			//SDL_RenderSetScale(sdlRenderer, 1, 2);
             /* Make grey console background */
             SDL_SetRenderDrawColor(sdlRenderer, PANEL_BACKGROUND_COLOUR, 255);
             SDL_RenderClear(sdlRenderer);
 
-            ///* Initialize the TTF library */
-            //if (TTF_Init() < 0) {
-            //    t_stat ret = sim_messagef(SCPE_OPENERR, "SDL: couldn't initialize TTF: %s\n",
-            //        SDL_GetError());
-            //    SDL_Quit();
-            //    return ret;
-            //}
 
-            ///* Font colors */
-            //background = black;
-            //foreground = cyan;
+			ttfLabel = TTF_OpenFont("\\windows\\fonts\\cour.ttf", LAMP_HEIGHT / 2);
+			if (ttfLabel == NULL)
+			{
+				printf("SDL: couldn't load font %s: %s\n", "\\windows\\fonts\\cour.ttf", SDL_GetError());
+				result = 0;
+			}
 
-            ///* Open the font file with the requested point size */
-            //font_big = TTF_OpenFont(QUOTE(FONTFILE), 16);
-            //font_small = TTF_OpenFont(QUOTE(FONTFILE), 9);
-            //if (!font_big || !font_small) {
-            //    t_stat ret = sim_messagef(SCPE_OPENERR, "SDL: couldn't load font %s: %s\n",
-            //        QUOTE(FONTFILE), SDL_GetError());
-            //    besm6_close_panel(u, val, cptr, desc);
-            //    return ret;
-            //}
+			ttfTime = TTF_OpenFont("ledreali.ttf", LAMP_HEIGHT * 2);
+			if (ttfTime == NULL)
+			{
+				printf("SDL: couldn't load font %s: %s\n", "ledreali.ttf", SDL_GetError());
+				result = 0;
+			}
 
             DrawLampPanel();
-            ///* Drawing the static part of the BESM-6 panel */
-            //draw_modifiers_static(0, 24, 10);
-            //draw_modifiers_static(1, 400, 10);
-            //draw_prp_static(24, 170);
-            //draw_counters_static(24 + 32 * STEPX, 170);
-            //draw_grp_static(24, 230);
-            //draw_brz_static(24, 280);
-
-            ///* Make sure all lights are updated */
-            //memset(M_lamps, ~0, sizeof(M_lamps));
-            //memset(BRZ_lamps, ~0, sizeof(BRZ_lamps));
-            //memset(GRP_lamps, ~0, sizeof(GRP_lamps));
-            //memset(PRP_lamps, ~0, sizeof(PRP_lamps));
-            //memset(PC_lamps, ~0, sizeof(PC_lamps));
-            //besm6_draw_panel(1);
 
             UpdateWholeScreen();
-            result = 1;
         }
     }
 
