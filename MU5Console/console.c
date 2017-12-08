@@ -44,12 +44,12 @@
 #endif
 
 #define INSTRUCTION_RATE 1000000 /* instructions per second */
-#define SCREEN_REFRESH_RATE 50 /* refreshes per second */
+#define SCREEN_REFRESH_RATE 25 /* refreshes per second */
 #define WIDTH   1900 /* reduced in size, aspect ratio should be about 3.4:1 */
 #define HEIGHT  800
 #define DEPTH   32
-#define LAMP_HEIGHT 24
-#define LAMP_WIDTH 8
+#define LAMP_HEIGHT 30
+#define LAMP_WIDTH 10
 #define LAMP_HORIZONTAL_SPACING (LAMP_WIDTH * 3)
 #define LAMP_VERTICAL_SPACING (LAMP_HEIGHT * 3 + LAMP_HEIGHT / 2)
 
@@ -65,7 +65,7 @@
 #define PANEL_WIDTH (LAMP_HORIZONTAL_SPACING * (LAMPS_PER_ROW + 4))
 #define PANEL_HEIGHT (LAMP_VERTICAL_SPACING * LAMP_ROWS)
 /* Lamp Panel coordinates are the top left of the panel outline*/
-#define LAMP_PANEL_X (WIDTH - PANEL_WIDTH - (9 * LAMP_HORIZONTAL_SPACING))
+#define LAMP_PANEL_X (WIDTH - PANEL_WIDTH - (1 * LAMP_HORIZONTAL_SPACING))
 #define LAMP_PANEL_Y 19
 #define TIME_PANEL_X 50
 #define TIME_PANEL_Y (LAMP_PANEL_Y)
@@ -101,6 +101,7 @@ UINT64 TimeLower;
 int update_display = 1;
 
 static void UpdateWholeScreen(void);
+static void DisplayTime(void);
 static int CalculateLampX(int row, int column);
 static int CalculateLampCellX(int row, int column);
 static void DrawLamp(int row, int column, int level);
@@ -115,6 +116,7 @@ static void DrawLampRegisterBoundaryToLabelDivider(int row, int column);
 static void DrawLampRegisterSubBoundaryToNibbleDivider(int row, int column);
 static void DrawLampRegisterSubBoundaryToLabelDivider(int row, int column);
 static void DrawLampRegisterBoundaryThick(int row, int column);
+static void DrawPanelUpperLabel(int row, int column, char *text);
 static void DrawPanelLowerLabel(int row, int column, char *text);
 static void DrawLampPanelOverlay(void);
 static void DrawRegister(int row, int column, unsigned int bits[], UINT8 width);
@@ -128,8 +130,6 @@ DisplayCallback(PANEL *panel, unsigned long long simulation_time, void *context)
 static void
 DisplayRegisters(PANEL *panel)
 {
-	char time[10];
-
     if (update_display)
     {
         update_display = 0;
@@ -138,14 +138,37 @@ DisplayRegisters(PANEL *panel)
         DrawRegister(3, 0, MS, 16);
         DrawRegister(3, 16, Interrupt, 8);
         DrawRegister(3, 24, SE, 16);
-		int hours = (TimeUpper >> 8) & 0xFF;
-		int mins = TimeUpper & 0xFF;
-		int secs = (TimeLower >> 8) & 0xFF;
-		sprintf(time, "%02X %02X %02X", hours, mins, secs);
-//		printf("%s\n", time);
-		DrawPanelText(TIME_PANEL_X + TIME_PANEL_MARGIN, TIME_PANEL_Y + TIME_PANEL_MARGIN, time, ttfTime, TRUE);
+		DisplayTime();
         UpdateWholeScreen();
     }
+}
+
+static void DisplayTime(void)
+{
+	char time[10];
+	int hours;
+	int mins;
+	int secs;
+	static SDL_Rect timeArea;
+	static SDL_Texture *timePanelTexture;
+
+	if (timePanelTexture == NULL)
+	{
+		timeArea.x = TIME_PANEL_X;
+		timeArea.y = TIME_PANEL_Y;
+		TTF_SizeText(ttfTime, "00 00 00", &timeArea.w, &timeArea.h);
+		timeArea.w += 2 * TIME_PANEL_MARGIN;
+		timeArea.h += 2 * TIME_PANEL_MARGIN;
+		timePanelTexture = DrawFilledRectangle(timeArea.w, timeArea.h, black);
+	}
+
+	hours = (TimeUpper >> 8) & 0xFF;
+	mins = TimeUpper & 0xFF;
+	secs = (TimeLower >> 8) & 0xFF;
+	sprintf(time, "%02X %02X %02X", hours, mins, secs);
+	SDL_RenderCopy(sdlRenderer, timePanelTexture, NULL, &timeArea);
+	DrawPanelText(TIME_PANEL_X + TIME_PANEL_MARGIN, TIME_PANEL_Y + TIME_PANEL_MARGIN, time, ttfTime, TRUE);
+
 }
 
 static void DrawLampPanel(void)
@@ -244,26 +267,19 @@ static void DrawLampRegisterBoundaryThin(int row, int column)
     DrawLampPanelOverlayLine(LINE_SUB_DIVIDER_THICKNESS, LAMP_VERTICAL_SPACING, CalculateLampCellX(row, column), LAMP_PANEL_Y + (row * LAMP_VERTICAL_SPACING));
 }
 
+static void DrawPanelUpperLabel(int row, int column, char *text)
+{
+	DrawPanelText(CalculateLampCellX(row, column) + (LAMP_HORIZONTAL_SPACING / 2), LAMP_PANEL_Y + ((row) * LAMP_VERTICAL_SPACING) + (LAMP_HEIGHT / 2) + 2, text, ttfLabel, FALSE);
+}
+
 static void DrawPanelLowerLabel(int row, int column, char *text)
 {
-	DrawPanelText(CalculateLampCellX(row, column) + (LAMP_HORIZONTAL_SPACING / 2), LAMP_PANEL_Y + ((row + 1) * LAMP_VERTICAL_SPACING) - (LAMP_HEIGHT / 2), text, ttfLabel, FALSE);
+	DrawPanelText(CalculateLampCellX(row, column) + (LAMP_HORIZONTAL_SPACING / 2), LAMP_PANEL_Y + ((row + 1) * LAMP_VERTICAL_SPACING) - (LAMP_HEIGHT / 2) + 2, text, ttfLabel, FALSE);
 }
 
 static void DrawLampPanelOverlay(void)
 {
     int i;
-	SDL_Rect timeArea;
-	SDL_Texture *timePanelTexture;
-
-	/* Time Panel */
-	timeArea.x = TIME_PANEL_X;
-	timeArea.y = TIME_PANEL_Y;
-	TTF_SizeText(ttfTime, "00 00 00", &timeArea.w, &timeArea.h);
-	timeArea.w += 2 * TIME_PANEL_MARGIN;
-	timeArea.h += 2 * TIME_PANEL_MARGIN;
-	timePanelTexture = DrawFilledRectangle(timeArea.w, timeArea.h, black);
-	SDL_RenderCopy(sdlRenderer, timePanelTexture, NULL, &timeArea);
-	SDL_DestroyTexture(timePanelTexture);
 
 	/* Outer borders and main row dividers */
     for (i = 0; i <= LAMP_ROWS; i++)
@@ -290,6 +306,12 @@ static void DrawLampPanelOverlay(void)
     DrawLampRegisterBoundaryThick(0, 29);
 	DrawLampRegisterHalfBoundaryToLabelDivider(0, 25);
 
+	DrawPanelLowerLabel(0, 3, "PROP WAIT");
+	DrawPanelLowerLabel(0, 11, "SAC");
+	DrawPanelLowerLabel(0, 17, "OBS");
+	DrawPanelLowerLabel(0, 23, "BUSY SIGNALS");
+	DrawPanelLowerLabel(0, 34, "TEST SWITCHES");
+
     /* row 2 */
     DrawLampRegisterNibbleLabelDivider(1, 0, 16);
     DrawLampRegisterBoundaryThin(1, 16);
@@ -303,7 +325,11 @@ static void DrawLampPanelOverlay(void)
 	DrawLampRegisterNibbleLabelBoundary(1, 8);
 	DrawLampRegisterNibbleLabelBoundary(1, 12);
 
-    /* row 3 */
+	DrawPanelLowerLabel(1, 7, "(???) PROP FINAL FUNCTION");
+	DrawPanelLowerLabel(1, 22, "FINGER FLIP FLOPS");
+	DrawPanelLowerLabel(1, 32, "PARITY SWITCHES OFF NORMAL");
+
+	/* row 3 */
 	DrawLampRegisterNibbleLabelDivider(2, 0, 16);
 	DrawLampRegisterBoundaryThin(2, 16);
 	DrawLampRegisterBoundaryThick(2, 20);
@@ -319,6 +345,7 @@ static void DrawLampPanelOverlay(void)
 	DrawLampRegisterNibbleLabelBoundary(2, 8);
 	DrawLampRegisterNibbleLabelBoundary(2, 12);
 
+	DrawPanelLowerLabel(2, 7, "(???) PROP FIRST FUNCTION");
 	DrawPanelLowerLabel(2, 28, "TELETYPE BUFFER");
 
     /* row 4 */
@@ -342,7 +369,9 @@ static void DrawLampPanelOverlay(void)
     DrawLampRegisterSubBoundaryToLabelDivider(4, 28);
     DrawLampRegisterSubBoundaryToLabelDivider(4, 32);
 
+	DrawPanelLowerLabel(4, 0, "PROP VALID");
 	DrawPanelLowerLabel(4, 19, "DISPLAY (EDL)");
+	DrawPanelLowerLabel(4, 36, "LOCAL ST. FAIL SOFT MODE");
 
     /* row 6 */
     DrawLampRegisterNibbleLabelDivider(5, 4, 32);
@@ -358,6 +387,8 @@ static void DrawLampPanelOverlay(void)
 	DrawLampRegisterNibbleLabelBoundary(5, 28);
 	DrawLampRegisterNibbleLabelBoundary(5, 32);
 
+	DrawPanelUpperLabel(5, 11, "SEGMENT");
+	DrawPanelUpperLabel(5, 27, "LINE");
 	DrawPanelLowerLabel(5, 0, "PROCESS NUMBER");
 	DrawPanelLowerLabel(5, 19, "CONTROL");
 }
@@ -494,7 +525,7 @@ int CreatePanel()
             SDL_RenderClear(sdlRenderer);
 
 
-			ttfLabel = TTF_OpenFont("\\windows\\fonts\\cour.ttf", LAMP_HEIGHT / 2);
+			ttfLabel = TTF_OpenFont("\\windows\\fonts\\cour.ttf", LAMP_HEIGHT / 3);
 			if (ttfLabel == NULL)
 			{
 				printf("SDL: couldn't load font %s: %s\n", "\\windows\\fonts\\cour.ttf", SDL_GetError());
