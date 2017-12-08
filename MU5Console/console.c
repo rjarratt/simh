@@ -62,11 +62,14 @@
 #define LINE_SUB_DIVIDER_THICKNESS 1
 #define LAMP_ROWS 6
 #define LAMPS_PER_ROW 40
-/* Lamp Panel coordinates are the top left of the panel outline*/
 #define PANEL_WIDTH (LAMP_HORIZONTAL_SPACING * (LAMPS_PER_ROW + 4))
 #define PANEL_HEIGHT (LAMP_VERTICAL_SPACING * LAMP_ROWS)
+/* Lamp Panel coordinates are the top left of the panel outline*/
 #define LAMP_PANEL_X (WIDTH - PANEL_WIDTH - (9 * LAMP_HORIZONTAL_SPACING))
 #define LAMP_PANEL_Y 19
+#define TIME_PANEL_X 50
+#define TIME_PANEL_Y (LAMP_PANEL_Y)
+#define TIME_PANEL_MARGIN 5
 #define LABEL_BOX_HEIGHT (LAMP_HEIGHT/2)
 
 const char *sim_path =
@@ -83,11 +86,17 @@ static SDL_Window *sdlWindow;
 static SDL_Renderer *sdlRenderer;
 static TTF_Font *ttfLabel;
 static TTF_Font *ttfTime;
-static const SDL_Color white = { 255, 255, 255 };
-static const SDL_Color black = { 0,   0,   0 };
+static const SDL_Color white = { 255, 255, 255, 0 };
+static const SDL_Color black = { 0,   0,   0, 0 };
+static const SDL_Color panelBackground = { PANEL_BACKGROUND_COLOUR, 0 };
+static const SDL_Color lineColour = { LINE_COLOUR, 0 };
+static const SDL_Color lampOnColour = { LAMP_ON_COLOUR, 0 };
+static const SDL_Color lampOffColour = { LAMP_OFF_COLOUR, 0 };
 
 /* Registers visible on the Front Panel */
 unsigned int CO[32], DL[32],MS[16],SE[16],Interrupt[8];
+UINT64 TimeUpper;
+UINT64 TimeLower;
 
 int update_display = 1;
 
@@ -96,8 +105,8 @@ static int CalculateLampX(int row, int column);
 static int CalculateLampCellX(int row, int column);
 static void DrawLamp(int row, int column, int level);
 static void DrawLampPanel(void);
-static void DrawPanelText(int x, int y, char *text, TTF_Font *font);
-SDL_Texture *DrawFilledRectangle(int width, int height, int r, int g, int b);
+static void DrawPanelText(int x, int y, char *text, TTF_Font *font, int updateable);
+SDL_Texture *DrawFilledRectangle(int width, int height, SDL_Color colour);
 static void DrawLampPanelOverlayLine(int width, int height, int x, int y);
 static void DrawLampRegisterNibbleLabelDivider(int row, int column, int forColumns);
 static void DrawLampRegisterNibbleLabelBoundary(int row, int column);
@@ -119,6 +128,8 @@ DisplayCallback(PANEL *panel, unsigned long long simulation_time, void *context)
 static void
 DisplayRegisters(PANEL *panel)
 {
+	char time[10];
+
     if (update_display)
     {
         update_display = 0;
@@ -127,7 +138,12 @@ DisplayRegisters(PANEL *panel)
         DrawRegister(3, 0, MS, 16);
         DrawRegister(3, 16, Interrupt, 8);
         DrawRegister(3, 24, SE, 16);
-		DrawPanelText(0, 0, "00 00 00", ttfTime);
+		int hours = (TimeUpper >> 8) & 0xFF;
+		int mins = TimeUpper & 0xFF;
+		int secs = (TimeLower >> 8) & 0xFF;
+		sprintf(time, "%02X %02X %02X", hours, mins, secs);
+//		printf("%s\n", time);
+		DrawPanelText(TIME_PANEL_X + TIME_PANEL_MARGIN, TIME_PANEL_Y + TIME_PANEL_MARGIN, time, ttfTime, TRUE);
         UpdateWholeScreen();
     }
 }
@@ -146,15 +162,28 @@ static void DrawLampPanel(void)
     }
 }
 
-static void DrawPanelText(int x, int y, char *text, TTF_Font *font)
+static void DrawPanelText(int x, int y, char *text, TTF_Font *font, int updateable)
 {
-	SDL_Surface *surface = TTF_RenderText_Solid(font, text, black);
-	SDL_Texture *texture = SDL_CreateTextureFromSurface(sdlRenderer, surface);
+	SDL_Surface *surface;
+	SDL_Texture *texture;
 	SDL_Rect dstArea;
-	dstArea.h = surface->h;
-	dstArea.w = surface->w;
+
+	if (updateable)
+	{
+		surface = TTF_RenderText_Shaded(font, text, lampOnColour, black);
+	}
+	else
+	{
+		surface = TTF_RenderText_Solid(font, text, black);
+	}
+
+	texture = SDL_CreateTextureFromSurface(sdlRenderer, surface);
+
 	dstArea.x = x;
 	dstArea.y = y;
+	dstArea.h = surface->h;
+	dstArea.w = surface->w;
+
 	SDL_RenderCopy(sdlRenderer, texture, NULL, &dstArea);
 	SDL_FreeSurface(surface);
 	SDL_DestroyTexture(texture);
@@ -168,7 +197,7 @@ static void DrawLampPanelOverlayLine(int width, int height, int x, int y)
     dstArea.w = width;
     dstArea.x = x;
     dstArea.y = y;
-	texture = DrawFilledRectangle(width, height, LINE_COLOUR);
+	texture = DrawFilledRectangle(width, height, lineColour);
     SDL_RenderCopy(sdlRenderer, texture, NULL, &dstArea);
 	SDL_DestroyTexture(texture);
 }
@@ -217,14 +246,26 @@ static void DrawLampRegisterBoundaryThin(int row, int column)
 
 static void DrawPanelLowerLabel(int row, int column, char *text)
 {
-	DrawPanelText(CalculateLampCellX(row, column) + (LAMP_HORIZONTAL_SPACING / 2), LAMP_PANEL_Y + ((row + 1) * LAMP_VERTICAL_SPACING) - (LAMP_HEIGHT / 2), text, ttfLabel);
+	DrawPanelText(CalculateLampCellX(row, column) + (LAMP_HORIZONTAL_SPACING / 2), LAMP_PANEL_Y + ((row + 1) * LAMP_VERTICAL_SPACING) - (LAMP_HEIGHT / 2), text, ttfLabel, FALSE);
 }
 
 static void DrawLampPanelOverlay(void)
 {
     int i;
+	SDL_Rect timeArea;
+	SDL_Texture *timePanelTexture;
 
-    /* Outer borders and main row dividers */
+	/* Time Panel */
+	timeArea.x = TIME_PANEL_X;
+	timeArea.y = TIME_PANEL_Y;
+	TTF_SizeText(ttfTime, "00 00 00", &timeArea.w, &timeArea.h);
+	timeArea.w += 2 * TIME_PANEL_MARGIN;
+	timeArea.h += 2 * TIME_PANEL_MARGIN;
+	timePanelTexture = DrawFilledRectangle(timeArea.w, timeArea.h, black);
+	SDL_RenderCopy(sdlRenderer, timePanelTexture, NULL, &timeArea);
+	SDL_DestroyTexture(timePanelTexture);
+
+	/* Outer borders and main row dividers */
     for (i = 0; i <= LAMP_ROWS; i++)
     {
         if (i > 1)
@@ -321,12 +362,12 @@ static void DrawLampPanelOverlay(void)
 	DrawPanelLowerLabel(5, 19, "CONTROL");
 }
 
-SDL_Texture *DrawFilledRectangle(int width, int height, int r, int g, int b)
+SDL_Texture *DrawFilledRectangle(int width, int height, SDL_Color colour)
 {
     SDL_Surface *tempSurface;
     SDL_Texture *result;
     tempSurface = SDL_CreateRGBSurface(0, width, height, 32, 0, 0, 0, 0);
-    SDL_FillRect(tempSurface, NULL, SDL_MapRGB(tempSurface->format, r, g, b));
+    SDL_FillRect(tempSurface, NULL, SDL_MapRGB(tempSurface->format, colour.r, colour.g, colour.b));
     result = SDL_CreateTextureFromSurface(sdlRenderer, tempSurface);
     SDL_FreeSurface(tempSurface);
     return result;
@@ -380,20 +421,17 @@ static void DrawLamp(int row, int column, int level)
 {
     static SDL_Texture * sprites[LAMP_LEVELS + 1];
     SDL_Rect area;
-    int fullOff[3] = { LAMP_OFF_COLOUR };
-    int fullOn[3] = { LAMP_ON_COLOUR };
+	SDL_Color colour;
     int i;
 
     if (!sprites[0])
     {
         for (i = 0; i <= LAMP_LEVELS; i++)
         {
-            sprites[i] = DrawFilledRectangle(
-                LAMP_WIDTH,
-                LAMP_HEIGHT,
-                fullOff[0] + (i * ((fullOn[0] - fullOff[0]) / LAMP_LEVELS)),
-                fullOff[1] + (i * ((fullOn[1] - fullOff[1]) / LAMP_LEVELS)),
-                fullOff[2] + (i * ((fullOn[2] - fullOff[2]) / LAMP_LEVELS)));
+			colour.r = lampOffColour.r + (i * ((lampOnColour.r - lampOffColour.r) / LAMP_LEVELS));
+			colour.g = lampOffColour.g + (i * ((lampOnColour.g - lampOffColour.g) / LAMP_LEVELS));
+			colour.b = lampOffColour.b + (i * ((lampOnColour.b - lampOffColour.b) / LAMP_LEVELS));
+			sprites[i] = DrawFilledRectangle(LAMP_WIDTH, LAMP_HEIGHT, colour);
         }
     }
 
@@ -589,12 +627,22 @@ main(int argc, char *argv[])
 
     sim_panel_set_sampling_parameters(panel, INSTRUCTION_RATE / (SCREEN_REFRESH_RATE * LAMP_LEVELS), LAMP_LEVELS);
 
-    if (sim_panel_add_register_bits(panel, "CO", "CPU", 32, CO))
-    {
-        printf("Error adding register 'CO': %s\n", sim_panel_get_error());
-        goto Done;
-    }
-    if (sim_panel_add_register_bits(panel, "DL", "CPU", 32, DL))
+	if (sim_panel_add_register(panel, "TIMEUPPER", "CON", sizeof(TimeUpper), &TimeUpper))
+	{
+		printf("Error adding register 'TIMEUPPER': %s\n", sim_panel_get_error());
+		goto Done;
+	}
+	if (sim_panel_add_register(panel, "TIMELOWER", "CON", sizeof(TimeLower), &TimeLower))
+	{
+		printf("Error adding register 'TIMELOWER': %s\n", sim_panel_get_error());
+		goto Done;
+	}
+	if (sim_panel_add_register_bits(panel, "CO", "CPU", 32, CO))
+	{
+		printf("Error adding register 'CO': %s\n", sim_panel_get_error());
+		goto Done;
+	}
+	if (sim_panel_add_register_bits(panel, "DL", "CPU", 32, DL))
     {
         printf("Error adding register 'DL': %s\n", sim_panel_get_error());
         goto Done;
