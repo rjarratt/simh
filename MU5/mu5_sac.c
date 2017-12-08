@@ -473,7 +473,7 @@ void sac_write_v_store(uint8 block, uint8 line, t_uint64 value)
     l = &VStore[block][line];
 	if (block == SYSTEM_V_STORE_BLOCK)
 	{
-		t_addr addr = addr = 0x20000000 | (block << 9) | (line << 1); /* 64-bit address so  block and line shifted left by 1 */
+		t_addr addr = addr = 0x20000000 | (block << 9) | (line << 1); /* 64-bit address so block and line shifted left by 1 */
 		sac_write_64_bit_word(addr, value);
 	}
 	else if (l->WriteCallback != NULL)
@@ -491,7 +491,7 @@ t_uint64 sac_read_v_store(uint8 block, uint8 line)
     l = &VStore[block][line];
 	if (block == SYSTEM_V_STORE_BLOCK)
 	{
-		t_addr addr = addr = 0x20000000 | (block << 9) | (line << 1); /* 64-bit address so  block and line shifted left by 1 */
+		t_addr addr = addr = 0x20000000 | (block << 9) | (line << 1); /* 64-bit address so block and line shifted left by 1 */
 		result = sac_read_64_bit_word(addr);
 	}
 	else if (l->ReadCallback != NULL)

@@ -57,6 +57,8 @@ static void console_schedule_next_poll(UNIT *uptr);
 
 static void console_v_store_register_read_callback(struct REG *reg, int index);
 static void console_v_store_register_write_callback(t_value old_val, struct REG *reg, int index);
+static void console_time_upper_read_callback(struct REG *reg, int index);
+static void console_time_lower_read_callback(struct REG *reg, int index);
 
 static t_uint64 console_read_console_interrupt_callback(uint8 line);
 static void console_write_console_interrupt_callback(uint8 line, t_uint64 value);
@@ -111,8 +113,10 @@ static UNIT console_unit =
 
 static REG console_reg[] =
 {
-    { STRDATADFC(V, VStore[CONSOLE_V_STORE_BLOCK], 16, 64, 0, V_STORE_BLOCK_SIZE, sizeof(VSTORE_LINE), 0, "V Store", NULL, console_v_store_register_read_callback, console_v_store_register_write_callback) },
-    { NULL }
+    { STRDATADFC(V,        VStore[CONSOLE_V_STORE_BLOCK],    16, 64, 0, V_STORE_BLOCK_SIZE, sizeof(VSTORE_LINE), 0, "V Store", NULL, console_v_store_register_read_callback, console_v_store_register_write_callback) },
+	{ HRDATADFC(TIMEUPPER, VStore[CONSOLE_V_STORE_BLOCK][2],     64, "Time Upper register", NULL, console_time_upper_read_callback, NULL), REG_HRO }, /* Needed because remote console can't sample array registers. Hidden because it is not the mechanism to be used for setting it, only used for sampling by remote console */
+	{ HRDATADFC(TIMELOWER, VStore[CONSOLE_V_STORE_BLOCK][3],     64, "Time Lower register", NULL, console_time_lower_read_callback, NULL), REG_HRO }, /* Needed because remote console can't sample array registers. Hidden because it is not the mechanism to be used for setting it, only used for sampling by remote console */
+	{ NULL }
 };
 
 static MTAB console_mod[] =
@@ -325,13 +329,22 @@ static void console_v_store_register_read_callback(struct REG *reg, int index)
 {
     assert(reg->width == 64);
     sac_read_v_store(CONSOLE_V_STORE_BLOCK, index);
-
 }
 
 static void console_v_store_register_write_callback(t_value old_val, struct REG *reg, int index)
 {
     assert(reg->width == 64);
     sac_write_v_store(CONSOLE_V_STORE_BLOCK, index, ((VSTORE_LINE *)reg->loc + index)->value);
+}
+
+static void console_time_upper_read_callback(struct REG *reg, int index)
+{
+	console_v_store_register_read_callback(reg, 2);
+}
+
+static void console_time_lower_read_callback(struct REG *reg, int index)
+{
+	console_v_store_register_read_callback(reg, 3);
 }
 
 /* TODO: Audio code still has a crackle, possibly because at buffer changeover the old buffer has finished playing before the new one is queued */
