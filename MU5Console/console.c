@@ -120,6 +120,8 @@ static void DrawPanelUpperLabel(int row, int column, char *text);
 static void DrawPanelLowerLabel(int row, int column, char *text);
 static void DrawLampPanelOverlay(void);
 static void DrawRegister(int row, int column, unsigned int bits[], UINT8 width);
+static int SetupRegister(char *device, char *name, UINT64 *address);
+static int SetupSampledRegister(char *device, char *name, int bits, int *data);
 
 static void
 DisplayCallback(PANEL *panel, unsigned long long simulation_time, void *context)
@@ -594,12 +596,37 @@ int my_boot(PANEL *panel)
     return 0;
 }
 
+static int SetupRegister(char *device, char *name, UINT64 *address)
+{
+	int result = 1;
+	if (sim_panel_add_register(panel, name, device, sizeof(UINT64), address))
+	{
+		SDL_Log("Error adding register %s %s: %s\n", device, name, sim_panel_get_error());
+		result = 0;
+	}
+
+	return result;
+}
+
+static int SetupSampledRegister(char *device, char *name, int bits, int *data)
+{
+	int result = 1;
+	if (sim_panel_add_register_bits(panel, name, device, bits, data))
+	{
+		SDL_Log("Error adding sampled register %s %s: %s\n", device, name, sim_panel_get_error());
+		result = 0;
+	}
+
+	return result;
+}
+
 int
 main(int argc, char *argv[])
 {
     SDL_Event e;
     FILE *f;
     int debug = 0;
+	int setupOk = 1;
 
     if ((argc > 1) && ((!strcmp("-d", argv[1])) || (!strcmp("-D", argv[1])) || (!strcmp("-debug", argv[1]))))
         debug = 1;
@@ -658,41 +685,13 @@ main(int argc, char *argv[])
 
     sim_panel_set_sampling_parameters(panel, INSTRUCTION_RATE / (SCREEN_REFRESH_RATE * LAMP_LEVELS), LAMP_LEVELS);
 
-	if (sim_panel_add_register(panel, "TIMEUPPER", "CON", sizeof(TimeUpper), &TimeUpper))
-	{
-		printf("Error adding register 'TIMEUPPER': %s\n", sim_panel_get_error());
-		goto Done;
-	}
-	if (sim_panel_add_register(panel, "TIMELOWER", "CON", sizeof(TimeLower), &TimeLower))
-	{
-		printf("Error adding register 'TIMELOWER': %s\n", sim_panel_get_error());
-		goto Done;
-	}
-	if (sim_panel_add_register_bits(panel, "CO", "CPU", 32, CO))
-	{
-		printf("Error adding register 'CO': %s\n", sim_panel_get_error());
-		goto Done;
-	}
-	if (sim_panel_add_register_bits(panel, "DL", "CPU", 32, DL))
-    {
-        printf("Error adding register 'DL': %s\n", sim_panel_get_error());
-        goto Done;
-    }
-    if (sim_panel_add_register_bits(panel, "MS", "CPU", 16, MS))
-    {
-        printf("Error adding register 'MS': %s\n", sim_panel_get_error());
-        goto Done;
-    }
-    if (sim_panel_add_register_bits(panel, "SE", "PROP", 16, SE))
-    {
-        printf("Error adding register 'SE': %s\n", sim_panel_get_error());
-        goto Done;
-    }
-    if (sim_panel_add_register_bits(panel, "INTERRUPT", "CPU", 8, Interrupt))
-    {
-        printf("Error adding register 'INTERRUPT': %s\n", sim_panel_get_error());
-        goto Done;
-    }
+	setupOk &= SetupRegister("CON", "TIMEUPPER", &TimeUpper);
+	setupOk &= SetupRegister("CON", "TIMELOWER", &TimeLower);
+	setupOk &= SetupSampledRegister("CPU", "CO", 32, CO);
+	setupOk &= SetupSampledRegister("CPU", "DL", 32, DL);
+	setupOk &= SetupSampledRegister("CPU", "MS", 16, MS);
+	setupOk &= SetupSampledRegister("CPU", "INTERRUPT", 8, Interrupt);
+	setupOk &= SetupSampledRegister("PROP", "SE", 16, SE);
 
     if (sim_panel_get_registers(panel, NULL)) {
         printf("Error getting register data: %s\n", sim_panel_get_error());
@@ -707,34 +706,35 @@ main(int argc, char *argv[])
         goto Done;
     }
 
-
-    sim_panel_clear_error();
-	do
+	if (setupOk)
 	{
-		SDL_PollEvent(&e);
-		if (e.type == SDL_QUIT)
+		sim_panel_clear_error();
+		do
 		{
-			SDL_Log("Program quit after %i ticks", e.quit.timestamp);
-			halt_cpu = 1;
-		}
-		else if (e.type == SDL_MOUSEBUTTONUP)
-		{
-			if (sim_panel_get_state(panel) != Run)
+			SDL_PollEvent(&e);
+			if (e.type == SDL_QUIT)
 			{
-				my_boot(panel);
+				SDL_Log("Program quit after %i ticks", e.quit.timestamp);
+				halt_cpu = 1;
 			}
-		}
-		if (update_display)
-		{
-			DisplayRegisters(panel);
-		}
-		if (halt_cpu)
-		{
-			halt_cpu = 0;
-			sim_panel_exec_halt(panel);
-		}
+			else if (e.type == SDL_MOUSEBUTTONUP)
+			{
+				if (sim_panel_get_state(panel) != Run)
+				{
+					my_boot(panel);
+				}
+			}
+			if (update_display)
+			{
+				DisplayRegisters(panel);
+			}
+			if (halt_cpu)
+			{
+				halt_cpu = 0;
+				sim_panel_exec_halt(panel);
+			}
+		} while (e.type != SDL_QUIT);
 	}
-	while (e.type != SDL_QUIT);
 
 Done:
     sim_panel_destroy(panel);
