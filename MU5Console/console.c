@@ -552,7 +552,7 @@ static
 void InitDisplay(void)
 {
     CreatePanel();
-    printf("^C to Halt, Commands: BOOT, CONT, STEP, EXIT\n");
+    printf("^C to Halt, Click to boot\n");
 }
 
 volatile int halt_cpu = 0;
@@ -709,60 +709,32 @@ main(int argc, char *argv[])
 
 
     sim_panel_clear_error();
-    while (1) {
-        size_t i;
-        char cmd[512];
-
-        while (sim_panel_get_state(panel) == Halt) {
-            DisplayRegisters(panel);
-            printf("SIM> ");
-            if (!fgets(cmd, sizeof(cmd) - 1, stdin))
-                break;
-            while (strlen(cmd) && isspace(cmd[strlen(cmd) - 1]))
-                cmd[strlen(cmd) - 1] = '\0';
-            while (isspace(cmd[0]))
-                memmove(cmd, cmd + 1, strlen(cmd));
-            for (i = 0; i < strlen(cmd); i++) {
-                if (islower(cmd[i]))
-                    cmd[i] = toupper(cmd[i]);
-            }
-            if (!memcmp("BOOT", cmd, 4)) {
-                //if (sim_panel_exec_boot(panel, cmd + 4))
-                if (my_boot(panel))
-                    break;
-            }
-            else if (!strcmp("STEP", cmd)) {
-                if (sim_panel_exec_step(panel))
-                    break;
-            }
-            else if (!strcmp("CONT", cmd)) {
-                if (sim_panel_exec_run(panel))
-                    break;
-            }
-            else if (!strcmp("EXIT", cmd))
-                goto Done;
-            else
-                printf("Huh? %s\r\n", cmd);
-        }
-        while (sim_panel_get_state(panel) == Run)
-        {
-            SDL_PollEvent(&e);
-            if (e.type == SDL_QUIT)
-            {
-                SDL_Log("Program quit after %i ticks", e.quit.timestamp);
-                halt_cpu = 1;
-            }
-            if (update_display)
-            {
-                DisplayRegisters(panel);
-            }
-            if (halt_cpu)
-            {
-                halt_cpu = 0;
-                sim_panel_exec_halt(panel);
-            }
-        }
-    }
+	do
+	{
+		SDL_PollEvent(&e);
+		if (e.type == SDL_QUIT)
+		{
+			SDL_Log("Program quit after %i ticks", e.quit.timestamp);
+			halt_cpu = 1;
+		}
+		else if (e.type == SDL_MOUSEBUTTONUP)
+		{
+			if (sim_panel_get_state(panel) != Run)
+			{
+				my_boot(panel);
+			}
+		}
+		if (update_display)
+		{
+			DisplayRegisters(panel);
+		}
+		if (halt_cpu)
+		{
+			halt_cpu = 0;
+			sim_panel_exec_halt(panel);
+		}
+	}
+	while (e.type != SDL_QUIT);
 
 Done:
     sim_panel_destroy(panel);
