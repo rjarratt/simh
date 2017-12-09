@@ -693,16 +693,8 @@ main(int argc, char *argv[])
 	setupOk &= SetupSampledRegister("CPU", "INTERRUPT", 8, Interrupt);
 	setupOk &= SetupSampledRegister("PROP", "SE", 16, SE);
 
-    if (sim_panel_get_registers(panel, NULL)) {
-        printf("Error getting register data: %s\n", sim_panel_get_error());
-        goto Done;
-    }
     if (sim_panel_set_display_callback_interval(panel, &DisplayCallback, NULL, 1000000/ SCREEN_REFRESH_RATE)) {
         printf("Error setting automatic display callback: %s\n", sim_panel_get_error());
-        goto Done;
-    }
-    if (!sim_panel_get_registers(panel, NULL)) {
-        printf("Unexpected success getting register data: %s\n", sim_panel_get_error());
         goto Done;
     }
 
