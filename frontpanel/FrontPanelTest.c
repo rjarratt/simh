@@ -62,6 +62,7 @@ unsigned int PCQ[32];
 int PSL_bits[32];
 int PC_bits[32];
 int PC_indirect_bits[32];
+int PCQ_3_bits[32];
 
 int update_display = 1;
 
@@ -201,7 +202,7 @@ if (1) {
         }
     }
 if (1) {
-    long noop_noop_noop_halt = 0x00010101, addr400 = 0x00000400, pc_value;
+    unsigned int noop_noop_noop_halt = 0x00010101, addr400 = 0x00000400, pc_value;
     int mstime = 0;
 
     if (sim_panel_mem_deposit (panel, sizeof(addr400), &addr400, sizeof(noop_noop_noop_halt), &noop_noop_noop_halt)) {
@@ -321,7 +322,7 @@ if (sim_panel_get_registers (panel, NULL)) {
     goto Done;
     }
 if (1) {
-    long deadbeef = 0xdeadbeef, beefdead = 0xbeefdead, addr200 = 0x00000200, beefdata;
+    unsigned int deadbeef = 0xdeadbeef, beefdead = 0xbeefdead, addr200 = 0x00000200, beefdata;
 
     if (sim_panel_set_register_value (panel, "R0", "DEADBEEF")) {
         printf ("Error setting R0 to DEADBEEF: %s\n", sim_panel_get_error());
@@ -401,24 +402,28 @@ if (sim_panel_break_output_set (panel, "-P \"Device? [XQA0]: \"")) {
     printf ("Unexpected error establishing an output breakpoint: %s\n", sim_panel_get_error());
     goto Done;
     }
-if (!sim_panel_set_sampling_parameters (panel, 0, 199)) {
-    printf ("Unexpected success setting sampling parameters to 0, 199\n");
+if (!sim_panel_set_sampling_parameters_ex (panel, 0, 0, 199)) {
+    printf ("Unexpected success setting sampling parameters to 0, 0, 199\n");
     goto Done;
     }
-if (!sim_panel_set_sampling_parameters (panel, 199, 0)) {
-    printf ("Unexpected success setting sampling parameters to 199, 0\n");
+if (!sim_panel_set_sampling_parameters_ex (panel, 199, 0, 0)) {
+    printf ("Unexpected success setting sampling parameters to 199, 0, 0\n");
     goto Done;
     }
 if (!sim_panel_add_register_bits (panel, "PSL",  NULL, 32, PSL_bits)) {
     printf ("Unexpected success setting PSL bits before setting sampling parameters\n");
     goto Done;
     }
-if (sim_panel_set_sampling_parameters (panel, 500, 100)) {
-    printf ("Unexpected error setting sampling parameters to 200, 100: %s\n", sim_panel_get_error());
+if (!sim_panel_set_sampling_parameters_ex (panel, 500, 40, 100)) {
+    printf ("Unexpected success setting sampling parameters to 500, 40, 100\n");
+    goto Done;
+    }
+if (sim_panel_set_sampling_parameters_ex (panel, 500, 10, 100)) {
+    printf ("Unexpected error setting sampling parameters to 500, 10, 100: %s\n", sim_panel_get_error());
     goto Done;
     }
 if (sim_panel_add_register_indirect_bits (panel, "PC",  NULL, 32, PC_indirect_bits)) {
-    printf ("Error adding register 'PSL' bits: %s\n", sim_panel_get_error());
+    printf ("Error adding register 'PC' indirect bits: %s\n", sim_panel_get_error());
     goto Done;
     }
 if (sim_panel_add_register_bits (panel, "PSL",  NULL, 32, PSL_bits)) {
@@ -429,8 +434,12 @@ if (sim_panel_add_register_bits (panel, "PC",  NULL, 32, PC_bits)) {
     printf ("Error adding register 'PSL' bits: %s\n", sim_panel_get_error());
     goto Done;
     }
+if (sim_panel_add_register_bits (panel, "PCQ[3]",  NULL, 32, PCQ_3_bits)) {
+    printf ("Error adding register 'PCQ[3]' bits: %s\n", sim_panel_get_error());
+    goto Done;
+    }
 if (1) {
-    long noop_noop_noop_halt = 0x00010101, addr400 = 0x00000400, pc_value;
+    unsigned int noop_noop_noop_halt = 0x00010101, addr400 = 0x00000400, pc_value;
     int mstime = 0;
 
     if (sim_panel_mem_deposit (panel, sizeof(addr400), &addr400, sizeof(noop_noop_noop_halt), &noop_noop_noop_halt)) {
@@ -460,7 +469,24 @@ if (1) {
         goto Done;
         }
     if (pc_value != addr400 + 4) {
-        printf ("Unexpected error getting PC value: %08X, expected: %08X\n", pc_value, addr400 + 4);
+        printf ("Unexpected PC value after HALT: %08X, expected: %08X\n", pc_value, addr400 + 4);
+        goto Done;
+        }
+    if (sim_panel_gen_deposit (panel, "PC", sizeof(addr400), &addr400)) {
+        printf ("Error setting PC to %08X: %s\n", addr400, sim_panel_get_error());
+        goto Done;
+        }
+    if (sim_panel_exec_step (panel)) {
+        printf ("Error executing a single step: %s\n", sim_panel_get_error());
+        goto Done;
+        }
+    pc_value = 0;
+    if (sim_panel_gen_examine (panel, "PC", sizeof(pc_value), &pc_value)) {
+        printf ("Unexpected error getting PC value: %s\n", sim_panel_get_error());
+        goto Done;
+        }
+    if (pc_value != addr400 + 1) {
+        printf ("Unexpected PC value after STEP: %08X, expected: %08X\n", pc_value, addr400 + 1);
         goto Done;
         }
     }

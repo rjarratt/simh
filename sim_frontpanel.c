@@ -165,7 +165,10 @@ struct PANEL {
     int                     callback_thread_running;
     void                    *callback_context;
     int                     usecs_between_callbacks;
+    pthread_t               debugflush_thread;
+    int                     debugflush_thread_running;
     unsigned int            sample_frequency;
+    unsigned int            sample_dither_pct;
     unsigned int            sample_depth;
     int                     debug;
     char                    *simulator_version;
@@ -211,10 +214,13 @@ static const char *register_repeat_units = " usecs ";
 static const char *register_get_prefix = "show time";
 static const char *register_collect_prefix = "collect ";
 static const char *register_collect_mid1 = " samples every ";
-static const char *register_collect_mid2 = " cycles ";
+static const char *register_collect_mid2 = " cycles dither ";
+static const char *register_collect_mid3 = " percent ";
 static const char *register_get_postfix = "sampleout";
-static const char *register_get_echo = "# REGISTERS-DONE";
-static const char *register_repeat_echo = "# REGISTERS-REPEAT-DONE";
+static const char *register_get_start = "# REGISTERS-START";
+static const char *register_get_end = "# REGISTERS-DONE";
+static const char *register_repeat_start = "# REGISTERS-REPEAT-START\r";
+static const char *register_repeat_end = "# REGISTERS-REPEAT-DONE";
 static const char *register_dev_echo = "# REGISTERS-FOR-DEVICE:";
 static const char *register_ind_echo = "# REGISTER-INDIRECT:";
 static const char *command_status = "ECHO Status:%STATUS%-%TSTATUS%";
@@ -222,6 +228,7 @@ static const char *command_done_echo = "# COMMAND-DONE";
 static int little_endian;
 static void *_panel_reader(void *arg);
 static void *_panel_callback(void *arg);
+static void *_panel_debugflusher(void *arg);
 static void sim_panel_set_error (const char *fmt, ...);
 static pthread_key_t panel_thread_id;
 
@@ -353,6 +360,34 @@ if (p && p->Debug && (dbits & p->debug)) {
     }
 }
 
+static void *
+_panel_debugflusher(void *arg)
+{
+PANEL *p = (PANEL*)arg;
+
+pthread_setspecific (panel_thread_id, "debugflush");
+
+pthread_mutex_lock (&p->io_lock);
+p->debugflush_thread_running = 1;
+pthread_mutex_unlock (&p->io_lock);
+pthread_cond_signal (&p->startup_done);   /* Signal we're ready to go */
+msleep (100);
+pthread_mutex_lock (&p->io_lock);
+while (p->sock != INVALID_SOCKET) {
+    pthread_mutex_unlock (&p->io_lock);
+    msleep (15000);
+    sim_panel_flush_debug (p);
+    pthread_mutex_lock (&p->io_lock);
+    }
+pthread_mutex_unlock (&p->io_lock);
+pthread_mutex_lock (&p->io_lock);
+pthread_setspecific (panel_thread_id, NULL);
+p->debugflush_thread_running  = 0;
+pthread_mutex_unlock (&p->io_lock);
+return NULL;
+}
+
+
 static void
 _set_debug_file (PANEL *panel, const char *debug_file)
 {
@@ -418,7 +453,9 @@ size_t i, j, buf_data, buf_needed = 0, reg_count = 0, bit_reg_count = 0;
 const char *dev;
 
 pthread_mutex_lock (&panel->io_lock);
-buf_needed = 2 + strlen (register_get_prefix);  /* SHOW TIME */
+buf_needed = 3 + 
+             strlen (register_get_start) +  /* # REGISTERS-START */
+             strlen (register_get_prefix);  /* SHOW TIME */
 for (i=0; i<panel->reg_count; i++) {
     if (panel->regs[i].bits)
         ++bit_reg_count;
@@ -433,7 +470,7 @@ for (i=0; i<panel->reg_count; i++) {
     }
 if (bit_reg_count)
     buf_needed += 2 + strlen (register_get_postfix);
-buf_needed += 10 + strlen (register_get_echo); /* # REGISTERS-DONE */
+buf_needed += 10 + strlen (register_get_end);    /* # REGISTERS-DONE */
 if (buf_needed > *buf_size) {
     free (*buf);
     *buf = (char *)_panel_malloc (buf_needed);
@@ -446,7 +483,7 @@ if (buf_needed > *buf_size) {
     }
 buf_data = 0;
 if (reg_count) {
-    sprintf (*buf + buf_data, "%s\r", register_get_prefix);
+    sprintf (*buf + buf_data, "%s\r%s\r", register_get_start, register_get_prefix);
     buf_data += strlen (*buf + buf_data);
     }
 dev = "";
@@ -507,7 +544,7 @@ if (bit_reg_count) {
     strcpy (*buf + buf_data, "\r");
     buf_data += strlen (*buf + buf_data);
     }
-strcpy (*buf + buf_data, register_get_echo);
+strcpy (*buf + buf_data, register_get_end);
 buf_data += strlen (*buf + buf_data);
 strcpy (*buf + buf_data, "\r");
 buf_data += strlen (*buf + buf_data);
@@ -550,9 +587,10 @@ for (i=0; i<panel->reg_count; i++) {
         }
     }
 pthread_mutex_unlock (&panel->io_lock);
-if (_panel_sendf (panel, &cmd_stat, &response, "%s%u%s%u%s%s\r", register_collect_prefix, panel->sample_depth, 
-                                                                 register_collect_mid1, panel->sample_frequency,
-                                                                 register_collect_mid2, buf)) {
+if (_panel_sendf (panel, &cmd_stat, &response, "%s%u%s%u%s%u%s%s\r", register_collect_prefix, panel->sample_depth, 
+                                                                     register_collect_mid1, panel->sample_frequency,
+                                                                     register_collect_mid2, panel->sample_dither_pct,
+                                                                     register_collect_mid3, buf)) {
     sim_panel_set_error ("Error establishing bit data collection:%s", response);
     free (response);
     free (buf);
@@ -834,10 +872,16 @@ if (1) {
     pthread_mutex_lock (&p->io_lock);
     p->io_thread_running = 0;
     pthread_create (&p->io_thread, &attr, _panel_reader, (void *)p);
-    pthread_attr_destroy(&attr);
     while (!p->io_thread_running)
         pthread_cond_wait (&p->startup_done, &p->io_lock); /* Wait for thread to stabilize */
+    if (p->Debug) {
+        p->debugflush_thread_running = 0;
+        pthread_create (&p->debugflush_thread, &attr, _panel_debugflusher, (void *)p);
+        while (!p->debugflush_thread_running)
+            pthread_cond_wait (&p->startup_done, &p->io_lock); /* Wait for thread to stabilize */
+        }
     pthread_mutex_unlock (&p->io_lock);
+    pthread_attr_destroy(&attr);
     pthread_cond_destroy (&p->startup_done);
     }
 if (simulator_panel) {
@@ -974,11 +1018,13 @@ if (panel) {
         panel->sock = INVALID_SOCKET;
         sim_close_sock (sock);
         pthread_join (panel->io_thread, NULL);
-        pthread_mutex_destroy (&panel->io_lock);
-        pthread_mutex_destroy (&panel->io_send_lock);
-        pthread_mutex_destroy (&panel->io_command_lock);
-        pthread_cond_destroy (&panel->io_done);
         }
+    if (panel->Debug)
+        pthread_join (panel->debugflush_thread, NULL);
+    pthread_mutex_destroy (&panel->io_lock);
+    pthread_mutex_destroy (&panel->io_send_lock);
+    pthread_mutex_destroy (&panel->io_command_lock);
+    pthread_cond_destroy (&panel->io_done);
 #if defined(_WIN32)
     if (panel->hProcess) {
         TerminateProcess (panel->hProcess, 0);
@@ -1043,7 +1089,8 @@ _panel_add_register (PANEL *panel,
                      size_t bit_count)
 {
 REG *regs, *reg;
-char *response = NULL;
+char *response = NULL, *c;
+unsigned long long data;
 size_t i;
 int cmd_stat;
 
@@ -1130,13 +1177,14 @@ for (i=0; i<panel->reg_count; i++) {
     }
 pthread_mutex_unlock (&panel->io_lock);
 /* Validate existence of requested register/array */
-if (_panel_sendf (panel, &cmd_stat, &response, "EXAMINE %s %s%s\r", device_name? device_name : "", name, (element_count > 0) ? "[0]" : "")) {
+if (_panel_sendf (panel, &cmd_stat, &response, "EXAMINE -H %s %s%s\r", device_name? device_name : "", name, (element_count > 0) ? "[0]" : "")) {
     free (reg->name);
     free (reg->device_name);
     free (regs);
     return -1;
     }
-if (!strcmp ("Invalid argument\r\n", response)) {
+c = strchr (response, ':');
+if ((!strcmp ("Invalid argument\r\n", response)) || (!c)) {
     sim_panel_set_error ("Invalid Register: %s %s", device_name? device_name : "", name);
     free (response);
     free (reg->name);
@@ -1144,6 +1192,7 @@ if (!strcmp ("Invalid argument\r\n", response)) {
     free (regs);
     return -1;
     }
+data = strtoull (c + 1, NULL, 16);
 free (response);
 if (element_count > 0) {
     if (_panel_sendf (panel, &cmd_stat, &response, "EXAMINE %s %s[%d]\r", device_name? device_name : "", name, element_count-1)) {
@@ -1172,7 +1221,8 @@ pthread_mutex_unlock (&panel->io_lock);
 if (_panel_register_query_string (panel, &panel->reg_query, &panel->reg_query_size))
     return -1;
 if (bits) {
-    memset (bits, 0, sizeof (*bits) * bit_count);
+    for (i=0; i<bit_count; i++)
+        bits[i] = (data & (1LL<<i)) ? panel->sample_depth : 0;
     if (_panel_establish_register_bits_collection (panel))
         return -1;
     }
@@ -1312,12 +1362,17 @@ return 0;
 }
 
 int
-sim_panel_set_sampling_parameters (PANEL *panel,
-                                   unsigned int sample_frequency,
-                                   unsigned int sample_depth)
+sim_panel_set_sampling_parameters_ex (PANEL *panel,
+                                      unsigned int sample_frequency,
+                                      unsigned int sample_dither_pct,
+                                      unsigned int sample_depth)
 {
 if (sample_frequency == 0) {
     sim_panel_set_error ("Invalid sample frequency value: %u", sample_frequency);
+    return -1;
+    }
+if (sample_dither_pct > 25) {
+    sim_panel_set_error ("Invalid sample dither percentage value: %u", sample_dither_pct);
     return -1;
     }
 if (sample_depth == 0) {
@@ -1325,8 +1380,20 @@ if (sample_depth == 0) {
     return -1;
     }
 panel->sample_frequency = sample_frequency;
+panel->sample_dither_pct = sample_dither_pct;
 panel->sample_depth = sample_depth;
 return 0;
+}
+
+int
+sim_panel_set_sampling_parameters (PANEL *panel,
+                                   unsigned int sample_frequency,
+                                   unsigned int sample_depth)
+{
+return sim_panel_set_sampling_parameters_ex (panel,
+                                             sample_frequency,
+                                             5,
+                                             sample_depth);
 }
 
 int
@@ -1372,7 +1439,7 @@ if (_panel_sendf (panel, &cmd_stat, NULL, "SHOW TIME\r"))
 panel->simulation_time_base += panel->simulation_time;
 if (_panel_sendf (panel, NULL, NULL, "BOOT %s\r", device))
     return -1;
-panel->State = Run;
+msleep (100);                       /* Allow Run/Hslt state to settle */
 return 0;
 }
 
@@ -1401,7 +1468,7 @@ if (_panel_sendf (panel, &cmd_stat, NULL, "SHOW TIME\r"))
 panel->simulation_time_base += panel->simulation_time;
 if (_panel_sendf (panel, NULL, NULL, "RUN -Q\r", 5))
     return -1;
-panel->State = Run;
+msleep (100);                       /* Allow Run/Hslt state to settle */
 return 0;
 }
 
@@ -1422,7 +1489,7 @@ if (panel->State == Run) {
     }
 if (_panel_sendf (panel, NULL, NULL, "CONT\r", 5))
     return -1;
-panel->State = Run;
+msleep (100);                       /* Allow Run/Hslt state to settle */
 return 0;
 }
 
@@ -1444,7 +1511,6 @@ if (panel->State == Run) {
     
 if (5 != _panel_send (panel, "STEP\r", 5))
     return -1;
-panel->State = Run;
 return 0;
 }
 
@@ -1893,6 +1959,7 @@ int sched_policy;
 struct sched_param sched_priority;
 char buf[4096];
 int buf_data = 0;
+int processing_register_output = 0;
 
 /* 
    Boost Priority for this response processing thread to quickly digest 
@@ -1960,187 +2027,208 @@ while ((p->sock != INVALID_SOCKET) &&
         *eol++ = '\0';
         while ((*s) && (s[strlen(s)-1] == '\r'))
             s[strlen(s)-1] = '\0';
-        e = strchr (s, ':');
-        if (e) {
-            size_t i;
-            char smp_dev[32], smp_reg[32], smp_ind[32];
-            unsigned int bit;
+        if (processing_register_output) {
+            e = strchr (s, ':');
+            if (e) {
+                size_t i;
+                char smp_dev[32], smp_reg[32], smp_ind[32];
+                unsigned int bit;
 
-            *e++ = '\0';
-            if (!strcmp("Time", s)) {
-                p->simulation_time = strtoull (e, NULL, 10);
-                s = eol;
-                while (isspace(0xFF & (*s)))
-                    ++s;
-                continue;                                   /* process next line */
-                }
-            if ((*s == '}') && 
-                (3 == sscanf (s, "}%s %s %s", smp_dev, smp_reg, smp_ind))) {   /* Register bit Sample Data? */
-                r = NULL;
-                for (i=0; i<p->reg_count; i++) {
-                    if (p->regs[i].bits == NULL)
-                        continue;
-                    if ((!strcmp (smp_reg, p->regs[i].name)) && 
-                        ((!p->device_name) || (!strcmp (smp_dev, p->device_name)))) {
-                        r = &p->regs[i];
-                        break;
-                        }
-                    }
-                if (r) {
-                    for (bit = 0; bit < r->bit_count; bit++) {
-                        int val = (int)strtol (e, &e, 10);
-                        r->bits[bit] = val;
-                        if (*e == ',')
-                            ++e;
-                        else
-                            break;
-                        }
+                *e++ = '\0';
+                if (!strcmp("Time", s)) {
+                    p->simulation_time = strtoull (e, NULL, 10);
                     s = eol;
+                    while (isspace(0xFF & (*s)))
+                        ++s;
+                    continue;                                   /* process next line */
                     }
-                while (isspace(0xFF & (*s)))
-                    ++s;
-                r = NULL;
-                continue;                                   /* process next line */
-                }
-            if (!strncmp (s + strlen (sim_prompt), register_ind_echo, strlen (register_ind_echo) - 1)) {
-                e = s + strlen (sim_prompt) + strlen (register_ind_echo);
-                r = NULL;
-                for (i=0; i<p->reg_count; i++) {
-                    if (p->regs[i].indirect && (!strcmp(p->regs[i].name, e))) {
-                        r = &p->regs[i];
-                        break;
+                if ((*s == '}') && 
+                    (3 == sscanf (s, "}%s %s %s", smp_dev, smp_reg, smp_ind))) {   /* Register bit Sample Data? */
+                    r = NULL;
+                    for (i=0; i<p->reg_count; i++) {
+                        if (p->regs[i].bits == NULL)
+                            continue;
+                        if ((!strcmp (smp_reg, p->regs[i].name)) && 
+                            ((!p->device_name) || (!strcmp (smp_dev, p->device_name)))) {
+                            r = &p->regs[i];
+                            break;
+                            }
                         }
+                    if (r) {
+                        for (bit = 0; bit < r->bit_count; bit++) {
+                            int val = (int)strtol (e, &e, 10);
+                            r->bits[bit] = val;
+                            if (*e == ',')
+                                ++e;
+                            else
+                                break;
+                            }
+                        s = eol;
+                        }
+                    while (isspace(0xFF & (*s)))
+                        ++s;
+                    r = NULL;
+                    continue;                                   /* process next line */
                     }
-                s = eol;
-                while (isspace(0xFF & (*s)))
-                    ++s;
-                if (r)
-                    continue;                               /* process next line */
-                }
-            if (!p->io_waiting) {
-                if (r) {
-                    if (strcmp (s, r->name)) {
-                        unsigned long long data;
-
-                        data = strtoull (e, NULL, 16);
-                        if (little_endian)
-                            memcpy (r->addr, &data, r->size);
-                        else
-                            memcpy (r->addr, ((char *)&data) + sizeof(data)-r->size, r->size);
-                        r = NULL;
+                if (!strncmp (s + strlen (sim_prompt), register_ind_echo, strlen (register_ind_echo) - 1)) {
+                    e = s + strlen (sim_prompt) + strlen (register_ind_echo);
+                    r = NULL;
+                    for (i=0; i<p->reg_count; i++) {
+                        if (p->regs[i].indirect && (!strcmp(p->regs[i].name, e))) {
+                            r = &p->regs[i];
+                            break;
+                            }
                         }
                     s = eol;
                     while (isspace(0xFF & (*s)))
                         ++s;
-                    continue;                               /* process next line */
+                    if (r)
+                        continue;                               /* process next line */
                     }
-                for (i=0; i<p->reg_count; i++) {
-                    if (p->regs[i].element_count == 0) {
-                        if (!strcmp(p->regs[i].name, s)) {
+                if (!p->io_waiting) {
+                    if (r) {
+                        if (strcmp (s, r->name)) {
                             unsigned long long data;
 
                             data = strtoull (e, NULL, 16);
                             if (little_endian)
-                                memcpy (p->regs[i].addr, &data, p->regs[i].size);
+                                memcpy (r->addr, &data, r->size);
                             else
-                                memcpy (p->regs[i].addr, ((char *)&data) + sizeof(data)-p->regs[i].size, p->regs[i].size);
-                            break;
+                                memcpy (r->addr, ((char *)&data) + sizeof(data)-r->size, r->size);
+                            r = NULL;
                             }
+                        s = eol;
+                        while (isspace(0xFF & (*s)))
+                            ++s;
+                        continue;                               /* process next line */
                         }
-                    else {
-                        size_t name_len = strlen (p->regs[i].name);
+                    for (i=0; i<p->reg_count; i++) {
+                        if (p->regs[i].element_count == 0) {
+                            if (!strcmp(p->regs[i].name, s)) {
+                                unsigned long long data;
 
-                        if ((0 == memcmp (p->regs[i].name, s, name_len)) && (s[name_len] == '[')) {
-                            size_t array_index = (size_t)atoi (s + name_len + 1);
-                            size_t end_index = array_index;
-                            char *end = strchr (s + name_len + 1, '[');
-
-                            if (end)
-                                end_index = (size_t)atoi (end + 1);
-                            if (strcmp (e, " same as above")) 
-                                p->array_element_data = strtoull (e, NULL, 16);
-                            while (array_index <= end_index) {
+                                data = strtoull (e, NULL, 16);
                                 if (little_endian)
-                                    memcpy ((char *)(p->regs[i].addr) + (array_index * p->regs[i].size), &p->array_element_data, p->regs[i].size);
+                                    memcpy (p->regs[i].addr, &data, p->regs[i].size);
                                 else
-                                    memcpy ((char *)(p->regs[i].addr) + (array_index * p->regs[i].size), ((char *)&p->array_element_data) + sizeof(p->array_element_data)-p->regs[i].size, p->regs[i].size);
-                                ++array_index;
+                                    memcpy (p->regs[i].addr, ((char *)&data) + sizeof(data)-p->regs[i].size, p->regs[i].size);
+                                break;
                                 }
-                            break;
+                            }
+                        else {
+                            size_t name_len = strlen (p->regs[i].name);
+
+                            if ((0 == memcmp (p->regs[i].name, s, name_len)) && (s[name_len] == '[')) {
+                                size_t array_index = (size_t)atoi (s + name_len + 1);
+                                size_t end_index = array_index;
+                                char *end = strchr (s + name_len + 1, '[');
+
+                                if (end)
+                                    end_index = (size_t)atoi (end + 1);
+                                if (strcmp (e, " same as above")) 
+                                    p->array_element_data = strtoull (e, NULL, 16);
+                                while (array_index <= end_index) {
+                                    if (little_endian)
+                                        memcpy ((char *)(p->regs[i].addr) + (array_index * p->regs[i].size), &p->array_element_data, p->regs[i].size);
+                                    else
+                                        memcpy ((char *)(p->regs[i].addr) + (array_index * p->regs[i].size), ((char *)&p->array_element_data) + sizeof(p->array_element_data)-p->regs[i].size, p->regs[i].size);
+                                    ++array_index;
+                                    }
+                                break;
+                                }
                             }
                         }
+                    if (i != p->reg_count) {
+                        s = eol;
+                        while (isspace(0xFF & (*s)))
+                            ++s;
+                        continue;
+                        }
                     }
-                if (i != p->reg_count) {
-                    s = eol;
-                    while (isspace(0xFF & (*s)))
-                        ++s;
-                    continue;
-                    }
+                --e;
+                *e = ':';
+                /* Unexpected Register Data Found (or other output containing a : character) */
                 }
-            --e;
-            *e = ':';
-            /* Unexpected Register Data Found (or other output containing a : character) */
             }
-        if (!strcmp (s + strlen (sim_prompt), register_repeat_echo)) {
+        if (!strcmp (s + strlen (sim_prompt), register_repeat_end)) {
+            _panel_debug (p, DBG_RCV, "*Repeat Block Complete", NULL, 0);
             if (p->callback) {
                 pthread_mutex_unlock (&p->io_lock);
                 p->callback (p, p->simulation_time_base + p->simulation_time, p->callback_context);
                 pthread_mutex_lock (&p->io_lock);
                 }
+            processing_register_output = 0;
+            goto Start_Next_Line;
             }
-        if (!strcmp (s + strlen (sim_prompt), register_get_echo)) {
+        if ((!strcmp (s + strlen (sim_prompt), register_repeat_start)) ||
+            (!strcmp (s + strlen (sim_prompt), register_get_start))) {
+            _panel_debug (p, DBG_RCV, "*Repeat/Register Block Starting", NULL, 0);
+            processing_register_output = 1;
+            goto Start_Next_Line;
+            }
+        if (!strcmp (s + strlen (sim_prompt), register_get_end)) {
+            _panel_debug (p, DBG_RCV, "*Register Block Complete", NULL, 0);
             --p->io_reg_query_pending;
             p->io_waiting = 0;
             pthread_cond_signal (&p->io_done);
+            goto Start_Next_Line;
             }
-        else {
-            if (!strcmp (s + strlen (sim_prompt), command_done_echo)) {
-                _panel_debug (p, DBG_RCV, "Received Command Complete", NULL, 0);
-                p->io_waiting = 0;
-                pthread_cond_signal (&p->io_done);
-                }
-            else {
-                /* Non Register Data Found (echo of EXAMINE or other commands and/or command output) */
-                if (p->io_waiting) {
-                    char *t;
+        if (!strcmp (s + strlen (sim_prompt), command_done_echo)) {
+            _panel_debug (p, DBG_RCV, "*Received Command Complete", NULL, 0);
+            p->io_waiting = 0;
+            pthread_cond_signal (&p->io_done);
+            goto Start_Next_Line;
+            }
+        /* Non Register Data Found (echo of EXAMINE or other commands and/or command output) */
+        if (p->io_waiting) {
+            char *t;
 
-                    if (p->io_response_data + strlen (s) + 3 > p->io_response_size) {
-                        t = (char *)_panel_malloc (p->io_response_data + strlen (s) + 3);
-                        if (t == NULL) {
-                            _panel_debug (p, DBG_RCV, "%s", NULL, 0, sim_panel_get_error());
-                            p->State = Error;
-                            break;
-                            }
-                        memcpy (t, p->io_response, p->io_response_data);
-                        free (p->io_response);
-                        p->io_response = t;
-                        p->io_response_size = p->io_response_data + strlen (s) + 3;
-                        }
-                    _panel_debug (p, DBG_RCV, "Receive Data Accumulated: '%s'", NULL, 0, s);
-                    strcpy (p->io_response + p->io_response_data, s);
-                    p->io_response_data += strlen(s);
-                    strcpy (p->io_response + p->io_response_data, "\r\n");
-                    p->io_response_data += 2;
+            if (p->io_response_data + strlen (s) + 3 > p->io_response_size) {
+                t = (char *)_panel_malloc (p->io_response_data + strlen (s) + 3);
+                if (t == NULL) {
+                    _panel_debug (p, DBG_RCV, "%s", NULL, 0, sim_panel_get_error());
+                    p->State = Error;
+                    break;
                     }
-                else
-                    _panel_debug (p, DBG_RCV, "Receive Data Discarded: '%s'", NULL, 0, s);
+                memcpy (t, p->io_response, p->io_response_data);
+                free (p->io_response);
+                p->io_response = t;
+                p->io_response_size = p->io_response_data + strlen (s) + 3;
                 }
+            _panel_debug (p, DBG_RCV, "Receive Data Accumulated: '%s'", NULL, 0, s);
+            strcpy (p->io_response + p->io_response_data, s);
+            p->io_response_data += strlen(s);
+            strcpy (p->io_response + p->io_response_data, "\r\n");
+            p->io_response_data += 2;
             }
+        else
+            _panel_debug (p, DBG_RCV, "Receive Data Discarded: '%s'", NULL, 0, s);
+Start_Next_Line:
         s = eol;
         while (isspace(0xFF & (*s)))
             ++s;
         }
-    if ((p->State == Run) && (!strcmp (s, sim_prompt))) {
-        _panel_debug (p, DBG_RSP, "State transitioning to Halt", NULL, 0);
-        p->State = Halt;
-        }
     memmove (buf, s, strlen (s)+1);
     buf_data = strlen (buf);
-    if (!strcmp("Simulator Running...", buf)) {
+    if (buf_data)
+        _panel_debug (p, DBG_RSP, "Remnant Buffer Contents: '%s'", NULL, 0, buf);
+    if (!memcmp ("Simulator Running...", buf, 20)) {
         _panel_debug (p, DBG_RSP, "State transitioning to Run", NULL, 0);
         p->State = Run;
-        buf_data = 0;
-        buf[0] = '\0';
+        buf_data -= 20;
+        if (buf_data) {
+            memmove (buf, buf + 20, buf_data + 1);
+            /* Since there is more to look at, we need to let the state 
+               transition to Run propagate before examining that.*/
+            pthread_mutex_unlock (&p->io_lock);
+            msleep (100);
+            pthread_mutex_lock (&p->io_lock);
+            }
+        buf[buf_data] = '\0';
+        }
+    if ((p->State == Run) && (!strcmp (buf, sim_prompt))) {
+        _panel_debug (p, DBG_RSP, "State transitioning to Halt", NULL, 0);
+        p->State = Halt;
         }
     }
 if (p->io_waiting) {
@@ -2207,22 +2295,25 @@ while ((p->sock != INVALID_SOCKET) &&
                                  strlen (register_repeat_units)  +  /* units and spacing */
                                  buf_data                        +  /* command contents */
                                  1                               +  /* carriage return */
-                                 strlen (register_repeat_echo)   +  /* auto repeat completion */
+                                 strlen (register_repeat_start)  +  /* auto repeat begin */
+                                 1                               +  /* carriage return */
+                                 strlen (register_repeat_end)    +  /* auto repeat completion */
                                  1                               +  /* carriage return */
                                  1;                                 /* NUL */
             char *repeat = (char *)malloc (repeat_data);
             char *c;
 
-            sprintf (repeat, "%s%d%s%*.*s", register_repeat_prefix, 
+            sprintf (repeat, "%s%d%s%s%*.*s", register_repeat_prefix, 
                                          p->usecs_between_callbacks, 
                                          register_repeat_units, 
+                                         register_repeat_start,
                                          (int)buf_data, (int)buf_data, buf);
             pthread_mutex_unlock (&p->io_lock);
             for (c = strchr (repeat, '\r'); c != NULL; c = strchr (c, '\r'))
                 *c = ';';                               /* replace carriage returns with semicolons */
-            c = strstr (repeat, register_get_echo);     /* remove register_done_echo string and */
+            c = strstr (repeat, register_get_end);      /* remove register_done_echo string and */
             if (c)                                      /* always true */
-                strcpy (c, register_repeat_echo);       /* replace it with the register_repeat_echo string */
+                strcpy (c, register_repeat_end);        /* replace it with the register_repeat_end string */
             if (_panel_sendf (p, &cmd_stat, NULL, "%s", repeat)) {
                 pthread_mutex_lock (&p->io_lock);
                 free (repeat);
@@ -2377,32 +2468,36 @@ ret = ((len + status_echo_len) == (sent_len = _panel_send (p, buf, len + status_
 
 if (completion_status) {
     if (!ret) {                                     /* Sent OK? */
+        char *tresponse = NULL;
+
         p->io_waiting = 1;
         while (p->io_waiting)
             pthread_cond_wait (&p->io_done, &p->io_lock); /* Wait for completion */
-        if (response) {
-            *response = (char *)_panel_malloc (p->io_response_data + 1);
-            if (0 == memcmp (buf, p->io_response + strlen (sim_prompt), len)) {
-                char *eol, *status;
-                memcpy (*response, p->io_response + strlen (sim_prompt) + len + 1, p->io_response_data + 1 - (strlen (sim_prompt) + len + 1));
-                *completion_status = -1;
-                status = strstr (*response, command_status);
-                if (status) {
-                    *(status - strlen (sim_prompt)) = '\0';
-                    status += strlen (command_status) + 2;
-                    eol = strchr (status, '\r');
-                    if (eol)
-                        *eol = '\0';
-                    sscanf (status, "Status:%08X-", completion_status);
-                    }
+        tresponse = (char *)_panel_malloc (p->io_response_data + 1);
+        if (0 == memcmp (buf, p->io_response + strlen (sim_prompt), len)) {
+            char *eol, *status;
+            memcpy (tresponse, p->io_response + strlen (sim_prompt) + len + 1, p->io_response_data + 1 - (strlen (sim_prompt) + len + 1));
+            *completion_status = -1;
+            status = strstr (tresponse, command_status);
+            if (status) {
+                *(status - strlen (sim_prompt)) = '\0';
+                status += strlen (command_status) + 2;
+                eol = strchr (status, '\r');
+                if (eol)
+                    *eol = '\0';
+                sscanf (status, "Status:%08X-", completion_status);
                 }
-            else
-                memcpy (*response, p->io_response, p->io_response_data + 1);
+            }
+        else
+            memcpy (tresponse, p->io_response, p->io_response_data + 1);
+        if (response) {
+            *response = tresponse;
             _panel_debug (p, DBG_RSP, "Command %d Response(Status=%d): '%s'", NULL, 0, p->command_count, *completion_status, *response);
             }
         else {
+            free (tresponse);
             if (p->io_response_data)
-                _panel_debug (p, DBG_RSP, "Discarded Unwanted Command %d Response Data:", p->io_response, p->io_response_data, p->command_count);
+                _panel_debug (p, DBG_RSP, "Discarded Unwanted Command %d Response Data(Status=%d):", p->io_response, p->io_response_data, p->command_count, *completion_status);
             }
         }
     p->io_response_data = 0;

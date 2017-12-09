@@ -4,6 +4,8 @@
 
 ### New Simulators
 
+#### Seth Morabito has implemented a AT&T 3B2 simulator.
+
 #### Leonid Broukhis and Serge Vakulenko have implemented a simulator for the Soviet mainframe BESM-6 computer.
 
 #### Matt Burke has implemented new VAX model simulators:
@@ -304,6 +306,7 @@ The EXPECT command now exists to provide a means of reacting to simulator output
     NEXT                             Step across a subroutine call or step a single instruction.
     EXPECT                           React to output produced by a simulated system
     SEND                             Inject input to a simulated system's console
+    SLEEP time                       Pause command execution for specified time
     SCREENSHOT                       Snapshot the current video display window
     RUN UNTIL breakpoint             Establish the breakpoiunt specified and run until it is encountered
     RUN UNTIL "output-string" ...    Establish the specified "output-string" as an EXPECT and run until it is encountered.
@@ -419,6 +422,15 @@ The MacPorts package manager is available to provide these external packages.  O
 
     # port install vde2
     # port install libsdl2
+    # port install libsdl2_ttf
+
+OR
+
+The HomeBrew package manager can be used to provide these packages:
+
+    $ brew install vde
+    $ brew install sdl2
+    $ brew install sdl2_ttf
 
 ###### Linux - Dependencies
 
@@ -429,6 +441,7 @@ Ubuntu:
     # apt-get install libpcap-dev
     # apt-get install vde2
     # apt-get install libsdl2
+    # apt-get install libsdl2_ttf
 
 #### Windows
 
