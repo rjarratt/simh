@@ -129,8 +129,7 @@ DisplayCallback(PANEL *panel, unsigned long long simulation_time, void *context)
     update_display = 1;
 }
 
-static void
-DisplayRegisters(PANEL *panel)
+static void DisplayRegisters(void)
 {
     if (update_display)
     {
@@ -542,6 +541,7 @@ int CreatePanel()
 			}
 
             DrawLampPanel();
+			DisplayRegisters();
 
             UpdateWholeScreen();
         }
@@ -726,7 +726,7 @@ main(int argc, char *argv[])
 			}
 			if (update_display)
 			{
-				DisplayRegisters(panel);
+				DisplayRegisters();
 			}
 			if (halt_cpu)
 			{
