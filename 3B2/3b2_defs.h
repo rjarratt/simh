@@ -53,7 +53,7 @@ noret __libc_longjmp (jmp_buf buf, int val);
 /* -v flag for examine routine */
 #define EX_V_FLAG 1 << 21
 
-#define MAX_HIST_SIZE  1000000
+#define MAX_HIST_SIZE  10000000
 #define MIN_HIST_SIZE  64
 #define MAXMEMSIZE     (1 << 22)             /* 4 MB */
 #define MEM_SIZE       (cpu_unit.capac)      /* actual memory size */
@@ -292,11 +292,10 @@ noret __libc_longjmp (jmp_buf buf, int val);
 
 /* Timer definitions */
 
-#define TMR_CLK 0   /* The clock responsible for IPL 15 interrupts */
-#define TMR_TOD 1   /* The Time-of-Day clock */
+#define TMR_CLK   0         /* The clock responsible for IPL 15 interrupts */
+#define TPS_CLK   100       /* 100 ticks per second */
 
-#define TPS_CLK 100
-#define TPS_TOD 10
+#define CLK_MIN_TICKS 500   /* No fewer than 500 sim steps between ticks */
 
 
 /* TIMING SECTION                                  */
@@ -304,7 +303,7 @@ noret __libc_longjmp (jmp_buf buf, int val);
 /* Calculate delays (in simulator steps) for times */
 /* System clock runs at 10MHz; 100ns period.       */
 
-#define US_PER_INST         0.9
+#define US_PER_INST         1.0
 
 #define INST_PER_MS         (1000.0 / US_PER_INST)
 

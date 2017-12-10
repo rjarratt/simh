@@ -115,6 +115,10 @@
 #if defined(_MSC_VER) && (_MSC_VER < 1900)
 #define snprintf _snprintf      /* poor man's snprintf which will work most of the time but has different return value */
 #endif
+#if defined(__VAX)
+extern int sim_vax_snprintf(char *buf, size_t buf_size, const char *fmt, ...);
+#define snprintf sim_vax_snprintf
+#endif
 #include <stdarg.h>
 #include <string.h>
 #include <errno.h>
@@ -231,9 +235,11 @@ typedef unsigned long           t_uint64;
 #if defined (USE_INT64)                                 /* 64b data */
 typedef t_int64         t_svalue;                       /* signed value */
 typedef t_uint64        t_value;                        /* value */
+#define T_VALUE_MAX     0xffffffffffffffffuLL
 #else                                                   /* 32b data */
 typedef int32           t_svalue;
 typedef uint32          t_value;
+#define T_VALUE_MAX     0xffffffffUL
 #endif                                                  /* end 64b data */
 
 #if defined (USE_INT64) && defined (USE_ADDR64)         /* 64b address */

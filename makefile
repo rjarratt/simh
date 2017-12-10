@@ -67,6 +67,19 @@
 #
 # CC Command (and platform available options).  (Poor man's autoconf)
 #
+ifneq (,$(GREP_OPTIONS))
+  $(info GREP_OPTIONS is defined in your environment.)
+  $(info )
+  $(info This variable interfers with the proper operation of this script.)
+  $(info )
+  $(info The GREP_OPTIONS environment variable feature of grep is deprecated)
+  $(info for exactly this reason and will be removed from future versions of)
+  $(info grep.  The grep man page suggests that you use an alias or a script)
+  $(info to invoke grep with your preferred options.)
+  $(info )
+  $(info unset the GREP_OPTIONS environment variable to use this makefile)
+  $(error 1)
+endif
 ifeq (old,$(shell gmake --version /dev/null 2>&1 | grep 'GNU Make' | awk '{ if ($$3 < "3.81") {print "old"} }'))
   GMAKE_VERSION = $(shell gmake --version /dev/null 2>&1 | grep 'GNU Make' | awk '{ print $$3 }')
   $(warning *** Warning *** GNU Make Version $(GMAKE_VERSION) is too old to)
@@ -93,10 +106,13 @@ endif
 # building the pdp11, pdp10, or any vax simulator could use networking support
 ifneq (,$(or $(findstring pdp11,$(MAKECMDGOALS)),$(findstring pdp10,$(MAKECMDGOALS)),$(findstring vax,$(MAKECMDGOALS)),$(findstring all,$(MAKECMDGOALS))))
   NETWORK_USEFUL = true
-  ifneq (,$(findstring all,$(MAKECMDGOALS))$(word 2,$(MAKECMDGOALS)))
+  ifneq (,$(findstring all,$(MAKECMDGOALS)))
     BUILD_MULTIPLE = s
     VIDEO_USEFUL = true
     BESM6_BUILD = true
+  endif
+  ifneq (,$(word 2,$(MAKECMDGOALS)))
+    BUILD_MULTIPLE = s
   endif
 else
   ifeq ($(MAKECMDGOALS),)
@@ -256,6 +272,10 @@ ifeq ($(WIN32),)  #*nix Environments (&& cygwin)
       ifeq (libopt,$(shell if $(TEST) -d /opt/local/lib; then echo libopt; fi))
         LIBPATH += /opt/local/lib
         OS_LDFLAGS += -L/opt/local/lib
+      endif
+      ifeq (HomeBrew,$(shell if $(TEST) -d /usr/local/Cellar; then echo HomeBrew; fi))
+        INCPATH += $(foreach dir,$(wildcard /usr/local/Cellar/*/*),$(dir)/include)
+        LIBPATH += $(foreach dir,$(wildcard /usr/local/Cellar/*/*),$(dir)/lib)
       endif
       ifeq (libXt,$(shell if $(TEST) -d /usr/X11/lib; then echo libXt; fi))
         LIBPATH += /usr/X11/lib
@@ -427,7 +447,7 @@ ifeq ($(WIN32),)  #*nix Environments (&& cygwin)
             $(info using libpthread: $(call find_include,pthread))
           endif
         endif
-        LIBEXT = $(LIBEXTSAVE)        
+        LIBEXT = $(LIBEXTSAVE)
       endif
     endif
   endif
@@ -497,28 +517,50 @@ ifeq ($(WIN32),)  #*nix Environments (&& cygwin)
       LIBEXTSAVE := $(LIBEXT)
       LIBEXT = dll.a
     endif
-    ifneq (,$(shell which sdl2-config))
-      VIDEO_CCDEFS += -DHAVE_LIBSDL -DUSE_SIM_VIDEO `sdl2-config --cflags`
-      VIDEO_LDFLAGS += `sdl2-config --libs`
-      VIDEO_FEATURES = - video capabilities provided by libSDL2 (Simple Directmedia Layer)
-      DISPLAYL = ${DISPLAYD}/display.c $(DISPLAYD)/sim_ws.c
-      DISPLAYVT = ${DISPLAYD}/vt11.c
-      DISPLAY_OPT += -DUSE_DISPLAY $(VIDEO_CCDEFS) $(VIDEO_LDFLAGS)
-      $(info using libSDL2: $(call find_include,SDL2/SDL))
-      ifeq (Darwin,$(OSTYPE))
-        VIDEO_CCDEFS += -DSDL_MAIN_AVAILABLE
+    ifneq (,$(call find_include,SDL2/SDL))
+      ifneq (,$(call find_lib,SDL2))
+        ifneq (,$(findstring Haiku,$(OSTYPE)))
+          ifneq (,$(shell which sdl2-config))
+            SDLX_CONFIG = sdl2-config
+          endif
+        else
+          SDLX_CONFIG = $(realpath $(dir $(call find_include,SDL2/SDL))../../bin/sdl2-config)
+        endif
+        ifneq (,$(SDLX_CONFIG))
+          VIDEO_CCDEFS += -DHAVE_LIBSDL -DUSE_SIM_VIDEO `$(SDLX_CONFIG) --cflags`
+          VIDEO_LDFLAGS += `$(SDLX_CONFIG) --libs`
+          VIDEO_FEATURES = - video capabilities provided by libSDL2 (Simple Directmedia Layer)
+          DISPLAYL = ${DISPLAYD}/display.c $(DISPLAYD)/sim_ws.c
+          DISPLAYVT = ${DISPLAYD}/vt11.c
+          DISPLAY_OPT += -DUSE_DISPLAY $(VIDEO_CCDEFS) $(VIDEO_LDFLAGS)
+          $(info using libSDL2: $(call find_include,SDL2/SDL))
+          ifeq (Darwin,$(OSTYPE))
+            VIDEO_CCDEFS += -DSDL_MAIN_AVAILABLE
+          endif
+        endif
       endif
     else
-      ifneq (,$(shell which sdl-config))
-        VIDEO_CCDEFS += -DHAVE_LIBSDL -DUSE_SIM_VIDEO `sdl-config --cflags`
-        VIDEO_LDFLAGS += `sdl-config --libs`
-        VIDEO_FEATURES = - video capabilities provided by libSDL (Simple Directmedia Layer)
-        DISPLAYL = ${DISPLAYD}/display.c $(DISPLAYD)/sim_ws.c
-        DISPLAYVT = ${DISPLAYD}/vt11.c
-        DISPLAY_OPT += -DUSE_DISPLAY $(VIDEO_CCDEFS) $(VIDEO_LDFLAGS)
-        $(info using libSDL: $(call find_include,SDL/SDL))
-        ifeq (Darwin,$(OSTYPE))
-          VIDEO_CCDEFS += -DSDL_MAIN_AVAILABLE
+      ifneq (,$(call find_include,SDL/SDL))
+        ifneq (,$(call find_lib,SDL))
+          ifneq (,$(findstring Haiku,$(OSTYPE)))
+            ifneq (,$(shell which sdl-config))
+              SDLX_CONFIG = sdl-config
+            endif
+          else
+            SDLX_CONFIG = $(realpath $(dir $(call find_include,SDL/SDL))../../bin/sdl-config)
+          endif
+          ifneq (,$(SDLX_CONFIG))
+            VIDEO_CCDEFS += -DHAVE_LIBSDL -DUSE_SIM_VIDEO `$(SDLX_CONFIG) --cflags`
+            VIDEO_LDFLAGS += `$(SDLX_CONFIG) --libs`
+            VIDEO_FEATURES = - video capabilities provided by libSDL (Simple Directmedia Layer)
+            DISPLAYL = ${DISPLAYD}/display.c $(DISPLAYD)/sim_ws.c
+            DISPLAYVT = ${DISPLAYD}/vt11.c
+            DISPLAY_OPT += -DUSE_DISPLAY $(VIDEO_CCDEFS) $(VIDEO_LDFLAGS)
+            $(info using libSDL: $(call find_include,SDL/SDL))
+            ifeq (Darwin,$(OSTYPE))
+              VIDEO_CCDEFS += -DSDL_MAIN_AVAILABLE
+            endif
+          endif
         endif
       endif
     endif
@@ -530,10 +572,18 @@ ifeq ($(WIN32),)  #*nix Environments (&& cygwin)
       $(info *** Info *** The simulator$(BUILD_MULTIPLE) you are building could provide more)
       $(info *** Info *** functionality if video support were available on your system.)
       ifeq (Darwin,$(OSTYPE))
-        $(info *** Info *** Install the MacPorts libSDL2 packaged to provide this)
+        $(info *** Info *** Install the MacPorts libSDL2 package to provide this)
         $(info *** Info *** functionality for your OS X system:)
         $(info *** Info ***       # port install libsdl2)
-	  else
+        ifeq (/usr/local/bin/brew,$(shell which brew))
+          $(info *** Info ***)
+          $(info *** Info *** OR)
+          $(info *** Info ***)
+          $(info *** Info *** Install the HomeBrew libSDL2 package to provide this)
+          $(info *** Info *** functionality for your OS X system:)
+          $(info *** Info ***       $$ brew install sdl2)
+        endif
+      else
         ifneq (,$(and $(findstring Linux,$(OSTYPE)),$(call find_exe,apt-get)))
           $(info *** Info *** Install the development components of libSDL or libSDL2)
           $(info *** Info *** packaged for your operating system distribution for)
@@ -546,7 +596,7 @@ ifeq ($(WIN32),)  #*nix Environments (&& cygwin)
           $(info *** Info *** operating system distribution and rebuild your simulator to)
           $(info *** Info *** enable this extra functionality.)
         endif
-	  endif
+      endif
       $(info *** Info ***)
     endif
   endif
@@ -701,7 +751,7 @@ ifeq ($(WIN32),)  #*nix Environments (&& cygwin)
     endif
     ifeq (,$(findstring HAVE_VDE_NETWORK,$(NETWORK_CCDEFS)))
       # Support is available on Linux for libvdeplug.  Advise on its usage
-      ifneq (,$(findstring Linux,$(OSTYPE)))
+      ifneq (,$(findstring Linux,$(OSTYPE))$(findstring Darwin,$(OSTYPE)))
         ifneq (,$(findstring USE_NETWORK,$(NETWORK_CCDEFS))$(findstring USE_SHARED,$(NETWORK_CCDEFS)))
           $(info *** Info ***)
           $(info *** Info *** $(BUILD_SINGLE)Simulator$(BUILD_MULTIPLE) are being built with)
@@ -717,6 +767,14 @@ ifeq ($(WIN32),)  #*nix Environments (&& cygwin)
           $(info *** Info *** should install the MacPorts vde2 package to provide this)
           $(info *** Info *** functionality for your OS X system:)
           $(info *** Info ***       # port install vde2)
+          ifeq (/usr/local/bin/brew,$(shell which brew))
+            $(info *** Info ***)
+            $(info *** Info *** OR)
+            $(info *** Info ***)
+            $(info *** Info *** Install the HomeBrew vde package to provide this)
+            $(info *** Info *** functionality for your OS X system:)
+            $(info *** Info ***       $$ brew install vde)
+          endif
         else
           ifneq (,$(and $(findstring Linux,$(OSTYPE)),$(call find_exe,apt-get)))
             $(info *** Info *** should install the vde2 package to provide this)
@@ -1475,7 +1533,7 @@ BESM6 = ${BESM6D}/besm6_cpu.c ${BESM6D}/besm6_sys.c ${BESM6D}/besm6_mmu.c \
         ${BESM6D}/besm6_punch.c ${BESM6D}/besm6_punchcard.c
 
 ifneq (,$(BESM6_BUILD))
-    ifneq (,$(and ${VIDEO_LDFLAGS}, $(or $(and $(call find_include,SDL2/SDL_ttf),$(call find_lib,SDL2_ttf)), $(and $(call find_include,SDL/SDL_ttf),$(call find_lib,SDL_ttf)))))
+    ifneq (,$(and ${SDLX_CONFIG},${VIDEO_LDFLAGS}, $(or $(and $(call find_include,SDL2/SDL_ttf),$(call find_lib,SDL2_ttf)), $(and $(call find_include,SDL/SDL_ttf),$(call find_lib,SDL_ttf)))))
         FONTPATH += /usr/share/fonts /Library/Fonts /usr/lib/jvm /System/Library/Frameworks/JavaVM.framework/Versions C:/Windows/Fonts
         FONTPATH := $(dir $(foreach dir,$(strip $(FONTPATH)),$(wildcard $(dir)/.)))
         FONTNAME += DejaVuSans.ttf LucidaSansRegular.ttf FreeSans.ttf AppleGothic.ttf tahoma.ttf
@@ -1496,21 +1554,21 @@ ifneq (,$(BESM6_BUILD))
             $(info ***)
         endif
     endif
-  ifeq (,$(and ${VIDEO_LDFLAGS}, ${FONTFILE}, $(BESM6_BUILD)))
-      $(info *** No SDL ttf support available.  BESM-6 video panel disabled.)
-      $(info ***)
-      BESM6_OPT = -I ${BESM6D} -DUSE_INT64 
-  else ifneq (,$(and $(findstring SDL2,${VIDEO_LDFLAGS}),$(call find_include,SDL2/SDL_ttf),$(call find_lib,SDL2_ttf)))
-      $(info using libSDL2_ttf: $(call find_lib,SDL2_ttf) $(call find_include,SDL2/SDL_ttf))
-      $(info ***)
-      BESM6_OPT = -I ${BESM6D} -DFONTFILE=${FONTFILE} -DUSE_INT64 ${VIDEO_CCDEFS} ${VIDEO_LDFLAGS} -lSDL2_ttf
-  else ifneq (,$(and $(call find_include,SDL/SDL_ttf),$(call find_lib,SDL_ttf)))
-      $(info using libSDL_ttf: $(call find_lib,SDL_ttf) $(call find_include,SDL/SDL_ttf))
-      $(info ***)
-      BESM6_OPT = -I ${BESM6D} -DFONTFILE=${FONTFILE} -DUSE_INT64 ${VIDEO_CCDEFS} ${VIDEO_LDFLAGS} -lSDL_ttf
-  else
-      BESM6_OPT = -I ${BESM6D} -DUSE_INT64 
-  endif
+    ifeq (,$(and ${VIDEO_LDFLAGS}, ${FONTFILE}, $(BESM6_BUILD)))
+        $(info *** No SDL ttf support available.  BESM-6 video panel disabled.)
+        $(info ***)
+        BESM6_OPT = -I ${BESM6D} -DUSE_INT64 
+    else ifneq (,$(and $(findstring sdl2,${VIDEO_LDFLAGS}),$(call find_include,SDL2/SDL_ttf),$(call find_lib,SDL2_ttf)))
+        $(info using libSDL2_ttf: $(call find_lib,SDL2_ttf) $(call find_include,SDL2/SDL_ttf))
+        $(info ***)
+        BESM6_OPT = -I ${BESM6D} -DFONTFILE=${FONTFILE} -DUSE_INT64 ${VIDEO_CCDEFS} ${VIDEO_LDFLAGS} -lSDL2_ttf
+    else ifneq (,$(and $(call find_include,SDL/SDL_ttf),$(call find_lib,SDL_ttf)))
+        $(info using libSDL_ttf: $(call find_lib,SDL_ttf) $(call find_include,SDL/SDL_ttf))
+        $(info ***)
+        BESM6_OPT = -I ${BESM6D} -DFONTFILE=${FONTFILE} -DUSE_INT64 ${VIDEO_CCDEFS} ${VIDEO_LDFLAGS} -lSDL_ttf
+    else
+        BESM6_OPT = -I ${BESM6D} -DUSE_INT64 
+    endif
 endif
 
 ###
