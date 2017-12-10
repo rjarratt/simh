@@ -518,7 +518,6 @@ static REG cpu_reg[] =
 static REG prop_reg[] =
 {
     { STRDATADFC(V, VStore[PROP_V_STORE_BLOCK],    16, 64, 0, V_STORE_BLOCK_SIZE, sizeof(VSTORE_LINE), 0, "V Store", NULL, prop_v_store_register_read_callback, prop_v_store_register_write_callback) },
-	{ HRDATAD(SE,   VStore[PROP_V_STORE_BLOCK][1],     64,    "System Error Status register"), REG_HRO }, /* Needed because remote console can't sample array registers. Hidden because it is not the mechanism to be used for setting it, only used for sampling by remote console */
 	{ NULL }
 };
 

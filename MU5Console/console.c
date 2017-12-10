@@ -702,7 +702,7 @@ main(int argc, char *argv[])
 	setupOk &= SetupSampledRegister("CPU", "DL", 32, DL);
 	setupOk &= SetupSampledRegister("CPU", "MS", 16, MS);
 	setupOk &= SetupSampledRegister("CPU", "INTERRUPT", 8, Interrupt);
-	setupOk &= SetupSampledRegister("PROP", "SE", 16, SE);
+	setupOk &= SetupSampledRegister("PROP", "V[1]", 16, SE);
 
     if (sim_panel_set_display_callback_interval(panel, &DisplayCallback, NULL, 1000000/ SCREEN_REFRESH_RATE)) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, "Error setting automatic display callback: %s\n", sim_panel_get_error());
