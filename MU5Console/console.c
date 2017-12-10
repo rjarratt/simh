@@ -32,6 +32,7 @@
 #include <string.h>
 #include "sim_frontpanel.h"
 #include <signal.h>
+#include <time.h>
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <SDL_ttf.h>
@@ -100,6 +101,7 @@ UINT64 TimeLower;
 
 int update_display = 1;
 
+int clock_gettime(int clk_id, struct timespec *tp); /* defined in sim_frontpanel.c */
 static void UpdateWholeScreen(void);
 static void DisplayTime(void);
 static int CalculateLampX(int row, int column);
@@ -494,13 +496,13 @@ int CreatePanel()
     int result = 0;
     if (SDL_Init(SDL_INIT_VIDEO) != 0)
     {
-        printf("SDL: unable to init: %s\n", SDL_GetError());
+        SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, "SDL: unable to init: %s\n", SDL_GetError());
     }
 	else
 	{
 		if (TTF_Init() < 0)
 		{
-			printf("SDL: couldn't initialize TTF: %s\n", SDL_GetError());
+			SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, "SDL: couldn't initialize TTF: %s\n", SDL_GetError());
 		}
 		else
 		{
@@ -529,14 +531,14 @@ int CreatePanel()
 			ttfLabel = TTF_OpenFont("\\windows\\fonts\\cour.ttf", LAMP_HEIGHT / 3);
 			if (ttfLabel == NULL)
 			{
-				printf("SDL: couldn't load font %s: %s\n", "\\windows\\fonts\\cour.ttf", SDL_GetError());
+				SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, "SDL: couldn't load font %s: %s\n", "\\windows\\fonts\\cour.ttf", SDL_GetError());
 				result = 0;
 			}
 
 			ttfTime = TTF_OpenFont("ledreali.ttf", LAMP_HEIGHT * 2);
 			if (ttfTime == NULL)
 			{
-				printf("SDL: couldn't load font %s: %s\n", "ledreali.ttf", SDL_GetError());
+				SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, "SDL: couldn't load font %s: %s\n", "ledreali.ttf", SDL_GetError());
 				result = 0;
 			}
 
@@ -620,6 +622,13 @@ static int SetupSampledRegister(char *device, char *name, int bits, int *data)
 	return result;
 }
 
+void LogOutputFunction(void *userdata, int category, SDL_LogPriority priority, const char *message)
+{
+	struct timespec time_now;
+	clock_gettime(0, &time_now);
+	printf("%lld.%03d %s\n", (long long)(time_now.tv_sec), (int)(time_now.tv_nsec / 1000000), message);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -627,6 +636,8 @@ main(int argc, char *argv[])
     FILE *f;
     int debug = 0;
 	int setupOk = 1;
+
+	SDL_LogSetOutputFunction(LogOutputFunction, NULL);
 
     if ((argc > 1) && ((!strcmp("-d", argv[1])) || (!strcmp("-D", argv[1])) || (!strcmp("-debug", argv[1]))))
         debug = 1;
@@ -675,12 +686,12 @@ main(int argc, char *argv[])
         debug ? "frontpanel.dbg" : NULL);
 
     if (!panel) {
-        printf("Error starting simulator %s with config %s: %s\n", sim_path, sim_config, sim_panel_get_error());
+		SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, "Error starting simulator %s with config %s: %s\n", sim_path, sim_config, sim_panel_get_error());
         goto Done;
     }
 
     if (debug) {
-        sim_panel_set_debug_mode(panel, DBG_XMT | DBG_RCV | DBG_REQ | DBG_RSP);
+		sim_panel_set_debug_mode(panel, DBG_XMT | DBG_RCV | DBG_REQ | DBG_RSP);
     }
 
     sim_panel_set_sampling_parameters(panel, INSTRUCTION_RATE / (SCREEN_REFRESH_RATE * LAMP_LEVELS), LAMP_LEVELS);
@@ -694,7 +705,7 @@ main(int argc, char *argv[])
 	setupOk &= SetupSampledRegister("PROP", "SE", 16, SE);
 
     if (sim_panel_set_display_callback_interval(panel, &DisplayCallback, NULL, 1000000/ SCREEN_REFRESH_RATE)) {
-        printf("Error setting automatic display callback: %s\n", sim_panel_get_error());
+		SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, "Error setting automatic display callback: %s\n", sim_panel_get_error());
         goto Done;
     }
 
