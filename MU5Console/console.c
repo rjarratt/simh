@@ -32,7 +32,6 @@
 #include <string.h>
 #include "sim_frontpanel.h"
 #include <signal.h>
-#include <time.h>
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <SDL_ttf.h>
@@ -624,9 +623,7 @@ static int SetupSampledRegister(char *device, char *name, int bits, int *data)
 
 void LogOutputFunction(void *userdata, int category, SDL_LogPriority priority, const char *message)
 {
-	struct timespec time_now;
-	clock_gettime(0, &time_now);
-	printf("%lld.%03d %s\n", (long long)(time_now.tv_sec), (int)(time_now.tv_nsec / 1000000), message);
+	sim_panel_debug(panel, "%s", message);
 }
 
 int
@@ -636,8 +633,6 @@ main(int argc, char *argv[])
     FILE *f;
     int debug = 0;
 	int setupOk = 1;
-
-	SDL_LogSetOutputFunction(LogOutputFunction, NULL);
 
     if ((argc > 1) && ((!strcmp("-d", argv[1])) || (!strcmp("-D", argv[1])) || (!strcmp("-debug", argv[1]))))
         debug = 1;
@@ -684,6 +679,7 @@ main(int argc, char *argv[])
         sim_config,
         2,
         debug ? "frontpanel.dbg" : NULL);
+	SDL_LogSetOutputFunction(LogOutputFunction, NULL);
 
     if (!panel) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, "Error starting simulator %s with config %s: %s\n", sim_path, sim_config, sim_panel_get_error());
@@ -691,7 +687,7 @@ main(int argc, char *argv[])
     }
 
     if (debug) {
-		sim_panel_set_debug_mode(panel, DBG_XMT | DBG_RCV | DBG_REQ | DBG_RSP);
+		sim_panel_set_debug_mode(panel, DBG_APP | DBG_XMT | DBG_RCV | DBG_REQ | DBG_RSP);
     }
 
     sim_panel_set_sampling_parameters(panel, INSTRUCTION_RATE / (SCREEN_REFRESH_RATE * LAMP_LEVELS), LAMP_LEVELS);
