@@ -102,6 +102,7 @@ int update_display = 1;
 
 int clock_gettime(int clk_id, struct timespec *tp); /* defined in sim_frontpanel.c */
 static void UpdateWholeScreen(void);
+static void RedrawWholeScreen(void);
 static void DisplayTime(void);
 static int CalculateLampX(int row, int column);
 static int CalculateLampCellX(int row, int column);
@@ -489,6 +490,17 @@ static void UpdateWholeScreen(void)
     SDL_RenderPresent(sdlRenderer);
 }
 
+static void RedrawWholeScreen(void)
+{
+    SDL_SetRenderDrawColor(sdlRenderer, PANEL_BACKGROUND_COLOUR, 255);
+    SDL_RenderClear(sdlRenderer);
+
+    DrawLampPanel();
+    DisplayRegisters();
+
+    UpdateWholeScreen();
+}
+
 int CreatePanel()
 {
 	// TODO: Tidy up all the creation so anything that could fail or not be found is done first and clean up.
@@ -523,8 +535,6 @@ int CreatePanel()
             SDL_RenderSetLogicalSize(sdlRenderer, WIDTH, HEIGHT);
 			//SDL_RenderSetScale(sdlRenderer, 1, 2);
             /* Make grey console background */
-            SDL_SetRenderDrawColor(sdlRenderer, PANEL_BACKGROUND_COLOUR, 255);
-            SDL_RenderClear(sdlRenderer);
 
 
 			ttfLabel = TTF_OpenFont("\\windows\\fonts\\cour.ttf", LAMP_HEIGHT / 3);
@@ -541,10 +551,7 @@ int CreatePanel()
 				result = 0;
 			}
 
-            DrawLampPanel();
-			DisplayRegisters();
-
-            UpdateWholeScreen();
+            RedrawWholeScreen();
         }
     }
 
@@ -711,18 +718,33 @@ main(int argc, char *argv[])
 		do
 		{
 			SDL_PollEvent(&e);
-			if (e.type == SDL_QUIT)
-			{
-				SDL_Log("Program quit after %i ticks", e.quit.timestamp);
-				halt_cpu = 1;
-			}
-			else if (e.type == SDL_MOUSEBUTTONUP)
-			{
-				if (sim_panel_get_state(panel) != Run)
-				{
-					my_boot(panel);
-				}
-			}
+            switch (e.type)
+            {
+                case SDL_QUIT:
+                {
+                    SDL_Log("Program quit after %i ticks", e.quit.timestamp);
+                    halt_cpu = 1;
+                    break;
+                }
+                case SDL_MOUSEBUTTONUP:
+                {
+                    if (sim_panel_get_state(panel) != Run)
+                    {
+                        my_boot(panel);
+                    }
+                    break;
+                }
+
+                case SDL_RENDER_TARGETS_RESET:
+                {
+                    RedrawWholeScreen();
+                    break;
+                }
+                default:
+                {
+                    break;
+                }
+            }
 			if (update_display)
 			{
 				DisplayRegisters();
