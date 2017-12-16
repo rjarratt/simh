@@ -105,6 +105,7 @@ noret __libc_longjmp (jmp_buf buf, int val);
 #define STOP_EX             5     /* Exception */
 #define STOP_ESTK           6     /* Exception stack too deep */
 #define STOP_MMU            7     /* Unimplemented MMU Feature */
+#define STOP_POWER          8     /* System power-off */
 
 /* Exceptional conditions handled within the instruction loop */
 #define ABORT_EXC           1      /* CPU exception  */
@@ -303,7 +304,7 @@ noret __libc_longjmp (jmp_buf buf, int val);
 /* Calculate delays (in simulator steps) for times */
 /* System clock runs at 10MHz; 100ns period.       */
 
-#define US_PER_INST         1.0
+#define US_PER_INST         1.6
 
 #define INST_PER_MS         (1000.0 / US_PER_INST)
 

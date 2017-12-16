@@ -393,7 +393,7 @@ t_stat iu_svc_contty(UNIT *uptr)
                 if ((iu_contty.stat & STS_FFL) == 0) {
                     iu_contty.rxbuf[iu_contty.w_p] = (temp & 0xff);
                     iu_contty.w_p = (iu_contty.w_p + 1) % IU_BUF_SIZE;
-                    if (iu_contty.w_p == iu_contty.w_p) {
+                    if (iu_contty.w_p == iu_contty.r_p) {
                         iu_contty.stat |= STS_FFL;
                     }
                 }
@@ -558,7 +558,7 @@ void iu_write(uint32 pa, uint32 val, size_t size)
             if ((iu_console.stat & STS_FFL) == 0) {
                 iu_console.rxbuf[iu_console.w_p] = (uint8) val;
                 iu_console.w_p = (iu_console.w_p + 1) % IU_BUF_SIZE;
-                if (iu_console.w_p == iu_contty.r_p) {
+                if (iu_console.w_p == iu_console.r_p) {
                     iu_console.stat |= STS_FFL;
                 }
             }
@@ -632,6 +632,12 @@ void iu_write(uint32 pa, uint32 val, size_t size)
         sim_debug(EXECUTE_MSG, &contty_dev,
                   ">>> SOPR written: %02x\n",
                   (uint8) val);
+        /* Bit 2 of the IU output register is used as a soft power
+         * switch. When set, the machine will power down
+         * immediately. */
+        if (val & IU_KILLPWR) {
+            stop_reason = STOP_POWER;
+        }
         break;
     case ROPR:
         sim_debug(EXECUTE_MSG, &contty_dev,
