@@ -694,7 +694,7 @@ main(int argc, char *argv[])
     }
 
     if (debug) {
-		sim_panel_set_debug_mode(panel, DBG_APP | DBG_XMT | DBG_RCV | DBG_REQ | DBG_RSP);
+		sim_panel_set_debug_mode(panel, DBG_APP | DBG_XMT | DBG_RCV | DBG_REQ | DBG_RSP | DBG_THR);
     }
 
     sim_panel_set_sampling_parameters(panel, INSTRUCTION_RATE / (SCREEN_REFRESH_RATE * LAMP_LEVELS), LAMP_LEVELS);
@@ -730,7 +730,8 @@ main(int argc, char *argv[])
                 {
                     if (sim_panel_get_state(panel) != Run)
                     {
-                        my_boot(panel);
+						SDL_Log("Boot button pressed, starting the simulator");
+						my_boot(panel);
                     }
                     break;
                 }
