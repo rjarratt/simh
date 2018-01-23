@@ -394,6 +394,8 @@ static void DrawLampPanelOverlay(void)
 	DrawPanelUpperLabel(5, 27, "LINE");
 	DrawPanelLowerLabel(5, 0, "PROCESS NUMBER");
 	DrawPanelLowerLabel(5, 19, "CONTROL");
+
+    /* The "MU5" badge seems to most closely match the font: http://www.myfonts.com/fonts/typodermic/from-the-stars/semibold-italic/glyphs.html?vid=491203&render=fs */
 }
 
 SDL_Texture *DrawFilledRectangle(int width, int height, SDL_Color colour)
