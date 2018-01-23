@@ -45,7 +45,7 @@
 
 #define INSTRUCTION_RATE 1000000 /* instructions per second */
 #define SCREEN_REFRESH_RATE 25 /* refreshes per second */
-#define WIDTH   1365 /* reduced in size, aspect ratio should be about 3.4:1 */
+#define WIDTH   1900 /* reduced in size, aspect ratio should be about 3.4:1 */
 #define HEIGHT  800
 #define DEPTH   32
 #define LAMP_HEIGHT 30
@@ -140,7 +140,7 @@ static void DisplayRegisters(void)
         DrawRegister(3, 0, MS, 16);
         DrawRegister(3, 16, Interrupt, 8);
         DrawRegister(3, 24, SE, 16);
-		//DisplayTime();
+		DisplayTime();
         UpdateWholeScreen();
     }
 }
@@ -195,11 +195,11 @@ static void DrawPanelText(int x, int y, char *text, TTF_Font *font, int updateab
 
 	if (updateable)
 	{
-		surface = TTF_RenderText_Shaded(font, text, lampOnColour, black);
+		surface = TTF_RenderText_Blended(font, text, lampOnColour);
 	}
 	else
 	{
-		surface = TTF_RenderText_Solid(font, text, lineColour);
+		surface = TTF_RenderText_Blended(font, text, lineColour);
 	}
 
 	texture = SDL_CreateTextureFromSurface(sdlRenderer, surface);
@@ -533,7 +533,7 @@ int CreatePanel()
         {
 
             SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");  // make the scaled rendering look smoother.
-            //SDL_RenderSetLogicalSize(sdlRenderer, WIDTH, HEIGHT);
+            SDL_RenderSetLogicalSize(sdlRenderer, WIDTH, HEIGHT);
 			//SDL_RenderSetScale(sdlRenderer, 1, 2);
             /* Make grey console background */
 
