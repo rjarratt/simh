@@ -57,7 +57,6 @@
 #define LAMP_ON_COLOUR 242, 88, 60
 #define LAMP_LEVELS 50
 #define PANEL_BACKGROUND_COLOUR 114, 111, 104 /* TODO: Use SDL_Color instead */
-#define LINE_COLOUR 98, 85, 76
 #define LINE_THICKNESS 2
 #define LINE_SUB_DIVIDER_THICKNESS 1
 #define LAMP_ROWS 6
@@ -89,7 +88,7 @@ static TTF_Font *ttfTime;
 static const SDL_Color white = { 255, 255, 255, 0 };
 static const SDL_Color black = { 0,   0,   0, 0 };
 static const SDL_Color panelBackground = { PANEL_BACKGROUND_COLOUR, 0 };
-static const SDL_Color lineColour = { LINE_COLOUR, 0 };
+static const SDL_Color lineColour = { 10, 10, 10, 0 };
 static const SDL_Color lampOnColour = { LAMP_ON_COLOUR, 0 };
 static const SDL_Color lampOffColour = { LAMP_OFF_COLOUR, 0 };
 
@@ -200,7 +199,7 @@ static void DrawPanelText(int x, int y, char *text, TTF_Font *font, int updateab
 	}
 	else
 	{
-		surface = TTF_RenderText_Solid(font, text, black);
+		surface = TTF_RenderText_Solid(font, text, lineColour);
 	}
 
 	texture = SDL_CreateTextureFromSurface(sdlRenderer, surface);
@@ -539,7 +538,7 @@ int CreatePanel()
             /* Make grey console background */
 
 
-            ttfLabel = TTF_OpenFont("\\windows\\fonts\\cour.ttf", LAMP_HEIGHT / 3);
+            ttfLabel = TTF_OpenFont("Carlito-Regular.ttf", LAMP_HEIGHT / 3);
 			if (ttfLabel == NULL)
 			{
 				SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, "SDL: couldn't load font %s: %s\n", "\\windows\\fonts\\cour.ttf", SDL_GetError());
