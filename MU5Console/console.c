@@ -45,7 +45,7 @@
 
 #define INSTRUCTION_RATE 1000000 /* instructions per second */
 #define SCREEN_REFRESH_RATE 25 /* refreshes per second */
-#define WIDTH   1900 /* reduced in size, aspect ratio should be about 3.4:1 */
+#define WIDTH   1365 /* reduced in size, aspect ratio should be about 3.4:1 */
 #define HEIGHT  800
 #define DEPTH   32
 #define LAMP_HEIGHT 30
@@ -141,7 +141,7 @@ static void DisplayRegisters(void)
         DrawRegister(3, 0, MS, 16);
         DrawRegister(3, 16, Interrupt, 8);
         DrawRegister(3, 24, SE, 16);
-		DisplayTime();
+		//DisplayTime();
         UpdateWholeScreen();
     }
 }
@@ -328,7 +328,7 @@ static void DrawLampPanelOverlay(void)
 	DrawLampRegisterNibbleLabelBoundary(1, 8);
 	DrawLampRegisterNibbleLabelBoundary(1, 12);
 
-	DrawPanelLowerLabel(1, 7, "(???) PROP FINAL FUNCTION");
+	DrawPanelLowerLabel(1, 7, "(RF5) PROP FINAL FUNCTION");
 	DrawPanelLowerLabel(1, 22, "FINGER FLIP FLOPS");
 	DrawPanelLowerLabel(1, 32, "PARITY SWITCHES OFF NORMAL");
 
@@ -348,7 +348,7 @@ static void DrawLampPanelOverlay(void)
 	DrawLampRegisterNibbleLabelBoundary(2, 8);
 	DrawLampRegisterNibbleLabelBoundary(2, 12);
 
-	DrawPanelLowerLabel(2, 7, "(???) PROP FIRST FUNCTION");
+	DrawPanelLowerLabel(2, 7, "(RDF) PROP FIRST FUNCTION");
 	DrawPanelLowerLabel(2, 28, "TELETYPE BUFFER");
 
     /* row 4 */
@@ -373,7 +373,7 @@ static void DrawLampPanelOverlay(void)
     DrawLampRegisterSubBoundaryToLabelDivider(4, 32);
 
 	DrawPanelLowerLabel(4, 0, "PROP VALID");
-	DrawPanelLowerLabel(4, 19, "DISPLAY (EDL)");
+	DrawPanelLowerLabel(4, 19, "DISPLAY (RDL)");
 	DrawPanelLowerLabel(4, 36, "LOCAL ST. FAIL SOFT MODE");
 
     /* row 6 */
@@ -534,12 +534,12 @@ int CreatePanel()
         {
 
             SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");  // make the scaled rendering look smoother.
-            SDL_RenderSetLogicalSize(sdlRenderer, WIDTH, HEIGHT);
+            //SDL_RenderSetLogicalSize(sdlRenderer, WIDTH, HEIGHT);
 			//SDL_RenderSetScale(sdlRenderer, 1, 2);
             /* Make grey console background */
 
 
-			ttfLabel = TTF_OpenFont("\\windows\\fonts\\cour.ttf", LAMP_HEIGHT / 3);
+            ttfLabel = TTF_OpenFont("\\windows\\fonts\\cour.ttf", LAMP_HEIGHT / 3);
 			if (ttfLabel == NULL)
 			{
 				SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, "SDL: couldn't load font %s: %s\n", "\\windows\\fonts\\cour.ttf", SDL_GetError());
