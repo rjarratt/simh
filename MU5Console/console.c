@@ -51,7 +51,7 @@
 #define LAMP_HEIGHT 30
 #define LAMP_WIDTH 10
 #define LAMP_HORIZONTAL_SPACING (LAMP_WIDTH * 3)
-#define LAMP_VERTICAL_SPACING (LAMP_HEIGHT * 3 + LAMP_HEIGHT / 2)
+#define LAMP_VERTICAL_SPACING (LAMP_HEIGHT * 4 + LAMP_HEIGHT / 3)
 
 #define LAMP_OFF_COLOUR 97, 83, 74
 #define LAMP_ON_COLOUR 242, 88, 60
@@ -69,7 +69,9 @@
 #define TIME_PANEL_X 50
 #define TIME_PANEL_Y (LAMP_PANEL_Y)
 #define TIME_PANEL_MARGIN 5
-#define LABEL_BOX_HEIGHT (LAMP_HEIGHT/2)
+#define LABEL_BOX_HEIGHT (LAMP_HEIGHT)
+#define LABEL_HEIGHT (LABEL_BOX_HEIGHT / 2)
+#define SMALL_LABEL_HEIGHT ((5 * LABEL_HEIGHT) / 10)
 
 const char *sim_path =
 #if defined(_WIN32)
@@ -84,6 +86,7 @@ const char *sim_config =
 static SDL_Window *sdlWindow;
 static SDL_Renderer *sdlRenderer;
 static TTF_Font *ttfLabel;
+static TTF_Font *ttfSmallLabel;
 static TTF_Font *ttfTime;
 static const SDL_Color white = { 255, 255, 255, 0 };
 static const SDL_Color black = { 0,   0,   0, 0 };
@@ -104,8 +107,11 @@ static void UpdateWholeScreen(void);
 static void RedrawWholeScreen(void);
 static void DisplayTime(void);
 static int CalculateLampX(int row, int column);
+static int CalculateLampY(int row);
 static int CalculateLampCellX(int row, int column);
 static void DrawLamp(int row, int column, int level);
+static void DrawLampTextHorizontal(int row, int column, char *text, int offset);
+static void DrawLampTextVertical(int row, int column, char *text, int offset);
 static void DrawLampPanel(void);
 static void DrawPanelText(int x, int y, char *text, TTF_Font *font, int updateable);
 SDL_Texture *DrawFilledRectangle(int width, int height, SDL_Color colour);
@@ -120,6 +126,7 @@ static void DrawLampRegisterBoundaryThick(int row, int column);
 static void DrawPanelUpperLabel(int row, int column, char *text);
 static void DrawPanelLowerLabel(int row, int column, char *text);
 static void DrawLampPanelOverlay(void);
+static void DrawLampPanelLampOverlay(void);
 static void DrawRegister(int row, int column, unsigned int bits[], UINT8 width);
 static int SetupRegister(char *device, char *name, UINT64 *address);
 static int SetupSampledRegister(char *device, char *name, int bits, int *data);
@@ -141,6 +148,7 @@ static void DisplayRegisters(void)
         DrawRegister(3, 16, Interrupt, 8);
         DrawRegister(3, 24, SE, 16);
 		DisplayTime();
+		DrawLampPanelLampOverlay();
         UpdateWholeScreen();
     }
 }
@@ -231,7 +239,7 @@ static void DrawLampRegisterNibbleLabelDivider(int row, int column, int forColum
 {
 	int fromX = CalculateLampCellX(row, column);
 	int toX = CalculateLampCellX(row, column + forColumns);
-	DrawLampPanelOverlayLine(toX - fromX, LINE_SUB_DIVIDER_THICKNESS, fromX, LAMP_PANEL_Y + ((row + 1) * LAMP_VERTICAL_SPACING) - LAMP_HEIGHT);
+	DrawLampPanelOverlayLine(toX - fromX, LINE_SUB_DIVIDER_THICKNESS, fromX, LAMP_PANEL_Y + ((row + 1) * LAMP_VERTICAL_SPACING) - (LABEL_BOX_HEIGHT * 2));
 }
 
 static void DrawLampRegisterNibbleLabelBoundary(int row, int column)
@@ -241,7 +249,7 @@ static void DrawLampRegisterNibbleLabelBoundary(int row, int column)
 
 static void DrawLampRegisterHalfBoundaryToLabelDivider(int row, int column)
 {
-	DrawLampPanelOverlayLine(LINE_SUB_DIVIDER_THICKNESS, LAMP_VERTICAL_SPACING - (LABEL_BOX_HEIGHT * 4), CalculateLampX(row, column) - LAMP_WIDTH, LAMP_PANEL_Y + (row * LAMP_VERTICAL_SPACING) + (LABEL_BOX_HEIGHT * 3));
+	DrawLampPanelOverlayLine(LINE_SUB_DIVIDER_THICKNESS, LAMP_VERTICAL_SPACING - ((5 * LABEL_BOX_HEIGHT) / 2), CalculateLampX(row, column) - LAMP_WIDTH, LAMP_PANEL_Y + (row * LAMP_VERTICAL_SPACING) + ((3 * LABEL_BOX_HEIGHT) / 2));
 }
 
 static void DrawLampRegisterBoundaryToLabelDivider(int row, int column)
@@ -271,12 +279,12 @@ static void DrawLampRegisterBoundaryThin(int row, int column)
 
 static void DrawPanelUpperLabel(int row, int column, char *text)
 {
-	DrawPanelText(CalculateLampCellX(row, column) + (LAMP_HORIZONTAL_SPACING / 2), LAMP_PANEL_Y + ((row) * LAMP_VERTICAL_SPACING) + (LAMP_HEIGHT / 2) + 2, text, ttfLabel, FALSE);
+	DrawPanelText(CalculateLampCellX(row, column) + (LAMP_HORIZONTAL_SPACING / 2), LAMP_PANEL_Y + ((row) * LAMP_VERTICAL_SPACING) + LABEL_HEIGHT + 2, text, ttfLabel, FALSE);
 }
 
 static void DrawPanelLowerLabel(int row, int column, char *text)
 {
-	DrawPanelText(CalculateLampCellX(row, column) + (LAMP_HORIZONTAL_SPACING / 2), LAMP_PANEL_Y + ((row + 1) * LAMP_VERTICAL_SPACING) - (LAMP_HEIGHT / 2) + 2, text, ttfLabel, FALSE);
+	DrawPanelText(CalculateLampCellX(row, column), LAMP_PANEL_Y + ((row + 1) * LAMP_VERTICAL_SPACING) - ((3 * LABEL_BOX_HEIGHT) / 4) + 2, text, ttfLabel, FALSE);
 }
 
 static void DrawLampPanelOverlay(void)
@@ -288,7 +296,7 @@ static void DrawLampPanelOverlay(void)
     {
         if (i > 1)
         {
-            DrawLampPanelOverlayLine(PANEL_WIDTH, LINE_SUB_DIVIDER_THICKNESS, LAMP_PANEL_X, LAMP_PANEL_Y + (i * LAMP_VERTICAL_SPACING) - (LAMP_HEIGHT / 2));
+            DrawLampPanelOverlayLine(PANEL_WIDTH, LINE_SUB_DIVIDER_THICKNESS, LAMP_PANEL_X, LAMP_PANEL_Y + (i * LAMP_VERTICAL_SPACING) - LABEL_BOX_HEIGHT);
         }
         else if (i == 1)
         {
@@ -308,14 +316,21 @@ static void DrawLampPanelOverlay(void)
     DrawLampRegisterBoundaryThick(0, 29);
 	DrawLampRegisterHalfBoundaryToLabelDivider(0, 25);
 
-	DrawPanelLowerLabel(0, 3, "PROP WAIT");
+	DrawLampPanelOverlayLine(LINE_SUB_DIVIDER_THICKNESS, (3 * LAMP_HEIGHT) / 2, CalculateLampX(0, 0) - ((2 * LAMP_WIDTH) / 3), CalculateLampY(0) - (LAMP_HEIGHT / 7));
+	DrawLampPanelOverlayLine(LINE_SUB_DIVIDER_THICKNESS, (3 * LAMP_HEIGHT) / 2, CalculateLampX(0, 1) + LAMP_WIDTH + (LAMP_WIDTH / 2), CalculateLampY(0) - (LAMP_HEIGHT / 7));
+	DrawPanelText(CalculateLampX(0, 0) - ((2 * LAMP_WIDTH) / 3), CalculateLampY(0) - (LAMP_HEIGHT / 7) + (3 * LAMP_HEIGHT) / 2, "x LOCK   OUT x", ttfSmallLabel, 0);
+	DrawPanelText(CalculateLampX(0, 11), CalculateLampY(0) + LAMP_HEIGHT, "MEQ", ttfSmallLabel, 0);
+	DrawPanelText(CalculateLampX(0, 26), CalculateLampY(0) - (LAMP_HEIGHT / 7) + (3 * LAMP_HEIGHT) / 2, "EXCHANGE", ttfSmallLabel, 0);
+	DrawPanelText(CalculateLampX(0, 37) - SMALL_LABEL_HEIGHT, CalculateLampY(0) - SMALL_LABEL_HEIGHT, "PROP", ttfSmallLabel, 0);
+	DrawPanelText(CalculateLampX(0, 39) - SMALL_LABEL_HEIGHT, CalculateLampY(0) - SMALL_LABEL_HEIGHT, "PROP", ttfSmallLabel, 0);
+
+	DrawPanelLowerLabel(0, 2, "PROP WAIT");
 	DrawPanelLowerLabel(0, 11, "SAC");
 	DrawPanelLowerLabel(0, 17, "OBS");
 	DrawPanelLowerLabel(0, 23, "BUSY SIGNALS");
 	DrawPanelLowerLabel(0, 34, "TEST SWITCHES");
 
     /* row 2 */
-    DrawLampRegisterNibbleLabelDivider(1, 0, 16);
     DrawLampRegisterBoundaryThin(1, 16);
     DrawLampRegisterBoundaryThick(1, 20);
     DrawLampRegisterBoundaryThick(1, 29);
@@ -328,11 +343,10 @@ static void DrawLampPanelOverlay(void)
 	DrawLampRegisterNibbleLabelBoundary(1, 12);
 
 	DrawPanelLowerLabel(1, 7, "(RF5) PROP FINAL FUNCTION");
-	DrawPanelLowerLabel(1, 22, "FINGER FLIP FLOPS");
-	DrawPanelLowerLabel(1, 32, "PARITY SWITCHES OFF NORMAL");
+	DrawPanelLowerLabel(1, 23, "FINGER FLIP FLOPS");
+	DrawPanelLowerLabel(1, 33, "PARITY SWITCHES OFF NORMAL");
 
 	/* row 3 */
-	DrawLampRegisterNibbleLabelDivider(2, 0, 16);
 	DrawLampRegisterBoundaryThin(2, 16);
 	DrawLampRegisterBoundaryThick(2, 20);
     DrawLampRegisterSubBoundaryToLabelDivider(2, 20);
@@ -353,6 +367,7 @@ static void DrawLampPanelOverlay(void)
     /* row 4 */
     DrawLampRegisterBoundaryThick(3, 16);
     DrawLampRegisterBoundaryThick(3, 24);
+	DrawLampTextHorizontal(3, 1, "Flt", 4);
 
 	DrawPanelLowerLabel(3, 5, "MACHINE STATUS");
 	DrawPanelLowerLabel(3, 19, "INTERRUPT ENTRY");
@@ -371,12 +386,11 @@ static void DrawLampPanelOverlay(void)
     DrawLampRegisterSubBoundaryToLabelDivider(4, 28);
     DrawLampRegisterSubBoundaryToLabelDivider(4, 32);
 
-	DrawPanelLowerLabel(4, 0, "PROP VALID");
-	DrawPanelLowerLabel(4, 19, "DISPLAY (RDL)");
+	DrawPanelLowerLabel(4, 0, "            PROP VALID");
+	DrawPanelLowerLabel(4, 19, "   DISPLAY (RDL)");
 	DrawPanelLowerLabel(4, 36, "LOCAL ST. FAIL SOFT MODE");
 
     /* row 6 */
-    DrawLampRegisterNibbleLabelDivider(5, 4, 32);
 //    DrawLampPanelOverlayLine(32 * LAMP_HORIZONTAL_SPACING, LINE_SUB_DIVIDER_THICKNESS, CalculateLampCellX(5, 4), LAMP_PANEL_Y + (6 * LAMP_VERTICAL_SPACING) - LAMP_HEIGHT);
     DrawLampRegisterBoundaryThick(5, 4);
     DrawLampRegisterBoundaryToLabelDivider(5, 36);
@@ -391,10 +405,199 @@ static void DrawLampPanelOverlay(void)
 
 	DrawPanelUpperLabel(5, 11, "SEGMENT");
 	DrawPanelUpperLabel(5, 27, "LINE");
-	DrawPanelLowerLabel(5, 0, "PROCESS NUMBER");
+	DrawPanelLowerLabel(5, 0, "         PROCESS NUMBER");
 	DrawPanelLowerLabel(5, 19, "CONTROL");
 
     /* The "MU5" badge seems to most closely match the font: http://www.myfonts.com/fonts/typodermic/from-the-stars/semibold-italic/glyphs.html?vid=491203&render=fs */
+}
+
+/* Draws the parts that actually go over the top of the lamps themselves */
+static void DrawLampPanelLampOverlay(void)
+{
+	int i;
+	char buf[80];
+
+	/* row 1 */
+	DrawLampTextVertical(0, 0, "B", 0);
+	DrawLampTextVertical(0, 1, "COMPARE", 1);
+	DrawLampTextVertical(0, 2, "INTERRUPT", 1);
+	DrawLampTextVertical(0, 3, "DR", 0);
+	DrawLampTextVertical(0, 4, "N/S", 0);
+	DrawLampTextVertical(0, 5, "CPR", 1);
+	DrawLampTextVertical(0, 6, "HO", 0);
+	DrawLampTextVertical(0, 7, "VU", 0);
+	DrawLampTextVertical(0, 8, "DR WAIT FOR OBS", 6);
+	DrawLampTextVertical(0, 9, "BUSY", 1);
+	DrawLampTextVertical(0, 10, "V BUSY", 1);
+	DrawLampTextHorizontal(0, 11, "/=", 0); /* TODO: Needs to be \u2260 */
+	DrawLampTextVertical(0, 12, "DISCARD", 2);
+	DrawLampTextVertical(0, 13, "OVERDUE", 2);
+	DrawLampTextHorizontal(0, 14, "1", 0);
+	DrawLampTextHorizontal(0, 15, "2", 0);
+	DrawLampTextHorizontal(0, 16, "3", 0);
+	DrawLampTextVertical(0, 17, "BYPASS", 1);
+	DrawLampTextVertical(0, 18, "Q HELD", 1);
+	DrawLampTextVertical(0, 19, "Q FULL", 1);
+	DrawLampTextVertical(0, 20, "DOP", 0);
+	DrawLampTextVertical(0, 21, "ACC1", 0);
+	DrawLampTextVertical(0, 22, "ACC2", 0);
+	DrawLampTextHorizontal(0, 23, "B", 0);
+	DrawLampTextVertical(0, 24, "DISC", 0);
+	DrawLampTextVertical(0, 25, "NONE", 0);
+	DrawLampTextVertical(0, 26, "PFI", 0);
+	DrawLampTextVertical(0, 27, "CHAN OFF", 0);
+	DrawLampTextVertical(0, 29, "EXCH", 0);
+	DrawLampTextVertical(0, 30, "DISC", 0);
+	DrawLampTextVertical(0, 31, "SAC", 0);
+	DrawLampTextVertical(0, 32, "1905E", 0);
+	DrawLampTextVertical(0, 33, "MASS", 0);
+	DrawLampTextVertical(0, 34, "LOCAL", 0);
+	DrawLampTextVertical(0, 38, "IBU", 0);
+	DrawLampTextVertical(0, 39, "VALID+", 1);
+
+	/* row 2 */
+	DrawLampRegisterNibbleLabelDivider(1, 0, 16);
+	for (i = 0; i < 16; i++)
+	{
+		sprintf(buf, " %02d", i);
+		DrawLampTextHorizontal(1, i, buf, 0);
+	}
+
+	DrawLampTextVertical(1, 16, "VALID", 1);
+	DrawLampTextVertical(1, 17, "?VP", 1); /* TODO: Needs \u2193 for down arrow */
+	DrawLampTextVertical(1, 18, "?VB", 1); /* TODO: Needs \u2193 for down arrow */
+	DrawLampTextVertical(1, 19, "?VD", 1); /* TODO: Needs \u2193 for down arrow */
+	DrawLampTextVertical(1, 20, "DISC", 0);
+	DrawLampTextVertical(1, 21, "SAC", 0);
+	DrawLampTextVertical(1, 22, "1905E", 1);
+	DrawLampTextVertical(1, 23, "MASS0", 1);
+	DrawLampTextVertical(1, 24, "MASS1", 1);
+	DrawLampTextVertical(1, 25, "LOCAL", 1);
+	DrawLampTextVertical(1, 30, "DISC", 0);
+	DrawLampTextVertical(1, 31, "SAC", 0);
+	DrawLampTextVertical(1, 33, "MASS", 0);
+	DrawLampTextVertical(1, 34, "LOCAL", 1);
+
+	/* row 3 */
+	DrawLampRegisterNibbleLabelDivider(2, 0, 16);
+	for (i = 0; i < 16; i++)
+	{
+		sprintf(buf, " %02d", i);
+		DrawLampTextHorizontal(2, i, buf, 0);
+	}
+
+	DrawLampTextHorizontal(2, 16, "17", 0);
+	DrawLampTextVertical(2, 16, "A", -1);
+
+	DrawLampTextHorizontal(2, 17, "17", 0);
+	DrawLampTextVertical(2, 17, "A", -1);
+
+	DrawLampTextHorizontal(2, 18, "18", 0);
+	DrawLampTextHorizontal(2, 19, "19", 0);
+
+	for (i = 0; i < 20; i++)
+	{
+		sprintf(buf, " %02d", i);
+		DrawLampTextHorizontal(2, i + 20, buf, -1);
+	}
+
+
+	/* row 4 */
+	DrawLampTextHorizontal(3, 0, "D", 0);
+	DrawLampTextHorizontal(3, 0, "[]", 1);
+	DrawLampTextVertical(3, 1, "INHPR", 1);
+	DrawLampTextVertical(3, 2, "PER MON", 3);
+	DrawLampTextVertical(3, 4, "OV", 0);
+	DrawLampTextVertical(3, 5, "/=0", 0); /* TODO: Symbol for /= */
+	DrawLampTextVertical(3, 6, "<0", 0);
+	DrawLampTextVertical(3, 7, "Bn", 0);
+	DrawLampTextVertical(3, 8, "CPR OFF", 2);
+	DrawLampTextVertical(3, 9, "N/S OFF", 2);
+	DrawLampTextVertical(3, 10, "I/C INH", 2);
+	DrawLampTextHorizontal(3, 11, "B/D", 0);
+	DrawLampTextVertical(3, 11, "EXEC", 2);
+	DrawLampTextHorizontal(3, 12, "Acc", 0);
+	DrawLampTextVertical(3, 12, "EXEC", 2);
+	DrawLampTextVertical(3, 13, "EXEC", 1);
+	DrawLampTextVertical(3, 14, "L1", 0);
+	DrawLampTextVertical(3, 15, "L0", 0);
+
+	DrawLampTextVertical(3, 16, "SYS ERR", 2);
+	DrawLampTextVertical(3, 17, "CPR /=", 0); /* TODO: fix symbol for /= */
+	DrawLampTextVertical(3, 18, "EXCHANGE", 3);
+	DrawLampTextVertical(3, 19, "PERIPH", 1);
+	DrawLampTextHorizontal(3, 20, "Instr", 0);
+	DrawLampTextHorizontal(3, 20, "Count", 1);
+	DrawLampTextVertical(3, 20, "0", 0);
+	DrawLampTextVertical(3, 21, "ILL ORD", 2);
+	DrawLampTextVertical(3, 22, "PROG", 0);
+	DrawLampTextHorizontal(3, 22, "Flts", 3);
+	DrawLampTextVertical(3, 23, "MESSAGE", 2);
+	DrawLampTextVertical(3, 24, "ENG INT", 1);
+	DrawLampTextVertical(3, 25, "EWP", 0);
+	DrawLampTextVertical(3, 26, "SAC PAR", 1);
+	DrawLampTextVertical(3, 27, "N/S MEQ", 1);
+	DrawLampTextVertical(3, 28, "OBS MEQ", 1);
+	DrawLampTextVertical(3, 29, "CPR MEQ", 1);
+	DrawLampTextVertical(3, 30, "INV", -2);
+	DrawLampTextHorizontal(3, 30, "Real", 1);
+	DrawLampTextVertical(3, 30, "ADD", 2);
+	DrawLampTextVertical(3, 31, "IBU", 0);
+	DrawLampTextHorizontal(3, 32, "BvD", -1);
+	DrawLampTextVertical(3, 32, "ERR", 0);
+	DrawLampTextHorizontal(3, 33, "Acc", -1);
+	DrawLampTextVertical(3, 33, "ERR", 0);
+	DrawLampTextVertical(3, 34, "ILL", -2);
+	DrawLampTextHorizontal(3, 34, "Funct", 1);
+	DrawLampTextVertical(3, 34, "EXEC", 3);
+	DrawLampTextVertical(3, 35, "Name", -2);
+	DrawLampTextHorizontal(3, 35, "Adder", 1);
+	DrawLampTextVertical(3, 35, "OV", 1);
+	DrawLampTextVertical(3, 36, "Control", -2);
+	DrawLampTextHorizontal(3, 36, "Adder", 1);
+	DrawLampTextVertical(3, 36, "OV", 1);
+	DrawLampTextVertical(3, 37, "CPR", -2);
+	DrawLampTextHorizontal(3, 37, "Exec", 1);
+	DrawLampTextVertical(3, 37, "ILL", 2);
+	DrawLampTextVertical(3, 38, "CPR/=", 0);
+
+	/* row 5 */
+	for (i = 0; i < 4; i++)
+	{
+		sprintf(buf, " %01d", i);
+		DrawLampTextHorizontal(4, i, buf, 1);
+	}
+
+	for (i = 0; i < 32; i++)
+	{
+		sprintf(buf, " %02d", 32 + i);
+		DrawLampTextHorizontal(4, 4 + i, buf, -1);
+	}
+
+	for (i = 0; i < 4; i++)
+	{
+		sprintf(buf, " %01d", i);
+		DrawLampTextHorizontal(4, i + 36, buf, 0);
+	}
+
+	/* row 6 */
+	DrawLampRegisterNibbleLabelDivider(5, 4, 32);
+
+	for (i = 0; i < 4; i++)
+	{
+		sprintf(buf, " %02d", i + 12);
+		DrawLampTextHorizontal(5, i, buf, 0);
+	}
+
+	for (i = 0; i < 32; i++)
+	{
+		sprintf(buf, " %02d", i + 32);
+		DrawLampTextHorizontal(5, i + 4, buf, 0);
+	}
+
+	DrawLampTextVertical(5, 36, "TRANSFER", 2);
+	DrawLampTextHorizontal(5, 37, "  INCREMENT", -4);
+
 }
 
 SDL_Texture *DrawFilledRectangle(int width, int height, SDL_Color colour)
@@ -431,6 +634,14 @@ static int CalculateLampX(int row, int column)
 
     return x;
 }
+
+static int CalculateLampY(int row)
+{
+	int y;
+	y = LAMP_PANEL_Y + (row * LAMP_VERTICAL_SPACING) + (LAMP_VERTICAL_SPACING / 3);
+	return y;
+}
+
 
 /* Calculates the X coordinate of where the divider for a particular lamp should be */
 static int CalculateLampCellX(int row, int column)
@@ -470,11 +681,31 @@ static void DrawLamp(int row, int column, int level)
         }
     }
 
-    area.y = LAMP_PANEL_Y + (row * LAMP_VERTICAL_SPACING) + (LAMP_VERTICAL_SPACING/2);
+    area.y = CalculateLampY(row);
     area.x = CalculateLampX(row, column);
     area.w = LAMP_WIDTH;
     area.h = LAMP_HEIGHT;
     SDL_RenderCopy(sdlRenderer, sprites[level], NULL, &area);
+}
+
+static void DrawLampTextHorizontal(int row, int column, char *text, int offset)
+{
+	DrawPanelText(CalculateLampX(row, column), CalculateLampY(row) + LAMP_WIDTH + (offset * SMALL_LABEL_HEIGHT), text, ttfSmallLabel, 0);
+}
+
+/* offset is the number of letters at the end that are off the bottom of the lamp */
+static void DrawLampTextVertical(int row, int column, char *text, int offset)
+{
+	int i;
+	int len = strlen(text);
+	char buf[2];
+	buf[1] = '\0';
+
+	for (i = 0; i < len; i++)
+	{
+		buf[0] = text[len - i - 1];
+		DrawPanelText(CalculateLampX(row, column), CalculateLampY(row) - ((i - offset) * SMALL_LABEL_HEIGHT) + LAMP_HEIGHT - SMALL_LABEL_HEIGHT, buf, ttfSmallLabel, 0);
+	}
 }
 
 static void DrawRegister(int row, int column, unsigned int bits[], UINT8 width)
@@ -538,10 +769,17 @@ int CreatePanel()
             /* Make grey console background */
 
 
-            ttfLabel = TTF_OpenFont("Carlito-Regular.ttf", LAMP_HEIGHT / 3);
+			ttfLabel = TTF_OpenFont("Carlito-Regular.ttf", LABEL_HEIGHT);
 			if (ttfLabel == NULL)
 			{
-				SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, "SDL: couldn't load font %s: %s\n", "\\windows\\fonts\\cour.ttf", SDL_GetError());
+				SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, "SDL: couldn't load font %s: %s\n", "\\windows\\fonts\\Carlito-Regular.ttf", SDL_GetError());
+				result = 0;
+			}
+
+			ttfSmallLabel = TTF_OpenFont("Carlito-Regular.ttf", SMALL_LABEL_HEIGHT);
+			if (ttfSmallLabel == NULL)
+			{
+				SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, "SDL: couldn't load font %s: %s\n", "\\windows\\fonts\\Carlito-Regular.ttf", SDL_GetError());
 				result = 0;
 			}
 
