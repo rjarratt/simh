@@ -667,19 +667,51 @@ static void DrawLamp(int row, int column, int level)
 {
     static SDL_Texture * sprites[LAMP_LEVELS + 1];
     SDL_Rect area;
-	SDL_Color colour;
+	//SDL_Color colour;
     int i;
+	int x;
+	int y;
+	Uint8 off_r;
+	Uint8 off_g;
+	Uint8 off_b;
+	Uint8 on_r;
+	Uint8 on_g;
+	Uint8 on_b;
+	Uint8 level_r;
+	Uint8 level_g;
+	Uint8 level_b;
 
     if (!sprites[0])
     {
-        for (i = 0; i <= LAMP_LEVELS; i++)
+		SDL_Surface *off_surface = SDL_LoadBMP("LampOff.bmp");
+		SDL_LockSurface(off_surface);
+		for (i = 0; i <= LAMP_LEVELS; i++)
         {
-			colour.r = lampOffColour.r + (i * ((lampOnColour.r - lampOffColour.r) / LAMP_LEVELS));
-			colour.g = lampOffColour.g + (i * ((lampOnColour.g - lampOffColour.g) / LAMP_LEVELS));
-			colour.b = lampOffColour.b + (i * ((lampOnColour.b - lampOffColour.b) / LAMP_LEVELS));
-			sprites[i] = DrawFilledRectangle(LAMP_WIDTH, LAMP_HEIGHT, colour);
+			SDL_Surface *on_surface = SDL_LoadBMP("LampOn.bmp");
+			SDL_LockSurface(on_surface);
+			for (x = 0; x < on_surface->w; x++)
+			{
+				for (y = 0; y < on_surface->h; y++)
+				{
+					Uint32 *off_pixel = (Uint32 *)((Uint8 *)off_surface->pixels + y*off_surface->pitch + x * off_surface->format->BytesPerPixel);
+					Uint32 *on_pixel = (Uint32 *)((Uint8 *)on_surface->pixels + y*on_surface->pitch + x * on_surface->format->BytesPerPixel);
+
+					SDL_GetRGB(*off_pixel, off_surface->format, &off_r, &off_g, &off_b);
+					SDL_GetRGB(*on_pixel, on_surface->format, &on_r, &on_g, &on_b);
+					level_r = off_r + (i * ((on_r - off_r) / LAMP_LEVELS));
+					level_g = off_g + (i * ((on_g - off_g) / LAMP_LEVELS));
+					level_b = off_b + (i * ((on_b - off_b) / LAMP_LEVELS));
+					*on_pixel = SDL_MapRGB(on_surface->format, level_r, level_g, level_b);
+				}
+			}
+			SDL_UnlockSurface(on_surface);
+			sprites[i] = SDL_CreateTextureFromSurface(sdlRenderer, on_surface);
+			SDL_FreeSurface(on_surface);
         }
-    }
+
+		SDL_UnlockSurface(off_surface);
+		SDL_FreeSurface(off_surface);
+	}
 
     area.y = CalculateLampY(row);
     area.x = CalculateLampX(row, column);
