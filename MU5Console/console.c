@@ -100,6 +100,13 @@ unsigned int CO[32], DL[32],MS[16],SE[16],Interrupt[8];
 UINT64 TimeUpper;
 UINT64 TimeLower;
 
+typedef struct
+{
+	SDL_Texture *texture;
+	int height;
+	int width;
+} PreparedTexture;
+
 int update_display = 1;
 
 int clock_gettime(int clk_id, struct timespec *tp); /* defined in sim_frontpanel.c */
@@ -113,6 +120,7 @@ static void DrawLamp(int row, int column, int level);
 static void DrawLampTextHorizontal(int row, int column, char *text, int offset);
 static void DrawLampTextVertical(int row, int column, char *text, int offset);
 static void DrawLampPanel(void);
+static PreparedTexture *PreparePanelText(char *text, TTF_Font *font, SDL_Color colour);
 static void DrawPanelText(int x, int y, char *text, TTF_Font *font, int updateable);
 SDL_Texture *DrawFilledRectangle(int width, int height, SDL_Color colour);
 static void DrawLampPanelOverlayLine(int width, int height, int x, int y);
@@ -195,31 +203,41 @@ static void DrawLampPanel(void)
     }
 }
 
+static PreparedTexture *PreparePanelText(char *text, TTF_Font *font, SDL_Color colour)
+{
+	PreparedTexture *result;
+	SDL_Surface *textSurface;
+	result = malloc(sizeof(PreparedTexture));
+	textSurface = TTF_RenderText_Blended(font, text, colour);
+	result->texture = SDL_CreateTextureFromSurface(sdlRenderer, textSurface);
+	result->height = textSurface->h;
+	result->width = textSurface->w;
+	SDL_FreeSurface(textSurface);
+	return result;
+}
+
 static void DrawPanelText(int x, int y, char *text, TTF_Font *font, int updateable)
 {
-	SDL_Surface *surface;
-	SDL_Texture *texture;
+	PreparedTexture *preparedTexture;
 	SDL_Rect dstArea;
 
 	if (updateable)
 	{
-		surface = TTF_RenderText_Blended(font, text, lampOnColour);
+		preparedTexture = PreparePanelText(text, font, lampOnColour);
 	}
 	else
 	{
-		surface = TTF_RenderText_Blended(font, text, lineColour);
+		preparedTexture = PreparePanelText(text, font, lineColour);
 	}
-
-	texture = SDL_CreateTextureFromSurface(sdlRenderer, surface);
 
 	dstArea.x = x;
 	dstArea.y = y;
-	dstArea.h = surface->h;
-	dstArea.w = surface->w;
+	dstArea.h = preparedTexture->height;
+	dstArea.w = preparedTexture->width;
 
-	SDL_RenderCopy(sdlRenderer, texture, NULL, &dstArea);
-	SDL_FreeSurface(surface);
-	SDL_DestroyTexture(texture);
+	SDL_RenderCopy(sdlRenderer, preparedTexture->texture, NULL, &dstArea);
+	SDL_DestroyTexture(preparedTexture->texture);
+	free(preparedTexture);
 }
 
 static void DrawLampPanelOverlayLine(int width, int height, int x, int y)
