@@ -452,9 +452,9 @@ static void DrawLampPanelLampOverlay(void)
 	DrawLampTextVertical(0, 32, "1905E", 0);
 	DrawLampTextVertical(0, 33, "MASS", 0);
 	DrawLampTextVertical(0, 34, "LOCAL", 0);
-    DrawLampTextVertical(0, 37, "STOPPER", 2);
+    DrawLampTextVertical(0, 37, "STOPPER", 3);
     DrawLampTextVertical(0, 38, "IBU", 0);
-    DrawLampTextVertical(0, 39, "VALID+", 1);
+    DrawLampTextVertical(0, 39, "VALID+", 2);
 
 	/* row 2 */
 	DrawLampRegisterNibbleLabelDivider(1, 0, 16);
