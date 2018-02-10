@@ -110,10 +110,10 @@ static int CalculateLampX(int row, int column);
 static int CalculateLampY(int row);
 static int CalculateLampCellX(int row, int column);
 static void DrawLamp(int row, int column, int level);
-static void DrawLampTextHorizontal(int row, int column, char *text, int offset);
-static void DrawLampTextVertical(int row, int column, char *text, int offset);
+static void DrawLampTextHorizontal(SDL_Surface *surface, int row, int column, char *text, int offset);
+static void DrawLampTextVertical(SDL_Surface *surface, int row, int column, char *text, int offset);
 static void DrawLampPanel(void);
-static void DrawPanelText(int x, int y, char *text, TTF_Font *font, int updateable);
+static void DrawPanelText(SDL_Surface *surface, int x, int y, char *text, TTF_Font *font, int updateable);
 SDL_Texture *DrawFilledRectangle(int width, int height, SDL_Color colour);
 static void DrawLampPanelOverlayLine(int width, int height, int x, int y);
 static void DrawLampRegisterNibbleLabelDivider(int row, int column, int forColumns);
@@ -177,8 +177,7 @@ static void DisplayTime(void)
 	secs = (TimeLower >> 8) & 0xFF;
 	sprintf(time, "%02X %02X %02X", hours, mins, secs);
 	SDL_RenderCopy(sdlRenderer, timePanelTexture, NULL, &timeArea);
-	DrawPanelText(TIME_PANEL_X + TIME_PANEL_MARGIN, TIME_PANEL_Y + TIME_PANEL_MARGIN, time, ttfTime, TRUE);
-
+	DrawPanelText(NULL, TIME_PANEL_X + TIME_PANEL_MARGIN, TIME_PANEL_Y + TIME_PANEL_MARGIN, time, ttfTime, TRUE);
 }
 
 static void DrawLampPanel(void)
@@ -195,31 +194,42 @@ static void DrawLampPanel(void)
     }
 }
 
-static void DrawPanelText(int x, int y, char *text, TTF_Font *font, int updateable)
+static void DrawPanelText(SDL_Surface *surface, int x, int y, char *text, TTF_Font *font, int updateable)
 {
-	SDL_Surface *surface;
+	SDL_Surface *textSurface;
 	SDL_Texture *texture;
 	SDL_Rect dstArea;
 
 	if (updateable)
 	{
-		surface = TTF_RenderText_Blended(font, text, lampOnColour);
+		textSurface = TTF_RenderText_Blended(font, text, lampOnColour);
 	}
 	else
 	{
-		surface = TTF_RenderText_Blended(font, text, lineColour);
+		textSurface = TTF_RenderText_Blended(font, text, lineColour);
 	}
 
-	texture = SDL_CreateTextureFromSurface(sdlRenderer, surface);
+    if (surface == NULL)
+    {
+        texture = SDL_CreateTextureFromSurface(sdlRenderer, textSurface);
+    }
 
 	dstArea.x = x;
 	dstArea.y = y;
-	dstArea.h = surface->h;
-	dstArea.w = surface->w;
+	dstArea.h = textSurface->h;
+	dstArea.w = textSurface->w;
 
-	SDL_RenderCopy(sdlRenderer, texture, NULL, &dstArea);
-	SDL_FreeSurface(surface);
-	SDL_DestroyTexture(texture);
+    if (surface == NULL)
+    {
+        SDL_RenderCopy(sdlRenderer, texture, NULL, &dstArea);
+        SDL_DestroyTexture(texture);
+    }
+    else
+    {
+        SDL_BlitSurface(textSurface, NULL, surface, &dstArea);
+
+    }
+	SDL_FreeSurface(textSurface);
 }
 
 static void DrawLampPanelOverlayLine(int width, int height, int x, int y)
@@ -279,18 +289,17 @@ static void DrawLampRegisterBoundaryThin(int row, int column)
 
 static void DrawPanelUpperLabel(int row, int column, char *text)
 {
-	DrawPanelText(CalculateLampCellX(row, column) + (LAMP_HORIZONTAL_SPACING / 2), LAMP_PANEL_Y + ((row) * LAMP_VERTICAL_SPACING) + LABEL_HEIGHT + 2, text, ttfLabel, FALSE);
+	DrawPanelText(NULL, CalculateLampCellX(row, column) + (LAMP_HORIZONTAL_SPACING / 2), LAMP_PANEL_Y + ((row) * LAMP_VERTICAL_SPACING) + LABEL_HEIGHT + 2, text, ttfLabel, FALSE);
 }
 
 static void DrawPanelLowerLabel(int row, int column, char *text)
 {
-	DrawPanelText(CalculateLampCellX(row, column), LAMP_PANEL_Y + ((row + 1) * LAMP_VERTICAL_SPACING) - ((3 * LABEL_BOX_HEIGHT) / 4) + 2, text, ttfLabel, FALSE);
+	DrawPanelText(NULL, CalculateLampCellX(row, column), LAMP_PANEL_Y + ((row + 1) * LAMP_VERTICAL_SPACING) - ((3 * LABEL_BOX_HEIGHT) / 4) + 2, text, ttfLabel, FALSE);
 }
 
 static void DrawLampPanelOverlay(void)
 {
     int i;
-
 	/* Outer borders and main row dividers */
     for (i = 0; i <= LAMP_ROWS; i++)
     {
@@ -318,11 +327,11 @@ static void DrawLampPanelOverlay(void)
 
 	DrawLampPanelOverlayLine(LINE_SUB_DIVIDER_THICKNESS, (3 * LAMP_HEIGHT) / 2, CalculateLampX(0, 0) - ((2 * LAMP_WIDTH) / 3), CalculateLampY(0) - (LAMP_HEIGHT / 7));
 	DrawLampPanelOverlayLine(LINE_SUB_DIVIDER_THICKNESS, (3 * LAMP_HEIGHT) / 2, CalculateLampX(0, 1) + LAMP_WIDTH + (LAMP_WIDTH / 2), CalculateLampY(0) - (LAMP_HEIGHT / 7));
-	DrawPanelText(CalculateLampX(0, 0) - ((2 * LAMP_WIDTH) / 3), CalculateLampY(0) - (LAMP_HEIGHT / 7) + (3 * LAMP_HEIGHT) / 2, "x LOCK   OUT x", ttfSmallLabel, 0);
-	DrawPanelText(CalculateLampX(0, 11), CalculateLampY(0) + LAMP_HEIGHT, "MEQ", ttfSmallLabel, 0);
-	DrawPanelText(CalculateLampX(0, 26), CalculateLampY(0) - (LAMP_HEIGHT / 7) + (3 * LAMP_HEIGHT) / 2, "EXCHANGE", ttfSmallLabel, 0);
-	DrawPanelText(CalculateLampX(0, 37) - SMALL_LABEL_HEIGHT, CalculateLampY(0) - SMALL_LABEL_HEIGHT, "PROP", ttfSmallLabel, 0);
-	DrawPanelText(CalculateLampX(0, 39) - SMALL_LABEL_HEIGHT, CalculateLampY(0) - SMALL_LABEL_HEIGHT, "PROP", ttfSmallLabel, 0);
+	DrawPanelText(NULL, CalculateLampX(0, 0) - ((2 * LAMP_WIDTH) / 3), CalculateLampY(0) - (LAMP_HEIGHT / 7) + (3 * LAMP_HEIGHT) / 2, "x LOCK   OUT x", ttfSmallLabel, 0);
+	DrawPanelText(NULL, CalculateLampX(0, 11), CalculateLampY(0) + LAMP_HEIGHT, "MEQ", ttfSmallLabel, 0);
+	DrawPanelText(NULL, CalculateLampX(0, 26), CalculateLampY(0) - (LAMP_HEIGHT / 7) + (3 * LAMP_HEIGHT) / 2, "EXCHANGE", ttfSmallLabel, 0);
+	DrawPanelText(NULL, CalculateLampX(0, 37) - SMALL_LABEL_HEIGHT, CalculateLampY(0) - SMALL_LABEL_HEIGHT, "PROP", ttfSmallLabel, 0);
+	DrawPanelText(NULL, CalculateLampX(0, 39) - SMALL_LABEL_HEIGHT, CalculateLampY(0) - SMALL_LABEL_HEIGHT, "PROP", ttfSmallLabel, 0);
 
 	DrawPanelLowerLabel(0, 2, "PROP WAIT");
 	DrawPanelLowerLabel(0, 11, "SAC");
@@ -367,7 +376,7 @@ static void DrawLampPanelOverlay(void)
     /* row 4 */
     DrawLampRegisterBoundaryThick(3, 16);
     DrawLampRegisterBoundaryThick(3, 24);
-	DrawLampTextHorizontal(3, 1, "Flt", 4);
+	DrawLampTextHorizontal(NULL, 3, 1, "Flt", 4);
 
 	DrawPanelLowerLabel(3, 5, "MACHINE STATUS");
 	DrawPanelLowerLabel(3, 19, "INTERRUPT ENTRY");
@@ -417,168 +426,172 @@ static void DrawLampPanelLampOverlay(void)
 	int i;
 	char buf[80];
 
-	/* row 1 */
-	DrawLampTextVertical(0, 0, "B", 0);
-	DrawLampTextVertical(0, 1, "COMPARE", 1);
-	DrawLampTextVertical(0, 2, "INTERRUPT", 1);
-	DrawLampTextVertical(0, 3, "DR", 0);
-	DrawLampTextVertical(0, 4, "N/S", 0);
-	DrawLampTextVertical(0, 5, "CPR", 1);
-	DrawLampTextVertical(0, 6, "HO", 0);
-	DrawLampTextVertical(0, 7, "VU", 0);
-	DrawLampTextVertical(0, 8, "DR WAIT FOR OBS", 6);
-	DrawLampTextVertical(0, 9, "BUSY", 1);
-	DrawLampTextVertical(0, 10, "V BUSY", 1);
-	DrawLampTextHorizontal(0, 11, "/=", 0); /* TODO: Needs to be \u2260 */
-	DrawLampTextVertical(0, 12, "DISCARD", 2);
-	DrawLampTextVertical(0, 13, "OVERDUE", 2);
-	DrawLampTextHorizontal(0, 14, "1", 0);
-	DrawLampTextHorizontal(0, 15, "2", 0);
-	DrawLampTextHorizontal(0, 16, "3", 0);
-	DrawLampTextVertical(0, 17, "BYPASS", 1);
-	DrawLampTextVertical(0, 18, "Q HELD", 1);
-	DrawLampTextVertical(0, 19, "Q FULL", 1);
-	DrawLampTextVertical(0, 20, "DOP", 0);
-	DrawLampTextVertical(0, 21, "ACC1", 0);
-	DrawLampTextVertical(0, 22, "ACC2", 0);
-	DrawLampTextHorizontal(0, 23, "B", 0);
-	DrawLampTextVertical(0, 24, "DISC", 0);
-	DrawLampTextVertical(0, 25, "NONE", 0);
-	DrawLampTextVertical(0, 26, "PFI", 0);
-	DrawLampTextVertical(0, 27, "CHAN OFF", 0);
-	DrawLampTextVertical(0, 29, "EXCH", 0);
-	DrawLampTextVertical(0, 30, "DISC", 0);
-	DrawLampTextVertical(0, 31, "SAC", 0);
-	DrawLampTextVertical(0, 32, "1905E", 0);
-	DrawLampTextVertical(0, 33, "MASS", 0);
-	DrawLampTextVertical(0, 34, "LOCAL", 0);
-    DrawLampTextVertical(0, 37, "STOPPER", 2);
-    DrawLampTextVertical(0, 38, "IBU", 0);
-    DrawLampTextVertical(0, 39, "VALID+", 1);
+    SDL_Surface *surface;
+
+    surface = SDL_CreateRGBSurfaceWithFormat(0, WIDTH, HEIGHT, DEPTH, SDL_PIXELFORMAT_RGBA32);
+    
+    /* row 1 */
+	DrawLampTextVertical(surface, 0, 0, "B", 0);
+	DrawLampTextVertical(surface, 0, 1, "COMPARE", 1);
+	DrawLampTextVertical(surface, 0, 2, "INTERRUPT", 1);
+	DrawLampTextVertical(surface, 0, 3, "DR", 0);
+	DrawLampTextVertical(surface, 0, 4, "N/S", 0);
+	DrawLampTextVertical(surface, 0, 5, "CPR", 1);
+	DrawLampTextVertical(surface, 0, 6, "HO", 0);
+	DrawLampTextVertical(surface, 0, 7, "VU", 0);
+	DrawLampTextVertical(surface, 0, 8, "DR WAIT FOR OBS", 6);
+	DrawLampTextVertical(surface, 0, 9, "BUSY", 1);
+	DrawLampTextVertical(surface, 0, 10, "V BUSY", 1);
+	DrawLampTextHorizontal(surface, 0, 11, "/=", 0); /* TODO: Needs to be \u2260 */
+	DrawLampTextVertical(surface, 0, 12, "DISCARD", 2);
+	DrawLampTextVertical(surface, 0, 13, "OVERDUE", 2);
+	DrawLampTextHorizontal(surface, 0, 14, "1", 0);
+	DrawLampTextHorizontal(surface, 0, 15, "2", 0);
+	DrawLampTextHorizontal(surface, 0, 16, "3", 0);
+	DrawLampTextVertical(surface, 0, 17, "BYPASS", 1);
+	DrawLampTextVertical(surface, 0, 18, "Q HELD", 1);
+	DrawLampTextVertical(surface, 0, 19, "Q FULL", 1);
+	DrawLampTextVertical(surface, 0, 20, "DOP", 0);
+	DrawLampTextVertical(surface, 0, 21, "ACC1", 0);
+	DrawLampTextVertical(surface, 0, 22, "ACC2", 0);
+	DrawLampTextHorizontal(surface, 0, 23, "B", 0);
+	DrawLampTextVertical(surface, 0, 24, "DISC", 0);
+	DrawLampTextVertical(surface, 0, 25, "NONE", 0);
+	DrawLampTextVertical(surface, 0, 26, "PFI", 0);
+	DrawLampTextVertical(surface, 0, 27, "CHAN OFF", 0);
+	DrawLampTextVertical(surface, 0, 29, "EXCH", 0);
+	DrawLampTextVertical(surface, 0, 30, "DISC", 0);
+	DrawLampTextVertical(surface, 0, 31, "SAC", 0);
+	DrawLampTextVertical(surface, 0, 32, "1905E", 0);
+	DrawLampTextVertical(surface, 0, 33, "MASS", 0);
+	DrawLampTextVertical(surface, 0, 34, "LOCAL", 0);
+    DrawLampTextVertical(surface, 0, 37, "STOPPER", 2);
+    DrawLampTextVertical(surface, 0, 38, "IBU", 0);
+    DrawLampTextVertical(surface, 0, 39, "VALID+", 1);
 
 	/* row 2 */
 	DrawLampRegisterNibbleLabelDivider(1, 0, 16);
 	for (i = 0; i < 16; i++)
 	{
 		sprintf(buf, " %02d", i);
-		DrawLampTextHorizontal(1, i, buf, 0);
+		DrawLampTextHorizontal(surface, 1, i, buf, 0);
 	}
 
-	DrawLampTextVertical(1, 16, "VALID", 1);
-	DrawLampTextVertical(1, 17, "?VP", 1); /* TODO: Needs \u2193 for down arrow */
-	DrawLampTextVertical(1, 18, "?VB", 1); /* TODO: Needs \u2193 for down arrow */
-	DrawLampTextVertical(1, 19, "?VD", 1); /* TODO: Needs \u2193 for down arrow */
-	DrawLampTextVertical(1, 20, "DISC", 0);
-	DrawLampTextVertical(1, 21, "SAC", 0);
-	DrawLampTextVertical(1, 22, "1905E", 1);
-	DrawLampTextVertical(1, 23, "MASS0", 1);
-	DrawLampTextVertical(1, 24, "MASS1", 1);
-	DrawLampTextVertical(1, 25, "LOCAL", 1);
-	DrawLampTextVertical(1, 30, "DISC", 0);
-	DrawLampTextVertical(1, 31, "SAC", 0);
-	DrawLampTextVertical(1, 33, "MASS", 0);
-	DrawLampTextVertical(1, 34, "LOCAL", 1);
+	DrawLampTextVertical(surface, 1, 16, "VALID", 1);
+	DrawLampTextVertical(surface, 1, 17, "?VP", 1); /* TODO: Needs \u2193 for down arrow */
+	DrawLampTextVertical(surface, 1, 18, "?VB", 1); /* TODO: Needs \u2193 for down arrow */
+	DrawLampTextVertical(surface, 1, 19, "?VD", 1); /* TODO: Needs \u2193 for down arrow */
+	DrawLampTextVertical(surface, 1, 20, "DISC", 0);
+	DrawLampTextVertical(surface, 1, 21, "SAC", 0);
+	DrawLampTextVertical(surface, 1, 22, "1905E", 1);
+	DrawLampTextVertical(surface, 1, 23, "MASS0", 1);
+	DrawLampTextVertical(surface, 1, 24, "MASS1", 1);
+	DrawLampTextVertical(surface, 1, 25, "LOCAL", 1);
+	DrawLampTextVertical(surface, 1, 30, "DISC", 0);
+    DrawLampTextVertical(surface, 1, 31, "SAC", 0);
+    DrawLampTextVertical(surface, 1, 33, "MASS", 0);
+	DrawLampTextVertical(surface, 1, 34, "LOCAL", 1);
 
 	/* row 3 */
 	DrawLampRegisterNibbleLabelDivider(2, 0, 16);
 	for (i = 0; i < 16; i++)
 	{
 		sprintf(buf, " %02d", i);
-		DrawLampTextHorizontal(2, i, buf, 0);
+		DrawLampTextHorizontal(surface, 2, i, buf, 0);
 	}
 
-	DrawLampTextHorizontal(2, 16, "17", 0);
-	DrawLampTextVertical(2, 16, "A", -1);
+	DrawLampTextHorizontal(surface, 2, 16, "17", 0);
+	DrawLampTextVertical(surface, 2, 16, "A", -1);
 
-	DrawLampTextHorizontal(2, 17, "17", 0);
-	DrawLampTextVertical(2, 17, "A", -1);
+	DrawLampTextHorizontal(surface, 2, 17, "17", 0);
+	DrawLampTextVertical(surface, 2, 17, "A", -1);
 
-	DrawLampTextHorizontal(2, 18, "18", 0);
-	DrawLampTextHorizontal(2, 19, "19", 0);
+	DrawLampTextHorizontal(surface, 2, 18, "18", 0);
+	DrawLampTextHorizontal(surface, 2, 19, "19", 0);
 
 	for (i = 0; i < 20; i++)
 	{
 		sprintf(buf, " %02d", i);
-		DrawLampTextHorizontal(2, i + 20, buf, -1);
+		DrawLampTextHorizontal(surface, 2, i + 20, buf, -1);
 	}
 
 
 	/* row 4 */
-	DrawLampTextHorizontal(3, 0, "D", 0);
-	DrawLampTextHorizontal(3, 0, "[]", 1);
-	DrawLampTextVertical(3, 1, "INHPR", 1);
-	DrawLampTextVertical(3, 2, "PER MON", 3);
-	DrawLampTextVertical(3, 4, "OV", 0);
-	DrawLampTextVertical(3, 5, "/=0", 0); /* TODO: Symbol for /= */
-	DrawLampTextVertical(3, 6, "<0", 0);
-	DrawLampTextVertical(3, 7, "Bn", 0);
-	DrawLampTextVertical(3, 8, "CPR OFF", 2);
-	DrawLampTextVertical(3, 9, "N/S OFF", 2);
-	DrawLampTextVertical(3, 10, "I/C INH", 2);
-	DrawLampTextHorizontal(3, 11, "B/D", 0);
-	DrawLampTextVertical(3, 11, "EXEC", 2);
-	DrawLampTextHorizontal(3, 12, "Acc", 0);
-	DrawLampTextVertical(3, 12, "EXEC", 2);
-	DrawLampTextVertical(3, 13, "EXEC", 1);
-	DrawLampTextVertical(3, 14, "L1", 0);
-	DrawLampTextVertical(3, 15, "L0", 0);
+	DrawLampTextHorizontal(surface, 3, 0, "D", 0);
+	DrawLampTextHorizontal(surface, 3, 0, "[]", 1);
+	DrawLampTextVertical(surface, 3, 1, "INHPR", 1);
+	DrawLampTextVertical(surface, 3, 2, "PER MON", 3);
+	DrawLampTextVertical(surface, 3, 4, "OV", 0);
+	DrawLampTextVertical(surface, 3, 5, "/=0", 0); /* TODO: Symbol for /= */
+	DrawLampTextVertical(surface, 3, 6, "<0", 0);
+	DrawLampTextVertical(surface, 3, 7, "Bn", 0);
+	DrawLampTextVertical(surface, 3, 8, "CPR OFF", 2);
+	DrawLampTextVertical(surface, 3, 9, "N/S OFF", 2);
+	DrawLampTextVertical(surface, 3, 10, "I/C INH", 2);
+	DrawLampTextHorizontal(surface, 3, 11, "B/D", 0);
+	DrawLampTextVertical(surface, 3, 11, "EXEC", 2);
+	DrawLampTextHorizontal(surface, 3, 12, "Acc", 0);
+	DrawLampTextVertical(surface, 3, 12, "EXEC", 2);
+	DrawLampTextVertical(surface, 3, 13, "EXEC", 1);
+	DrawLampTextVertical(surface, 3, 14, "L1", 0);
+	DrawLampTextVertical(surface, 3, 15, "L0", 0);
 
-	DrawLampTextVertical(3, 16, "SYS ERR", 2);
-	DrawLampTextVertical(3, 17, "CPR /=", 0); /* TODO: fix symbol for /= */
-	DrawLampTextVertical(3, 18, "EXCHANGE", 3);
-	DrawLampTextVertical(3, 19, "PERIPH", 1);
-	DrawLampTextHorizontal(3, 20, "Instr", 0);
-	DrawLampTextHorizontal(3, 20, "Count", 1);
-	DrawLampTextVertical(3, 20, "0", 0);
-	DrawLampTextVertical(3, 21, "ILL ORD", 2);
-	DrawLampTextVertical(3, 22, "PROG", 0);
-	DrawLampTextHorizontal(3, 22, "Flts", 3);
-	DrawLampTextVertical(3, 23, "MESSAGE", 2);
-	DrawLampTextVertical(3, 24, "ENG INT", 1);
-	DrawLampTextVertical(3, 25, "EWP", 0);
-	DrawLampTextVertical(3, 26, "SAC PAR", 1);
-	DrawLampTextVertical(3, 27, "N/S MEQ", 1);
-	DrawLampTextVertical(3, 28, "OBS MEQ", 1);
-	DrawLampTextVertical(3, 29, "CPR MEQ", 1);
-	DrawLampTextVertical(3, 30, "INV", -2);
-	DrawLampTextHorizontal(3, 30, "Real", 1);
-	DrawLampTextVertical(3, 30, "ADD", 2);
-	DrawLampTextVertical(3, 31, "IBU", 0);
-	DrawLampTextHorizontal(3, 32, "BvD", -1);
-	DrawLampTextVertical(3, 32, "ERR", 0);
-	DrawLampTextHorizontal(3, 33, "Acc", -1);
-	DrawLampTextVertical(3, 33, "ERR", 0);
-	DrawLampTextVertical(3, 34, "ILL", -2);
-	DrawLampTextHorizontal(3, 34, "Funct", 1);
-	DrawLampTextVertical(3, 34, "EXEC", 3);
-	DrawLampTextVertical(3, 35, "Name", -2);
-	DrawLampTextHorizontal(3, 35, "Adder", 1);
-	DrawLampTextVertical(3, 35, "OV", 1);
-	DrawLampTextVertical(3, 36, "Control", -2);
-	DrawLampTextHorizontal(3, 36, "Adder", 1);
-	DrawLampTextVertical(3, 36, "OV", 1);
-	DrawLampTextVertical(3, 37, "CPR", -2);
-	DrawLampTextHorizontal(3, 37, "Exec", 1);
-	DrawLampTextVertical(3, 37, "ILL", 2);
-	DrawLampTextVertical(3, 38, "CPR/=", 0);
+	DrawLampTextVertical(surface, 3, 16, "SYS ERR", 2);
+	DrawLampTextVertical(surface, 3, 17, "CPR /=", 0); /* TODO: fix symbol for /= */
+	DrawLampTextVertical(surface, 3, 18, "EXCHANGE", 3);
+	DrawLampTextVertical(surface, 3, 19, "PERIPH", 1);
+	DrawLampTextHorizontal(surface, 3, 20, "Instr", 0);
+	DrawLampTextHorizontal(surface, 3, 20, "Count", 1);
+	DrawLampTextVertical(surface, 3, 20, "0", 0);
+	DrawLampTextVertical(surface, 3, 21, "ILL ORD", 2);
+	DrawLampTextVertical(surface, 3, 22, "PROG", 0);
+	DrawLampTextHorizontal(surface, 3, 22, "Flts", 3);
+	DrawLampTextVertical(surface, 3, 23, "MESSAGE", 2);
+	DrawLampTextVertical(surface, 3, 24, "ENG INT", 1);
+	DrawLampTextVertical(surface, 3, 25, "EWP", 0);
+	DrawLampTextVertical(surface, 3, 26, "SAC PAR", 1);
+	DrawLampTextVertical(surface, 3, 27, "N/S MEQ", 1);
+	DrawLampTextVertical(surface, 3, 28, "OBS MEQ", 1);
+	DrawLampTextVertical(surface, 3, 29, "CPR MEQ", 1);
+	DrawLampTextVertical(surface, 3, 30, "INV", -2);
+	DrawLampTextHorizontal(surface, 3, 30, "Real", 1);
+	DrawLampTextVertical(surface, 3, 30, "ADD", 2);
+	DrawLampTextVertical(surface, 3, 31, "IBU", 0);
+	DrawLampTextHorizontal(surface, 3, 32, "BvD", -1);
+	DrawLampTextVertical(surface, 3, 32, "ERR", 0);
+	DrawLampTextHorizontal(surface, 3, 33, "Acc", -1);
+	DrawLampTextVertical(surface, 3, 33, "ERR", 0);
+	DrawLampTextVertical(surface, 3, 34, "ILL", -2);
+	DrawLampTextHorizontal(surface, 3, 34, "Funct", 1);
+	DrawLampTextVertical(surface, 3, 34, "EXEC", 3);
+	DrawLampTextVertical(surface, 3, 35, "Name", -2);
+	DrawLampTextHorizontal(surface, 3, 35, "Adder", 1);
+	DrawLampTextVertical(surface, 3, 35, "OV", 1);
+	DrawLampTextVertical(surface, 3, 36, "Control", -2);
+	DrawLampTextHorizontal(surface, 3, 36, "Adder", 1);
+	DrawLampTextVertical(surface, 3, 36, "OV", 1);
+	DrawLampTextVertical(surface, 3, 37, "CPR", -2);
+	DrawLampTextHorizontal(surface, 3, 37, "Exec", 1);
+	DrawLampTextVertical(surface, 3, 37, "ILL", 2);
+	DrawLampTextVertical(surface, 3, 38, "CPR/=", 0);
 
 	/* row 5 */
 	for (i = 0; i < 4; i++)
 	{
 		sprintf(buf, " %01d", i);
-		DrawLampTextHorizontal(4, i, buf, 1);
+		DrawLampTextHorizontal(surface, 4, i, buf, 1);
 	}
 
 	for (i = 0; i < 32; i++)
 	{
 		sprintf(buf, " %02d", 32 + i);
-		DrawLampTextHorizontal(4, 4 + i, buf, -1);
+		DrawLampTextHorizontal(surface, 4, 4 + i, buf, -1);
 	}
 
 	for (i = 0; i < 4; i++)
 	{
 		sprintf(buf, " %01d", i);
-		DrawLampTextHorizontal(4, i + 36, buf, 0);
+		DrawLampTextHorizontal(surface, 4, i + 36, buf, 0);
 	}
 
 	/* row 6 */
@@ -587,18 +600,22 @@ static void DrawLampPanelLampOverlay(void)
 	for (i = 0; i < 4; i++)
 	{
 		sprintf(buf, " %02d", i + 12);
-		DrawLampTextHorizontal(5, i, buf, 0);
+		DrawLampTextHorizontal(surface, 5, i, buf, 0);
 	}
 
 	for (i = 0; i < 32; i++)
 	{
 		sprintf(buf, " %02d", i + 32);
-		DrawLampTextHorizontal(5, i + 4, buf, 0);
+		DrawLampTextHorizontal(surface, 5, i + 4, buf, 0);
 	}
 
-	DrawLampTextVertical(5, 36, "TRANSFER", 2);
-	DrawLampTextHorizontal(5, 37, "  INCREMENT", -4);
+	DrawLampTextVertical(surface, 5, 36, "TRANSFER", 2);
+	DrawLampTextHorizontal(surface, 5, 37, "  INCREMENT", -4);
 
+    SDL_Texture *result = SDL_CreateTextureFromSurface(sdlRenderer, surface);
+    SDL_RenderCopy(sdlRenderer, result, NULL, NULL);
+    SDL_FreeSurface(surface);
+    SDL_DestroyTexture(result);
 }
 
 SDL_Texture *DrawFilledRectangle(int width, int height, SDL_Color colour)
@@ -721,13 +738,13 @@ static void DrawLamp(int row, int column, int level)
     SDL_RenderCopy(sdlRenderer, sprites[level], NULL, &area);
 }
 
-static void DrawLampTextHorizontal(int row, int column, char *text, int offset)
+static void DrawLampTextHorizontal(SDL_Surface *surface, int row, int column, char *text, int offset)
 {
-	DrawPanelText(CalculateLampX(row, column), CalculateLampY(row) + LAMP_WIDTH + (offset * SMALL_LABEL_HEIGHT), text, ttfSmallLabel, 0);
+	DrawPanelText(surface, CalculateLampX(row, column), CalculateLampY(row) + LAMP_WIDTH + (offset * SMALL_LABEL_HEIGHT), text, ttfSmallLabel, 0);
 }
 
 /* offset is the number of letters at the end that are off the bottom of the lamp */
-static void DrawLampTextVertical(int row, int column, char *text, int offset)
+static void DrawLampTextVertical(SDL_Surface *surface, int row, int column, char *text, int offset)
 {
 	int i;
 	int len = strlen(text);
@@ -737,7 +754,7 @@ static void DrawLampTextVertical(int row, int column, char *text, int offset)
 	for (i = 0; i < len; i++)
 	{
 		buf[0] = text[len - i - 1];
-		DrawPanelText(CalculateLampX(row, column), CalculateLampY(row) - ((i - offset) * SMALL_LABEL_HEIGHT) + LAMP_HEIGHT - SMALL_LABEL_HEIGHT, buf, ttfSmallLabel, 0);
+		DrawPanelText(surface, CalculateLampX(row, column), CalculateLampY(row) - ((i - offset) * SMALL_LABEL_HEIGHT) + LAMP_HEIGHT - SMALL_LABEL_HEIGHT, buf, ttfSmallLabel, 0);
 	}
 }
 
