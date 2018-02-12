@@ -126,6 +126,7 @@ static void DrawLampRegisterBoundaryThick(int row, int column);
 static void DrawPanelUpperLabel(int row, int column, char *text);
 static void DrawPanelLowerLabel(int row, int column, char *text);
 static void DrawLampPanelOverlay(void);
+static SDL_Texture *CreateLampPanelLampOverlay(void);
 static void DrawLampPanelLampOverlay(void);
 static void DrawRegister(int row, int column, unsigned int bits[], UINT8 width);
 static int SetupRegister(char *device, char *name, UINT64 *address);
@@ -420,17 +421,15 @@ static void DrawLampPanelOverlay(void)
     /* The "MU5" badge seems to most closely match the font: http://www.myfonts.com/fonts/typodermic/from-the-stars/semibold-italic/glyphs.html?vid=491203&render=fs */
 }
 
-/* Draws the parts that actually go over the top of the lamps themselves */
-static void DrawLampPanelLampOverlay(void)
+static SDL_Texture *CreateLampPanelLampOverlay(void)
 {
 	int i;
 	char buf[80];
+	SDL_Surface *surface;
 
-    SDL_Surface *surface;
+	surface = SDL_CreateRGBSurfaceWithFormat(0, WIDTH, HEIGHT, DEPTH, SDL_PIXELFORMAT_RGBA32);
 
-    surface = SDL_CreateRGBSurfaceWithFormat(0, WIDTH, HEIGHT, DEPTH, SDL_PIXELFORMAT_RGBA32);
-    
-    /* row 1 */
+	/* row 1 */
 	DrawLampTextVertical(surface, 0, 0, "B", 0);
 	DrawLampTextVertical(surface, 0, 1, "COMPARE", 1);
 	DrawLampTextVertical(surface, 0, 2, "INTERRUPT", 1);
@@ -465,9 +464,9 @@ static void DrawLampPanelLampOverlay(void)
 	DrawLampTextVertical(surface, 0, 32, "1905E", 0);
 	DrawLampTextVertical(surface, 0, 33, "MASS", 0);
 	DrawLampTextVertical(surface, 0, 34, "LOCAL", 0);
-    DrawLampTextVertical(surface, 0, 37, "STOPPER", 2);
-    DrawLampTextVertical(surface, 0, 38, "IBU", 0);
-    DrawLampTextVertical(surface, 0, 39, "VALID+", 1);
+	DrawLampTextVertical(surface, 0, 37, "STOPPER", 2);
+	DrawLampTextVertical(surface, 0, 38, "IBU", 0);
+	DrawLampTextVertical(surface, 0, 39, "VALID+", 1);
 
 	/* row 2 */
 	DrawLampRegisterNibbleLabelDivider(1, 0, 16);
@@ -488,8 +487,8 @@ static void DrawLampPanelLampOverlay(void)
 	DrawLampTextVertical(surface, 1, 24, "MASS1", 1);
 	DrawLampTextVertical(surface, 1, 25, "LOCAL", 1);
 	DrawLampTextVertical(surface, 1, 30, "DISC", 0);
-    DrawLampTextVertical(surface, 1, 31, "SAC", 0);
-    DrawLampTextVertical(surface, 1, 33, "MASS", 0);
+	DrawLampTextVertical(surface, 1, 31, "SAC", 0);
+	DrawLampTextVertical(surface, 1, 33, "MASS", 0);
 	DrawLampTextVertical(surface, 1, 34, "LOCAL", 1);
 
 	/* row 3 */
@@ -612,10 +611,23 @@ static void DrawLampPanelLampOverlay(void)
 	DrawLampTextVertical(surface, 5, 36, "TRANSFER", 2);
 	DrawLampTextHorizontal(surface, 5, 37, "  INCREMENT", -4);
 
-    SDL_Texture *result = SDL_CreateTextureFromSurface(sdlRenderer, surface);
-    SDL_RenderCopy(sdlRenderer, result, NULL, NULL);
-    SDL_FreeSurface(surface);
-    SDL_DestroyTexture(result);
+	SDL_Texture *result = SDL_CreateTextureFromSurface(sdlRenderer, surface);
+	SDL_FreeSurface(surface);
+
+	return result;
+}
+
+/* Draws the parts that actually go over the top of the lamps themselves */
+static void DrawLampPanelLampOverlay(void)
+{
+	static SDL_Texture *lampOverlayTexture = NULL;
+
+	if (lampOverlayTexture == NULL)
+	{
+		lampOverlayTexture = CreateLampPanelLampOverlay();
+	}
+
+    SDL_RenderCopy(sdlRenderer, lampOverlayTexture, NULL, NULL);
 }
 
 SDL_Texture *DrawFilledRectangle(int width, int height, SDL_Color colour)
