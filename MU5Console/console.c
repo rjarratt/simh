@@ -48,6 +48,8 @@
 #define WIDTH   1900 /* reduced in size, aspect ratio should be about 3.4:1 */
 #define HEIGHT  800
 #define DEPTH   32
+#define OUTER_BORDER_WIDTH 5
+#define INNER_BORDER_WIDTH 3
 #define LAMP_HEIGHT 30
 #define LAMP_WIDTH 10
 #define LAMP_HORIZONTAL_SPACING (LAMP_WIDTH * 3)
@@ -57,6 +59,8 @@
 #define LAMP_ON_COLOUR 242, 88, 60
 #define LAMP_LEVELS 50
 #define PANEL_BACKGROUND_COLOUR 121, 123, 122 /* TODO: Use SDL_Color instead */
+#define PANEL_OUTER_EDGE_COLOUR 117, 146, 164 /* TODO: Use SDL_Color instead */
+#define PANEL_INNER_EDGE_COLOUR 221, 209, 193 /* TODO: Use SDL_Color instead */
 #define LINE_THICKNESS 2
 #define LINE_SUB_DIVIDER_THICKNESS 1
 #define LAMP_ROWS 6
@@ -112,6 +116,7 @@ static int CalculateLampCellX(int row, int column);
 static void DrawLamp(int row, int column, int level);
 static void DrawLampTextHorizontal(SDL_Surface *surface, int row, int column, char *text, int offset);
 static void DrawLampTextVertical(SDL_Surface *surface, int row, int column, char *text, int offset);
+static void DrawOuterEdges(void);
 static void DrawLampPanel(void);
 static void DrawPanelText(SDL_Surface *surface, int x, int y, char *text, TTF_Font *font, int updateable);
 SDL_Texture *DrawFilledRectangle(int width, int height, SDL_Color colour);
@@ -179,6 +184,27 @@ static void DisplayTime(void)
 	sprintf(time, "%02X %02X %02X", hours, mins, secs);
 	SDL_RenderCopy(sdlRenderer, timePanelTexture, NULL, &timeArea);
 	DrawPanelText(NULL, TIME_PANEL_X + TIME_PANEL_MARGIN, TIME_PANEL_Y + TIME_PANEL_MARGIN, time, ttfTime, TRUE);
+}
+
+static void DrawOuterEdges(void)
+{
+	SDL_Rect rect;
+	SDL_SetRenderDrawColor(sdlRenderer, PANEL_OUTER_EDGE_COLOUR, 255);
+	SDL_RenderClear(sdlRenderer);
+
+	rect.h = HEIGHT - (2 * OUTER_BORDER_WIDTH);
+	rect.w = WIDTH - (2 * OUTER_BORDER_WIDTH);
+	rect.x = OUTER_BORDER_WIDTH;
+	rect.y = OUTER_BORDER_WIDTH;
+	SDL_SetRenderDrawColor(sdlRenderer, PANEL_INNER_EDGE_COLOUR, 255);
+	SDL_RenderFillRect(sdlRenderer, &rect);
+
+	rect.h = HEIGHT - (2 * (OUTER_BORDER_WIDTH + INNER_BORDER_WIDTH));
+	rect.w = WIDTH - (2 * (OUTER_BORDER_WIDTH + INNER_BORDER_WIDTH));
+	rect.x = OUTER_BORDER_WIDTH + INNER_BORDER_WIDTH;
+	rect.y = OUTER_BORDER_WIDTH + INNER_BORDER_WIDTH;
+	SDL_SetRenderDrawColor(sdlRenderer, PANEL_BACKGROUND_COLOUR, 255);
+	SDL_RenderFillRect(sdlRenderer, &rect);
 }
 
 static void DrawLampPanel(void)
@@ -786,8 +812,7 @@ static void UpdateWholeScreen(void)
 
 static void RedrawWholeScreen(void)
 {
-    SDL_SetRenderDrawColor(sdlRenderer, PANEL_BACKGROUND_COLOUR, 255);
-    SDL_RenderClear(sdlRenderer);
+	DrawOuterEdges();
 
     DrawLampPanel();
     DisplayRegisters();
