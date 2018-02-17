@@ -118,10 +118,13 @@ static void DrawLampTextHorizontal(SDL_Surface *surface, int row, int column, ch
 static void DrawLampTextVertical(SDL_Surface *surface, int row, int column, char *text, int offset);
 static void DrawOuterEdges(void);
 static void DrawLampPanel(void);
-static void DrawPanelText(SDL_Surface *surface, int x, int y, char *text, TTF_Font *font, int updateable);
+static void DrawPanelText(SDL_Surface *surface, int x, int y, char *text, TTF_Font *font, int updateable); // TODO: remove horrid default where surface is created if null
+static void DrawFilledRectangleOnSurface(SDL_Surface *surface, int width, int height, int x, int y, SDL_Color colour);
+SDL_Surface *DrawFilledRectangleSurface(int width, int height, SDL_Color colour);
 SDL_Texture *DrawFilledRectangle(int width, int height, SDL_Color colour);
+static void DrawLampPanelOverlayLineOnSurface(SDL_Surface *surface, int width, int height, int x, int y);
 static void DrawLampPanelOverlayLine(int width, int height, int x, int y);
-static void DrawLampRegisterNibbleLabelDivider(int row, int column, int forColumns);
+static void DrawLampRegisterNibbleLabelDivider(SDL_Surface *surface, int row, int column, int forColumns);
 static void DrawLampRegisterNibbleLabelBoundary(int row, int column);
 static void DrawLampRegisterHalfBoundaryToLabelDivider(int row, int column);
 static void DrawLampRegisterBoundaryToLabelDivider(int row, int column);
@@ -259,6 +262,16 @@ static void DrawPanelText(SDL_Surface *surface, int x, int y, char *text, TTF_Fo
 	SDL_FreeSurface(textSurface);
 }
 
+static void DrawLampPanelOverlayLineOnSurface(SDL_Surface *surface, int width, int height, int x, int y)
+{
+	SDL_Rect dstArea;
+	dstArea.h = height;
+	dstArea.w = width;
+	dstArea.x = x;
+	dstArea.y = y;
+	DrawFilledRectangleOnSurface(surface, width, height, x, y, lineColour);
+}
+
 static void DrawLampPanelOverlayLine(int width, int height, int x, int y)
 {
     SDL_Rect dstArea;
@@ -272,11 +285,11 @@ static void DrawLampPanelOverlayLine(int width, int height, int x, int y)
 	SDL_DestroyTexture(texture);
 }
 
-static void DrawLampRegisterNibbleLabelDivider(int row, int column, int forColumns)
+static void DrawLampRegisterNibbleLabelDivider(SDL_Surface *surface, int row, int column, int forColumns)
 {
 	int fromX = CalculateLampCellX(row, column);
 	int toX = CalculateLampCellX(row, column + forColumns);
-	DrawLampPanelOverlayLine(toX - fromX, LINE_SUB_DIVIDER_THICKNESS, fromX, LAMP_PANEL_Y + ((row + 1) * LAMP_VERTICAL_SPACING) - (LABEL_BOX_HEIGHT * 2));
+	DrawLampPanelOverlayLineOnSurface(surface, toX - fromX, LINE_SUB_DIVIDER_THICKNESS, fromX, LAMP_PANEL_Y + ((row + 1) * LAMP_VERTICAL_SPACING) - (LABEL_BOX_HEIGHT * 2));
 }
 
 static void DrawLampRegisterNibbleLabelBoundary(int row, int column)
@@ -495,7 +508,7 @@ static SDL_Texture *CreateLampPanelLampOverlay(void)
 	DrawLampTextVertical(surface, 0, 39, "VALID+", 1);
 
 	/* row 2 */
-	DrawLampRegisterNibbleLabelDivider(1, 0, 16);
+	DrawLampRegisterNibbleLabelDivider(surface, 1, 0, 16);
 	for (i = 0; i < 16; i++)
 	{
 		sprintf(buf, " %02d", i);
@@ -518,7 +531,7 @@ static SDL_Texture *CreateLampPanelLampOverlay(void)
 	DrawLampTextVertical(surface, 1, 34, "LOCAL", 1);
 
 	/* row 3 */
-	DrawLampRegisterNibbleLabelDivider(2, 0, 16);
+	DrawLampRegisterNibbleLabelDivider(surface, 2, 0, 16);
 	for (i = 0; i < 16; i++)
 	{
 		sprintf(buf, " %02d", i);
@@ -620,7 +633,7 @@ static SDL_Texture *CreateLampPanelLampOverlay(void)
 	}
 
 	/* row 6 */
-	DrawLampRegisterNibbleLabelDivider(5, 4, 32);
+	DrawLampRegisterNibbleLabelDivider(surface, 5, 4, 32);
 
 	for (i = 0; i < 4; i++)
 	{
@@ -656,12 +669,33 @@ static void DrawLampPanelLampOverlay(void)
     SDL_RenderCopy(sdlRenderer, lampOverlayTexture, NULL, NULL);
 }
 
-SDL_Texture *DrawFilledRectangle(int width, int height, SDL_Color colour)
+static void DrawFilledRectangleOnSurface(SDL_Surface *surface, int width, int height, int x, int y, SDL_Color colour)
+{
+	SDL_Surface *tempSurface;
+	SDL_Rect dest;
+	dest.x = x;
+	dest.y = y;
+	dest.w = width;
+	dest.h = height;
+
+	tempSurface = DrawFilledRectangleSurface(width, height, colour);
+    SDL_BlitSurface(tempSurface, NULL, surface, &dest);
+	SDL_FreeSurface(tempSurface);
+}
+
+static SDL_Surface *DrawFilledRectangleSurface(int width, int height, SDL_Color colour)
+{
+	SDL_Surface *result;
+	result = SDL_CreateRGBSurface(0, width, height, 32, 0, 0, 0, 0);
+	SDL_FillRect(result, NULL, SDL_MapRGB(result->format, colour.r, colour.g, colour.b));
+	return result;
+}
+
+static SDL_Texture *DrawFilledRectangle(int width, int height, SDL_Color colour)
 {
     SDL_Surface *tempSurface;
     SDL_Texture *result;
-    tempSurface = SDL_CreateRGBSurface(0, width, height, 32, 0, 0, 0, 0);
-    SDL_FillRect(tempSurface, NULL, SDL_MapRGB(tempSurface->format, colour.r, colour.g, colour.b));
+	tempSurface = DrawFilledRectangleSurface(width, height, colour);
     result = SDL_CreateTextureFromSurface(sdlRenderer, tempSurface);
     SDL_FreeSurface(tempSurface);
     return result;
