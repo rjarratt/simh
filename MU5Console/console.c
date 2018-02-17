@@ -119,7 +119,7 @@ static void DrawLampTextVertical(SDL_Surface *surface, int row, int column, char
 static void DrawOuterEdges(void);
 static void DrawLampPanel(void);
 static void DrawPanelText(SDL_Surface *surface, int x, int y, char *text, TTF_Font *font, int updateable); // TODO: remove horrid default where surface is created if null
-static void DrawFilledRectangleOnSurface(SDL_Surface *surface, int width, int height, int x, int y, SDL_Color colour);
+static void DrawFilledRectangleOnSurface(SDL_Surface *surface, SDL_Rect *destinationArea, SDL_Color colour);
 SDL_Surface *DrawFilledRectangleSurface(int width, int height, SDL_Color colour);
 SDL_Texture *DrawFilledRectangle(int width, int height, SDL_Color colour);
 static void DrawLampPanelOverlayLineOnSurface(SDL_Surface *surface, int width, int height, int x, int y);
@@ -269,7 +269,7 @@ static void DrawLampPanelOverlayLineOnSurface(SDL_Surface *surface, int width, i
 	dstArea.w = width;
 	dstArea.x = x;
 	dstArea.y = y;
-	DrawFilledRectangleOnSurface(surface, width, height, x, y, lineColour);
+	DrawFilledRectangleOnSurface(surface, &dstArea, lineColour);
 }
 
 static void DrawLampPanelOverlayLine(int width, int height, int x, int y)
@@ -669,17 +669,12 @@ static void DrawLampPanelLampOverlay(void)
     SDL_RenderCopy(sdlRenderer, lampOverlayTexture, NULL, NULL);
 }
 
-static void DrawFilledRectangleOnSurface(SDL_Surface *surface, int width, int height, int x, int y, SDL_Color colour)
+static void DrawFilledRectangleOnSurface(SDL_Surface *surface, SDL_Rect *destinationArea, SDL_Color colour)
 {
 	SDL_Surface *tempSurface;
-	SDL_Rect dest;
-	dest.x = x;
-	dest.y = y;
-	dest.w = width;
-	dest.h = height;
 
-	tempSurface = DrawFilledRectangleSurface(width, height, colour);
-    SDL_BlitSurface(tempSurface, NULL, surface, &dest);
+	tempSurface = DrawFilledRectangleSurface(destinationArea->w, destinationArea->h, colour);
+    SDL_BlitSurface(tempSurface, NULL, surface, destinationArea);
 	SDL_FreeSurface(tempSurface);
 }
 
