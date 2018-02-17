@@ -74,7 +74,7 @@
 #define TIME_PANEL_Y (LAMP_PANEL_Y)
 #define TIME_PANEL_MARGIN 5
 #define LABEL_BOX_HEIGHT (LAMP_HEIGHT)
-#define LABEL_HEIGHT (LABEL_BOX_HEIGHT / 2)
+#define LABEL_HEIGHT ((LABEL_BOX_HEIGHT / 2) - 1)
 #define SMALL_LABEL_HEIGHT ((5 * LABEL_HEIGHT) / 10)
 
 const char *sim_path =
@@ -380,7 +380,7 @@ static void DrawLampPanelOverlay(void)
 
 	DrawPanelLowerLabel(1, 7, "(RF5) PROP FINAL FUNCTION");
 	DrawPanelLowerLabel(1, 23, "FINGER FLIP FLOPS");
-	DrawPanelLowerLabel(1, 33, "PARITY SWITCHES OFF NORMAL");
+	DrawPanelLowerLabel(1, 32, "PARITY SWITCHES OFF NORMAL");
 
 	/* row 3 */
 	DrawLampRegisterBoundaryThin(2, 16);
@@ -424,7 +424,7 @@ static void DrawLampPanelOverlay(void)
 
 	DrawPanelLowerLabel(4, 0, "            PROP VALID");
 	DrawPanelLowerLabel(4, 19, "   DISPLAY (RDL)");
-	DrawPanelLowerLabel(4, 36, "LOCAL ST. FAIL SOFT MODE");
+	DrawPanelLowerLabel(4, 36, " LOCAL ST. FAIL SOFT MODE");
 
     /* row 6 */
 //    DrawLampPanelOverlayLine(32 * LAMP_HORIZONTAL_SPACING, LINE_SUB_DIVIDER_THICKNESS, CalculateLampCellX(5, 4), LAMP_PANEL_Y + (6 * LAMP_VERTICAL_SPACING) - LAMP_HEIGHT);
