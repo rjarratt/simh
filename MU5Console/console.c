@@ -172,6 +172,8 @@ static void DisplayRegisters(void)
 
 static void DisplayTime(void)
 {
+	static UINT64 LastTimeUpper;
+	static UINT64 LastTimeLower;
 	char time[10];
 	int hours;
 	int mins;
@@ -189,12 +191,17 @@ static void DisplayTime(void)
 		timePanelTexture = DrawFilledRectangle(timeArea.w, timeArea.h, black);
 	}
 
-	hours = (TimeUpper >> 8) & 0xFF;
-	mins = TimeUpper & 0xFF;
-	secs = (TimeLower >> 8) & 0xFF;
-	sprintf(time, "%02X %02X %02X", hours, mins, secs);
-	SDL_RenderCopy(sdlRenderer, timePanelTexture, NULL, &timeArea);
-	DrawPanelText(NULL, TIME_PANEL_X + TIME_PANEL_MARGIN, TIME_PANEL_Y + TIME_PANEL_MARGIN, time, ttfTime, TRUE);
+	if (LastTimeUpper != TimeUpper || LastTimeLower != TimeLower)
+	{
+		LastTimeUpper = TimeUpper;
+		LastTimeLower = TimeLower;
+		hours = (TimeUpper >> 8) & 0xFF;
+		mins = TimeUpper & 0xFF;
+		secs = (TimeLower >> 8) & 0xFF;
+		sprintf(time, "%02X %02X %02X", hours, mins, secs);
+		SDL_RenderCopy(sdlRenderer, timePanelTexture, NULL, &timeArea);
+		DrawPanelText(NULL, TIME_PANEL_X + TIME_PANEL_MARGIN, TIME_PANEL_Y + TIME_PANEL_MARGIN, time, ttfTime, TRUE);
+	}
 }
 
 static void DrawBadge(void)
