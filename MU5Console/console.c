@@ -70,9 +70,16 @@
 /* Lamp Panel coordinates are the top left of the panel outline*/
 #define LAMP_PANEL_X (WIDTH - PANEL_WIDTH - (1 * LAMP_HORIZONTAL_SPACING))
 #define LAMP_PANEL_Y 19
-#define TIME_PANEL_X 50
+
+#define BADGE_X 19
+#define BADGE_Y (LAMP_PANEL_Y)
+#define BADGE_W (LAMP_WIDTH * 12)
+#define BADGE_H ((BADGE_W * 4) / 9)
+
+#define TIME_PANEL_X ((BADGE_X * 2) + BADGE_W)
 #define TIME_PANEL_Y (LAMP_PANEL_Y)
 #define TIME_PANEL_MARGIN 5
+
 #define LABEL_BOX_HEIGHT (LAMP_HEIGHT)
 #define LABEL_HEIGHT ((LABEL_BOX_HEIGHT / 2) - 1)
 #define SMALL_LABEL_HEIGHT ((5 * LABEL_HEIGHT) / 10)
@@ -110,6 +117,7 @@ int clock_gettime(int clk_id, struct timespec *tp); /* defined in sim_frontpanel
 static void UpdateWholeScreen(void);
 static void RedrawWholeScreen(void);
 static void DisplayTime(void);
+static void DrawBadge(void);
 static int CalculateLampX(int row, int column);
 static int CalculateLampY(int row);
 static int CalculateLampCellX(int row, int column);
@@ -187,6 +195,21 @@ static void DisplayTime(void)
 	sprintf(time, "%02X %02X %02X", hours, mins, secs);
 	SDL_RenderCopy(sdlRenderer, timePanelTexture, NULL, &timeArea);
 	DrawPanelText(NULL, TIME_PANEL_X + TIME_PANEL_MARGIN, TIME_PANEL_Y + TIME_PANEL_MARGIN, time, ttfTime, TRUE);
+}
+
+static void DrawBadge(void)
+{
+	/* The "MU5" badge seems to most closely match the font: http://www.myfonts.com/fonts/typodermic/from-the-stars/semibold-italic/glyphs.html?vid=491203&render=fs */
+	SDL_Surface *badgeSurface = SDL_LoadBMP("MU5Badge.bmp");
+	SDL_Texture *badgeTexture = SDL_CreateTextureFromSurface(sdlRenderer, badgeSurface);
+	SDL_Rect badgeDest;
+	badgeDest.w = BADGE_W;
+	badgeDest.h = BADGE_H;
+	badgeDest.x = BADGE_X;
+	badgeDest.y = BADGE_Y;
+	SDL_RenderCopy(sdlRenderer, badgeTexture, NULL, &badgeDest);
+	SDL_DestroyTexture(badgeTexture);
+	SDL_FreeSurface(badgeSurface);
 }
 
 static void DrawOuterEdges(void)
@@ -457,7 +480,7 @@ static void DrawLampPanelOverlay(void)
 	DrawPanelLowerLabel(5, 0, "         PROCESS NUMBER");
 	DrawPanelLowerLabel(5, 19, "CONTROL");
 
-    /* The "MU5" badge seems to most closely match the font: http://www.myfonts.com/fonts/typodermic/from-the-stars/semibold-italic/glyphs.html?vid=491203&render=fs */
+	DrawBadge();
 }
 
 static SDL_Texture *CreateLampPanelLampOverlay(void)
