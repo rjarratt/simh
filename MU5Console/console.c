@@ -46,7 +46,7 @@
 #define INSTRUCTION_RATE 1000000 /* instructions per second */
 #define SCREEN_REFRESH_RATE 25 /* refreshes per second */
 #define WIDTH   1900 /* reduced in size, aspect ratio should be about 3.4:1 */
-#define HEIGHT  800
+#define HEIGHT  900
 #define DEPTH   32
 #define OUTER_BORDER_WIDTH 5
 #define INNER_BORDER_WIDTH 3
@@ -128,6 +128,8 @@ static void DrawOuterEdges(void);
 static void DrawLampPanel(void);
 static void DrawPanelText(SDL_Surface *surface, int x, int y, char *text, TTF_Font *font, int updateable); // TODO: remove horrid default where surface is created if null
 static void DrawFilledRectangleOnSurface(SDL_Surface *surface, SDL_Rect *destinationArea, SDL_Color colour);
+static Uint32 *GetSurfacePixel(SDL_Surface *surface, int x, int y);
+static void PutSurfacePixel(SDL_Surface *surface, int x, int y, Uint32 color);
 SDL_Surface *DrawFilledRectangleSurface(int width, int height, SDL_Color colour);
 SDL_Texture *DrawFilledRectangle(int width, int height, SDL_Color colour);
 static void DrawLampPanelOverlayLineOnSurface(SDL_Surface *surface, int width, int height, int x, int y);
@@ -145,6 +147,8 @@ static void DrawLampPanelOverlay(void);
 static SDL_Texture *CreateLampPanelLampOverlay(void);
 static void DrawLampPanelLampOverlay(void);
 static void DrawRegister(int row, int column, unsigned int bits[], UINT8 width);
+static SDL_Texture *CreateHandswitchUp(int x, int y, SDL_Color *mainColour, SDL_Color *flashColour);
+static SDL_Texture *CreateHandswitchDown(int x, int y, SDL_Color *mainColour, SDL_Color *flashColour);
 static int SetupRegister(char *device, char *name, UINT64 *address);
 static int SetupSampledRegister(char *device, char *name, int bits, int *data);
 
@@ -699,6 +703,18 @@ static void DrawLampPanelLampOverlay(void)
     SDL_RenderCopy(sdlRenderer, lampOverlayTexture, NULL, NULL);
 }
 
+static Uint32 *GetSurfacePixel(SDL_Surface *surface, int x, int y)
+{
+	Uint32 *pixel = (Uint32 *)((Uint8 *)surface->pixels + y*surface->pitch + x * surface->format->BytesPerPixel);
+	return pixel;
+}
+
+static void PutSurfacePixel(SDL_Surface *surface, int x, int y, Uint32 color)
+{
+	Uint32 *pixel = GetSurfacePixel(surface, x, y);
+	*pixel = color;
+}
+
 static void DrawFilledRectangleOnSurface(SDL_Surface *surface, SDL_Rect *destinationArea, SDL_Color colour)
 {
 	SDL_Surface *tempSurface;
@@ -808,8 +824,8 @@ static void DrawLamp(int row, int column, int level)
 			{
 				for (y = 0; y < on_surface->h; y++)
 				{
-					Uint32 *off_pixel = (Uint32 *)((Uint8 *)off_surface->pixels + y*off_surface->pitch + x * off_surface->format->BytesPerPixel);
-					Uint32 *on_pixel = (Uint32 *)((Uint8 *)on_surface->pixels + y*on_surface->pitch + x * on_surface->format->BytesPerPixel);
+					Uint32 *off_pixel = GetSurfacePixel(off_surface, x, y);
+					Uint32 *on_pixel = GetSurfacePixel(on_surface, x, y);
 
 					SDL_GetRGB(*off_pixel, off_surface->format, &off_r, &off_g, &off_b);
 					SDL_GetRGB(*on_pixel, on_surface->format, &on_r, &on_g, &on_b);
@@ -987,6 +1003,15 @@ int my_boot(PANEL *panel)
 	sim_panel_gen_deposit(panel, "CO", sizeof(co), &co);
 	sim_panel_exec_run(panel);
     return 0;
+}
+
+static SDL_Texture *CreateHandswitchUp(int x, int y, SDL_Color *mainColour, SDL_Color *flashColour)
+{
+
+}
+static SDL_Texture *CreateHandswitchDown(int x, int y, SDL_Color *mainColour, SDL_Color *flashColour)
+{
+
 }
 
 static int SetupRegister(char *device, char *name, UINT64 *address)
