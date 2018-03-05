@@ -469,7 +469,6 @@ void sac_write_v_store(uint8 block, uint8 line, t_uint64 value)
 {
     VSTORE_LINE *l;
     assert(block < V_STORE_BLOCKS);
-    assert(line < V_STORE_BLOCK_SIZE);
     l = &VStore[block][line];
 	if (block == SYSTEM_V_STORE_BLOCK)
 	{
@@ -487,7 +486,6 @@ t_uint64 sac_read_v_store(uint8 block, uint8 line)
     t_uint64 result = 0;
     VSTORE_LINE *l;
     assert(block < V_STORE_BLOCKS);
-    assert(line < V_STORE_BLOCK_SIZE);
     l = &VStore[block][line];
 	if (block == SYSTEM_V_STORE_BLOCK)
 	{

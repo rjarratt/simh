@@ -195,8 +195,8 @@ static void prop_write_system_error_status_callback(uint8 line, t_uint64 value);
 static t_uint64 prop_read_instruction_counter(uint8 line);
 static void prop_write_instruction_counter(uint8 line, t_uint64 value);
 
-void prop_v_store_register_read_callback(struct REG *reg, int index);
-void prop_v_store_register_write_callback(t_value old_val, struct REG *reg, int index);
+static void prop_v_store_register_read_callback(struct REG *reg, int index);
+static void prop_v_store_register_write_callback(t_value old_val, struct REG *reg, int index);
 
 static void cpu_execute_dummy_order(uint16 order, DISPATCH_ENTRY *innerTable);
 static void cpu_start_interrupt_processing(void);
