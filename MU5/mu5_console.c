@@ -94,7 +94,7 @@ static t_uint64 *ConsoleHoot;
 static volatile int terminate_thread = 0;
 
 #if defined(HAVE_LIBSDL)
-SDL_AudioDeviceID audio_device_handle = 0;
+static volatile SDL_AudioDeviceID audio_device_handle = 0;
 SDL_Thread *audio_thread_handle = NULL;
 static int AudioThreadFunction(void *);
 #elif defined (_WIN32)
@@ -361,7 +361,7 @@ static t_stat StartAudioOutput(void)
 		SDL_Init(SDL_INIT_AUDIO);
 	}
 
-	if (audio_thread_handle == NULL)
+    if (audio_thread_handle == NULL)
 	{
 		audio_thread_handle = SDL_CreateThread(AudioThreadFunction, "AudioThread", NULL);
 		if (audio_thread_handle == NULL)
@@ -391,7 +391,11 @@ static t_stat StartAudioOutput(void)
 	else
 	{
 		SDL_PauseAudioDevice(audio_device_handle, 0); /* start audio playing. */
-	}
+        printf("Audio freq. Want: %d Have:%d\n", want.freq, have.freq);
+        printf("Audio format. Want: %d Have: %d\n", want.format, have.format);
+        printf("Audio channels. Want: %d Have: %d\n", want.channels, have.channels);
+        printf("Audio samples. Want: %d Have: %d\n", want.samples, have.samples);
+    }
 	return SCPE_OK;
 }
 
@@ -423,6 +427,12 @@ static int AudioThreadFunction(void *data)
 	countsPerSecond = SDL_GetPerformanceFrequency();
 	countsPerSample = countsPerSecond / AUDIO_SAMPLE_RATE;
 	lastSampleCount = SDL_GetPerformanceCounter();
+
+    /* Wait for device to be opened */
+    while (audio_device_handle == 0 && !terminate_thread)
+    {
+        Sleep(0);
+    }
 
 	while (!terminate_thread)
 	{
