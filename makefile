@@ -87,15 +87,8 @@ ifeq (old,$(shell gmake --version /dev/null 2>&1 | grep 'GNU Make' | awk '{ if (
 endif
 BUILD_SINGLE := $(MAKECMDGOALS) $(BLANK_SUFFIX)
 
-ifneq (,$(call find_include,SDL2/SDL))
-  ifneq (,$(call find_lib,SDL2))
-    SDL_CCDEFS += -DHAVE_LIBSDL `$(realpath $(dir $(call find_include,SDL2/SDL))../../bin/sdl2-config) --cflags`
-    SDL_LDFLAGS += `$(realpath $(dir $(call find_include,SDL2/SDL))../../bin/sdl2-config) --libs`
-  endif
-endif
-
-# building the pdp1, pdp11, tx-0, or any microvax simulator could use video support
-ifneq (,$(or $(findstring XXpdp1XX,$(addsuffix XX,$(addprefix XX,$(MAKECMDGOALS)))),$(findstring pdp11,$(MAKECMDGOALS)),$(findstring tx-0,$(MAKECMDGOALS)),$(findstring microvax1,$(MAKECMDGOALS)),$(findstring microvax2,$(MAKECMDGOALS)),$(findstring microvax3900,$(MAKECMDGOALS)),$(findstring XXvaxXX,$(addsuffix XX,$(addprefix XX,$(MAKECMDGOALS))))))
+# building the pdp1, pdp11, tx-0, mu5, or any microvax simulator could use video support
+ifneq (,$(or $(findstring XXpdp1XX,$(addsuffix XX,$(addprefix XX,$(MAKECMDGOALS)))),$(findstring pdp11,$(MAKECMDGOALS)),$(findstring tx-0,$(MAKECMDGOALS)),$(findstring mu5,$(MAKECMDGOALS)),$(findstring microvax1,$(MAKECMDGOALS)),$(findstring microvax2,$(MAKECMDGOALS)),$(findstring microvax3900,$(MAKECMDGOALS)),$(findstring XXvaxXX,$(addsuffix XX,$(addprefix XX,$(MAKECMDGOALS))))))
   VIDEO_USEFUL = true
 endif
 # building the besm6 needs both video support and fontfile support
