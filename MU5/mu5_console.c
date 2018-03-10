@@ -38,6 +38,7 @@ Only does Teletype output.
 #include "mu5_console.h"
 #if defined(HAVE_LIBSDL)
 #include <SDL.h>
+#include <SDL_audio.h>
 #endif
 
 #define MASK_FCI 0x1
@@ -431,7 +432,7 @@ static int AudioThreadFunction(void *data)
     /* Wait for device to be opened */
     while (audio_device_handle == 0 && !terminate_thread)
     {
-        Sleep(0);
+        sim_os_ms_sleep(0);
     }
 
 	while (!terminate_thread)
@@ -451,7 +452,7 @@ static int AudioThreadFunction(void *data)
 					SDL_QueueAudio(audio_device_handle, buffer, sizeof(buffer));
 				}
 			}
-			Sleep(0);
+            sim_os_ms_sleep(0);
 		} while (countDiff > countsPerSample);
 	}
 
@@ -580,7 +581,7 @@ static DWORD WINAPI audio_thread_function(void *param)
 					}
 				}
 			}
-			Sleep(0);
+            sim_os_ms_sleep(0);
 		} while (countDiff > countsPerSample);
 	}
 
