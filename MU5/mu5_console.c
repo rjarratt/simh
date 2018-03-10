@@ -392,10 +392,6 @@ static t_stat StartAudioOutput(void)
 	else
 	{
 		SDL_PauseAudioDevice(audio_device_handle, 0); /* start audio playing. */
-        printf("Audio freq. Want: %d Have:%d\n", want.freq, have.freq);
-        printf("Audio format. Want: %d Have: %d\n", want.format, have.format);
-        printf("Audio channels. Want: %d Have: %d\n", want.channels, have.channels);
-        printf("Audio samples. Want: %d Have: %d\n", want.samples, have.samples);
     }
 	return SCPE_OK;
 }
