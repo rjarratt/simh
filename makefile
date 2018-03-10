@@ -1562,7 +1562,7 @@ SSEM_OPT = -I ${SSEMD}
 
 MU5D = MU5
 MU5 = ${MU5D}/mu5_cpu.c ${MU5D}/mu5_sac.c ${MU5D}/mu5_console.c ${MU5D}/mu5_sys.c ${MU5D}/mu5_test.c ${MU5D}/mu5_cpu_test.c ${MU5D}/mu5_sac_test.c ${MU5D}/mu5_console_test.c
-MU5_OPT = -I ${MU5D} -DUSE_INT64 ${SDL_CCDEFS} ${SDL_LDFLAGS}
+MU5_OPT = -I ${MU5D} -DUSE_INT64  ${VIDEO_CCDEFS} ${VIDEO_LDFLAGS}
 
 B5500D = B5500
 B5500 = ${B5500D}/b5500_cpu.c ${B5500D}/b5500_io.c ${B5500D}/b5500_sys.c \
