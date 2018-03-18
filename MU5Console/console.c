@@ -35,6 +35,7 @@
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <SDL_ttf.h>
+#include "SDL2_gfxPrimitives.h"
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -147,8 +148,8 @@ static void DrawLampPanelOverlay(void);
 static SDL_Texture *CreateLampPanelLampOverlay(void);
 static void DrawLampPanelLampOverlay(void);
 static void DrawRegister(int row, int column, unsigned int bits[], UINT8 width);
-static SDL_Texture *CreateHandswitchUp(int x, int y, SDL_Color *mainColour, SDL_Color *flashColour);
-static SDL_Texture *CreateHandswitchDown(int x, int y, SDL_Color *mainColour, SDL_Color *flashColour);
+static void CreateHandswitchUp(int x, int y, const SDL_Color *mainColour, const SDL_Color *flashColour);
+static void CreateHandswitchDown(int x, int y, const SDL_Color *mainColour, const SDL_Color *flashColour);
 static int SetupRegister(char *device, char *name, UINT64 *address);
 static int SetupSampledRegister(char *device, char *name, int bits, int *data);
 
@@ -492,6 +493,9 @@ static void DrawLampPanelOverlay(void)
 	DrawPanelLowerLabel(5, 19, "CONTROL");
 
 	DrawBadge();
+
+	CreateHandswitchUp(100, 0, &black, &white);
+	CreateHandswitchUp(100, 200, &black, &white);
 }
 
 static SDL_Texture *CreateLampPanelLampOverlay(void)
@@ -1005,11 +1009,15 @@ int my_boot(PANEL *panel)
     return 0;
 }
 
-static SDL_Texture *CreateHandswitchUp(int x, int y, SDL_Color *mainColour, SDL_Color *flashColour)
+static void CreateHandswitchUp(int x, int y, const SDL_Color *mainColour, const SDL_Color *flashColour)
 {
-
+	Sint16 vx[] = { x, x+500, x+500, x, x };
+	Sint16 vy[] = { y, y, y+500, y+500, y };
+	int n = sizeof(vx) / sizeof(Sint16);
+	filledPolygonRGBA(sdlRenderer, vx, vy, n, mainColour->r, mainColour->g, mainColour->b, mainColour->a);
 }
-static SDL_Texture *CreateHandswitchDown(int x, int y, SDL_Color *mainColour, SDL_Color *flashColour)
+
+static void CreateHandswitchDown(int x, int y, const SDL_Color *mainColour, const SDL_Color *flashColour)
 {
 
 }

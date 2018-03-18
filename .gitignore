@@ -53,3 +53,4 @@ doc/*.pdf
 *.ini-Panel*
 MU5-PANEL.ini
 *.zip
+/MU5Console/Docs

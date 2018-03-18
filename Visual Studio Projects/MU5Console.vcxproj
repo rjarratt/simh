@@ -126,10 +126,15 @@
   <ItemGroup>
     <ClCompile Include="..\..\windows-build\pthreads\pthread.c" />
     <ClCompile Include="..\MU5Console\console.c" />
+    <ClCompile Include="..\MU5Console\SDL2_gfxPrimitives.c" />
+    <ClCompile Include="..\MU5Console\SDL2_rotozoom.c" />
     <ClCompile Include="..\sim_frontpanel.c" />
     <ClCompile Include="..\sim_sock.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\MU5Console\SDL2_gfxPrimitives.h" />
+    <ClInclude Include="..\MU5Console\SDL2_gfxPrimitives_font.h" />
+    <ClInclude Include="..\MU5Console\SDL2_rotozoom.h" />
     <ClInclude Include="..\sim_frontpanel.h" />
     <ClInclude Include="..\sim_sock.h" />
   </ItemGroup>
