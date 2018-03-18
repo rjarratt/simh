@@ -1,6 +1,6 @@
-/* mu5_sys.c: MU5 system interface
+/* mu5_drum.h: MU5 Fixed Head Disk Device Unit
 
-Copyright (c) 2016-2017, Robert Jarratt
+Copyright (c) 2016-2018, Robert Jarratt
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the "Software"),
@@ -22,44 +22,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 Except as contained in this notice, the name of Robert Jarratt shall not be
 used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Robert Jarratt.
-
 */
 
-#include "mu5_defs.h"
-#include "mu5_sac.h"
-#include "mu5_drum.h"
+#include "sim_defs.h"
 
-char sim_name[] = "MU5";
-
-extern DEVICE cpu_dev;
-extern DEVICE prop_dev;
-extern DEVICE sac_dev;
-extern DEVICE console_dev;
-extern DEVICE drum_dev;
-
-/* SAC first because it resets the V-Store callbacks which may be set by other devices */
-DEVICE *sim_devices[] = { &sac_dev, &cpu_dev, &prop_dev, &console_dev, &drum_dev, NULL };
-
-const char *sim_stop_messages[] =
-{
-    "Terminated"
-};
-
-static void VMInit(void);
-
-void(*sim_vm_init)(void) = &VMInit;
-
-
-CTAB mu5_cmd[] = {
-    { NULL }
-};
-
-static void VMInit()
-{
-    sim_vm_cmd = mu5_cmd;
-	sim_dflt_dev = &cpu_dev;
-}
-
-
-
+#define DRUM_NUM_UNITS 4
+#define DRUM_BLOCKS_PER_TRACK 37
+#define DRUM_BYTES_PER_BLOCK 1024
+#define DRUM_TRACKS_PER_UNIT 8 /* Actually 64 tracks, but we treat them as blocks of 8 to record bytes rather than bits */
 
