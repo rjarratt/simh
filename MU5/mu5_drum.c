@@ -49,13 +49,15 @@ Known Limitations
 
 static t_stat drum_reset(DEVICE *dptr);
 t_stat drum_svc(UNIT *uptr);
+t_stat drum_attach(UNIT *uptr, CONST char *cptr);
+t_stat drum_detach(UNIT *uptr);
 
 static UNIT drum_unit[] =
 {
-	{ UDATA(&drum_svc, UNIT_FIX | UNIT_BINK | UNIT_ATTABLE | UNIT_DISABLE, DRUM_BLOCKS_PER_TRACK * DRUM_BYTES_PER_BLOCK * DRUM_TRACKS_PER_UNIT * 8) },
-	{ UDATA(&drum_svc, UNIT_FIX | UNIT_BINK | UNIT_ATTABLE | UNIT_DISABLE, DRUM_BLOCKS_PER_TRACK * DRUM_BYTES_PER_BLOCK * DRUM_TRACKS_PER_UNIT * 8) },
-	{ UDATA(&drum_svc, UNIT_FIX | UNIT_BINK | UNIT_ATTABLE | UNIT_DISABLE, DRUM_BLOCKS_PER_TRACK * DRUM_BYTES_PER_BLOCK * DRUM_TRACKS_PER_UNIT * 8) },
-	{ UDATA(&drum_svc, UNIT_FIX | UNIT_BINK | UNIT_ATTABLE | UNIT_DISABLE, DRUM_BLOCKS_PER_TRACK * DRUM_BYTES_PER_BLOCK * DRUM_TRACKS_PER_UNIT * 8) }
+	{ UDATA(&drum_svc, UNIT_FIX | UNIT_BINK | UNIT_ATTABLE | UNIT_DISABLE, DRUM_BLOCKS_PER_BAND * DRUM_WORDS_PER_BLOCK * DRUM_BANDS_PER_UNIT) },
+	{ UDATA(&drum_svc, UNIT_FIX | UNIT_BINK | UNIT_ATTABLE | UNIT_DISABLE, DRUM_BLOCKS_PER_BAND * DRUM_WORDS_PER_BLOCK * DRUM_BANDS_PER_UNIT) },
+	{ UDATA(&drum_svc, UNIT_FIX | UNIT_BINK | UNIT_ATTABLE | UNIT_DISABLE, DRUM_BLOCKS_PER_BAND * DRUM_WORDS_PER_BLOCK * DRUM_BANDS_PER_UNIT) },
+	{ UDATA(&drum_svc, UNIT_FIX | UNIT_BINK | UNIT_ATTABLE | UNIT_DISABLE, DRUM_BLOCKS_PER_BAND * DRUM_WORDS_PER_BLOCK * DRUM_BANDS_PER_UNIT) }
 };
 
 static REG drum_reg[] =
@@ -95,7 +97,7 @@ DEVICE drum_dev = {
 	NULL,              /* attach */
 	NULL,              /* detach */
 	NULL,              /* ctxt */
-	DEV_DEBUG,         /* flags */
+	DEV_DEBUG | DEV_DISK,         /* flags */
 	0,                 /* dctrl */
 	drum_debtab,       /* debflags */
 	NULL,              /* msize */

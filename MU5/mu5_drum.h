@@ -27,7 +27,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #include "sim_defs.h"
 
 #define DRUM_NUM_UNITS 4
-#define DRUM_BLOCKS_PER_TRACK 37
-#define DRUM_BYTES_PER_BLOCK 1024
-#define DRUM_TRACKS_PER_UNIT 8 /* Actually 64 tracks, but we treat them as blocks of 8 to record bytes rather than bits */
+#define DRUM_BLOCKS_PER_BAND 37
+#define DRUM_WORDS_PER_BLOCK 1024
+#define DRUM_BANDS_PER_UNIT 64
 
