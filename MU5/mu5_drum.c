@@ -49,10 +49,15 @@ Known Limitations
 #include "mu5_defs.h"
 #include "mu5_drum.h"
 
+#define BLOCK_TIME_USECS (20000 / DRUM_BLOCKS_PER_BAND) /* Rotation is 20ms */
+
 static t_stat drum_reset(DEVICE *dptr);
 t_stat drum_svc(UNIT *uptr);
 t_stat drum_attach(UNIT *uptr, CONST char *cptr);
 t_stat drum_detach(UNIT *uptr);
+
+static void drum_start_polling_if_attached(UNIT *uptr);
+static void drum_schedule_next_poll(UNIT *uptr);
 
 static UNIT drum_unit[] =
 {
@@ -224,13 +229,20 @@ DEVICE drum_dev = {
 /* reset routine */
 static t_stat drum_reset(DEVICE *dptr)
 {
+	int i;
 	t_stat result = SCPE_OK;
+	for (i = 0; i < DRUM_NUM_UNITS; i++)
+	{
+		sim_disk_reset(&drum_unit[i]);
+		drum_start_polling_if_attached(&drum_unit[i]);
+	}
 	return result;
 }
 
 static t_stat drum_svc(UNIT *uptr)
 {
 	t_stat result = SCPE_OK;
+	drum_schedule_next_poll(uptr);
 	return result;
 }
 
@@ -241,6 +253,8 @@ t_stat drum_attach(UNIT *uptr, CONST char *cptr)
 	size_t sectorSizeBytes = DRUM_WORDS_PER_BLOCK * drum_dev.aincr * xferElementSize;
 
 	r = sim_disk_attach(uptr, cptr, sectorSizeBytes, xferElementSize, 1, 0, "DRUM", 0, 0);
+	
+	drum_start_polling_if_attached(uptr);
 	return r;
 }
 
@@ -251,3 +265,19 @@ t_stat drum_detach(UNIT *uptr)
 	r = sim_disk_detach(uptr);                             /* detach unit */
 	return r;
 }
+
+static void drum_start_polling_if_attached(UNIT *uptr)
+{
+	sim_cancel(uptr);
+	if (uptr->flags & UNIT_ATT)
+	{
+		drum_schedule_next_poll(uptr);
+	}
+}
+
+
+static void drum_schedule_next_poll(UNIT *uptr)
+{
+	sim_activate_after(uptr, BLOCK_TIME_USECS);
+}
+
