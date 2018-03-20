@@ -44,6 +44,8 @@ Known Limitations
 */
 
 #include <assert.h>
+#include "sim_defs.h"
+#include "sim_disk.h"
 #include "mu5_defs.h"
 #include "mu5_drum.h"
 
@@ -94,8 +96,8 @@ DEVICE drum_dev = {
 	NULL,              /* deposit */
 	&drum_reset,       /* reset */
 	NULL,              /* boot */
-	NULL,              /* attach */
-	NULL,              /* detach */
+	&drum_attach,      /* attach */
+	&drum_detach,      /* detach */
 	NULL,              /* ctxt */
 	DEV_DEBUG | DEV_DISK,         /* flags */
 	0,                 /* dctrl */
@@ -122,3 +124,20 @@ static t_stat drum_svc(UNIT *uptr)
 	return result;
 }
 
+t_stat drum_attach(UNIT *uptr, CONST char *cptr)
+{
+	t_stat r;
+	size_t xferElementSize = drum_dev.dwidth / 8;
+	size_t sectorSizeBytes = DRUM_WORDS_PER_BLOCK * drum_dev.aincr * xferElementSize;
+
+	r = sim_disk_attach(uptr, cptr, sectorSizeBytes, xferElementSize, 1, 0, "DRUM", 0, 0);
+	return r;
+}
+
+t_stat drum_detach(UNIT *uptr)
+{
+	t_stat r;
+
+	r = sim_disk_detach(uptr);                             /* detach unit */
+	return r;
+}

@@ -30,4 +30,3 @@ in this Software without prior written authorization from Robert Jarratt.
 #define DRUM_BLOCKS_PER_BAND 37
 #define DRUM_WORDS_PER_BLOCK 1024
 #define DRUM_BANDS_PER_UNIT 64
-
