@@ -62,8 +62,118 @@ static UNIT drum_unit[] =
 	{ UDATA(&drum_svc, UNIT_FIX | UNIT_BINK | UNIT_ATTABLE | UNIT_DISABLE, DRUM_BLOCKS_PER_BAND * DRUM_WORDS_PER_BLOCK * DRUM_BANDS_PER_UNIT) }
 };
 
+BITFIELD disc_address_bits[] = {
+	BITF(SIZE,6),   /* Number of blocks requested for transfer */
+	BITNCF(2),
+	BITF(BLOCK,6),  /* Block number (0-36) */
+	BITF(BAND,6),   /* Band */
+	BITF(D,2),      /* Disc number */
+	BITNCF(8),
+	BIT(RW),        /* 1=Read, 0=Write */
+	BIT(P),         /* Internal read */
+	ENDBITS
+};
+
+BITFIELD store_address_bits[] = {
+	BITF(ADDRESS,24),   /* Mass/Local Real Address */
+	BITF(UNIT,4),       /* Unit */
+	BITNCF(4),
+	ENDBITS
+};
+
+BITFIELD disc_status_bits[] = {
+	BITF(UNIT, 4),        /* Disc unit number (=0) */
+	BIT(ENDXFER),         /* End transfer. 1=ENDED */
+	BIT(IPARITY),         /* Ignore parity fault */
+	BIT(ROWPARITY),       /* Row parity error (internal to disc) */
+	BIT(COLPARITY),       /* Column parity error (internal to disc) */
+	BIT(DATALATE),        /* Data late (hardware error) */
+	BIT(BOUNDLOCKEDOUT),  /* Bound locked out */
+	BIT(INPPARITYERR),    /* Input parity error */
+	BIT(INPPARITYERRSRC), /* Input parity error source (data, address, control info) */
+	BIT(ILLREQ),          /* Illegal request to the disc */
+	BIT(D0ST),            /* Disc 0 on self test */
+	BITNCF(2),
+	BIT(D0ABSENT),        /* Disc 0 absent */
+	BIT(D1ST),            /* Disc 1 on self test */
+	BITNCF(2),
+	BIT(D1ABSENT),        /* Disc 1 absent */
+	BIT(D2ST),            /* Disc 2 on self test */
+	BITNCF(2),
+	BIT(D2ABSENT),        /* Disc 2 absent */
+	BIT(D3ST),            /* Disc 3 on self test */
+	BITNCF(2),
+	BIT(D3ABSENT),        /* Disc 3 absent */
+	BIT(SELFTEST),        /* Decode Vx line 7 */
+	BIT(DECODE),          /* Decode the rest of the status line, indicates if further action is required */
+	ENDBITS
+};
+
+BITFIELD complete_address_bits[] = {
+	BITF(ADDRESS,28),
+	BITNCF(4),
+	ENDBITS
+};
+
+BITFIELD lockout_01_bits[] = {
+	BITF(LOCKOUTDISC1,16),
+	BITF(LOCKOUTDISC2,16),
+	ENDBITS
+};
+
+BITFIELD lockout_23_bits[] = {
+	BITF(LOCKOUTDISCs23,16),
+	BITNCF(16),
+	ENDBITS
+};
+
+BITFIELD request_self_test_bits[] = {
+	BIT(CPUPERM),
+	BIT(REQST0),
+	BIT(REQST1),
+	BIT(REQST2),
+	BIT(REQST3),
+	ENDBITS
+};
+
+BITFIELD self_test_command_bits[] = {
+	BITF(DISKNUMBER,2),
+	BIT(SELFTEST),
+	BIT(ADREQ),
+	BITF(MARGINS,3),
+	ENDBITS
+};
+
+BITFIELD self_test_state_bits[] = {
+	BIT(SELFPHASEERR),
+	BIT(ADDRERR),
+	BIT(SURFACEERR),
+	BIT(PRINTAD),
+	BIT(MAXMINSIG),
+	ENDBITS
+};
+
+uint32 reg_disc_address;
+uint32 reg_store_address;
+uint32 reg_disc_status;
+uint32 reg_complete_address;
+uint32 reg_lockout_01;
+uint32 reg_lockout_23;
+uint32 reg_request_self_test;
+uint32 reg_self_test_command;
+uint32 reg_self_test_state;
+
 static REG drum_reg[] =
 {
+	{ GRDATADF(DISCADDRESS,     reg_disc_address,      16,  32, 0, "Disc address", disc_address_bits) },
+	{ GRDATADF(STOREADDRESS,    reg_store_address,     16,  32, 0, "Store address", store_address_bits) },
+	{ GRDATADF(DISCSTATUS,      reg_disc_status,       16,  32, 0, "Disc status", disc_status_bits) },
+	{ GRDATADF(COMPLETEADDRESS, reg_complete_address,  16,  32, 0, "Complete address", complete_address_bits) },
+	{ GRDATADF(LOCKOUT01,       reg_lockout_01,        16,  32, 0, "Lockout 01", lockout_01_bits) },
+	{ GRDATADF(LOCKOUT23,       reg_lockout_23,        16,  32, 0, "Lockout 23", lockout_23_bits) },
+	{ GRDATADF(REQSELFTEST,     reg_request_self_test, 16,  32, 0, "Request self test", request_self_test_bits) },
+	{ GRDATADF(SELFTESTCMD,     reg_self_test_command, 16,  32, 0, "Self test command", self_test_command_bits) },
+	{ GRDATADF(SELFTESTSTATE,   reg_self_test_state,   16,  32, 0, "Self test state", self_test_state_bits) },
 	{ NULL }
 };
 
