@@ -58,6 +58,8 @@ t_stat drum_detach(UNIT *uptr);
 
 static void drum_start_polling_if_attached(UNIT *uptr);
 static void drum_schedule_next_poll(UNIT *uptr);
+static uint8 drum_get_current_position(int unit_num);
+static void drum_set_current_position(int unit_num, uint8 value);
 
 static UNIT drum_unit[] =
 {
@@ -114,6 +116,17 @@ BITFIELD disc_status_bits[] = {
 	ENDBITS
 };
 
+BITFIELD current_positions_bits[] = {
+	BITF(D0,6),
+	BITF(D1,6),
+	BITF(D2,6),
+	BITF(D3,6),
+	BIT(D0PD),
+	BIT(D1PD),
+	BITNCF(6),
+	ENDBITS
+};
+
 BITFIELD complete_address_bits[] = {
 	BITF(ADDRESS,28),
 	BITNCF(4),
@@ -161,6 +174,7 @@ BITFIELD self_test_state_bits[] = {
 uint32 reg_disc_address;
 uint32 reg_store_address;
 uint32 reg_disc_status;
+uint32 reg_current_positions;
 uint32 reg_complete_address;
 uint32 reg_lockout_01;
 uint32 reg_lockout_23;
@@ -170,15 +184,16 @@ uint32 reg_self_test_state;
 
 static REG drum_reg[] =
 {
-	{ GRDATADF(DISCADDRESS,     reg_disc_address,      16,  32, 0, "Disc address", disc_address_bits) },
-	{ GRDATADF(STOREADDRESS,    reg_store_address,     16,  32, 0, "Store address", store_address_bits) },
-	{ GRDATADF(DISCSTATUS,      reg_disc_status,       16,  32, 0, "Disc status", disc_status_bits) },
-	{ GRDATADF(COMPLETEADDRESS, reg_complete_address,  16,  32, 0, "Complete address", complete_address_bits) },
-	{ GRDATADF(LOCKOUT01,       reg_lockout_01,        16,  32, 0, "Lockout 01", lockout_01_bits) },
-	{ GRDATADF(LOCKOUT23,       reg_lockout_23,        16,  32, 0, "Lockout 23", lockout_23_bits) },
-	{ GRDATADF(REQSELFTEST,     reg_request_self_test, 16,  32, 0, "Request self test", request_self_test_bits) },
-	{ GRDATADF(SELFTESTCMD,     reg_self_test_command, 16,  32, 0, "Self test command", self_test_command_bits) },
-	{ GRDATADF(SELFTESTSTATE,   reg_self_test_state,   16,  32, 0, "Self test state", self_test_state_bits) },
+	{ GRDATADF(DISCADDRESS,      reg_disc_address,      16,  32, 0, "Disc address", disc_address_bits) },
+	{ GRDATADF(STOREADDRESS,     reg_store_address,     16,  32, 0, "Store address", store_address_bits) },
+	{ GRDATADF(DISCSTATUS,       reg_disc_status,       16,  32, 0, "Disc status", disc_status_bits) },
+	{ GRDATADF(CURRENTPOSITIONS, reg_current_positions, 16,  32, 0, "Current positions", current_positions_bits) },
+	{ GRDATADF(COMPLETEADDRESS,  reg_complete_address,  16,  32, 0, "Complete address", complete_address_bits) },
+	{ GRDATADF(LOCKOUT01,        reg_lockout_01,        16,  32, 0, "Lockout 01", lockout_01_bits) },
+	{ GRDATADF(LOCKOUT23,        reg_lockout_23,        16,  32, 0, "Lockout 23", lockout_23_bits) },
+	{ GRDATADF(REQSELFTEST,      reg_request_self_test, 16,  32, 0, "Request self test", request_self_test_bits) },
+	{ GRDATADF(SELFTESTCMD,      reg_self_test_command, 16,  32, 0, "Self test command", self_test_command_bits) },
+	{ GRDATADF(SELFTESTSTATE,    reg_self_test_state,   16,  32, 0, "Self test state", self_test_state_bits) },
 	{ NULL }
 };
 
@@ -242,6 +257,8 @@ static t_stat drum_reset(DEVICE *dptr)
 static t_stat drum_svc(UNIT *uptr)
 {
 	t_stat result = SCPE_OK;
+	int unit_num = (int)(uptr - drum_unit);
+	drum_set_current_position(unit_num, (drum_get_current_position(unit_num) + 1) % DRUM_BLOCKS_PER_BAND);
 	drum_schedule_next_poll(uptr);
 	return result;
 }
@@ -281,3 +298,15 @@ static void drum_schedule_next_poll(UNIT *uptr)
 	sim_activate_after(uptr, BLOCK_TIME_USECS);
 }
 
+static uint8 drum_get_current_position(int unit_num)
+{
+	uint8 pos = reg_current_positions >> (unit_num * 6) & 0x3F;
+	return pos;
+}
+
+static void drum_set_current_position(int unit_num, uint8 value)
+{
+	uint32 temp = (value & 0x3F) << (unit_num * 6);
+	uint32 mask = ~(0x3F << (unit_num * 6));
+	reg_current_positions = (reg_current_positions & mask) | temp;
+}
