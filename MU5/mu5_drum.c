@@ -23,14 +23,13 @@ Except as contained in this notice, the name of Robert Jarratt shall not be
 used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Robert Jarratt.
 
-This is the MU5 Store Access Control unit. The Local Store consisted of four
-4096-word memory units, each word containing 64 data bits + 8 parity bits.
-The Mass Store consisted of two 128K-word memory units, each word containing
-36 bits. The Fixed-head Disc consisted of two 2.4 Mbyte units.
+This is the MU5 Fixed Head Disc unit, or the Drum store. MU5 allowed up to 4
+fixed head discs, but in actual fact never had more than 2. Each drum rotates
+in 20.5ms.
 
-There are believed to be 4 hard-wired CPRs. When asked in April 2017 RNI was
-not sure which ones and did not know their values. He said: "Assume 4 for now
-and assume they are numbers 28-31. Writing to them would have no effect."
+The service routine operates at the real time speed of the drum in that it is
+scheduled once per block, of which there were 37 per band (or track in modern
+parlance).
 
 Notes on V and Vx Store Access
 ------------------------------
@@ -50,6 +49,10 @@ Known Limitations
 #include "mu5_drum.h"
 
 #define BLOCK_TIME_USECS (20000 / DRUM_BLOCKS_PER_BAND) /* Rotation is 20ms */
+#define D0_PRESENT_MASK (1 << 17)
+#define D1_PRESENT_MASK (1 << 21)
+#define D2_PRESENT_MASK (1 << 25)
+#define D3_PRESENT_MASK (1 << 29)
 
 static t_stat drum_reset(DEVICE *dptr);
 t_stat drum_svc(UNIT *uptr);
@@ -60,6 +63,9 @@ static void drum_start_polling_if_attached(UNIT *uptr);
 static void drum_schedule_next_poll(UNIT *uptr);
 static uint8 drum_get_current_position(int unit_num);
 static void drum_set_current_position(int unit_num, uint8 value);
+static void drum_update_current_position(int unit_num);
+static int drum_get_unit_num(UNIT *uptr);
+static void drum_set_unit_present(int unit_num, int present);
 
 static UNIT drum_unit[] =
 {
@@ -96,7 +102,7 @@ BITFIELD disc_status_bits[] = {
 	BIT(COLPARITY),       /* Column parity error (internal to disc) */
 	BIT(DATALATE),        /* Data late (hardware error) */
 	BIT(BOUNDLOCKEDOUT),  /* Bound locked out */
-	BIT(INPPARITYERR),    /* Input parity error */
+	BITF(INPPARITYERR,2), /* Input parity error */
 	BIT(INPPARITYERRSRC), /* Input parity error source (data, address, control info) */
 	BIT(ILLREQ),          /* Illegal request to the disc */
 	BIT(D0ST),            /* Disc 0 on self test */
@@ -173,7 +179,7 @@ BITFIELD self_test_state_bits[] = {
 
 uint32 reg_disc_address;
 uint32 reg_store_address;
-uint32 reg_disc_status;
+uint32 reg_disc_status = D0_PRESENT_MASK | D1_PRESENT_MASK | D2_PRESENT_MASK | D3_PRESENT_MASK;
 uint32 reg_current_positions;
 uint32 reg_complete_address;
 uint32 reg_lockout_01;
@@ -257,8 +263,8 @@ static t_stat drum_reset(DEVICE *dptr)
 static t_stat drum_svc(UNIT *uptr)
 {
 	t_stat result = SCPE_OK;
-	int unit_num = (int)(uptr - drum_unit);
-	drum_set_current_position(unit_num, (drum_get_current_position(unit_num) + 1) % DRUM_BLOCKS_PER_BAND);
+	int unit_num = drum_get_unit_num(uptr);
+	drum_update_current_position(unit_num);
 	drum_schedule_next_poll(uptr);
 	return result;
 }
@@ -268,9 +274,12 @@ t_stat drum_attach(UNIT *uptr, CONST char *cptr)
 	t_stat r;
 	size_t xferElementSize = drum_dev.dwidth / 8;
 	size_t sectorSizeBytes = DRUM_WORDS_PER_BLOCK * drum_dev.aincr * xferElementSize;
+	int unit_num = drum_get_unit_num(uptr);
 
 	r = sim_disk_attach(uptr, cptr, sectorSizeBytes, xferElementSize, 1, 0, "DRUM", 0, 0);
-	
+
+	drum_set_unit_present(unit_num, 1);
+
 	drum_start_polling_if_attached(uptr);
 	return r;
 }
@@ -278,8 +287,11 @@ t_stat drum_attach(UNIT *uptr, CONST char *cptr)
 t_stat drum_detach(UNIT *uptr)
 {
 	t_stat r;
+	int unit_num = drum_get_unit_num(uptr);
 
-	r = sim_disk_detach(uptr);                             /* detach unit */
+	r = sim_disk_detach(uptr);
+	drum_set_unit_present(unit_num, 0);
+
 	return r;
 }
 
@@ -309,4 +321,27 @@ static void drum_set_current_position(int unit_num, uint8 value)
 	uint32 temp = (value & 0x3F) << (unit_num * 6);
 	uint32 mask = ~(0x3F << (unit_num * 6));
 	reg_current_positions = (reg_current_positions & mask) | temp;
+}
+
+static void drum_update_current_position(int unit_num)
+{
+	drum_set_current_position(unit_num, (drum_get_current_position(unit_num) + 1) % DRUM_BLOCKS_PER_BAND);
+}
+
+static int drum_get_unit_num(UNIT *uptr)
+{
+	return (int)(uptr - drum_unit);
+}
+
+static void drum_set_unit_present(int unit_num, int present)
+{
+	static uint32 masks[] = { D0_PRESENT_MASK, D1_PRESENT_MASK, D2_PRESENT_MASK, D3_PRESENT_MASK };
+	if (present)
+	{
+		reg_disc_status &= ~masks[unit_num];
+	}
+	else
+	{
+		reg_disc_status |= masks[unit_num];
+	}
 }
