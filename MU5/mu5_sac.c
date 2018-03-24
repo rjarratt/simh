@@ -26,7 +26,11 @@ in this Software without prior written authorization from Robert Jarratt.
 This is the MU5 Store Access Control unit. The Local Store consisted of four
 4096-word memory units, each word containing 64 data bits + 8 parity bits.
 The Mass Store consisted of two 128K-word memory units, each word containing
-36 bits. The Fixed-head Disc consisted of two 2.4 Mbyte units. 
+36 bits. The Fixed-head Disc consisted of two 2.4 Mbyte units.
+
+In the real MU5 the local store was accessed directly by SAC, all the other stores
+were accessed via the Exchange. This module effectively includes the Exchange by
+accessing all the other stores too.
 
 There are believed to be 4 hard-wired CPRs. When asked in April 2017 RNI was
 not sure which ones and did not know their values. He said: "Assume 4 for now

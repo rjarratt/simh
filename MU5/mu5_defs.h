@@ -63,7 +63,7 @@ in this Software without prior written authorization from Robert Jarratt.
 /* The Exchange Unit numbers below are presumed but not confirmed. RNI believes the numbers are in the order in which they appear in Fig. 6.12 on p133 of the book, he is also confident that the
    fixed head disc was indeed unit 0. However in an email he also said "The BTU was also a unit, as was the SPM.I think the SPM was unit 10 or 11."
 */
-#define UNIT_FIXED_HEAD_DISC 0
+#define UNIT_FIXED_HEAD_DISC 0 /* Also known as the Drum */
 #define UNIT_PDP11 1
 #define UNIT_MU5_PROCESSOR 2
 #define UNIT_LOCAL_STORE 3

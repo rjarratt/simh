@@ -1,4 +1,4 @@
-/* mu5_drum.h: MU5 Fixed Head Disk Device Unit
+/* mu5_drum_test.h: MU5 simulator Drum test definitions
 
 Copyright (c) 2016-2018, Robert Jarratt
 
@@ -24,11 +24,9 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Robert Jarratt.
 */
 
-#include "sim_defs.h"
+#include "mu5_defs.h"
+#include "mu5_test.h"
 
-#define DRUM_NUM_UNITS 4
-#define DRUM_BLOCKS_PER_BAND 37
-#define DRUM_WORDS_PER_BLOCK 1024
-#define DRUM_BANDS_PER_UNIT 64
+#pragma once
+void drum_selftest(TESTCONTEXT *testContext);
 
-void drum_reset_state(void);

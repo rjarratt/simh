@@ -23,9 +23,10 @@ Except as contained in this notice, the name of Robert Jarratt shall not be
 used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Robert Jarratt.
 
-This is the MU5 Fixed Head Disc unit, or the Drum store. MU5 allowed up to 4
-fixed head discs, but in actual fact never had more than 2. Each drum rotates
-in 20.5ms.
+This is the MU5 Fixed Head Disc unit. It was also called the Drum store to
+avoid confusion with other disks used for file storage (see p33 of the book).
+MU5 allowed up to 4 fixed head discs, but in actual fact never had more than
+2. Each drum rotates in 20.5ms.
 
 The service routine operates at the real time speed of the drum in that it is
 scheduled once per block, of which there were 37 per band (or track in modern
@@ -210,6 +211,9 @@ static MTAB drum_mod[] =
 
 static DEBTAB drum_debtab[] =
 {
+	{ "EVENT",          SIM_DBG_EVENT,     "event dispatch activities" },
+	{ "SELFTESTDETAIL", LOG_SELFTEST_DETAIL,  "self test detailed output" },
+	{ "SELFTESTFAIL",   LOG_SELFTEST_FAIL,  "self test failure output" },
 	{ NULL,           0 }
 };
 
@@ -252,6 +256,7 @@ static t_stat drum_reset(DEVICE *dptr)
 {
 	int i;
 	t_stat result = SCPE_OK;
+	drum_reset_state();
 	for (i = 0; i < DRUM_NUM_UNITS; i++)
 	{
 		sim_disk_reset(&drum_unit[i]);
@@ -293,6 +298,20 @@ t_stat drum_detach(UNIT *uptr)
 	drum_set_unit_present(unit_num, 0);
 
 	return r;
+}
+
+void drum_reset_state(void)
+{
+	reg_disc_address = 0;
+	reg_store_address = 0;
+	//reg_disc_status = D0_PRESENT_MASK | D1_PRESENT_MASK | D2_PRESENT_MASK | D3_PRESENT_MASK;
+	reg_current_positions = 0;
+	reg_complete_address = 0;
+	reg_lockout_01 = 0;
+	reg_lockout_23 = 0;
+	reg_request_self_test = 0;
+	reg_self_test_command = 0;
+	reg_self_test_state = 0;
 }
 
 static void drum_start_polling_if_attached(UNIT *uptr)
