@@ -96,9 +96,13 @@ in this Software without prior written authorization from Robert Jarratt.
 #define DESCRIPTOR_SIZE_32_BIT 5
 #define DESCRIPTOR_SIZE_64_BIT 6
 
+#define RA_MASK 0xFFFFF
+#define RA_V_MASK 0x080000
+
 #define CPR_VA(P,S,X) ((P << 26 ) | (S << 12) | X)
-#define CPR_RA_LOCAL(AC,A,LZ) (((AC & 0xF) << 28) | (UNIT_LOCAL_STORE << 24) | ((A & 0xFFFFF) << 4) | (LZ & 0xF))
-#define CPR_RA_MASS(AC,A,LZ) (((AC & 0xF) << 28) | (UNIT_MASS_STORE << 24) | ((A & 0xFFFFF) << 4) | (LZ & 0xF))
-#define RA_LOCAL(address) ((UNIT_LOCAL_STORE << 20) | (address & 0xFFFFF))
-#define RA_MASS(address) ((UNIT_MASS_STORE << 20) | (address & 0xFFFFF))
-#define RA_LOCAL_BYTE(address) ((UNIT_LOCAL_STORE << 22) | (address & 0xFFFFF))
+#define CPR_RA_LOCAL(AC,A,LZ) (((AC & 0xF) << 28) | (UNIT_LOCAL_STORE << 24) | ((A & RA_MASK) << 4) | (LZ & 0xF))
+#define CPR_RA_MASS(AC,A,LZ) (((AC & 0xF) << 28) | (UNIT_MASS_STORE << 24) | ((A & RA_MASK) << 4) | (LZ & 0xF))
+#define RA_VX_DRUM(address) (RA_V_MASK | (UNIT_FIXED_HEAD_DISC << 20) | (address & RA_MASK))
+#define RA_LOCAL(address) ((UNIT_LOCAL_STORE << 20) | (address & RA_MASK))
+#define RA_MASS(address) ((UNIT_MASS_STORE << 20) | (address & RA_MASK))
+#define RA_LOCAL_BYTE(address) ((UNIT_LOCAL_STORE << 22) | (address & RA_MASK))

@@ -32,6 +32,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #include "mu5_drum_test.h"
 
 #define REG_CURRENTPOSITIONS "CURRENTPOSITIONS"
+#define REG_DISCADDRESS "DISCADDRESS"
 
 static TESTCONTEXT *localTestContext;
 extern DEVICE cpu_dev;
@@ -43,11 +44,12 @@ static void drum_selftest_reset(UNITTEST *test);
 static void drum_selftest_execute_cycle(void);
 static void drum_selftest_execute_cycle_unit(int unitNum);
 
-//static void drum_selftest_assert_vstore_contents(uint8 block, uint8 line, t_uint64 expectedValue);
+static void drum_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 
 static void drum_selftest_current_position_incremented_on_each_cycle(TESTCONTEXT *testContext);
 static void drum_selftest_current_position_wraps_after_last_block(TESTCONTEXT *testContext);
 static void drum_selftest_current_position_incremented_independently_by_each_unit(TESTCONTEXT *testContext);
+static void drum_selftest_write_to_disc_address(TESTCONTEXT *testContext);
 
 
 static UNITTEST tests[] =
@@ -55,6 +57,7 @@ static UNITTEST tests[] =
 	{ "Each execution cycle of the drum unit advances the current position", drum_selftest_current_position_incremented_on_each_cycle },
 	{ "The current position wraps after the last block", drum_selftest_current_position_wraps_after_last_block },
 	{ "Each drum unit advances its current position independent of the others", drum_selftest_current_position_incremented_independently_by_each_unit },
+	{ "Can write to the disc address Vx line", drum_selftest_write_to_disc_address }
 };
 
 void drum_selftest(TESTCONTEXT *testContext)
@@ -84,13 +87,19 @@ static void drum_selftest_execute_cycle_unit(int unitNum)
 	unit->action(unit);
 }
 
+static void drum_selftest_assert_reg_equals(char *name, t_uint64 expectedValue)
+{
+	mu5_selftest_assert_reg_equals(localTestContext, &drum_dev, name, expectedValue);
+}
+
+
 static void drum_selftest_current_position_incremented_on_each_cycle(TESTCONTEXT *testContext)
 {
-	mu5_selftest_assert_reg_equals(testContext, &drum_dev, REG_CURRENTPOSITIONS, 0);
+	drum_selftest_assert_reg_equals(REG_CURRENTPOSITIONS, 0);
 	drum_selftest_execute_cycle();
-	mu5_selftest_assert_reg_equals(testContext, &drum_dev, REG_CURRENTPOSITIONS, 1);
+	drum_selftest_assert_reg_equals(REG_CURRENTPOSITIONS, 1);
 	drum_selftest_execute_cycle();
-	mu5_selftest_assert_reg_equals(testContext, &drum_dev, REG_CURRENTPOSITIONS, 2);
+	drum_selftest_assert_reg_equals(REG_CURRENTPOSITIONS, 2);
 }
 
 static void drum_selftest_current_position_wraps_after_last_block(TESTCONTEXT *testContext)
@@ -100,15 +109,21 @@ static void drum_selftest_current_position_wraps_after_last_block(TESTCONTEXT *t
 	{
 		drum_selftest_execute_cycle();
 	}
-	mu5_selftest_assert_reg_equals(testContext, &drum_dev, REG_CURRENTPOSITIONS, 0);
+	drum_selftest_assert_reg_equals(REG_CURRENTPOSITIONS, 0);
 }
 
 static void drum_selftest_current_position_incremented_independently_by_each_unit(TESTCONTEXT *testContext)
 {
 	drum_selftest_execute_cycle_unit(1);
-	mu5_selftest_assert_reg_equals(testContext, &drum_dev, REG_CURRENTPOSITIONS, 1u << 6);
+	drum_selftest_assert_reg_equals(REG_CURRENTPOSITIONS, 1u << 6);
 	drum_selftest_execute_cycle_unit(2);
-	mu5_selftest_assert_reg_equals(testContext, &drum_dev, REG_CURRENTPOSITIONS, (1u << 12) | (1u << 6));
+	drum_selftest_assert_reg_equals(REG_CURRENTPOSITIONS, (1u << 12) | (1u << 6));
 	drum_selftest_execute_cycle_unit(3);
-	mu5_selftest_assert_reg_equals(testContext, &drum_dev, REG_CURRENTPOSITIONS, (1u << 18) | (1u << 12) | (1u << 6));
+	drum_selftest_assert_reg_equals(REG_CURRENTPOSITIONS, (1u << 18) | (1u << 12) | (1u << 6));
+}
+
+static void drum_selftest_write_to_disc_address(TESTCONTEXT *testContext)
+{
+	sac_write_64_bit_word_real_address(RA_VX_DRUM(0), 0xA5A5A5A5);
+	drum_selftest_assert_reg_equals(REG_DISCADDRESS, 0x8025A525);
 }

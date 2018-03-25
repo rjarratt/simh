@@ -47,6 +47,7 @@ Known Limitations
 #include "sim_defs.h"
 #include "sim_disk.h"
 #include "mu5_defs.h"
+#include "mu5_sac.h"
 #include "mu5_drum.h"
 
 #define BLOCK_TIME_USECS (20000 / DRUM_BLOCKS_PER_BAND) /* Rotation is 20ms */
@@ -67,6 +68,11 @@ static void drum_set_current_position(int unit_num, uint8 value);
 static void drum_update_current_position(int unit_num);
 static int drum_get_unit_num(UNIT *uptr);
 static void drum_set_unit_present(int unit_num, int present);
+
+static void drum_setup_vx_store_location(uint8 line, t_uint64(*readCallback)(uint8), void(*writeCallback)(uint8, t_uint64));
+static t_uint64 drum_read_disc_address_callback(uint8 line);
+static void drum_write_disc_address_callback(uint8 line, t_uint64 value);
+
 
 static UNIT drum_unit[] =
 {
@@ -251,6 +257,8 @@ DEVICE drum_dev = {
 	NULL               /* brk_types */
 };
 
+static VXSTORE_LINE VxStore[32];
+
 /* reset routine */
 static t_stat drum_reset(DEVICE *dptr)
 {
@@ -312,6 +320,31 @@ void drum_reset_state(void)
 	reg_request_self_test = 0;
 	reg_self_test_command = 0;
 	reg_self_test_state = 0;
+
+	drum_setup_vx_store_location(0, drum_read_disc_address_callback, drum_write_disc_address_callback);
+}
+
+t_uint64 drum_read_vx_store(t_addr addr)
+{
+	t_uint64 result = 0;
+	uint8 line = addr & 0xFFFFFFE0;
+	VXSTORE_LINE *vx_line = &VxStore[line];
+	if (vx_line->ReadCallback != NULL)
+	{
+		result = vx_line->ReadCallback(line);
+	}
+
+	return 0;
+}
+
+void drum_write_vx_store(t_addr addr, t_uint64 value)
+{
+	uint8 line = addr & 0xFFFFFFE0;
+	VXSTORE_LINE *vx_line = &VxStore[line];
+	if (vx_line->WriteCallback != NULL)
+	{
+		vx_line->WriteCallback(line, value);
+	}
 }
 
 static void drum_start_polling_if_attached(UNIT *uptr)
@@ -363,4 +396,21 @@ static void drum_set_unit_present(int unit_num, int present)
 	{
 		reg_disc_status |= masks[unit_num];
 	}
+}
+
+static void drum_setup_vx_store_location(uint8 line, t_uint64(*readCallback)(uint8), void(*writeCallback)(uint8,t_uint64))
+{
+    VXSTORE_LINE *l = &VxStore[line];
+    l->ReadCallback = readCallback;
+    l->WriteCallback = writeCallback;
+}
+
+static t_uint64 drum_read_disc_address_callback(uint8 line)
+{
+	return reg_disc_address & 0xC03FFF3F;
+}
+
+static void drum_write_disc_address_callback(uint8 line, t_uint64 value)
+{
+	reg_disc_address = value & 0xC03FFF3F;
 }

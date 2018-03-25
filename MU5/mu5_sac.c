@@ -69,6 +69,7 @@ The following V Store lines are not implemented: CPR X FIELD, SAC PARITY, SAC MO
 #include "mu5_defs.h"
 #include "mu5_cpu.h"
 #include "mu5_sac.h"
+#include "mu5_drum.h"
 
 #define NUM_CPRS 32
 #define CPR_VA_MASK 0x3FFFFFFF
@@ -78,9 +79,6 @@ The following V Store lines are not implemented: CPR X FIELD, SAC PARITY, SAC MO
 #define CPR_FIND_MASK_P_MASK 0x4000000
 #define CPR_FIND_MASK_S_MASK 0x3FFF000
 #define CPR_FIND_MASK_X_MASK 0x0000001
-
-#define RA_MASK 0xFFFFF
-#define RA_V_MASK 0x080000
 
 #define LOG_SAC_REAL_ACCESSES   (1 << 0)
 #define LOG_SAC_MEMORY_TRACE    (1 << 1)
@@ -391,6 +389,18 @@ void sac_write_8_bit_word(t_addr address, uint8 value)
     sac_write_32_bit_word(address >> 2, fullWord);
 }
 
+t_uint64 sac_read_64_bit_word_real_address(t_addr address)
+{
+	t_uint64 result = ((t_uint64)sac_read_32_bit_word_real_address(address) << 32) | sac_read_32_bit_word_real_address(address + 1);
+	return result;
+}
+
+void sac_write_64_bit_word_real_address(t_addr address, t_uint64 value)
+{
+	sac_write_32_bit_word_real_address(address, (value >> 32) & MASK_32);
+	sac_write_32_bit_word_real_address(address + 1, value & MASK_32);
+}
+
 uint32 sac_read_32_bit_word_real_address(t_addr address)
 {
     uint32 result;
@@ -398,14 +408,33 @@ uint32 sac_read_32_bit_word_real_address(t_addr address)
     uint8 unit = sac_get_real_address_unit(address);
     switch (unit)
     {
-        case UNIT_LOCAL_STORE:
-        {
-            result = sac_read_local_store(addr20);
-            sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Read local store real address %08X, result=%08X\n", address, result);
-            break;
-        }
+		case UNIT_FIXED_HEAD_DISC:
+		{
+			if (address & RA_V_MASK)
+			{
+				t_addr vx_addr = (~RA_V_MASK) & (addr20 > 1);
+				if (address & 1)
+				{
+					result = drum_read_vx_store(vx_addr) & MASK_32;
+				}
+				else
+				{
+					result = (drum_read_vx_store(vx_addr) >> 32) & MASK_32;
+				}
+			}
 
-        case UNIT_MASS_STORE:
+			sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Read drum real address %08X, result=%08X\n", address, result);
+			break;
+		}
+
+		case UNIT_LOCAL_STORE:
+		{
+			result = sac_read_local_store(addr20);
+			sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Read local store real address %08X, result=%08X\n", address, result);
+			break;
+		}
+
+		case UNIT_MASS_STORE:
         {
             result = sac_read_mass_store(addr20);
             sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Read mass store real address %08X, result=%08X\n", address, result);
@@ -429,7 +458,27 @@ void sac_write_32_bit_word_real_address(t_addr address, uint32 value)
     uint8 unit = sac_get_real_address_unit(address);
 	switch (unit)
     {
-        case UNIT_LOCAL_STORE:
+		case UNIT_FIXED_HEAD_DISC:
+		{
+			if (address & RA_V_MASK)
+			{
+				t_addr vx_addr = (~RA_V_MASK) & (addr20 > 1);
+				/* TODO: This code won't work with full 64-bit writes */
+				if (address & 1)
+				{
+					drum_write_vx_store(vx_addr, value);
+				}
+				else
+				{
+					drum_write_vx_store(vx_addr, (t_uint64)value << 32);
+				}
+			}
+
+			sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Write drum real address %08X, value=%08X\n", address, value);
+			break;
+		}
+
+		case UNIT_LOCAL_STORE:
         {
             sac_write_local_store(addr20, value);
             sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Write local store real address %08X, value=%08X\n", address, value);

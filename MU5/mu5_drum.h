@@ -32,3 +32,5 @@ in this Software without prior written authorization from Robert Jarratt.
 #define DRUM_BANDS_PER_UNIT 64
 
 void drum_reset_state(void);
+t_uint64 drum_read_vx_store(t_addr addr);
+void drum_write_vx_store(t_addr addr, t_uint64 value);
