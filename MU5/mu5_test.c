@@ -169,13 +169,24 @@ void mu5_selftest_set_failure(TESTCONTEXT *context)
 
 void mu5_selftest_assert_reg_equals(TESTCONTEXT *context, DEVICE *device, char *name, t_uint64 expectedValue)
 {
-    t_uint64 actualValue = mu5_selftest_get_register(context, device, name);
+	t_uint64 actualValue = mu5_selftest_get_register(context, device, name);
 
-    if (actualValue != expectedValue)
-    {
-        sim_debug(LOG_SELFTEST_FAIL, context->dev, "Expected value in register %s to be %llX, but was %llX\n", name, expectedValue, actualValue);
-        mu5_selftest_set_failure(context);
-    }
+	if (actualValue != expectedValue)
+	{
+		sim_debug(LOG_SELFTEST_FAIL, context->dev, "Expected value in register %s to be %llX, but was %llX\n", name, expectedValue, actualValue);
+		mu5_selftest_set_failure(context);
+	}
+}
+
+void mu5_selftest_assert_reg_equals_mask(TESTCONTEXT *context, DEVICE *device, char *name, t_uint64 mask, t_uint64 expectedValue)
+{
+	t_uint64 actualValue = mu5_selftest_get_register(context, device, name);
+
+	if ((actualValue & mask) != expectedValue)
+	{
+		sim_debug(LOG_SELFTEST_FAIL, context->dev, "Expected value in register %s to be %llX, but was %llX (masked %llx)\n", name, expectedValue, actualValue & mask, mask);
+		mu5_selftest_set_failure(context);
+	}
 }
 
 void mu5_selftest_assert_reg_instance_equals(TESTCONTEXT *context, DEVICE *device, char *name, uint8 index, t_uint64 expectedValue)
