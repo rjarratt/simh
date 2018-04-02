@@ -51,14 +51,6 @@ The rules are as follows:
    but ignore the least significant address bit and treat the address as the
    address of a 64-bit word.
 
-2. For 64-bit and 32-bit named variables, real addresses are always in 32-bit
-   word increments. To access the store the least significant bit is removed
-   and the remainder of the address is presented to the store. This means that
-   64-bit named variables are aligned on a 64-bit boundary. For 32-bit variables
-   the least significant bit of the 32-bit word address is used to select the
-   appropriate half of the word after it has come back from the store.
-
-
 3. For descriptors, the real addresses are always in 8-bit word increments,
    but vectors always start on a 32-bit word boundary. As the store access
    is always in 64-bit units the 3rd least significant bit is used to
@@ -297,9 +289,9 @@ void sac_reset_state(void)
 
     /* at the moment these are all the same value as I don't know what they should be, just make sure the
 	   CPR IGNORE ignores all but one of them to avoid a multiple equivalence error */
-	cpr[28] = ((t_uint64)CPR_VA(0x0, 8193, 0x0) << 32) | CPR_RA_LOCAL(SAC_OBEY_ACCESS | SAC_READ_ACCESS, 0x07D00, 0x4); /* MUSS code (first point, interrupt level, locked in core, the rest paged (Item 1 in the list above) */
-	cpr[29] = ((t_uint64)CPR_VA(0x0, 8194, 0x0) << 32) | CPR_RA_LOCAL(SAC_READ_ACCESS | SAC_WRITE_ACCESS, 0x07E00, 0x4); /* MUSS Interrupt Level Names and Run Time Stack (Item 2 in the list above) */
-	cpr[30] = ((t_uint64)CPR_VA(0x0, 8192, 0x0) << 32) | CPR_RA_LOCAL(SAC_READ_ACCESS | SAC_WRITE_ACCESS, 0x07F00, 0x4); /* Segment 8192 needs to be mapped, this slot previously for item 3 above (segment 8196) */
+	cpr[28] = ((t_uint64)CPR_VA(0x0, 8193, 0x0) << 32) | CPR_RA_LOCAL(SAC_OBEY_ACCESS | SAC_READ_ACCESS,  0x007D0, 0x4); /* MUSS code (first point, interrupt level, locked in core, the rest paged (Item 1 in the list above) */
+	cpr[29] = ((t_uint64)CPR_VA(0x0, 8194, 0x0) << 32) | CPR_RA_LOCAL(SAC_READ_ACCESS | SAC_WRITE_ACCESS, 0x007E0, 0x4); /* MUSS Interrupt Level Names and Run Time Stack (Item 2 in the list above) */
+	cpr[30] = ((t_uint64)CPR_VA(0x0, 8192, 0x0) << 32) | CPR_RA_LOCAL(SAC_READ_ACCESS | SAC_WRITE_ACCESS, 0x007F0, 0x4); /* Segment 8192 needs to be mapped, this slot previously for item 3 above (segment 8196) */
 	cpr[31] = ((t_uint64)CPR_VA(0x0, 8300, 0x0) << 32) | CPR_RA_MASS(SAC_ALL_EXEC_ACCESS, 0x00000, 0xC);  /* Mass store (less frequently used tables locked in slow core) (Item 4 in the list above)*/
 
     sac_setup_v_store_location(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_SEARCH, NULL, sac_write_cpr_search_callback);
@@ -445,7 +437,7 @@ void sac_write_64_bit_word_real_address(t_addr address, t_uint64 value)
 uint32 sac_read_32_bit_word_real_address(t_addr address)
 {
     uint32 result = 0;
-    t_addr addr20 = address & RA_MASK;
+    t_addr real_address = address & RA_MASK;
     uint8 unit = sac_get_real_address_unit(address);
     switch (unit)
     {
@@ -466,14 +458,14 @@ uint32 sac_read_32_bit_word_real_address(t_addr address)
 
 		case UNIT_LOCAL_STORE:
 		{
-			result = sac_read_local_store(addr20);
+			result = sac_read_local_store(real_address);
 			sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Read local store real address %08X, result=%08X\n", address, result);
 			break;
 		}
 
 		case UNIT_MASS_STORE:
         {
-            result = sac_read_mass_store(addr20);
+            result = sac_read_mass_store(real_address);
             sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Read mass store real address %08X, result=%08X\n", address, result);
             break;
         }
@@ -491,7 +483,7 @@ uint32 sac_read_32_bit_word_real_address(t_addr address)
 
 void sac_write_32_bit_word_real_address(t_addr address, uint32 value)
 {
-    t_addr addr20 = address & RA_MASK;
+    t_addr real_address = address & RA_MASK;
     uint8 unit = sac_get_real_address_unit(address);
 	switch (unit)
     {
@@ -513,14 +505,14 @@ void sac_write_32_bit_word_real_address(t_addr address, uint32 value)
 
 		case UNIT_LOCAL_STORE:
 		{
-			sac_write_local_store(addr20, value);
+			sac_write_local_store(real_address, value);
 			sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Write local store real address %08X, value=%08X\n", address, value);
 			break;
 		}
 
 		case UNIT_MASS_STORE:
         {
-            sac_write_mass_store(addr20, value);
+            sac_write_mass_store(real_address, value);
             sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Write mass store real address %08X, value=%08X\n", address, value);
             break;
         }
@@ -850,7 +842,10 @@ static int sac_map_address(t_addr address, uint8 access, t_addr *mappedAddress)
         matchMask = sac_match_cprs(va, &numMatches, &firstMatchIndex, &segmentMask);
         if (numMatches == 1)
         {
-            *mappedAddress = (cpr[firstMatchIndex] >> 4) & 0xFFFFFF;
+			/* The CPR contains all but the least significant 4 bits of the real address,
+			   including the unit number, so we can just mask off the low 4 bits to get
+			   the real address from the CPR. */
+            *mappedAddress = cpr[firstMatchIndex] & (0xFFFFFF0);
             *mappedAddress += address & ((segmentMask << 4) | 0xF);
 
             if (!sac_check_access(access, (cpr[firstMatchIndex] >> 28) & 0xF))
@@ -899,7 +894,7 @@ static int sac_map_address(t_addr address, uint8 access, t_addr *mappedAddress)
 
 static uint8 sac_get_real_address_unit(t_addr address)
 {
-    uint8 unit = (address >> 20) & 0xF;
+    uint8 unit = (address >> RA_BIT_LENGTH) & 0xF;
     return unit;
 }
 

@@ -1773,8 +1773,8 @@ static void cpu_selftest_reset(UNITTEST *test)
 static void cpu_selftest_setup_test_virtual_pages(uint8 access)
 {
 	mu5_selftest_setup_cpr(0, CPR_VA(0, 0x0000, 0x000), CPR_RA_LOCAL(access, 0x0000, 0xA)); /* 16K-word page at the bottom of segment 0 */
-	mu5_selftest_setup_cpr(1, CPR_VA(0, 0x0001, 0x000), CPR_RA_LOCAL(access, 0x1000, 0xA)); /* 16K-word page at the top of segment 0, used for tests that go off the end of the segment */
-	mu5_selftest_setup_cpr(2, CPR_VA(0, 0x0000, 0x400), CPR_RA_LOCAL(access, 0x1000, 0xA)); /* 16K-word page at the bottom of segment 1, overlaps with CPR1, but is only used for some XNB tests */
+	mu5_selftest_setup_cpr(1, CPR_VA(0, 0x0001, 0x000), CPR_RA_LOCAL(access, 0x0100, 0xA)); /* 16K-word page at the top of segment 0, used for tests that go off the end of the segment */
+	mu5_selftest_setup_cpr(2, CPR_VA(0, 0x0000, 0x400), CPR_RA_LOCAL(access, 0x0100, 0xA)); /* 16K-word page at the bottom of segment 1, overlaps with CPR1, but is only used for some XNB tests */
 }
 
 static void cpu_selftest_set_load_location(uint32 location)
@@ -2717,7 +2717,7 @@ static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_fro
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_SF);
     cpu_selftest_load_16_bit_literal(n);
 	cpu_selftest_setup_default_stack_base();
-    mu5_selftest_setup_cpr(0, CPR_VA(0, SN_DEFAULT, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x1000, 0xC));
+    mu5_selftest_setup_cpr(0, CPR_VA(0, SN_DEFAULT, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x0100, 0xC));
     mu5_selftest_setup_cpr(1, CPR_VA(0, 0x2010, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0xC));
     cpu_selftest_run_code_from_location(0x40200000); /* expressed as 16-bit word address */
     cpu_selftest_assert_no_interrupt();
@@ -2728,7 +2728,7 @@ static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_fro
     uint16 n = 0x4;
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_0);
     cpu_selftest_load_16_bit_literal(n);
-    mu5_selftest_setup_cpr(0, CPR_VA(0, 0x0000, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x1000, 0xC));
+    mu5_selftest_setup_cpr(0, CPR_VA(0, 0x0000, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x0100, 0xC));
     mu5_selftest_setup_cpr(1, CPR_VA(0, 0x2010, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0xC));
     cpu_selftest_run_code_from_location(0x40200000); /* expressed as 16-bit word address */
     cpu_selftest_assert_no_interrupt();
@@ -2740,7 +2740,7 @@ static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_fro
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_NB);
     cpu_selftest_load_16_bit_literal(n);
 	cpu_selftest_setup_default_name_base();
-    mu5_selftest_setup_cpr(0, CPR_VA(0, SN_DEFAULT, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x1000, 0xC));
+    mu5_selftest_setup_cpr(0, CPR_VA(0, SN_DEFAULT, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x0100, 0xC));
     mu5_selftest_setup_cpr(1, CPR_VA(0, 0x2010, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0xC));
     cpu_selftest_run_code_from_location(0x40200000); /* expressed as 16-bit word address */
     cpu_selftest_assert_no_interrupt();
@@ -2752,7 +2752,7 @@ static void cpu_selftest_instruction_fetches_extended_32_bit_variable_offset_fro
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_V32, NP_XNB);
     cpu_selftest_load_16_bit_literal(n);
     cpu_selftest_setup_default_extra_name_base();
-    mu5_selftest_setup_cpr(0, CPR_VA(0, SN_DEFAULT, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x1000, 0xC));
+    mu5_selftest_setup_cpr(0, CPR_VA(0, SN_DEFAULT, 0), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x0100, 0xC));
     mu5_selftest_setup_cpr(1, CPR_VA(0, 0x2010, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0xC));
     cpu_selftest_run_code_from_location(0x40200000); /* expressed as 16-bit word address */
     cpu_selftest_assert_no_interrupt();
@@ -2763,7 +2763,7 @@ static void cpu_selftest_instruction_access_violation_when_fetching_extended_lit
 {
     /* not sure how valid this test is, with the order crossing a segment boundary*/
     mu5_selftest_setup_cpr(1, CPR_VA(0, 0x2010, 0), CPR_RA_LOCAL(SAC_OBEY_ACCESS, 0, 0x0));
-    mu5_selftest_setup_cpr(2, CPR_VA(0, 0x2010, 1), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x10, 0x0));
+    mu5_selftest_setup_cpr(2, CPR_VA(0, 0x2010, 1), CPR_RA_LOCAL(SAC_READ_ACCESS, 0x01, 0x0));
     cpu_selftest_set_load_location(0x1F);
     cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, KP_LITERAL, NP_16_BIT_SIGNED_LITERAL);
     cpu_selftest_load_16_bit_literal(0xFFFF);
