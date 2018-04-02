@@ -666,7 +666,7 @@ static void sac_selftest_writing_virtual_address_to_reserved_cpr_has_no_effect(T
 {
 	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_NUMBER, 28);
 	sac_write_v_store(SAC_V_STORE_BLOCK, SAC_V_STORE_CPR_VA, 0xAAAAAAAAFFFFFFFF);
-	sac_selftest_assert_reg_instance_equals(REG_CPR, 28, 0x200100053007D04);
+	sac_selftest_assert_reg_instance_equals(REG_CPR, 28, 0x200100059007D04);
 }
 
 static void sac_selftest_writing_virtual_address_to_cpr_clears_associated_ignore_bit(TESTCONTEXT *testContext)

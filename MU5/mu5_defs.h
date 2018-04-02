@@ -66,10 +66,10 @@ in this Software without prior written authorization from Robert Jarratt.
 #define UNIT_FIXED_HEAD_DISC 0 /* Also known as the Drum */
 #define UNIT_PDP11 1
 #define UNIT_MU5_PROCESSOR 2
-#define UNIT_LOCAL_STORE 3
 #define UNIT_1905E 4
 #define UNIT_MASS_STORE 5
 #define UNIT_BTU 6 /* A total guess */
+#define UNIT_LOCAL_STORE 9 /* Confirmed by AEK and RNI. In the hardware the zeroes were inverted to make it 0xF for faster matching. */
 #define UNIT_SPM 10 /* or could be 11 */
 
 /* Interrupt numbers */
