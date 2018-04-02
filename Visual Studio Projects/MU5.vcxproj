@@ -162,6 +162,7 @@
     <ClCompile Include="..\MU5\mu5_cpu_test.c" />
     <ClCompile Include="..\MU5\mu5_drum.c" />
     <ClCompile Include="..\MU5\mu5_drum_test.c" />
+    <ClCompile Include="..\MU5\mu5_exch.c" />
     <ClCompile Include="..\MU5\mu5_sac.c" />
     <ClCompile Include="..\MU5\mu5_sac_test.c" />
     <ClCompile Include="..\MU5\mu5_sys.c" />
@@ -186,6 +187,7 @@
     <ClInclude Include="..\MU5\mu5_defs.h" />
     <ClInclude Include="..\MU5\mu5_drum.h" />
     <ClInclude Include="..\MU5\mu5_drum_test.h" />
+    <ClInclude Include="..\MU5\mu5_exch.h" />
     <ClInclude Include="..\MU5\mu5_sac.h" />
     <ClInclude Include="..\MU5\mu5_sac_test.h" />
     <ClInclude Include="..\MU5\mu5_test.h" />
