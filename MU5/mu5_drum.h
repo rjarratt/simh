@@ -31,6 +31,9 @@ in this Software without prior written authorization from Robert Jarratt.
 #define DRUM_WORDS_PER_BLOCK 1024
 #define DRUM_BANDS_PER_UNIT 64
 
+/* Status flags */
+#define DRUM_DISC_STATUS_ILLEGAL_REQUEST (0x1 << 13)
+
 void drum_reset_state(void);
-t_uint64 drum_read_vx_store(t_addr addr);
-void drum_write_vx_store(t_addr addr, t_uint64 value);
+t_uint64 drum_exch_read(t_addr addr);
+void drum_exch_write(t_addr addr, t_uint64 value);

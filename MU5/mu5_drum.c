@@ -1,4 +1,4 @@
-/* mu5_sac.c: MU5 Fixed Head Disk Device Unit
+/* mu5_drum.c: MU5 Fixed Head Disk Device Unit
 
 Copyright (c) 2016-2018, Robert Jarratt
 
@@ -51,10 +51,10 @@ Known Limitations
 #include "mu5_drum.h"
 
 #define BLOCK_TIME_USECS (20000 / DRUM_BLOCKS_PER_BAND) /* Rotation is 20ms */
-#define D0_PRESENT_MASK (1 << 17)
-#define D1_PRESENT_MASK (1 << 21)
-#define D2_PRESENT_MASK (1 << 25)
-#define D3_PRESENT_MASK (1 << 29)
+#define D0_ABSENT_MASK (1 << 17)
+#define D1_ABSENT_MASK (1 << 21)
+#define D2_ABSENT_MASK (1 << 25)
+#define D3_ABSENT_MASK (1 << 29)
 
 static t_stat drum_reset(DEVICE *dptr);
 t_stat drum_svc(UNIT *uptr);
@@ -68,7 +68,10 @@ static void drum_set_current_position(int unit_num, uint8 value);
 static void drum_update_current_position(int unit_num);
 static int drum_get_unit_num(UNIT *uptr);
 static void drum_set_unit_present(int unit_num, int present);
+static void drum_set_illegal_request();
 
+static t_uint64 drum_read_vx_store(t_addr addr);
+static void drum_write_vx_store(t_addr addr, t_uint64 value);
 static void drum_setup_vx_store_location(uint8 line, t_uint64(*readCallback)(uint8), void(*writeCallback)(uint8, t_uint64));
 static t_uint64 drum_read_disc_address_callback(uint8 line);
 static void drum_write_disc_address_callback(uint8 line, t_uint64 value);
@@ -186,7 +189,7 @@ BITFIELD self_test_state_bits[] = {
 
 uint32 reg_disc_address;
 uint32 reg_store_address;
-uint32 reg_disc_status = D0_PRESENT_MASK | D1_PRESENT_MASK | D2_PRESENT_MASK | D3_PRESENT_MASK;
+uint32 reg_disc_status = D0_ABSENT_MASK | D1_ABSENT_MASK | D2_ABSENT_MASK | D3_ABSENT_MASK;
 uint32 reg_current_positions;
 uint32 reg_complete_address;
 uint32 reg_lockout_01;
@@ -312,7 +315,7 @@ void drum_reset_state(void)
 {
 	reg_disc_address = 0;
 	reg_store_address = 0;
-	//reg_disc_status = D0_PRESENT_MASK | D1_PRESENT_MASK | D2_PRESENT_MASK | D3_PRESENT_MASK;
+	reg_disc_status = D0_ABSENT_MASK | D1_ABSENT_MASK | D2_ABSENT_MASK | D3_ABSENT_MASK;
 	reg_current_positions = 0;
 	reg_complete_address = 0;
 	reg_lockout_01 = 0;
@@ -324,7 +327,34 @@ void drum_reset_state(void)
 	drum_setup_vx_store_location(0, drum_read_disc_address_callback, drum_write_disc_address_callback);
 }
 
-t_uint64 drum_read_vx_store(t_addr addr)
+t_uint64 drum_exch_read(t_addr addr)
+{
+	t_uint64 result = 0;
+	if (RA_VX_MASK & addr)
+	{
+		result = drum_read_vx_store(addr & RA_X_MASK);
+	}
+	else
+	{
+		drum_set_illegal_request();
+	}
+
+	return result;
+}
+
+void drum_exch_write(t_addr addr, t_uint64 value)
+{
+	if (RA_VX_MASK & addr)
+	{
+		drum_write_vx_store(addr & RA_X_MASK, value);
+	}
+	else
+	{
+		drum_set_illegal_request();
+	}
+}
+
+static t_uint64 drum_read_vx_store(t_addr addr)
 {
 	t_uint64 result = 0;
 	uint8 line = addr & 0xFFFFFFE0;
@@ -337,7 +367,7 @@ t_uint64 drum_read_vx_store(t_addr addr)
 	return 0;
 }
 
-void drum_write_vx_store(t_addr addr, t_uint64 value)
+static void drum_write_vx_store(t_addr addr, t_uint64 value)
 {
 	uint8 line = addr & 0xFFFFFFE0;
 	VXSTORE_LINE *vx_line = &VxStore[line];
@@ -387,7 +417,7 @@ static int drum_get_unit_num(UNIT *uptr)
 
 static void drum_set_unit_present(int unit_num, int present)
 {
-	static uint32 masks[] = { D0_PRESENT_MASK, D1_PRESENT_MASK, D2_PRESENT_MASK, D3_PRESENT_MASK };
+	static uint32 masks[] = { D0_ABSENT_MASK, D1_ABSENT_MASK, D2_ABSENT_MASK, D3_ABSENT_MASK };
 	if (present)
 	{
 		reg_disc_status &= ~masks[unit_num];
@@ -396,6 +426,11 @@ static void drum_set_unit_present(int unit_num, int present)
 	{
 		reg_disc_status |= masks[unit_num];
 	}
+}
+
+static void drum_set_illegal_request()
+{
+	reg_disc_status |= DRUM_DISC_STATUS_ILLEGAL_REQUEST;
 }
 
 static void drum_setup_vx_store_location(uint8 line, t_uint64(*readCallback)(uint8), void(*writeCallback)(uint8,t_uint64))

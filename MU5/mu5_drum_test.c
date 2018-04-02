@@ -33,6 +33,7 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #define REG_CURRENTPOSITIONS "CURRENTPOSITIONS"
 #define REG_DISCADDRESS "DISCADDRESS"
+#define REG_DISCSTATUS "DISCSTATUS"
 
 static TESTCONTEXT *localTestContext;
 extern DEVICE cpu_dev;
@@ -45,10 +46,15 @@ static void drum_selftest_execute_cycle(void);
 static void drum_selftest_execute_cycle_unit(int unitNum);
 
 static void drum_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
+static void drum_selftest_assert_reg_equals_mask(char *name, t_uint64 mask, t_uint64 expectedValue);
+static void drum_selftest_assert_legal_request();
+static void drum_selftest_assert_illegal_request();
 
 static void drum_selftest_current_position_incremented_on_each_cycle(TESTCONTEXT *testContext);
 static void drum_selftest_current_position_wraps_after_last_block(TESTCONTEXT *testContext);
 static void drum_selftest_current_position_incremented_independently_by_each_unit(TESTCONTEXT *testContext);
+static void drum_selftest_read_non_v_address_sets_illegal_request_bit(TESTCONTEXT *testContext);
+static void drum_selftest_write_non_v_address_sets_illegal_request_bit(TESTCONTEXT *testContext);
 static void drum_selftest_write_to_disc_address(TESTCONTEXT *testContext);
 
 
@@ -57,6 +63,8 @@ static UNITTEST tests[] =
 	{ "Each execution cycle of the drum unit advances the current position", drum_selftest_current_position_incremented_on_each_cycle },
 	{ "The current position wraps after the last block", drum_selftest_current_position_wraps_after_last_block },
 	{ "Each drum unit advances its current position independent of the others", drum_selftest_current_position_incremented_independently_by_each_unit },
+	{ "Drum read of non-V address sets illegal request bit", drum_selftest_read_non_v_address_sets_illegal_request_bit },
+	{ "Drum write of non-V address sets illegal request bit", drum_selftest_write_non_v_address_sets_illegal_request_bit },
 	{ "Can write to the disc address Vx line", drum_selftest_write_to_disc_address }
 };
 
@@ -92,6 +100,20 @@ static void drum_selftest_assert_reg_equals(char *name, t_uint64 expectedValue)
 	mu5_selftest_assert_reg_equals(localTestContext, &drum_dev, name, expectedValue);
 }
 
+static void drum_selftest_assert_reg_equals_mask(char *name, t_uint64 mask, t_uint64 expectedValue)
+{
+	mu5_selftest_assert_reg_equals_mask(localTestContext, &drum_dev, name, mask, expectedValue);
+}
+
+static void drum_selftest_assert_legal_request()
+{
+	drum_selftest_assert_reg_equals_mask(REG_DISCSTATUS, DRUM_DISC_STATUS_ILLEGAL_REQUEST, 0);
+}
+
+static void drum_selftest_assert_illegal_request()
+{
+	drum_selftest_assert_reg_equals_mask(REG_DISCSTATUS, DRUM_DISC_STATUS_ILLEGAL_REQUEST, DRUM_DISC_STATUS_ILLEGAL_REQUEST);
+}
 
 static void drum_selftest_current_position_incremented_on_each_cycle(TESTCONTEXT *testContext)
 {
@@ -122,8 +144,25 @@ static void drum_selftest_current_position_incremented_independently_by_each_uni
 	drum_selftest_assert_reg_equals(REG_CURRENTPOSITIONS, (1u << 18) | (1u << 12) | (1u << 6));
 }
 
+static void drum_selftest_read_non_v_address_sets_illegal_request_bit(TESTCONTEXT *testContext)
+{
+	t_addr addr = RA_X(0);
+	drum_exch_read(addr);
+	drum_selftest_assert_illegal_request();
+}
+
+static void drum_selftest_write_non_v_address_sets_illegal_request_bit(TESTCONTEXT *testContext)
+{
+	t_addr addr = RA_X(0);
+	drum_exch_write(addr, 1);
+	drum_selftest_assert_illegal_request();
+}
+
 static void drum_selftest_write_to_disc_address(TESTCONTEXT *testContext)
 {
 	sac_write_64_bit_word_real_address(RA_VX_DRUM(0), 0xA5A5A5A5);
 	drum_selftest_assert_reg_equals(REG_DISCADDRESS, 0x8025A525);
+	drum_selftest_assert_legal_request();
 }
+
+// TODO: test read from disc address

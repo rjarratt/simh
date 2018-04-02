@@ -98,11 +98,15 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #define RA_MASK 0xFFFFF
 #define RA_V_MASK 0x080000
+#define RA_X_MASK 0x07FFFF
+#define RA_VX_MASK 0x0080000
 
 #define CPR_VA(P,S,X) ((P << 26 ) | (S << 12) | X)
 #define CPR_RA_LOCAL(AC,A,LZ) (((AC & 0xF) << 28) | (UNIT_LOCAL_STORE << 24) | ((A & RA_MASK) << 4) | (LZ & 0xF))
 #define CPR_RA_MASS(AC,A,LZ) (((AC & 0xF) << 28) | (UNIT_MASS_STORE << 24) | ((A & RA_MASK) << 4) | (LZ & 0xF))
-#define RA_VX_DRUM(address) (RA_V_MASK | (UNIT_FIXED_HEAD_DISC << 20) | (address & RA_MASK))
+#define RA_X(address) (address & RA_X_MASK)
+#define RA_VX(address) (RA_VX_MASK | (address & RA_X_MASK))
+#define RA_VX_DRUM(address) (RA_VX_MASK | (UNIT_FIXED_HEAD_DISC << 20) | (address & RA_X_MASK))
 #define RA_LOCAL(address) ((UNIT_LOCAL_STORE << 20) | (address & RA_MASK))
 #define RA_MASS(address) ((UNIT_MASS_STORE << 20) | (address & RA_MASK))
 #define RA_LOCAL_BYTE(address) ((UNIT_LOCAL_STORE << 22) | (address & RA_MASK))
