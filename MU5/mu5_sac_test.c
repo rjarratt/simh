@@ -407,7 +407,7 @@ static void sac_selftest_virtual_access_of_mixed_page_size(TESTCONTEXT *testCont
 static void sac_selftest_virtual_access_via_cpr_31_covers_1Mword_page_size(TESTCONTEXT *testContext)
 {
     sac_selftest_clear_bcpr();
-    mu5_selftest_setup_cpr(31, CPR_VA(0x0, 8300, 0), CPR_RA_MASS(SAC_ALL_ACCESS, 0x0000, 0xC));
+    mu5_selftest_setup_cpr(31, CPR_VA(0x0, 8300 /* 0x206C */, 0), CPR_RA_MASS(SAC_ALL_ACCESS, 0x0000, 0xC));
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xF);
     sac_write_32_bit_word_real_address(RA_MASS(0x3FFFF), 0xAAAAAAAA);
     sac_selftest_assert_memory_contents(0x206FFFFF, 0xAAAAAAAA);
