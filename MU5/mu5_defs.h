@@ -54,7 +54,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define LOG_SELFTEST_FAIL   (1 << 15)
 
 #define MAX_LOCAL_MEMORY  (32768)    /* RNI told me Local Store consisted of four 4096-word memory units, each word containing 64 data bits + 8 parity bits. This is the size in 32-bit words */
-#define MAX_MASS_MEMORY  (262144)
+#define MAX_MASS_MEMORY  (262144) /* p55 of the book says it allowed 4 128K-word units, but there were only ever 2 units, so a total of 256K 32-bit words, or 1MByte */
 
 #define MASK_8 0xFF
 #define MASK_16 0xFFFF
