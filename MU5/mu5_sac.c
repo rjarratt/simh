@@ -36,6 +36,14 @@ There are believed to be 4 hard-wired CPRs. When asked in April 2017 RNI was
 not sure which ones and did not know their values. He said: "Assume 4 for now
 and assume they are numbers 28-31. Writing to them would have no effect."
 
+CPR 31 is special. In AEK's thesis (p139), it says there was a need to map all
+the Mass Store data with CPRs and would normally require 4 CPRs to cover the
+whole store if the maximum page size was used. CPR31 was modified so that the 
+4 least significant segment bits did not contribute to the non-equivalence. So
+using the maximum page in CPR 31 would result in it behaving as if there was a
+page size of 1M 4-byte words. Note however that MU5 only ever had 256K 4-byte
+words of Mass Store.
+
 Addresses
 ---------
 
@@ -151,9 +159,9 @@ static uint32 sac_match_cprs(uint32 va, int *numMatches, int *firstMatchIndex, u
 static int sac_check_access(uint8 requestedAccess, uint8 permittedAccess);
 static int sac_map_address(t_addr address, uint8 access, t_addr *mappedAddress);
 static uint8 sac_get_real_address_unit(t_addr address);
-static uint32 sac_read_local_store(t_addr address);
+static t_uint64 sac_read_local_store(t_addr address);
 static void sac_write_local_store(t_addr address, uint32 value);
-static uint32 sac_read_mass_store(t_addr address);
+static t_uint64 sac_read_mass_store(t_addr address);
 static void sac_write_mass_store(t_addr address, uint32 value);
 
 static void sac_v_store_register_read_callback(struct REG *reg, int index);
@@ -422,9 +430,44 @@ void sac_write_8_bit_word(t_addr address, uint8 value)
     sac_write_32_bit_word(address >> 2, fullWord);
 }
 
+/* Addresss is in 32-bit word increments, so actually the least significant bit is ignored by the units */
 t_uint64 sac_read_64_bit_word_real_address(t_addr address)
 {
-	t_uint64 result = ((t_uint64)sac_read_32_bit_word_real_address(address) << 32) | sac_read_32_bit_word_real_address(address + 1);
+	t_uint64 result = 0;
+	t_addr real_address = address & RA_MASK;
+	uint8 unit = sac_get_real_address_unit(address);
+	switch (unit)
+	{
+		case UNIT_FIXED_HEAD_DISC:
+		{
+			result = drum_exch_read(address);
+
+			sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Read drum real address %08X, result=%016llX\n", address, result);
+			break;
+		}
+
+		case UNIT_LOCAL_STORE:
+		{
+			result = sac_read_local_store(real_address);
+			sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Read local store real address %08X, result=%016llX\n", address, result);
+			break;
+		}
+
+		case UNIT_MASS_STORE:
+		{
+			result = sac_read_mass_store(real_address);
+			sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Read mass store real address %08X, result=%016llX\n", address, result);
+			break;
+		}
+
+		default:
+		{
+			result = 0;
+			sim_debug(LOG_ERROR, &sac_dev, "Read unknown (%hhu) store real address %08X, result=%016llX\n", unit, address, result);
+			break;
+		}
+	}
+
 	return result;
 }
 
@@ -436,49 +479,18 @@ void sac_write_64_bit_word_real_address(t_addr address, t_uint64 value)
 
 uint32 sac_read_32_bit_word_real_address(t_addr address)
 {
-    uint32 result = 0;
-    t_addr real_address = address & RA_MASK;
-    uint8 unit = sac_get_real_address_unit(address);
-    switch (unit)
-    {
-		case UNIT_FIXED_HEAD_DISC:
-		{
-			if (address & 1)
-			{
-				result = drum_exch_read(address) & MASK_32;
-			}
-			else
-			{
-				result = (drum_exch_read(address) >> 32) & MASK_32;
-			}
+	uint32 result;
+	t_uint64 fullWord = sac_read_64_bit_word_real_address(address);
+	if (address % 2 == 0)
+	{
+		result = fullWord >> 32;
+	}
+	else
+	{
+		result = fullWord & MASK_32;
+	}
 
-			sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Read drum real address %08X, result=%08X\n", address, result);
-			break;
-		}
-
-		case UNIT_LOCAL_STORE:
-		{
-			result = sac_read_local_store(real_address);
-			sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Read local store real address %08X, result=%08X\n", address, result);
-			break;
-		}
-
-		case UNIT_MASS_STORE:
-        {
-            result = sac_read_mass_store(real_address);
-            sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Read mass store real address %08X, result=%08X\n", address, result);
-            break;
-        }
-
-        default:
-        {
-            result = 0;
-            sim_debug(LOG_ERROR, &sac_dev, "Read unknown (%hhu) store real address %08X, result=%08X\n", unit, address, result);
-            break;
-        }
-    }
-
-    return result;
+	return result;
 }
 
 void sac_write_32_bit_word_real_address(t_addr address, uint32 value)
@@ -739,7 +751,7 @@ static int sac_match_cpr(int cpr_num, uint32 *mask, uint32 va, uint32 *match_res
 	{
 		if (cpr_num == 31)
 		{
-			*mask |= 0xF000; /* Allow CPR 31 to map 1MB segment as per AEK thesis */
+			*mask |= 0xF000; /* Allow CPR 31 to map 1MB segment as per AEK thesis p139 */
 		}
 		if ((va & ~*mask) == ((cpr[cpr_num] >> 32) & ~*mask))
 		{
@@ -898,11 +910,11 @@ static uint8 sac_get_real_address_unit(t_addr address)
     return unit;
 }
 
-static uint32 sac_read_local_store(t_addr address)
+static t_uint64 sac_read_local_store(t_addr address)
 {
-	uint32 result;
+	t_uint64 result;
 	assert(address < MAX_LOCAL_MEMORY);
-	result = LocalStore[address];
+	result = ((t_uint64)LocalStore[address & ~1] << 32) | LocalStore[address | 1];
 
 	return result;
 }
@@ -913,15 +925,29 @@ static void sac_write_local_store(t_addr address, uint32 value)
 	LocalStore[address] = value;
 }
 
-static uint32 sac_read_mass_store(t_addr address)
+static t_uint64 sac_read_mass_store(t_addr address)
 {
-	uint32 result;
-	result = MassStore[address % MAX_MASS_MEMORY];
+	t_uint64 result;
+	/* The address is modulo the max mass memory because it seems that the segment used to map
+	   Mass Store was 0x206C, and as it maps a 1M word segment, this encroaches into part of the
+	   segment, so you end up with extra bits in the "line" from the least significant hex digit
+	   of the segment in the real address, taking it over the size of the Mass Store.
+	   TODO: It may be more appropriate to move this logic to the CPR mapping, and I should
+	   re-read page 139 of AEK's thesis where it mentions a change to the concatenation logic. */
+	t_addr wrapped_address = address % MAX_MASS_MEMORY;
+	result = ((t_uint64)MassStore[wrapped_address & ~1] << 32) | MassStore[wrapped_address | 1];
 
 	return result;
 }
 
 static void sac_write_mass_store(t_addr address, uint32 value)
 {
-	MassStore[address % MAX_MASS_MEMORY] = value;
+	/* The address is modulo the max mass memory because it seems that the segment used to map
+	Mass Store was 0x206C, and as it maps a 1M word segment, this encroaches into part of the
+	segment, so you end up with extra bits in the "line" from the least significant hex digit
+	of the segment in the real address, taking it over the size of the Mass Store.
+	TODO: It may be more appropriate to move this logic to the CPR mapping, and I should
+	re-read page 139 of AEK's thesis where it mentions a change to the concatenation logic. */
+	t_addr wrapped_address = address % MAX_MASS_MEMORY;
+	MassStore[wrapped_address] = value;
 }

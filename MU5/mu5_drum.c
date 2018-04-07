@@ -332,7 +332,7 @@ t_uint64 drum_exch_read(t_addr addr)
 	t_uint64 result = 0;
 	if (RA_VX_MASK & addr)
 	{
-		result = drum_read_vx_store(addr & RA_X_MASK);
+		result = drum_read_vx_store((addr & RA_X_MASK) >> 1);
 	}
 	else
 	{
@@ -346,7 +346,7 @@ void drum_exch_write(t_addr addr, t_uint64 value)
 {
 	if (RA_VX_MASK & addr)
 	{
-		drum_write_vx_store(addr & RA_X_MASK, value);
+		drum_write_vx_store((addr & RA_X_MASK) >> 1, value);
 	}
 	else
 	{
