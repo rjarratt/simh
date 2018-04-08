@@ -127,6 +127,7 @@ The following V Store lines are not implemented: CPR X FIELD, SAC PARITY, SAC MO
 #define LOG_SAC_CPR_ERROR       (1 << 2)
 
 #define CPR_MASK(n) (0x80000000 >> n)
+#define ALIGN_64(a) (a & ~1)
 
 static t_stat sac_reset(DEVICE *dptr);
 
@@ -160,6 +161,8 @@ static uint32 sac_match_cprs(uint32 va, int *numMatches, int *firstMatchIndex, u
 static int sac_check_access(uint8 requestedAccess, uint8 permittedAccess);
 static int sac_map_address(t_addr address, uint8 access, t_addr *mappedAddress);
 static uint8 sac_get_real_address_unit(t_addr address);
+static t_uint64 sac_read_local_store_64(t_addr address);
+static void sac_write_local_store_64(t_addr address, t_uint64 value);
 static uint32 sac_read_local_store_32(t_addr address);
 static void sac_write_local_store_32(t_addr address, uint32 value);
 
@@ -340,14 +343,24 @@ void sac_clear_loading(void)
 
 t_uint64 sac_read_64_bit_word(t_addr address)
 {
-    t_uint64 result = ((t_uint64)sac_read_32_bit_word(address) << 32) | sac_read_32_bit_word(address + 1);
+    t_addr mappedAddress;
+    t_uint64 result = 0;
+
+    if (sac_map_address(ALIGN_64(address), SAC_READ_ACCESS, &mappedAddress))
+    {
+        result = sac_read_64_bit_word_real_address(mappedAddress);
+    }
+
     return result;
 }
 
 void sac_write_64_bit_word(t_addr address, t_uint64 value)
 {
-    sac_write_32_bit_word(address, (value >> 32) & 0xFFFFFFFF);
-    sac_write_32_bit_word(address + 1, value & 0xFFFFFFFF);
+    t_addr mappedAddress;
+    if (sac_map_address(ALIGN_64(address), SAC_WRITE_ACCESS, &mappedAddress))
+    {
+        sac_write_64_bit_word_real_address(mappedAddress, value);
+    }
 }
 
 uint32 sac_read_32_bit_word(t_addr address)
@@ -427,6 +440,36 @@ void sac_write_8_bit_word(t_addr address, uint8 value)
     uint32 shiftedValue = (uint32)value << (byteNumber << 3);
     fullWord = (fullWord & ~mask) | shiftedValue;
     sac_write_32_bit_word(address >> 2, fullWord);
+}
+
+t_uint64 sac_read_64_bit_word_real_address(t_addr address)
+{
+    t_uint64 result;
+
+    if (sac_get_real_address_unit(address) == UNIT_LOCAL_STORE)
+    {
+        result = sac_read_local_store_64(address & RA_MASK);
+        sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Read local store real address %08X, result=%016llX\n", address, result);
+    }
+    else
+    {
+        result = exch_read(address);
+    }
+
+    return result;
+}
+
+void sac_write_64_bit_word_real_address(t_addr address, t_uint64 value)
+{
+    if (sac_get_real_address_unit(address) == UNIT_LOCAL_STORE)
+    {
+        sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Write local store real address %08X, value=%016llX\n", address, value);
+        sac_write_local_store_64(address & RA_MASK, value);
+    }
+    else
+    {
+        exch_write(address, value);
+    }
 }
 
 uint32 sac_read_32_bit_word_real_address(t_addr address)
@@ -851,6 +894,21 @@ static uint8 sac_get_real_address_unit(t_addr address)
     return unit;
 }
 
+static t_uint64 sac_read_local_store_64(t_addr address)
+{
+    t_uint64 result;
+    assert(((address & 1) == 0) && (address < MAX_LOCAL_MEMORY));
+    result = (t_uint64)LocalStore[ALIGN_64(address)] << 32 | LocalStore[address | 1];
+    return result;
+}
+
+static void sac_write_local_store_64(t_addr address, t_uint64 value)
+{
+    assert(((address & 1) == 0) && (address < MAX_LOCAL_MEMORY));
+    LocalStore[ALIGN_64(address)] = value >> 32;
+    LocalStore[address | 1] = value & MASK_32;
+}
+
 static uint32 sac_read_local_store_32(t_addr address)
 {
 	uint32 result;
@@ -858,14 +916,13 @@ static uint32 sac_read_local_store_32(t_addr address)
 	result = LocalStore[address];
 
 	return result;
-
 }
 
 t_uint64 sac_local_store_exch_read(t_addr address)
 {
 	t_uint64 result;
 	assert(address < MAX_LOCAL_MEMORY);
-	result = ((t_uint64)LocalStore[address & ~1] << 32) | LocalStore[address | 1];
+	result = ((t_uint64)LocalStore[ALIGN_64(address)] << 32) | LocalStore[address | 1];
 
 	return result;
 }
@@ -879,7 +936,7 @@ static void sac_write_local_store_32(t_addr address, uint32 value)
 void sac_local_store_exch_write(t_addr address, t_uint64 value)
 {
 	assert(address < MAX_LOCAL_MEMORY);
-	LocalStore[address & ~1] = value >> 32;
+	LocalStore[ALIGN_64(address)] = value >> 32;
 	LocalStore[address | 1] = value & MASK_32;
 }
 
@@ -893,7 +950,7 @@ t_uint64 sac_mass_store_exch_read(t_addr address)
 	   TODO: It may be more appropriate to move this logic to the CPR mapping, and I should
 	   re-read page 139 of AEK's thesis where it mentions a change to the concatenation logic. */
 	t_addr wrapped_address = address % MAX_MASS_MEMORY;
-	result = ((t_uint64)MassStore[wrapped_address & ~1] << 32) | MassStore[wrapped_address | 1];
+	result = ((t_uint64)MassStore[ALIGN_64(wrapped_address)] << 32) | MassStore[wrapped_address | 1];
 
 	return result;
 }
@@ -907,6 +964,6 @@ void sac_mass_store_exch_write(t_addr address, t_uint64 value)
 	TODO: It may be more appropriate to move this logic to the CPR mapping, and I should
 	re-read page 139 of AEK's thesis where it mentions a change to the concatenation logic. */
 	t_addr wrapped_address = address % MAX_MASS_MEMORY;
-	MassStore[wrapped_address & ~1] = value >> 32;
+	MassStore[ALIGN_64(wrapped_address)] = value >> 32;
 	MassStore[wrapped_address | 1] = value & MASK_32;
 }

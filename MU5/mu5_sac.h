@@ -96,6 +96,8 @@ void sac_write_16_bit_word(t_addr address, uint16 value);
 uint8 sac_read_8_bit_word(t_addr address);
 void sac_write_8_bit_word(t_addr address, uint8 value);
 
+t_uint64 sac_read_64_bit_word_real_address(t_addr address);
+void sac_write_64_bit_word_real_address(t_addr address, t_uint64 value);
 uint32 sac_read_32_bit_word_real_address(t_addr address);
 void sac_write_32_bit_word_real_address(t_addr address, uint32 value);
 void sac_write_8_bit_word_real_address(t_addr address, uint8 value);
