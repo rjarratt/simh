@@ -1997,7 +1997,8 @@ static t_uint64 cpu_get_operand_by_descriptor_vector(t_uint64 descriptor, uint32
             }
             case DESCRIPTOR_SIZE_64_BIT:
             {
-                result = sac_read_64_bit_word(addr >> 2);
+                /* 32-bit aligned, so do two 32-bit reads */
+                result = ((t_uint64)sac_read_32_bit_word(addr >> 2) << 32) | sac_read_32_bit_word((addr >> 2) + 1);
                 break;
             }
             default:
@@ -2059,7 +2060,9 @@ static void cpu_set_operand_by_descriptor_vector(t_uint64 descriptor, uint32 mod
             }
             case DESCRIPTOR_SIZE_64_BIT:
             {
-                sac_write_64_bit_word(addr >> 2, value);
+                /* 32-bit aligned, so do two 32-bit writes */
+                sac_write_32_bit_word(addr >> 2, value >> 32);
+                sac_write_32_bit_word((addr >> 2) + 1, value & MASK_32);
                 break;
             }
             default:

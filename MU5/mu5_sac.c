@@ -276,7 +276,7 @@ static t_stat sac_reset(DEVICE *dptr)
 
 void sac_reset_state(void)
 {
-	if (sim_switches & SWMASK('P')) /* P is the power up switch, MU5 used core so the memory really was non-volatile, but here we want to make the machine have a clean start when the emulator is first started */
+	if (sim_switches & (SWMASK('P') | SWMASK('T'))) /* P is the power up switch, T is self test. MU5 used core so the memory really was non-volatile, but here we want to make the machine have a clean start when the emulator is first started */
 	{
 		memset(LocalStore, 0, sizeof(uint32) * MAX_LOCAL_MEMORY);
 		memset(MassStore, 0, sizeof(uint32) * MAX_MASS_MEMORY);
