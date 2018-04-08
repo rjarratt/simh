@@ -605,7 +605,7 @@ static const char* prop_description(DEVICE *dptr) {
 
 static UNIT prop_unit =
 {
-    UDATA(NULL, UNIT_FIX | UNIT_BINK, MAX_LOCAL_MEMORY)
+    UDATA(NULL, 0, 0)
 };
 
 DEVICE prop_dev = {

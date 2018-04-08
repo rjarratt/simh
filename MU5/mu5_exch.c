@@ -57,7 +57,7 @@ static t_addr exch_get_unit_address(t_addr addr);
 
 static UNIT exch_unit =
 {
-    UDATA(NULL, UNIT_FIX | UNIT_BINK, MAX_LOCAL_MEMORY)
+    UDATA(NULL, 0, 0)
 };
 
 static REG exch_reg[] =

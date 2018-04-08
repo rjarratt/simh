@@ -109,7 +109,7 @@ static void audio_cleanup_buffers(void);
 
 static UNIT console_unit =
 {
-	UDATA(console_svc, UNIT_FIX | UNIT_BINK, 0)
+	UDATA(console_svc, 0, 0)
 };
 
 static REG console_reg[] =
