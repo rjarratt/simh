@@ -99,33 +99,39 @@ t_uint64 exch_read(t_addr address)
     return result;
 }
 
-void exch_write(t_addr addr, t_uint64 value)
+void exch_write(t_addr address, t_uint64 value)
 {
-	int8 unit = exch_get_unit(addr);
-	t_addr unit_addr = exch_get_unit_address(addr);
-	switch (unit)
-	{
-		case UNIT_FIXED_HEAD_DISC:
-		{
-			break;
-		}
+	int8 unit = exch_get_unit(address);
+	t_addr unit_addr = exch_get_unit_address(address);
+    switch (unit)
+    {
+        case UNIT_FIXED_HEAD_DISC:
+        {
+            drum_exch_write(unit_addr, value);
+            sim_debug(LOG_EXCH_REAL_ACCESSES, &sac_dev, "Write drum real address %08X, value=%016llX\n", address, value);
+            break;
+        }
 
-		case UNIT_LOCAL_STORE:
-		{
-			break;
-		}
+        case UNIT_LOCAL_STORE:
+        {
+            sac_local_store_exch_write(unit_addr, value);
+            sim_debug(LOG_EXCH_REAL_ACCESSES, &sac_dev, "Write local store real address %08X, value=%016llX\n", address, value);
+            break;
+        }
 
-		case UNIT_MASS_STORE:
-		{
-			break;
-		}
+        case UNIT_MASS_STORE:
+        {
+            sac_mass_store_exch_write(unit_addr, value);
+            sim_debug(LOG_EXCH_REAL_ACCESSES, &sac_dev, "Write mass store real address %08X, value=%016llX\n", address, value);
+            break;
+        }
 
-		default:
-		{
-			//sim_debug(LOG_ERROR, &btu_dev, "Write unknown (%hhu) store real address %06X, value=%08X\n", unit, address, value);
-			break;
-		}
-	}
+        default:
+        {
+            sim_debug(LOG_ERROR, &sac_dev, "Write unknown (%hhu) store real address %08X, value=%016llX\n", unit, address, value);
+            break;
+        }
+    }
 }
 
 static int8 exch_get_unit(t_addr addr)

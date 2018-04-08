@@ -27,6 +27,7 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #include "mu5_defs.h"
 #include "mu5_sac.h"
+#include "mu5_exch.h"
 #include "mu5_drum.h"
 #include "mu5_test.h"
 #include "mu5_drum_test.h"
@@ -160,7 +161,7 @@ static void drum_selftest_write_non_v_address_sets_illegal_request_bit(TESTCONTE
 
 static void drum_selftest_write_to_disc_address(TESTCONTEXT *testContext)
 {
-	sac_write_64_bit_word_real_address(RA_VX_DRUM(0), 0xA5A5A5A5);
+	exch_write(RA_VX_DRUM(0), 0xA5A5A5A5);
 	drum_selftest_assert_reg_equals(REG_DISCADDRESS, 0x8025A525);
 	drum_selftest_assert_legal_request();
 }

@@ -162,8 +162,6 @@ static int sac_map_address(t_addr address, uint8 access, t_addr *mappedAddress);
 static uint8 sac_get_real_address_unit(t_addr address);
 static uint32 sac_read_local_store_32(t_addr address);
 static void sac_write_local_store_32(t_addr address, uint32 value);
-static void sac_write_local_store_64(t_addr address, t_uint64 value);
-static void sac_write_mass_store(t_addr address, t_uint64 value);
 
 static void sac_v_store_register_read_callback(struct REG *reg, int index);
 static void sac_v_store_register_write_callback(t_value old_val, struct REG *reg, int index);
@@ -431,42 +429,6 @@ void sac_write_8_bit_word(t_addr address, uint8 value)
     sac_write_32_bit_word(address >> 2, fullWord);
 }
 
-/* Address is in 32-bit word increments, so actually the least significant bit is ignored by the units */
-void sac_write_64_bit_word_real_address(t_addr address, t_uint64 value)
-{
-	t_addr real_address = address & RA_MASK;
-	uint8 unit = sac_get_real_address_unit(address);
-	switch (unit)
-	{
-		case UNIT_FIXED_HEAD_DISC:
-		{
-			drum_exch_write(address, value);
-			sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Write drum real address %08X, value=%016llX\n", address, value);
-			break;
-		}
-
-		case UNIT_LOCAL_STORE:
-		{
-			sac_write_local_store_64(real_address, value);
-			sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Write local store real address %08X, value=%016llX\n", address, value);
-			break;
-		}
-
-		case UNIT_MASS_STORE:
-		{
-			sac_write_mass_store(real_address, value);
-			sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Write mass store real address %08X, value=%016llX\n", address, value);
-			break;
-		}
-
-		default:
-		{
-			sim_debug(LOG_ERROR, &sac_dev, "Write unknown (%hhu) store real address %08X, value=%016llX\n", unit, address, value);
-			break;
-		}
-	}
-}
-
 uint32 sac_read_32_bit_word_real_address(t_addr address)
 {
 	uint32 result;
@@ -510,7 +472,7 @@ void sac_write_32_bit_word_real_address(t_addr address, uint32 value)
 			fullWord = value & MASK_32;
 		}
 
-		sac_write_64_bit_word_real_address(address, fullWord);
+		exch_write(address, fullWord);
 	}
 }
 
@@ -912,7 +874,7 @@ static void sac_write_local_store_32(t_addr address, uint32 value)
 	LocalStore[address] = value;
 }
 
-static void sac_write_local_store_64(t_addr address, t_uint64 value)
+void sac_local_store_exch_write(t_addr address, t_uint64 value)
 {
 	assert(address < MAX_LOCAL_MEMORY);
 	LocalStore[address & ~1] = value >> 32;
@@ -934,7 +896,7 @@ t_uint64 sac_mass_store_exch_read(t_addr address)
 	return result;
 }
 
-static void sac_write_mass_store(t_addr address, t_uint64 value)
+void sac_mass_store_exch_write(t_addr address, t_uint64 value)
 {
 	/* The address is modulo the max mass memory because it seems that the segment used to map
 	Mass Store was 0x206C, and as it maps a 1M word segment, this encroaches into part of the
