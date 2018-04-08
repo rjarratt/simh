@@ -110,6 +110,7 @@ The following V Store lines are not implemented: CPR X FIELD, SAC PARITY, SAC MO
 #include "mu5_defs.h"
 #include "mu5_cpu.h"
 #include "mu5_sac.h"
+#include "mu5_exch.h"
 #include "mu5_drum.h"
 
 #define NUM_CPRS 32
@@ -160,10 +161,8 @@ static int sac_check_access(uint8 requestedAccess, uint8 permittedAccess);
 static int sac_map_address(t_addr address, uint8 access, t_addr *mappedAddress);
 static uint8 sac_get_real_address_unit(t_addr address);
 static uint32 sac_read_local_store_32(t_addr address);
-static t_uint64 sac_read_local_store_64(t_addr address);
 static void sac_write_local_store_32(t_addr address, uint32 value);
 static void sac_write_local_store_64(t_addr address, t_uint64 value);
-static t_uint64 sac_read_mass_store(t_addr address);
 static void sac_write_mass_store(t_addr address, t_uint64 value);
 
 static void sac_v_store_register_read_callback(struct REG *reg, int index);
@@ -433,47 +432,6 @@ void sac_write_8_bit_word(t_addr address, uint8 value)
 }
 
 /* Address is in 32-bit word increments, so actually the least significant bit is ignored by the units */
-t_uint64 sac_read_64_bit_word_real_address(t_addr address)
-{
-	t_uint64 result = 0;
-	t_addr real_address = address & RA_MASK;
-	uint8 unit = sac_get_real_address_unit(address);
-	switch (unit)
-	{
-		case UNIT_FIXED_HEAD_DISC:
-		{
-			result = drum_exch_read(address);
-
-			sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Read drum real address %08X, result=%016llX\n", address, result);
-			break;
-		}
-
-		case UNIT_LOCAL_STORE:
-		{
-			result = sac_read_local_store_64(real_address);
-			sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Read local store real address %08X, result=%016llX\n", address, result);
-			break;
-		}
-
-		case UNIT_MASS_STORE:
-		{
-			result = sac_read_mass_store(real_address);
-			sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Read mass store real address %08X, result=%016llX\n", address, result);
-			break;
-		}
-
-		default:
-		{
-			result = 0;
-			sim_debug(LOG_ERROR, &sac_dev, "Read unknown (%hhu) store real address %08X, result=%016llX\n", unit, address, result);
-			break;
-		}
-	}
-
-	return result;
-}
-
-/* Address is in 32-bit word increments, so actually the least significant bit is ignored by the units */
 void sac_write_64_bit_word_real_address(t_addr address, t_uint64 value)
 {
 	t_addr real_address = address & RA_MASK;
@@ -520,7 +478,7 @@ uint32 sac_read_32_bit_word_real_address(t_addr address)
 	}
 	else
 	{
-		fullWord = sac_read_64_bit_word_real_address(address);
+		fullWord = exch_read(address);
 		if (address % 2 == 0)
 		{
 			result = fullWord >> 32;
@@ -939,7 +897,7 @@ static uint32 sac_read_local_store_32(t_addr address)
 
 }
 
-static t_uint64 sac_read_local_store_64(t_addr address)
+t_uint64 sac_local_store_exch_read(t_addr address)
 {
 	t_uint64 result;
 	assert(address < MAX_LOCAL_MEMORY);
@@ -961,7 +919,7 @@ static void sac_write_local_store_64(t_addr address, t_uint64 value)
 	LocalStore[address | 1] = value & MASK_32;
 }
 
-static t_uint64 sac_read_mass_store(t_addr address)
+t_uint64 sac_mass_store_exch_read(t_addr address)
 {
 	t_uint64 result;
 	/* The address is modulo the max mass memory because it seems that the segment used to map

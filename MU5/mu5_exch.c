@@ -47,42 +47,56 @@ on p134 of the book, namely:
 #include "sim_defs.h"
 #include "sim_disk.h"
 #include "mu5_defs.h"
+#include "mu5_exch.h"
 #include "mu5_sac.h"
 #include "mu5_drum.h"
+
+#define LOG_EXCH_REAL_ACCESSES   (1 << 0)
 
 static int8 exch_get_unit(t_addr addr);
 static t_addr exch_get_unit_address(t_addr addr);
 
-t_uint64 exch_read(t_addr addr)
+extern DEVICE sac_dev;
+
+t_uint64 exch_read(t_addr address)
 {
 	t_uint64 result = 0;
-	int8 unit = exch_get_unit(addr);
-	t_addr unit_addr = exch_get_unit_address(addr);
-	switch (unit)
-	{
-		case UNIT_FIXED_HEAD_DISC:
-		{
-			break;
-		}
+	int8 unit = exch_get_unit(address);
+	t_addr unit_addr = exch_get_unit_address(address);
 
-		case UNIT_LOCAL_STORE:
-		{
-			break;
-		}
+    switch (unit)
+    {
+        case UNIT_FIXED_HEAD_DISC:
+        {
+            result = drum_exch_read(unit_addr);
 
-		case UNIT_MASS_STORE:
-		{
-			break;
-		}
+            sim_debug(LOG_EXCH_REAL_ACCESSES, &sac_dev, "Read drum real address %08X, result=%016llX\n", address, result);
+            break;
+        }
 
-		default:
-		{
-			//sim_debug(LOG_ERROR, &btu_dev, "Read unknown (%hhu) store real address %06X\n", unit, address);
-			break;
-		}
-	}
+        case UNIT_LOCAL_STORE:
+        {
+            result = sac_local_store_exch_read(unit_addr);
+            sim_debug(LOG_EXCH_REAL_ACCESSES, &sac_dev, "Read local store real address %08X, result=%016llX\n", address, result);
+            break;
+        }
 
-	return result;
+        case UNIT_MASS_STORE:
+        {
+            result = sac_mass_store_exch_read(unit_addr);
+            sim_debug(LOG_EXCH_REAL_ACCESSES, &sac_dev, "Read mass store real address %08X, result=%016llX\n", address, result);
+            break;
+        }
+
+        default:
+        {
+            result = 0;
+            sim_debug(LOG_ERROR, &sac_dev, "Read unknown (%hhu) store real address %08X, result=%016llX\n", unit, address, result);
+            break;
+        }
+    }
+
+    return result;
 }
 
 void exch_write(t_addr addr, t_uint64 value)

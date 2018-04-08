@@ -26,6 +26,6 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #include "sim_defs.h"
 
-t_uint64 exch_read(t_addr addr);
-void exch_write(t_addr addr, t_uint64 value);
+t_uint64 exch_read(t_addr address);
+void exch_write(t_addr address, t_uint64 value);
 
