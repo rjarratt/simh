@@ -436,8 +436,9 @@ uint32 sac_read_32_bit_word_real_address(t_addr address)
 	
 	if (sac_get_real_address_unit(address) == UNIT_LOCAL_STORE)
 	{
-		result = sac_read_local_store_32(address & RA_MASK);
-	}
+        result = sac_read_local_store_32(address & RA_MASK);
+        sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Read local store real address %08X, result=%08X\n", address, result);
+    }
 	else
 	{
 		fullWord = exch_read(address);
@@ -459,7 +460,8 @@ void sac_write_32_bit_word_real_address(t_addr address, uint32 value)
 	t_uint64 fullWord;
 	if (sac_get_real_address_unit(address) == UNIT_LOCAL_STORE)
 	{
-		sac_write_local_store_32(address & RA_MASK, value);
+        sim_debug(LOG_SAC_REAL_ACCESSES, &sac_dev, "Write local store real address %08X, value=%08X\n", address, value);
+        sac_write_local_store_32(address & RA_MASK, value);
 	}
 	else
 	{
