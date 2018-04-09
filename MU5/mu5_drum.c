@@ -324,7 +324,7 @@ void drum_reset_state(void)
 	reg_self_test_command = 0;
 	reg_self_test_state = 0;
 
-	drum_setup_vx_store_location(0, drum_read_disc_address_callback, drum_write_disc_address_callback);
+	drum_setup_vx_store_location(DRUM_VX_STORE_DISC_ADDRESS, drum_read_disc_address_callback, drum_write_disc_address_callback);
 }
 
 t_uint64 drum_exch_read(t_addr addr)
@@ -364,7 +364,7 @@ static t_uint64 drum_read_vx_store(t_addr addr)
 		result = vx_line->ReadCallback(line);
 	}
 
-	return 0;
+	return result;
 }
 
 static void drum_write_vx_store(t_addr addr, t_uint64 value)

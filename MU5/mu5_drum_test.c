@@ -46,8 +46,10 @@ static void drum_selftest_reset(UNITTEST *test);
 static void drum_selftest_execute_cycle(void);
 static void drum_selftest_execute_cycle_unit(int unitNum);
 
+static void drum_selftest_set_failure(void);
 static void drum_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 static void drum_selftest_assert_reg_equals_mask(char *name, t_uint64 mask, t_uint64 expectedValue);
+static void drum_selftest_assert_vx_line_contents(uint8 line, t_uint64 expectedValue);
 static void drum_selftest_assert_legal_request();
 static void drum_selftest_assert_illegal_request();
 
@@ -57,6 +59,7 @@ static void drum_selftest_current_position_incremented_independently_by_each_uni
 static void drum_selftest_read_non_v_address_sets_illegal_request_bit(TESTCONTEXT *testContext);
 static void drum_selftest_write_non_v_address_sets_illegal_request_bit(TESTCONTEXT *testContext);
 static void drum_selftest_write_to_disc_address(TESTCONTEXT *testContext);
+static void drum_selftest_read_from_disc_address(TESTCONTEXT *testContext);
 
 
 static UNITTEST tests[] =
@@ -66,7 +69,8 @@ static UNITTEST tests[] =
 	{ "Each drum unit advances its current position independent of the others", drum_selftest_current_position_incremented_independently_by_each_unit },
 	{ "Drum read of non-V address sets illegal request bit", drum_selftest_read_non_v_address_sets_illegal_request_bit },
 	{ "Drum write of non-V address sets illegal request bit", drum_selftest_write_non_v_address_sets_illegal_request_bit },
-	{ "Can write to the disc address Vx line", drum_selftest_write_to_disc_address }
+    { "Can write to the disc address Vx line", drum_selftest_write_to_disc_address },
+    { "Can read from the disc address Vx line", drum_selftest_read_from_disc_address }
 };
 
 void drum_selftest(TESTCONTEXT *testContext)
@@ -96,6 +100,11 @@ static void drum_selftest_execute_cycle_unit(int unitNum)
 	unit->action(unit);
 }
 
+static void drum_selftest_set_failure(void)
+{
+    mu5_selftest_set_failure(localTestContext);
+}
+
 static void drum_selftest_assert_reg_equals(char *name, t_uint64 expectedValue)
 {
 	mu5_selftest_assert_reg_equals(localTestContext, &drum_dev, name, expectedValue);
@@ -104,6 +113,16 @@ static void drum_selftest_assert_reg_equals(char *name, t_uint64 expectedValue)
 static void drum_selftest_assert_reg_equals_mask(char *name, t_uint64 mask, t_uint64 expectedValue)
 {
 	mu5_selftest_assert_reg_equals_mask(localTestContext, &drum_dev, name, mask, expectedValue);
+}
+
+static void drum_selftest_assert_vx_line_contents(uint8 line, t_uint64 expectedValue)
+{
+    t_uint64 actualValue = exch_read(RA_VX_DRUM(line));
+    if (actualValue != expectedValue)
+    {
+        sim_debug(LOG_SELFTEST_FAIL, &drum_dev, "Expected value at Vx line %hu to be %016llX, but was %016llX\n", line, expectedValue, actualValue);
+        drum_selftest_set_failure();
+    }
 }
 
 static void drum_selftest_assert_legal_request()
@@ -161,9 +180,13 @@ static void drum_selftest_write_non_v_address_sets_illegal_request_bit(TESTCONTE
 
 static void drum_selftest_write_to_disc_address(TESTCONTEXT *testContext)
 {
-	exch_write(RA_VX_DRUM(0), 0xA5A5A5A5);
+	exch_write(RA_VX_DRUM(DRUM_VX_STORE_DISC_ADDRESS), 0xFFFFFFFFA5A5A5A5);
 	drum_selftest_assert_reg_equals(REG_DISCADDRESS, 0x8025A525);
 	drum_selftest_assert_legal_request();
 }
 
-// TODO: test read from disc address
+static void drum_selftest_read_from_disc_address(TESTCONTEXT *testContext)
+{
+    mu5_selftest_set_register(testContext, &drum_dev, REG_DISCADDRESS, 0xA5A5A5A5);
+    drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_DISC_ADDRESS, 0x8025A525);
+}
