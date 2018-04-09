@@ -32,6 +32,8 @@ in this Software without prior written authorization from Robert Jarratt.
 #define DRUM_BANDS_PER_UNIT 64
 
 #define DRUM_VX_STORE_DISC_ADDRESS 0
+#define DRUM_VX_STORE_STORE_ADDRESS 1
+#define DRUM_VX_STORE_DISC_STATUS 2
 
 /* Status flags */
 #define DRUM_DISC_STATUS_ILLEGAL_REQUEST (0x1 << 13)

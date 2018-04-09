@@ -107,7 +107,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define CPR_RA_MASS(AC,A,LZ) (((AC & 0xF) << 28) | (UNIT_MASS_STORE << 24) | ((A & RA_IN_CPR_MASK) << 4) | (LZ & 0xF))
 #define RA_X(address) (address & RA_X_MASK)
 #define RA_VX(address) (RA_VX_MASK | (address & RA_X_MASK))
-#define RA_VX_DRUM(address) (RA_VX_MASK | (UNIT_FIXED_HEAD_DISC << RA_BIT_LENGTH) | (address & RA_X_MASK))
+#define RA_VX_DRUM(address) (RA_VX_MASK | (UNIT_FIXED_HEAD_DISC << RA_BIT_LENGTH) | ((address << 1) & RA_X_MASK)) /* address is in 64-bit units */
 #define RA_LOCAL(address) ((UNIT_LOCAL_STORE << RA_BIT_LENGTH) | (address & RA_MASK))
 #define RA_MASS(address) ((UNIT_MASS_STORE << RA_BIT_LENGTH) | (address & RA_MASK))
 #define RA_LOCAL_BYTE(address) ((UNIT_LOCAL_STORE << (RA_BIT_LENGTH + 2)) | (address & RA_MASK))

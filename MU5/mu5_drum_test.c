@@ -34,6 +34,7 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #define REG_CURRENTPOSITIONS "CURRENTPOSITIONS"
 #define REG_DISCADDRESS "DISCADDRESS"
+#define REG_STOREADDRESS "STOREADDRESS"
 #define REG_DISCSTATUS "DISCSTATUS"
 
 static TESTCONTEXT *localTestContext;
@@ -62,6 +63,8 @@ static void drum_selftest_read_non_v_address_sets_illegal_request_bit(TESTCONTEX
 static void drum_selftest_write_non_v_address_sets_illegal_request_bit(TESTCONTEXT *testContext);
 static void drum_selftest_write_to_disc_address(TESTCONTEXT *testContext);
 static void drum_selftest_read_from_disc_address(TESTCONTEXT *testContext);
+static void drum_selftest_write_to_store_address(TESTCONTEXT *testContext);
+static void drum_selftest_read_from_store_address(TESTCONTEXT *testContext);
 
 
 static UNITTEST tests[] =
@@ -72,7 +75,9 @@ static UNITTEST tests[] =
 	{ "Drum read of non-V address sets illegal request bit", drum_selftest_read_non_v_address_sets_illegal_request_bit },
 	{ "Drum write of non-V address sets illegal request bit", drum_selftest_write_non_v_address_sets_illegal_request_bit },
     { "Can write to the disc address Vx line", drum_selftest_write_to_disc_address },
-    { "Can read from the disc address Vx line", drum_selftest_read_from_disc_address }
+    { "Can read from the disc address Vx line", drum_selftest_read_from_disc_address },
+    { "Can write to the store address Vx line", drum_selftest_write_to_store_address },
+    { "Can read from the store address Vx line", drum_selftest_read_from_store_address }
 };
 
 void drum_selftest(TESTCONTEXT *testContext)
@@ -188,12 +193,25 @@ static void drum_selftest_write_non_v_address_sets_illegal_request_bit(TESTCONTE
 static void drum_selftest_write_to_disc_address(TESTCONTEXT *testContext)
 {
     drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, 0xFFFFFFFFA5A5A5A5);
-	drum_selftest_assert_reg_equals(REG_DISCADDRESS, 0x8025A525);
-	drum_selftest_assert_legal_request();
+    drum_selftest_assert_reg_equals(REG_DISCADDRESS, 0x8025A525);
+    drum_selftest_assert_legal_request();
 }
 
 static void drum_selftest_read_from_disc_address(TESTCONTEXT *testContext)
 {
     mu5_selftest_set_register(testContext, &drum_dev, REG_DISCADDRESS, 0xA5A5A5A5);
     drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_DISC_ADDRESS, 0x8025A525);
+}
+
+static void drum_selftest_write_to_store_address(TESTCONTEXT *testContext)
+{
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_STORE_ADDRESS, 0xFFFFFFFFFFFFFFFF);
+    drum_selftest_assert_reg_equals(REG_STOREADDRESS, 0x0FFFFFFF);
+    drum_selftest_assert_legal_request();
+}
+
+static void drum_selftest_read_from_store_address(TESTCONTEXT *testContext)
+{
+    mu5_selftest_set_register(testContext, &drum_dev, REG_STOREADDRESS, 0xA5A5A5);
+    drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_STORE_ADDRESS, 0xA5A5A5);
 }

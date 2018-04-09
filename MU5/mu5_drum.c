@@ -75,6 +75,8 @@ static void drum_write_vx_store(t_addr addr, t_uint64 value);
 static void drum_setup_vx_store_location(uint8 line, t_uint64(*readCallback)(uint8), void(*writeCallback)(uint8, t_uint64));
 static t_uint64 drum_read_disc_address_callback(uint8 line);
 static void drum_write_disc_address_callback(uint8 line, t_uint64 value);
+static t_uint64 drum_read_store_address_callback(uint8 line);
+static void drum_write_store_address_callback(uint8 line, t_uint64 value);
 
 
 static UNIT drum_unit[] =
@@ -324,7 +326,8 @@ void drum_reset_state(void)
 	reg_self_test_command = 0;
 	reg_self_test_state = 0;
 
-	drum_setup_vx_store_location(DRUM_VX_STORE_DISC_ADDRESS, drum_read_disc_address_callback, drum_write_disc_address_callback);
+    drum_setup_vx_store_location(DRUM_VX_STORE_DISC_ADDRESS, drum_read_disc_address_callback, drum_write_disc_address_callback);
+    drum_setup_vx_store_location(DRUM_VX_STORE_STORE_ADDRESS, drum_read_store_address_callback, drum_write_store_address_callback);
 }
 
 t_uint64 drum_exch_read(t_addr addr)
@@ -357,7 +360,7 @@ void drum_exch_write(t_addr addr, t_uint64 value)
 static t_uint64 drum_read_vx_store(t_addr addr)
 {
 	t_uint64 result = 0;
-	uint8 line = addr & 0xFFFFFFE0;
+	uint8 line = addr & MASK_8;
 	VXSTORE_LINE *vx_line = &VxStore[line];
 	if (vx_line->ReadCallback != NULL)
 	{
@@ -369,7 +372,7 @@ static t_uint64 drum_read_vx_store(t_addr addr)
 
 static void drum_write_vx_store(t_addr addr, t_uint64 value)
 {
-	uint8 line = addr & 0xFFFFFFE0;
+	uint8 line = addr & MASK_8;
 	VXSTORE_LINE *vx_line = &VxStore[line];
 	if (vx_line->WriteCallback != NULL)
 	{
@@ -448,4 +451,14 @@ static t_uint64 drum_read_disc_address_callback(uint8 line)
 static void drum_write_disc_address_callback(uint8 line, t_uint64 value)
 {
 	reg_disc_address = value & 0xC03FFF3F;
+}
+
+static t_uint64 drum_read_store_address_callback(uint8 line)
+{
+    return reg_store_address & 0x0FFFFFFF;
+}
+
+static void drum_write_store_address_callback(uint8 line, t_uint64 value)
+{
+    reg_store_address = value & 0x0FFFFFFF;
 }
