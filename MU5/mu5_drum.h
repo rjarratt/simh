@@ -34,6 +34,8 @@ in this Software without prior written authorization from Robert Jarratt.
 #define DRUM_VX_STORE_DISC_ADDRESS 0
 #define DRUM_VX_STORE_STORE_ADDRESS 1
 #define DRUM_VX_STORE_DISC_STATUS 2
+#define DRUM_VX_STORE_CURRENT_POSITIONS 3
+#define DRUM_VX_STORE_COMPLETE_ADDRESS 4
 
 /* Status flags */
 #define DRUM_DISC_STATUS_DECODE 0x80000000

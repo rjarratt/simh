@@ -75,6 +75,9 @@ static t_uint64 drum_read_store_address_callback(uint8 line);
 static void drum_write_store_address_callback(uint8 line, t_uint64 value);
 static t_uint64 drum_read_disc_status_callback(uint8 line);
 static void drum_write_disc_status_callback(uint8 line, t_uint64 value);
+static t_uint64 drum_read_current_positions_callback(uint8 line);
+static t_uint64 drum_read_complete_address_callback(uint8 line);
+static void drum_write_complete_address_callback(uint8 line, t_uint64 value);
 
 
 static UNIT drum_unit[] =
@@ -327,6 +330,8 @@ void drum_reset_state(void)
     drum_setup_vx_store_location(DRUM_VX_STORE_DISC_ADDRESS, drum_read_disc_address_callback, drum_write_disc_address_callback);
     drum_setup_vx_store_location(DRUM_VX_STORE_STORE_ADDRESS, drum_read_store_address_callback, drum_write_store_address_callback);
     drum_setup_vx_store_location(DRUM_VX_STORE_DISC_STATUS, drum_read_disc_status_callback, drum_write_disc_status_callback);
+    drum_setup_vx_store_location(DRUM_VX_STORE_CURRENT_POSITIONS, drum_read_current_positions_callback, NULL);
+    drum_setup_vx_store_location(DRUM_VX_STORE_COMPLETE_ADDRESS, drum_read_complete_address_callback, drum_write_complete_address_callback);
 }
 
 t_uint64 drum_exch_read(t_addr addr)
@@ -493,4 +498,19 @@ static void drum_write_disc_status_callback(uint8 line, t_uint64 value)
     {
         reg_disc_status &= ~DRUM_DISC_STATUS_END_TRANSFER;
     }
+}
+
+static t_uint64 drum_read_current_positions_callback(uint8 line)
+{
+    return reg_current_positions & 0x03FFFFFF;
+}
+
+static t_uint64 drum_read_complete_address_callback(uint8 line)
+{
+    return reg_complete_address & 0x0FFFFFFF;
+}
+
+static void drum_write_complete_address_callback(uint8 line, t_uint64 value)
+{
+    reg_complete_address = value & 0x0FFFFFFF;
 }

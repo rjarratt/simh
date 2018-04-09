@@ -36,6 +36,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define REG_DISCADDRESS "DISCADDRESS"
 #define REG_STOREADDRESS "STOREADDRESS"
 #define REG_DISCSTATUS "DISCSTATUS"
+#define REG_COMPLETEADDRESS "COMPLETEADDRESS"
 
 static TESTCONTEXT *localTestContext;
 extern DEVICE cpu_dev;
@@ -69,6 +70,10 @@ static void drum_selftest_read_from_disc_status(TESTCONTEXT *testContext);
 static void drum_selftest_disc_status_unit_always_zero(TESTCONTEXT *testContext);
 static void drum_selftest_disc_status_write_does_not_change_readonly_bits(TESTCONTEXT *testContext);
 static void drum_selftest_disc_status_write_resets_writeable_bits(TESTCONTEXT *testContext);
+static void drum_selftest_write_to_current_positions_ignored(TESTCONTEXT *testContext);
+static void drum_selftest_read_from_current_positions(TESTCONTEXT *testContext);
+static void drum_selftest_write_to_complete_address(TESTCONTEXT *testContext);
+static void drum_selftest_read_from_complete_address(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
@@ -83,8 +88,12 @@ static UNITTEST tests[] =
     { "Can read from the store address Vx line", drum_selftest_read_from_store_address },
     { "Can read from the disc status Vx line", drum_selftest_read_from_disc_status },
     { "Unit number always 0 in disc status Vx line ", drum_selftest_disc_status_unit_always_zero },
-    { "Writing to disc status does not affect readonly bits", drum_selftest_disc_status_write_does_not_change_readonly_bits },
-    { "Writing 1s to the writeable disc status bits resets them", drum_selftest_disc_status_write_resets_writeable_bits }
+    { "Writing to disc status Vx line does not affect readonly bits", drum_selftest_disc_status_write_does_not_change_readonly_bits },
+    { "Writing 1s to the writeable disc status Vx line bits resets them", drum_selftest_disc_status_write_resets_writeable_bits },
+    { "Writes to the current positions Vx line are ignored", drum_selftest_write_to_current_positions_ignored },
+    { "Can read from the current positions Vx line", drum_selftest_read_from_current_positions },
+    { "Can write to the complete address Vx line", drum_selftest_write_to_complete_address },
+    { "Can read from the complete address Vx line", drum_selftest_read_from_complete_address }
 };
 
 void drum_selftest(TESTCONTEXT *testContext)
@@ -250,4 +259,32 @@ static void drum_selftest_disc_status_write_resets_writeable_bits(TESTCONTEXT *t
     mu5_selftest_set_register(testContext, &drum_dev, REG_DISCSTATUS, 0xFFFFFFFF);
     drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_STATUS, 0xFFFFFFFF);
     drum_selftest_assert_reg_equals_mask(REG_DISCSTATUS, 0xFFFFFFFF, 0x7FFFDBCF);
+    drum_selftest_assert_legal_request();
+}
+
+static void drum_selftest_write_to_current_positions_ignored(TESTCONTEXT *testContext)
+{
+    mu5_selftest_set_register(testContext, &drum_dev, REG_CURRENTPOSITIONS, 0xFFFFFFFF);
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_CURRENT_POSITIONS, 0);
+    drum_selftest_assert_reg_equals_mask(REG_CURRENTPOSITIONS, 0xFFFFFFFF, 0xFFFFFFFF);
+    drum_selftest_assert_legal_request();
+}
+
+static void drum_selftest_read_from_current_positions(TESTCONTEXT *testContext)
+{
+    mu5_selftest_set_register(testContext, &drum_dev, REG_CURRENTPOSITIONS, 0xFFFFFFFF);
+    drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_CURRENT_POSITIONS, 0x03FFFFFF);
+}
+
+static void drum_selftest_write_to_complete_address(TESTCONTEXT *testContext)
+{
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_COMPLETE_ADDRESS, 0xFFFFFFFFFFFFFFFF);
+    drum_selftest_assert_reg_equals(REG_COMPLETEADDRESS, 0x0FFFFFFF);
+    drum_selftest_assert_legal_request();
+}
+
+static void drum_selftest_read_from_complete_address(TESTCONTEXT *testContext)
+{
+    mu5_selftest_set_register(testContext, &drum_dev, REG_COMPLETEADDRESS, 0xA5A5A5A);
+    drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_COMPLETE_ADDRESS, 0xA5A5A5A);
 }
