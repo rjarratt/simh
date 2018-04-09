@@ -38,6 +38,9 @@ in this Software without prior written authorization from Robert Jarratt.
 /* Status flags */
 #define DRUM_DISC_STATUS_DECODE 0x80000000
 #define DRUM_DISC_STATUS_ILLEGAL_REQUEST (0x1 << 13)
+#define DRUM_DISC_STATUS_INPUT_PARITY_ERROR (0x1 << 10)
+#define DRUM_DISC_STATUS_IGNORE_PARITY_ERROR (0x1 << 5)
+#define DRUM_DISC_STATUS_END_TRANSFER (0x1 << 4)
 
 void drum_reset_state(void);
 t_uint64 drum_exch_read(t_addr addr);

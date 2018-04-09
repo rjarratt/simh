@@ -469,5 +469,28 @@ static t_uint64 drum_read_disc_status_callback(uint8 line)
 
 static void drum_write_disc_status_callback(uint8 line, t_uint64 value)
 {
-    //reg_disc_status = value & 0x0FFFFFFF;
+    if (value & DRUM_DISC_STATUS_DECODE)
+    {
+        reg_disc_status &= ~DRUM_DISC_STATUS_DECODE;
+    }
+
+    if (value & DRUM_DISC_STATUS_ILLEGAL_REQUEST)
+    {
+        reg_disc_status &= ~DRUM_DISC_STATUS_ILLEGAL_REQUEST;
+    }
+
+    if (value & DRUM_DISC_STATUS_INPUT_PARITY_ERROR)
+    {
+        reg_disc_status &= ~DRUM_DISC_STATUS_INPUT_PARITY_ERROR;
+    }
+
+    if (value & DRUM_DISC_STATUS_IGNORE_PARITY_ERROR)
+    {
+        reg_disc_status &= ~DRUM_DISC_STATUS_IGNORE_PARITY_ERROR;
+    }
+
+    if (value & DRUM_DISC_STATUS_END_TRANSFER)
+    {
+        reg_disc_status &= ~DRUM_DISC_STATUS_END_TRANSFER;
+    }
 }

@@ -67,7 +67,8 @@ static void drum_selftest_write_to_store_address(TESTCONTEXT *testContext);
 static void drum_selftest_read_from_store_address(TESTCONTEXT *testContext);
 static void drum_selftest_read_from_disc_status(TESTCONTEXT *testContext);
 static void drum_selftest_disc_status_unit_always_zero(TESTCONTEXT *testContext);
-
+static void drum_selftest_disc_status_write_does_not_change_readonly_bits(TESTCONTEXT *testContext);
+static void drum_selftest_disc_status_write_resets_writeable_bits(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
@@ -81,7 +82,9 @@ static UNITTEST tests[] =
     { "Can write to the store address Vx line", drum_selftest_write_to_store_address },
     { "Can read from the store address Vx line", drum_selftest_read_from_store_address },
     { "Can read from the disc status Vx line", drum_selftest_read_from_disc_status },
-    { "Unit number always 0 in disc status Vx line ", drum_selftest_disc_status_unit_always_zero }
+    { "Unit number always 0 in disc status Vx line ", drum_selftest_disc_status_unit_always_zero },
+    { "Writing to disc status does not affect readonly bits", drum_selftest_disc_status_write_does_not_change_readonly_bits },
+    { "Writing 1s to the writeable disc status bits resets them", drum_selftest_disc_status_write_resets_writeable_bits }
 };
 
 void drum_selftest(TESTCONTEXT *testContext)
@@ -229,5 +232,22 @@ static void drum_selftest_read_from_disc_status(TESTCONTEXT *testContext)
 static void drum_selftest_disc_status_unit_always_zero(TESTCONTEXT *testContext)
 {
     drum_selftest_assert_reg_equals_mask(REG_DISCSTATUS, 0xF, 0);
+}
 
+static void drum_selftest_disc_status_write_does_not_change_readonly_bits(TESTCONTEXT *testContext)
+{
+    mu5_selftest_set_register(testContext, &drum_dev, REG_DISCSTATUS, 0xFFFFFFFF);
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_STATUS, 0);
+    drum_selftest_assert_reg_equals_mask(REG_DISCSTATUS, 0xFFFFFFFF, 0xFFFFFFFF);
+
+    mu5_selftest_set_register(testContext, &drum_dev, REG_DISCSTATUS, 0x00000000);
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_STATUS, 0xFFFFFFFF);
+    drum_selftest_assert_reg_equals_mask(REG_DISCSTATUS, 0xFFFFFFFF, 0x00000000);
+}
+
+static void drum_selftest_disc_status_write_resets_writeable_bits(TESTCONTEXT *testContext)
+{
+    mu5_selftest_set_register(testContext, &drum_dev, REG_DISCSTATUS, 0xFFFFFFFF);
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_STATUS, 0xFFFFFFFF);
+    drum_selftest_assert_reg_equals_mask(REG_DISCSTATUS, 0xFFFFFFFF, 0x7FFFDBCF);
 }
