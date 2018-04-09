@@ -36,6 +36,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define DRUM_VX_STORE_DISC_STATUS 2
 
 /* Status flags */
+#define DRUM_DISC_STATUS_DECODE 0x80000000
 #define DRUM_DISC_STATUS_ILLEGAL_REQUEST (0x1 << 13)
 
 void drum_reset_state(void);

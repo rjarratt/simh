@@ -139,12 +139,12 @@ static void drum_selftest_assert_vx_line_contents(uint8 line, t_uint64 expectedV
 
 static void drum_selftest_assert_legal_request()
 {
-	drum_selftest_assert_reg_equals_mask(REG_DISCSTATUS, DRUM_DISC_STATUS_ILLEGAL_REQUEST, 0);
+	drum_selftest_assert_reg_equals_mask(REG_DISCSTATUS, DRUM_DISC_STATUS_DECODE | DRUM_DISC_STATUS_ILLEGAL_REQUEST, 0);
 }
 
 static void drum_selftest_assert_illegal_request()
 {
-	drum_selftest_assert_reg_equals_mask(REG_DISCSTATUS, DRUM_DISC_STATUS_ILLEGAL_REQUEST, DRUM_DISC_STATUS_ILLEGAL_REQUEST);
+	drum_selftest_assert_reg_equals_mask(REG_DISCSTATUS, DRUM_DISC_STATUS_DECODE | DRUM_DISC_STATUS_ILLEGAL_REQUEST, DRUM_DISC_STATUS_DECODE | DRUM_DISC_STATUS_ILLEGAL_REQUEST);
 }
 
 static void drum_selftest_current_position_incremented_on_each_cycle(TESTCONTEXT *testContext)

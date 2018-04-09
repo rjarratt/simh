@@ -32,14 +32,10 @@ The service routine operates at the real time speed of the drum in that it is
 scheduled once per block, of which there were 37 per band (or track in modern
 parlance).
 
-Notes on V and Vx Store Access
-------------------------------
-
-
-
-
 Known Limitations
 -----------------
+
+Lockout and self test functions are not emulated.
 
 */
 
@@ -433,7 +429,7 @@ static void drum_set_unit_present(int unit_num, int present)
 
 static void drum_set_illegal_request()
 {
-	reg_disc_status |= DRUM_DISC_STATUS_ILLEGAL_REQUEST;
+	reg_disc_status |= DRUM_DISC_STATUS_DECODE | DRUM_DISC_STATUS_ILLEGAL_REQUEST;
 }
 
 static void drum_setup_vx_store_location(uint8 line, t_uint64(*readCallback)(uint8), void(*writeCallback)(uint8,t_uint64))
