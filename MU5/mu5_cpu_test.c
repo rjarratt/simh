@@ -625,6 +625,10 @@ static void cpu_selftest_store_operand_privileged_generates_interrupt_in_user_mo
 static void cpu_selftest_any_descriptor_modify_generates_its_interrupt_if_descriptor_has_invalid_size(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_from_descriptor_64_bit_value_starts_on_32_bit_boundary(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_to_descriptor_64_bit_value_starts_on_32_bit_boundary(TESTCONTEXT *testContext);
+static void cpu_selftest_load_operand_from_descriptor_16_bit_value_starts_on_16_bit_boundary(TESTCONTEXT *testContext);
+static void cpu_selftest_store_operand_to_descriptor_16_bit_value_starts_on_16_bit_boundary(TESTCONTEXT *testContext);
+static void cpu_selftest_load_operand_from_descriptor_8_bit_value_starts_on_8_bit_boundary(TESTCONTEXT *testContext);
+static void cpu_selftest_store_operand_to_descriptor_8_bit_value_starts_on_8_bit_boundary(TESTCONTEXT *testContext);
 
 static void cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD(TESTCONTEXT *testContext);
 static void cpu_selftest_sts1_xd_load_loads_whole_of_XD(TESTCONTEXT *testContext);
@@ -1343,6 +1347,10 @@ static UNITTEST tests[] =
     { "Any descriptor modify generates an ITS interrupt if the descriptor has an invalid size", cpu_selftest_any_descriptor_modify_generates_its_interrupt_if_descriptor_has_invalid_size },
     { "Load from 64-bit descriptors start on a 32-bit word boundary", cpu_selftest_load_operand_from_descriptor_64_bit_value_starts_on_32_bit_boundary },
     { "Store to 64-bit descriptors start on a 32-bit word boundary", cpu_selftest_store_operand_to_descriptor_64_bit_value_starts_on_32_bit_boundary },
+    { "Load from 16-bit descriptors start on a 16-bit word boundary", cpu_selftest_load_operand_from_descriptor_16_bit_value_starts_on_16_bit_boundary },
+    { "Store to 16-bit descriptors start on a 16-bit word boundary", cpu_selftest_store_operand_to_descriptor_16_bit_value_starts_on_16_bit_boundary },
+    { "Load from 8-bit descriptors start on a 8-bit word boundary", cpu_selftest_load_operand_from_descriptor_8_bit_value_starts_on_8_bit_boundary },
+    { "Store to 8-bit descriptors start on a 8-bit word boundary", cpu_selftest_store_operand_to_descriptor_8_bit_value_starts_on_8_bit_boundary },
 
     { "STS1 XDO Load Loads LS half of XD", cpu_selftest_sts1_xdo_load_loads_ls_half_of_XD },
     { "STS1 XD Load Loads whole of XD", cpu_selftest_sts1_xd_load_loads_whole_of_XD },
@@ -5041,6 +5049,58 @@ static void cpu_selftest_store_operand_to_descriptor_64_bit_value_starts_on_32_b
     cpu_selftest_run_code();
     cpu_selftest_assert_memory_contents_32_bit(vecwordorigin, 0xAAAABBBB);
     cpu_selftest_assert_memory_contents_32_bit(vecwordorigin + 1, 0xCCCCDDDD);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_load_operand_from_descriptor_16_bit_value_starts_on_16_bit_boundary(TESTCONTEXT *testContext)
+{
+    uint32 vecorigin = cpu_selftest_byte_address_from_word_address(VEC_ORIGIN_DEFAULT) | 2; /* ensure 2nd ls bit is set, so it is a 16-bit boundary */
+    uint32 vecwordorigin = vecorigin >> 2;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_SB, NP_DR);
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_16_BIT, 2, vecorigin));
+    sac_write_32_bit_word(vecwordorigin, 0xAAAABBBB);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0x0000BBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_operand_to_descriptor_16_bit_value_starts_on_16_bit_boundary(TESTCONTEXT *testContext)
+{
+    uint32 vecorigin = cpu_selftest_byte_address_from_word_address(VEC_ORIGIN_DEFAULT) | 2; /* ensure 2nd ls bit is set, so it is a 16-bit boundary */
+    uint32 vecwordorigin = vecorigin >> 2;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_SB, NP_DR);
+    cpu_selftest_set_aod_operand_64_bit();
+    cpu_selftest_set_register(REG_A, 0xAAAABBBB);
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_16_BIT, 2, vecorigin));
+    sac_write_32_bit_word(vecwordorigin, 0xFFFFFFFF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_32_bit(vecwordorigin, 0xFFFFBBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_load_operand_from_descriptor_8_bit_value_starts_on_8_bit_boundary(TESTCONTEXT *testContext)
+{
+    uint32 vecorigin = cpu_selftest_byte_address_from_word_address(VEC_ORIGIN_DEFAULT) | 1; /* ensure ls bit is set, so it is a 8-bit boundary */
+    uint32 vecwordorigin = vecorigin >> 2;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_64, K_SB, NP_DR);
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 2, vecorigin));
+    sac_write_32_bit_word(vecwordorigin, 0xAABBCCDD);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0x000000BB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_operand_to_descriptor_8_bit_value_starts_on_8_bit_boundary(TESTCONTEXT *testContext)
+{
+    uint32 vecorigin = cpu_selftest_byte_address_from_word_address(VEC_ORIGIN_DEFAULT) | 1; /* ensure ls bit is set, so it is a 8-bit boundary */
+    uint32 vecwordorigin = vecorigin >> 2;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_SB, NP_DR);
+    cpu_selftest_set_aod_operand_64_bit();
+    cpu_selftest_set_register(REG_A, 0xAABBCCDD);
+    cpu_selftest_set_register(REG_D, cpu_selftest_create_descriptor(DESCRIPTOR_TYPE_GENERAL_VECTOR, DESCRIPTOR_SIZE_8_BIT, 2, vecorigin));
+    sac_write_32_bit_word(vecwordorigin, 0xFFFFFFFF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_32_bit(vecwordorigin, 0xFFDDFFFF);
     cpu_selftest_assert_no_interrupt();
 }
 
