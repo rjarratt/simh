@@ -46,6 +46,8 @@ static void drum_selftest_reset(UNITTEST *test);
 static void drum_selftest_execute_cycle(void);
 static void drum_selftest_execute_cycle_unit(int unitNum);
 
+static void drum_selftest_setup_vx_line(uint8 line, t_uint64 value);
+
 static void drum_selftest_set_failure(void);
 static void drum_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 static void drum_selftest_assert_reg_equals_mask(char *name, t_uint64 mask, t_uint64 expectedValue);
@@ -98,6 +100,11 @@ static void drum_selftest_execute_cycle_unit(int unitNum)
 {
 	UNIT *unit = &drum_dev.units[unitNum];
 	unit->action(unit);
+}
+
+static void drum_selftest_setup_vx_line(uint8 line, t_uint64 value)
+{
+    exch_write(RA_VX_DRUM(line), value);
 }
 
 static void drum_selftest_set_failure(void)
@@ -180,7 +187,7 @@ static void drum_selftest_write_non_v_address_sets_illegal_request_bit(TESTCONTE
 
 static void drum_selftest_write_to_disc_address(TESTCONTEXT *testContext)
 {
-	exch_write(RA_VX_DRUM(DRUM_VX_STORE_DISC_ADDRESS), 0xFFFFFFFFA5A5A5A5);
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, 0xFFFFFFFFA5A5A5A5);
 	drum_selftest_assert_reg_equals(REG_DISCADDRESS, 0x8025A525);
 	drum_selftest_assert_legal_request();
 }
