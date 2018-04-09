@@ -65,6 +65,8 @@ static void drum_selftest_write_to_disc_address(TESTCONTEXT *testContext);
 static void drum_selftest_read_from_disc_address(TESTCONTEXT *testContext);
 static void drum_selftest_write_to_store_address(TESTCONTEXT *testContext);
 static void drum_selftest_read_from_store_address(TESTCONTEXT *testContext);
+static void drum_selftest_read_from_disc_status(TESTCONTEXT *testContext);
+static void drum_selftest_disc_status_unit_always_zero(TESTCONTEXT *testContext);
 
 
 static UNITTEST tests[] =
@@ -77,7 +79,9 @@ static UNITTEST tests[] =
     { "Can write to the disc address Vx line", drum_selftest_write_to_disc_address },
     { "Can read from the disc address Vx line", drum_selftest_read_from_disc_address },
     { "Can write to the store address Vx line", drum_selftest_write_to_store_address },
-    { "Can read from the store address Vx line", drum_selftest_read_from_store_address }
+    { "Can read from the store address Vx line", drum_selftest_read_from_store_address },
+    { "Can read from the disc status Vx line", drum_selftest_read_from_disc_status },
+    { "Unit number always 0 in disc status Vx line ", drum_selftest_disc_status_unit_always_zero }
 };
 
 void drum_selftest(TESTCONTEXT *testContext)
@@ -214,4 +218,16 @@ static void drum_selftest_read_from_store_address(TESTCONTEXT *testContext)
 {
     mu5_selftest_set_register(testContext, &drum_dev, REG_STOREADDRESS, 0xA5A5A5);
     drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_STORE_ADDRESS, 0xA5A5A5);
+}
+
+static void drum_selftest_read_from_disc_status(TESTCONTEXT *testContext)
+{
+    mu5_selftest_set_register(testContext, &drum_dev, REG_DISCSTATUS, 0xA5A5A5);
+    drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_DISC_STATUS, 0xA5A5A0);
+}
+
+static void drum_selftest_disc_status_unit_always_zero(TESTCONTEXT *testContext)
+{
+    drum_selftest_assert_reg_equals_mask(REG_DISCSTATUS, 0xF, 0);
+
 }
