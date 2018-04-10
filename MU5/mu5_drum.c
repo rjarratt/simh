@@ -67,6 +67,9 @@ static void drum_set_unit_present(int unit_num, int present);
 static void drum_set_illegal_request();
 
 static uint8 drum_get_unit(t_uint64 disc_address);
+static uint8 drum_get_band(t_uint64 disc_address);
+static uint8 drum_get_block(t_uint64 disc_address);
+static uint8 drum_get_size(t_uint64 disc_address);
 static int drum_is_disc_attached(UNIT *unit);
 static int drum_is_valid_request(UNIT *unit, t_uint64 disc_address);
 
@@ -446,7 +449,25 @@ static void drum_set_illegal_request()
 
 static uint8 drum_get_unit(t_uint64 disc_address)
 {
-    uint8 result = (disc_address >> 20) && 0x3;
+    uint8 result = (disc_address >> 20) & 0x3;
+    return result;
+}
+
+static uint8 drum_get_band(t_uint64 disc_address)
+{
+    uint8 result = (disc_address >> 14) & 0x3F;
+    return result;
+}
+
+static uint8 drum_get_block(t_uint64 disc_address)
+{
+    uint8 result = (disc_address >> 8) & 0x3F;
+    return result;
+}
+
+static uint8 drum_get_size(t_uint64 disc_address)
+{
+    uint8 result = disc_address & 0x3F;
     return result;
 }
 
@@ -458,7 +479,20 @@ static int drum_is_disc_attached(UNIT *unit)
 static int drum_is_valid_request(UNIT *unit, t_uint64 disc_address)
 {
     int result = 0;
-    result = drum_is_disc_attached(unit);
+    uint8 band = drum_get_band(disc_address);
+    uint8 block = drum_get_block(disc_address);
+    uint8 size = drum_get_size(disc_address);
+
+    result = drum_is_disc_attached(unit)
+             &&
+             band < DRUM_BANDS_PER_UNIT
+             &&
+             block < DRUM_BLOCKS_PER_BAND
+             &&
+             size > 0
+             &&
+             size < DRUM_BLOCKS_PER_BAND;
+
     return result;
 }
 

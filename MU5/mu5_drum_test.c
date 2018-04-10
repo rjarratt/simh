@@ -41,7 +41,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define READ 1
 #define WRITE 0
 
-#define DISC_ADDRESS(rw, disc, band, block, size) ((rw << 30) | (disc << 20) | (band << 14) | (block << 8) | size)
+#define DISC_ADDRESS(rw, disc, band, block, size) (((t_uint64)rw << 30) | ((t_uint64)disc << 20) | ((t_uint64)band << 14) | ((t_uint64)block << 8) | (t_uint64)size)
 
 static TESTCONTEXT *localTestContext;
 extern DEVICE cpu_dev;
@@ -83,6 +83,9 @@ static void drum_selftest_read_from_current_positions(TESTCONTEXT *testContext);
 static void drum_selftest_write_to_complete_address(TESTCONTEXT *testContext);
 static void drum_selftest_read_from_complete_address(TESTCONTEXT *testContext);
 static void drum_selftest_io_request_for_unattached_disk_sets_illegal_request(TESTCONTEXT *testContext);
+static void drum_selftest_io_request_for_invalid_block_sets_illegal_request(TESTCONTEXT *testContext);
+static void drum_selftest_io_request_for_zero_size_sets_illegal_request(TESTCONTEXT *testContext);
+static void drum_selftest_io_request_for_invalid_size_sets_illegal_request(TESTCONTEXT *testContext);
 static void drum_selftest_io_waits_for_starting_block(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
@@ -105,7 +108,9 @@ static UNITTEST tests[] =
     { "Can write to the complete address Vx line", drum_selftest_write_to_complete_address },
     { "Can read from the complete address Vx line", drum_selftest_read_from_complete_address },
     { "I/O request to an unattached disk sets illegal request bit", drum_selftest_io_request_for_unattached_disk_sets_illegal_request },
-/* todo illegal band, illegal block, illegal size */
+    { "I/O request for invalid block sets illegal request bit", drum_selftest_io_request_for_invalid_block_sets_illegal_request },
+    { "I/O request for zero size sets illegal request bit", drum_selftest_io_request_for_zero_size_sets_illegal_request },
+    { "I/O request for invalid size sets illegal request bit", drum_selftest_io_request_for_invalid_size_sets_illegal_request },
     { "I/O operation waits for drum to rotate to starting block", drum_selftest_io_waits_for_starting_block }
 
     // TODO: Interrupts
@@ -331,6 +336,27 @@ static void drum_selftest_io_request_for_unattached_disk_sets_illegal_request(TE
 {
     drum_selftest_detach_and_delete_test_file();
     drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 0, 1));
+    drum_selftest_assert_illegal_request();
+}
+
+static void drum_selftest_io_request_for_invalid_block_sets_illegal_request(TESTCONTEXT *testContext)
+{
+    drum_selftest_attach_test_file();
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, DRUM_BLOCKS_PER_BAND, 1));
+    drum_selftest_assert_illegal_request();
+}
+
+static void drum_selftest_io_request_for_zero_size_sets_illegal_request(TESTCONTEXT *testContext)
+{
+    drum_selftest_attach_test_file();
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 0, 0));
+    drum_selftest_assert_illegal_request();
+}
+
+static void drum_selftest_io_request_for_invalid_size_sets_illegal_request(TESTCONTEXT *testContext)
+{
+    drum_selftest_attach_test_file();
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 0, DRUM_BLOCKS_PER_BAND));
     drum_selftest_assert_illegal_request();
 }
 
