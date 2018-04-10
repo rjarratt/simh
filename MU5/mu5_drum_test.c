@@ -37,12 +37,20 @@ in this Software without prior written authorization from Robert Jarratt.
 #define REG_STOREADDRESS "STOREADDRESS"
 #define REG_DISCSTATUS "DISCSTATUS"
 #define REG_COMPLETEADDRESS "COMPLETEADDRESS"
+#define TEST_UNIT_NUM 3
+#define READ 1
+#define WRITE 0
+
+#define DISC_ADDRESS(rw, disc, band, block, size) ((rw << 30) | (disc << 20) | (band << 14) | (block << 8) | size)
 
 static TESTCONTEXT *localTestContext;
 extern DEVICE cpu_dev;
 extern DEVICE drum_dev;
 
 void drum_selftest(TESTCONTEXT *testContext);
+static void drum_selftest_detach_existing_file(void);
+static void drum_selftest_attach_test_file(void);
+static void drum_selftest_detach_and_delete_test_file(void);
 static void drum_selftest_reset(UNITTEST *test);
 
 static void drum_selftest_execute_cycle(void);
@@ -74,6 +82,8 @@ static void drum_selftest_write_to_current_positions_ignored(TESTCONTEXT *testCo
 static void drum_selftest_read_from_current_positions(TESTCONTEXT *testContext);
 static void drum_selftest_write_to_complete_address(TESTCONTEXT *testContext);
 static void drum_selftest_read_from_complete_address(TESTCONTEXT *testContext);
+static void drum_selftest_io_request_for_unattached_disk_sets_illegal_request(TESTCONTEXT *testContext);
+static void drum_selftest_io_waits_for_starting_block(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
@@ -93,7 +103,16 @@ static UNITTEST tests[] =
     { "Writes to the current positions Vx line are ignored", drum_selftest_write_to_current_positions_ignored },
     { "Can read from the current positions Vx line", drum_selftest_read_from_current_positions },
     { "Can write to the complete address Vx line", drum_selftest_write_to_complete_address },
-    { "Can read from the complete address Vx line", drum_selftest_read_from_complete_address }
+    { "Can read from the complete address Vx line", drum_selftest_read_from_complete_address },
+    { "I/O request to an unattached disk sets illegal request bit", drum_selftest_io_request_for_unattached_disk_sets_illegal_request },
+/* todo illegal band, illegal block, illegal size */
+    { "I/O operation waits for drum to rotate to starting block", drum_selftest_io_waits_for_starting_block }
+
+    // TODO: Interrupts
+    // TODO: Read
+    // TODO: Write
+    // TODO: multiple blocks
+    // TODO: Update store address, complete address, disc status
 };
 
 void drum_selftest(TESTCONTEXT *testContext)
@@ -104,7 +123,27 @@ void drum_selftest(TESTCONTEXT *testContext)
 
 	localTestContext = testContext;
 	localTestContext->dev = &drum_dev;
+    drum_selftest_detach_existing_file();
 	mu5_selftest_run_suite(testContext, tests, n, drum_selftest_reset);
+}
+
+static void drum_selftest_detach_existing_file(void)
+{
+    UNIT *unit = &drum_dev.units[TEST_UNIT_NUM];
+    drum_dev.detach(unit);
+}
+
+static void drum_selftest_attach_test_file(void)
+{
+    UNIT *unit = &drum_dev.units[TEST_UNIT_NUM];
+    drum_dev.attach(unit, tmpnam(NULL));
+}
+
+static void drum_selftest_detach_and_delete_test_file(void)
+{
+    UNIT *unit = &drum_dev.units[TEST_UNIT_NUM];
+    drum_dev.detach(unit);
+    remove(unit->filename);
 }
 
 static void drum_selftest_reset(UNITTEST *test)
@@ -114,7 +153,7 @@ static void drum_selftest_reset(UNITTEST *test)
 
 static void drum_selftest_execute_cycle(void)
 {
-	drum_selftest_execute_cycle_unit(0);
+	drum_selftest_execute_cycle_unit(TEST_UNIT_NUM);
 }
 
 static void drum_selftest_execute_cycle_unit(int unitNum)
@@ -167,9 +206,9 @@ static void drum_selftest_current_position_incremented_on_each_cycle(TESTCONTEXT
 {
 	drum_selftest_assert_reg_equals(REG_CURRENTPOSITIONS, 0);
 	drum_selftest_execute_cycle();
-	drum_selftest_assert_reg_equals(REG_CURRENTPOSITIONS, 1);
+	drum_selftest_assert_reg_equals(REG_CURRENTPOSITIONS, 1 << (TEST_UNIT_NUM * 6));
 	drum_selftest_execute_cycle();
-	drum_selftest_assert_reg_equals(REG_CURRENTPOSITIONS, 2);
+	drum_selftest_assert_reg_equals(REG_CURRENTPOSITIONS, 2 << (TEST_UNIT_NUM * 6));
 }
 
 static void drum_selftest_current_position_wraps_after_last_block(TESTCONTEXT *testContext)
@@ -210,7 +249,6 @@ static void drum_selftest_write_to_disc_address(TESTCONTEXT *testContext)
 {
     drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, 0xFFFFFFFFA5A5A5A5);
     drum_selftest_assert_reg_equals(REG_DISCADDRESS, 0x8025A525);
-    drum_selftest_assert_legal_request();
 }
 
 static void drum_selftest_read_from_disc_address(TESTCONTEXT *testContext)
@@ -287,4 +325,17 @@ static void drum_selftest_read_from_complete_address(TESTCONTEXT *testContext)
 {
     mu5_selftest_set_register(testContext, &drum_dev, REG_COMPLETEADDRESS, 0xA5A5A5A);
     drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_COMPLETE_ADDRESS, 0xA5A5A5A);
+}
+
+static void drum_selftest_io_request_for_unattached_disk_sets_illegal_request(TESTCONTEXT *testContext)
+{
+    drum_selftest_detach_and_delete_test_file();
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 0, 1));
+    drum_selftest_assert_illegal_request();
+}
+
+static void drum_selftest_io_waits_for_starting_block(TESTCONTEXT *testContext)
+{
+    drum_selftest_attach_test_file();
+    drum_selftest_detach_and_delete_test_file();
 }
