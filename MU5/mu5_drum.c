@@ -197,16 +197,18 @@ BITFIELD self_test_state_bits[] = {
 	ENDBITS
 };
 
-uint32 reg_disc_address;
-uint32 reg_store_address;
-uint32 reg_disc_status = D0_ABSENT_MASK | D1_ABSENT_MASK | D2_ABSENT_MASK | D3_ABSENT_MASK;
-uint32 reg_current_positions;
-uint32 reg_complete_address;
-uint32 reg_lockout_01;
-uint32 reg_lockout_23;
-uint32 reg_request_self_test;
-uint32 reg_self_test_command;
-uint32 reg_self_test_state;
+static uint32 reg_disc_address;
+static uint32 reg_store_address;
+static uint32 reg_disc_status = D0_ABSENT_MASK | D1_ABSENT_MASK | D2_ABSENT_MASK | D3_ABSENT_MASK;
+static uint32 reg_current_positions;
+static uint32 reg_complete_address;
+static uint32 reg_lockout_01;
+static uint32 reg_lockout_23;
+static uint32 reg_request_self_test;
+static uint32 reg_self_test_command;
+static uint32 reg_self_test_state;
+
+static int transfer_in_progress = 0;
 
 static REG drum_reg[] =
 {
@@ -291,6 +293,18 @@ static t_stat drum_svc(UNIT *uptr)
 	t_stat result = SCPE_OK;
 	int unit_num = drum_get_unit_num(uptr);
 	drum_update_current_position(unit_num);
+
+	if (transfer_in_progress)
+	{
+		int current_position = drum_get_current_position(unit_num);
+		int desired_position = drum_get_block(reg_disc_address);
+		if (current_position == desired_position + 1)
+		{
+			int size = drum_get_size(reg_disc_address) - 1;
+			reg_disc_address = (reg_disc_address & 0xFFFFC000) | (current_position << 8) | size;
+		}
+	}
+
 	drum_schedule_next_poll(uptr);
 	return result;
 }
@@ -399,7 +413,6 @@ static void drum_start_polling_if_attached(UNIT *uptr)
 		drum_schedule_next_poll(uptr);
 	}
 }
-
 
 static void drum_schedule_next_poll(UNIT *uptr)
 {
@@ -520,6 +533,10 @@ static void drum_write_disc_address_callback(uint8 line, t_uint64 value)
     {
         drum_set_illegal_request();
     }
+	else
+	{
+		transfer_in_progress = 1;
+	}
 }
 
 static t_uint64 drum_read_store_address_callback(uint8 line)

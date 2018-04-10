@@ -87,9 +87,14 @@ static void drum_selftest_io_request_for_invalid_block_sets_illegal_request(TEST
 static void drum_selftest_io_request_for_zero_size_sets_illegal_request(TESTCONTEXT *testContext);
 static void drum_selftest_io_request_for_invalid_size_sets_illegal_request(TESTCONTEXT *testContext);
 static void drum_selftest_io_waits_for_starting_block(TESTCONTEXT *testContext);
+// TODO: disc address stops being updated on completion
+// TODO: full revolution wait
 //static void drum_selftest_io_updates_disc_address_with_progress(TESTCONTEXT *testContext);
+// TODO: stop on completion
 //static void drum_selftest_io_updates_store_address_with_progress(TESTCONTEXT *testContext);
+// TODO: stop on completion
 //static void drum_selftest_io_updates_disc_status_on_completion(TESTCONTEXT *testContext);
+// TODO: ended not set during transfer or before it starts
 
 static UNITTEST tests[] =
 {
@@ -365,6 +370,11 @@ static void drum_selftest_io_request_for_invalid_size_sets_illegal_request(TESTC
 
 static void drum_selftest_io_waits_for_starting_block(TESTCONTEXT *testContext)
 {
-    drum_selftest_attach_test_file();
-    drum_selftest_detach_and_delete_test_file();
+	drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 2, 1));
+	drum_selftest_execute_cycle();
+	drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 2, 1));
+	drum_selftest_execute_cycle();
+	drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 2, 1));
+	drum_selftest_execute_cycle();
+	drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 3, 0));
 }
