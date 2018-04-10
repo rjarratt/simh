@@ -87,6 +87,9 @@ static void drum_selftest_io_request_for_invalid_block_sets_illegal_request(TEST
 static void drum_selftest_io_request_for_zero_size_sets_illegal_request(TESTCONTEXT *testContext);
 static void drum_selftest_io_request_for_invalid_size_sets_illegal_request(TESTCONTEXT *testContext);
 static void drum_selftest_io_waits_for_starting_block(TESTCONTEXT *testContext);
+//static void drum_selftest_io_updates_disc_address_with_progress(TESTCONTEXT *testContext);
+//static void drum_selftest_io_updates_store_address_with_progress(TESTCONTEXT *testContext);
+//static void drum_selftest_io_updates_disc_status_on_completion(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
