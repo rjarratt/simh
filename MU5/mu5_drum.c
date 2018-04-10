@@ -67,6 +67,8 @@ static void drum_set_unit_present(int unit_num, int present);
 static void drum_set_illegal_request();
 
 static uint8 drum_get_unit(t_uint64 disc_address);
+static int drum_is_disc_attached(UNIT *unit);
+static int drum_is_valid_request(UNIT *unit, t_uint64 disc_address);
 
 static t_uint64 drum_read_vx_store(t_addr addr);
 static void drum_write_vx_store(t_addr addr, t_uint64 value);
@@ -448,6 +450,18 @@ static uint8 drum_get_unit(t_uint64 disc_address)
     return result;
 }
 
+static int drum_is_disc_attached(UNIT *unit)
+{
+    return (unit->flags & UNIT_ATT);
+}
+
+static int drum_is_valid_request(UNIT *unit, t_uint64 disc_address)
+{
+    int result = 0;
+    result = drum_is_disc_attached(unit);
+    return result;
+}
+
 static void drum_setup_vx_store_location(uint8 line, t_uint64(*readCallback)(uint8), void(*writeCallback)(uint8,t_uint64))
 {
     VXSTORE_LINE *l = &VxStore[line];
@@ -467,7 +481,8 @@ static void drum_write_disc_address_callback(uint8 line, t_uint64 value)
 	reg_disc_address = value & 0xC03FFF3F;
     unit_num = drum_get_unit(reg_disc_address);
     unit = &drum_dev.units[unit_num];
-    if (!(unit->flags & UNIT_ATT))
+
+    if (!(drum_is_valid_request(unit, reg_disc_address)))
     {
         drum_set_illegal_request();
     }
