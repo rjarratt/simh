@@ -37,7 +37,11 @@ in this Software without prior written authorization from Robert Jarratt.
 #define REG_STOREADDRESS "STOREADDRESS"
 #define REG_DISCSTATUS "DISCSTATUS"
 #define REG_COMPLETEADDRESS "COMPLETEADDRESS"
+
 #define TEST_UNIT_NUM 3
+#define TEST_COMPLETE_ADDRESS RA_LOCAL(0)
+#define TEST_STORE_ADDRESS RA_LOCAL(2)
+
 #define READ 1
 #define WRITE 0
 
@@ -57,6 +61,7 @@ static void drum_selftest_execute_cycle(void);
 static void drum_selftest_execute_cycle_unit(int unitNum);
 
 static void drum_selftest_setup_vx_line(uint8 line, t_uint64 value);
+static void drum_selftest_setup_request(t_uint64 disc_address);
 
 static void drum_selftest_set_failure(void);
 static void drum_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
@@ -88,6 +93,8 @@ static void drum_selftest_io_request_for_unattached_disk_sets_illegal_request(TE
 static void drum_selftest_io_request_for_invalid_block_sets_illegal_request(TESTCONTEXT *testContext);
 static void drum_selftest_io_request_for_zero_size_sets_illegal_request(TESTCONTEXT *testContext);
 static void drum_selftest_io_request_for_invalid_size_sets_illegal_request(TESTCONTEXT *testContext);
+static void drum_selftest_io_request_for_unit_0_store_address_sets_illegal_request(TESTCONTEXT *testContext);
+static void drum_selftest_io_request_for_unit_0_complete_address_sets_illegal_request(TESTCONTEXT *testContext);
 static void drum_selftest_io_waits_for_starting_block(TESTCONTEXT *testContext);
 static void drum_selftest_io_waits_for_full_revolution_if_starting_block_is_current_block(TESTCONTEXT *testContext);
 static void drum_selftest_io_transfer_stops_updating_disc_address_on_completion(TESTCONTEXT *testContext);
@@ -96,7 +103,6 @@ static void drum_selftest_io_transfer_of_1_block_updates_disc_address_and_stops_
 static void drum_selftest_io_transfer_of_3_blocks_updates_disc_address_and_stops_updating_on_completion(TESTCONTEXT *testContext);
 static void drum_selftest_io_transfer_of_37_blocks_updates_disc_address_and_stops_updating_on_completion(TESTCONTEXT *testContext);
 static void drum_selftest_io_transfer_updates_disc_status_on_completion(TESTCONTEXT *testContext);
-// TODO: validate store address and complete address
 //static void drum_selftest_io_updates_store_address_with_progress(TESTCONTEXT *testContext);
 // TODO: stop on completion
 // TODO write to complete address
@@ -124,6 +130,8 @@ static UNITTEST tests[] =
     { "I/O request for invalid block sets illegal request bit", drum_selftest_io_request_for_invalid_block_sets_illegal_request },
     { "I/O request for zero size sets illegal request bit", drum_selftest_io_request_for_zero_size_sets_illegal_request },
     { "I/O request for invalid size sets illegal request bit", drum_selftest_io_request_for_invalid_size_sets_illegal_request },
+	{ "I/O request for unit 0 store address sets illegal request bit", drum_selftest_io_request_for_unit_0_store_address_sets_illegal_request },
+	{ "I/O request for unit 0 complete address sets illegal request bit", drum_selftest_io_request_for_unit_0_complete_address_sets_illegal_request },
     { "I/O operation waits for drum to rotate to starting block", drum_selftest_io_waits_for_starting_block },
 	{ "I/O operation waits for drum to do a full rotation if the starting block is the current block", drum_selftest_io_waits_for_full_revolution_if_starting_block_is_current_block },
 	{ "I/O operation stops updating disc address on completion", drum_selftest_io_transfer_stops_updating_disc_address_on_completion },
@@ -188,6 +196,13 @@ static void drum_selftest_execute_cycle_unit(int unitNum)
 static void drum_selftest_setup_vx_line(uint8 line, t_uint64 value)
 {
     exch_write(RA_VX_DRUM(line), value);
+}
+
+static void drum_selftest_setup_request(t_uint64 disc_address)
+{
+	drum_selftest_setup_vx_line(DRUM_VX_STORE_STORE_ADDRESS, TEST_STORE_ADDRESS);
+	drum_selftest_setup_vx_line(DRUM_VX_STORE_COMPLETE_ADDRESS, TEST_COMPLETE_ADDRESS);
+	drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, disc_address);
 }
 
 static void drum_selftest_set_failure(void)
@@ -363,36 +378,54 @@ static void drum_selftest_read_from_complete_address(TESTCONTEXT *testContext)
 static void drum_selftest_io_request_for_unattached_disk_sets_illegal_request(TESTCONTEXT *testContext)
 {
     drum_selftest_detach_and_delete_test_file();
-    drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 0, 1));
+	drum_selftest_setup_request(DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 0, 1));
     drum_selftest_assert_illegal_request();
 }
 
 static void drum_selftest_io_request_for_invalid_block_sets_illegal_request(TESTCONTEXT *testContext)
 {
     drum_selftest_attach_test_file();
-    drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, DRUM_BLOCKS_PER_BAND, 1));
+	drum_selftest_setup_request(DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, DRUM_BLOCKS_PER_BAND, 1));
     drum_selftest_assert_illegal_request();
 }
 
 static void drum_selftest_io_request_for_zero_size_sets_illegal_request(TESTCONTEXT *testContext)
 {
     drum_selftest_attach_test_file();
-    drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 0, 0));
+	drum_selftest_setup_request(DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 0, 0));
     drum_selftest_assert_illegal_request();
 }
 
 static void drum_selftest_io_request_for_invalid_size_sets_illegal_request(TESTCONTEXT *testContext)
 {
     drum_selftest_attach_test_file();
-    drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 0, DRUM_BLOCKS_PER_BAND));
+	drum_selftest_setup_request(DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 0, DRUM_BLOCKS_PER_BAND));
     drum_selftest_assert_illegal_request();
+}
+
+static void drum_selftest_io_request_for_unit_0_store_address_sets_illegal_request(TESTCONTEXT *testContext)
+{
+	drum_selftest_attach_test_file();
+	drum_selftest_setup_vx_line(DRUM_VX_STORE_STORE_ADDRESS, 0);
+	drum_selftest_setup_vx_line(DRUM_VX_STORE_COMPLETE_ADDRESS, RA_LOCAL(2));
+	drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 0, 1));
+	drum_selftest_assert_illegal_request();
+}
+
+static void drum_selftest_io_request_for_unit_0_complete_address_sets_illegal_request(TESTCONTEXT *testContext)
+{
+	drum_selftest_attach_test_file();
+	drum_selftest_setup_vx_line(DRUM_VX_STORE_STORE_ADDRESS, RA_LOCAL(0));
+	drum_selftest_setup_vx_line(DRUM_VX_STORE_COMPLETE_ADDRESS, 0);
+	drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 0, 1));
+	drum_selftest_assert_illegal_request();
 }
 
 static void drum_selftest_io_waits_for_starting_block(TESTCONTEXT *testContext)
 {
 	t_uint64 request = DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 2, 1);
 
-	drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, request);
+	drum_selftest_setup_request(request);
 	drum_selftest_assert_legal_request();
 
 	drum_selftest_execute_cycle();
@@ -408,7 +441,7 @@ static void drum_selftest_io_waits_for_full_revolution_if_starting_block_is_curr
 	int i;
 	t_uint64 request = DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 0, 1);
 
-	drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, request);
+	drum_selftest_setup_request(request);
 	drum_selftest_assert_legal_request();
 
 	for (i = 0; i < DRUM_BLOCKS_PER_BAND; i++)
@@ -427,7 +460,7 @@ static void drum_selftest_io_transfer_stops_updating_disc_address_on_completion(
 	t_uint64 request = DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 1, 1);
 	t_uint64 final = DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 2, 0);
 
-	drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, request);
+	drum_selftest_setup_request(request);
 	drum_selftest_assert_legal_request();
 
 	drum_selftest_execute_cycle();
@@ -445,7 +478,7 @@ static void drum_selftest_io_transfer_of_n_blocks_updates_disc_address_and_stops
 	t_uint64 request = DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 1, n);
 	t_uint64 final = DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, (1 + n) % DRUM_BLOCKS_PER_BAND, 0);
 
-	drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, request);
+	drum_selftest_setup_request(request);
 	drum_selftest_assert_legal_request();
 
 	drum_selftest_execute_cycle();
@@ -483,7 +516,7 @@ static void drum_selftest_io_transfer_updates_disc_status_on_completion(TESTCONT
 	int i;
 	t_uint64 request = DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 1, 2);
 
-	drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, request);
+	drum_selftest_setup_request(request);
 	drum_selftest_assert_legal_request();
 	drum_selftest_assert_request_incomplete();
 

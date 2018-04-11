@@ -99,6 +99,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define RA_IN_CPR_MASK 0xFFFFF /* Only most significant 20 bits, the least significant 4 bits represent the smallest page size and are not held in the RA field of the CPR */
 #define RA_BIT_LENGTH 24
 #define RA_MASK 0xFFFFFF
+#define RA_MASK_FULL 0xFFFFFFF /* including unit */
 #define RA_X_MASK 0x7FFFFF
 #define RA_VX_MASK 0x0800000
 

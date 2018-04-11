@@ -43,6 +43,7 @@ Lockout and self test functions are not emulated.
 #include "sim_defs.h"
 #include "sim_disk.h"
 #include "mu5_defs.h"
+#include "mu5_exch.h"
 #include "mu5_sac.h"
 #include "mu5_drum.h"
 
@@ -74,7 +75,7 @@ static uint8 drum_get_band(t_uint64 disc_address);
 static uint8 drum_get_block(t_uint64 disc_address);
 static uint8 drum_get_size(t_uint64 disc_address);
 static int drum_is_disc_attached(UNIT *unit);
-static int drum_is_valid_request(UNIT *unit, t_uint64 disc_address);
+static int drum_is_valid_request(UNIT *unit, t_uint64 disc_address, t_uint64 store_address, t_uint64 complete_address);
 static int drum_is_read_request(t_uint64 disc_address);
 
 static t_uint64 drum_read_vx_store(t_addr addr);
@@ -517,7 +518,7 @@ static int drum_is_disc_attached(UNIT *unit)
     return (unit->flags & UNIT_ATT);
 }
 
-static int drum_is_valid_request(UNIT *unit, t_uint64 disc_address)
+static int drum_is_valid_request(UNIT *unit, t_uint64 disc_address, t_uint64 store_address, t_uint64 complete_address)
 {
     int result = 1;
     uint8 band = drum_get_band(disc_address);
@@ -546,6 +547,18 @@ static int drum_is_valid_request(UNIT *unit, t_uint64 disc_address)
 	{
 		result = 0;
 		sim_debug(LOG_DRUM_REQUEST, &drum_dev, " Invalid size");
+	}
+
+	if (exch_get_unit(store_address & RA_MASK_FULL) == UNIT_FIXED_HEAD_DISC)
+	{
+		result = 0;
+		sim_debug(LOG_DRUM_REQUEST, &drum_dev, " Invalid store address");
+	}
+
+	if (exch_get_unit(complete_address & RA_MASK_FULL) == UNIT_FIXED_HEAD_DISC)
+	{
+		result = 0;
+		sim_debug(LOG_DRUM_REQUEST, &drum_dev, " Invalid complete address");
 	}
 
 	sim_debug(LOG_DRUM_REQUEST, &drum_dev, " %s", result ? "[VALID]\n" : "[INVALID]\n");
@@ -581,7 +594,7 @@ static void drum_write_disc_address_callback(uint8 line, t_uint64 value)
     unit = &drum_dev.units[unit_num];
 
 	sim_debug(LOG_DRUM_REQUEST, &drum_dev, "%s disk %d. Band=%d Block=%d Size=%d", drum_is_read_request(reg_disc_address) ? "Read" : "Write", unit_num, drum_get_band(reg_disc_address), drum_get_block(reg_disc_address), drum_get_size(reg_disc_address));
-    if (!(drum_is_valid_request(unit, reg_disc_address)))
+    if (!(drum_is_valid_request(unit, reg_disc_address, reg_complete_address, reg_store_address)))
     {
         drum_set_illegal_request();
     }

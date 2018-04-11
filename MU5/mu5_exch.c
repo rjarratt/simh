@@ -52,7 +52,6 @@ on p134 of the book, namely:
 
 #define LOG_EXCH_REAL_ACCESSES   (1 << 0)
 
-static int8 exch_get_unit(t_addr addr);
 static t_addr exch_get_unit_address(t_addr addr);
 
 static UNIT exch_unit =
@@ -190,7 +189,7 @@ void exch_write(t_addr address, t_uint64 value)
     }
 }
 
-static int8 exch_get_unit(t_addr addr)
+uint8 exch_get_unit(t_addr addr)
 {
 	return (addr >> 24) & 0xF;
 }
