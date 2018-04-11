@@ -208,6 +208,7 @@ static uint32 reg_request_self_test;
 static uint32 reg_self_test_command;
 static uint32 reg_self_test_state;
 
+static int transfer_requested = 0;
 static int transfer_in_progress = 0;
 
 static REG drum_reg[] =
@@ -294,14 +295,25 @@ static t_stat drum_svc(UNIT *uptr)
 	int unit_num = drum_get_unit_num(uptr);
 	drum_update_current_position(unit_num);
 
-	if (transfer_in_progress)
+	if (transfer_requested)
 	{
 		int current_position = drum_get_current_position(unit_num);
 		int desired_position = drum_get_block(reg_disc_address);
-		if (current_position == desired_position + 1)
+
+		if (!transfer_in_progress && current_position == desired_position)
+		{
+			transfer_in_progress = 1;
+		}
+
+		if (transfer_in_progress && current_position == desired_position + 1)
 		{
 			int size = drum_get_size(reg_disc_address) - 1;
-			reg_disc_address = (reg_disc_address & 0xFFFFC000) | (current_position << 8) | size;
+			reg_disc_address = (reg_disc_address & 0xFFFFC000) | (current_position << 8) | size & 0x3F;
+			if (size == 0)
+			{
+				transfer_requested = 0;
+				transfer_in_progress = 0;
+			}
 		}
 	}
 
@@ -347,6 +359,9 @@ void drum_reset_state(void)
 	reg_request_self_test = 0;
 	reg_self_test_command = 0;
 	reg_self_test_state = 0;
+
+	transfer_requested = 0;
+	transfer_in_progress = 0;
 
     drum_setup_vx_store_location(DRUM_VX_STORE_DISC_ADDRESS, drum_read_disc_address_callback, drum_write_disc_address_callback);
     drum_setup_vx_store_location(DRUM_VX_STORE_STORE_ADDRESS, drum_read_store_address_callback, drum_write_store_address_callback);
@@ -535,7 +550,7 @@ static void drum_write_disc_address_callback(uint8 line, t_uint64 value)
     }
 	else
 	{
-		transfer_in_progress = 1;
+		transfer_requested = 1;
 	}
 }
 

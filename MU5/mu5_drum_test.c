@@ -87,8 +87,11 @@ static void drum_selftest_io_request_for_invalid_block_sets_illegal_request(TEST
 static void drum_selftest_io_request_for_zero_size_sets_illegal_request(TESTCONTEXT *testContext);
 static void drum_selftest_io_request_for_invalid_size_sets_illegal_request(TESTCONTEXT *testContext);
 static void drum_selftest_io_waits_for_starting_block(TESTCONTEXT *testContext);
+static void drum_selftest_io_waits_for_full_revolution_if_starting_block_is_current_block(TESTCONTEXT *testContext);
 // TODO: disc address stops being updated on completion
 // TODO: full revolution wait
+// TODO: stop on completion
+// TODO: length 1, length > 1, length 37
 //static void drum_selftest_io_updates_disc_address_with_progress(TESTCONTEXT *testContext);
 // TODO: stop on completion
 //static void drum_selftest_io_updates_store_address_with_progress(TESTCONTEXT *testContext);
@@ -119,7 +122,8 @@ static UNITTEST tests[] =
     { "I/O request for invalid block sets illegal request bit", drum_selftest_io_request_for_invalid_block_sets_illegal_request },
     { "I/O request for zero size sets illegal request bit", drum_selftest_io_request_for_zero_size_sets_illegal_request },
     { "I/O request for invalid size sets illegal request bit", drum_selftest_io_request_for_invalid_size_sets_illegal_request },
-    { "I/O operation waits for drum to rotate to starting block", drum_selftest_io_waits_for_starting_block }
+    { "I/O operation waits for drum to rotate to starting block", drum_selftest_io_waits_for_starting_block },
+	{ "I/O operation waits for drum to do a full rotation if the starting block is the current block", drum_selftest_io_waits_for_full_revolution_if_starting_block_is_current_block }
 
     // TODO: Interrupts
     // TODO: Read
@@ -370,11 +374,34 @@ static void drum_selftest_io_request_for_invalid_size_sets_illegal_request(TESTC
 
 static void drum_selftest_io_waits_for_starting_block(TESTCONTEXT *testContext)
 {
-	drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 2, 1));
+	t_uint64 request = DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 2, 1);
+
+	drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, request);
+	drum_selftest_assert_legal_request();
+
 	drum_selftest_execute_cycle();
-	drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 2, 1));
+	drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_DISC_ADDRESS, request);
 	drum_selftest_execute_cycle();
-	drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 2, 1));
+	drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_DISC_ADDRESS, request);
 	drum_selftest_execute_cycle();
 	drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 3, 0));
 }
+
+static void drum_selftest_io_waits_for_full_revolution_if_starting_block_is_current_block(TESTCONTEXT *testContext)
+{
+	int i;
+	t_uint64 request = DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 0, 1);
+
+	drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, request);
+	drum_selftest_assert_legal_request();
+
+	for (i = 0; i < DRUM_BLOCKS_PER_BAND; i++)
+	{
+		drum_selftest_execute_cycle();
+		drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_DISC_ADDRESS, request);
+	}
+
+	drum_selftest_execute_cycle();
+	drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 1, 0));
+}
+
