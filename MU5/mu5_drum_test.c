@@ -71,6 +71,7 @@ static void drum_selftest_assert_legal_request();
 static void drum_selftest_assert_illegal_request();
 static void drum_selftest_assert_request_incomplete();
 static void drum_selftest_assert_request_complete();
+static void drum_selftest_assert_store_address_equals(t_uint64 expectedValue);
 
 static void drum_selftest_current_position_incremented_on_each_cycle(TESTCONTEXT *testContext);
 static void drum_selftest_current_position_wraps_after_last_block(TESTCONTEXT *testContext);
@@ -103,8 +104,7 @@ static void drum_selftest_io_transfer_of_1_block_updates_disc_address_and_stops_
 static void drum_selftest_io_transfer_of_3_blocks_updates_disc_address_and_stops_updating_on_completion(TESTCONTEXT *testContext);
 static void drum_selftest_io_transfer_of_37_blocks_updates_disc_address_and_stops_updating_on_completion(TESTCONTEXT *testContext);
 static void drum_selftest_io_transfer_updates_disc_status_on_completion(TESTCONTEXT *testContext);
-//static void drum_selftest_io_updates_store_address_with_progress(TESTCONTEXT *testContext);
-// TODO: stop on completion
+static void drum_selftest_io_transfer_updates_store_address_during_transfer(TESTCONTEXT *testContext);
 // TODO write to complete address
 
 static UNITTEST tests[] =
@@ -138,7 +138,8 @@ static UNITTEST tests[] =
 	{ "I/O operation to transfer 1 block updates disc address during transfer and then stops updating it", drum_selftest_io_transfer_of_1_block_updates_disc_address_and_stops_updating_on_completion },
 	{ "I/O operation to transfer 3 blocks updates disc address during transfer and then stops updating it", drum_selftest_io_transfer_of_3_blocks_updates_disc_address_and_stops_updating_on_completion },
 	{ "I/O operation to transfer 37 updates disc address during transfer and then stops updating it", drum_selftest_io_transfer_of_37_blocks_updates_disc_address_and_stops_updating_on_completion },
-	{ "I/O operation updates disc status on completion", drum_selftest_io_transfer_updates_disc_status_on_completion }
+	{ "I/O operation updates disc status on completion", drum_selftest_io_transfer_updates_disc_status_on_completion },
+	{ "I/O operation updates store address during transfer", drum_selftest_io_transfer_updates_store_address_during_transfer }
 // TODO: Interrupts
     // TODO: Read
     // TODO: Write
@@ -248,6 +249,11 @@ static void drum_selftest_assert_request_incomplete()
 static void drum_selftest_assert_request_complete()
 {
 	drum_selftest_assert_reg_equals_mask(REG_DISCSTATUS, DRUM_DISC_STATUS_DECODE | DRUM_DISC_STATUS_END_TRANSFER, DRUM_DISC_STATUS_DECODE | DRUM_DISC_STATUS_END_TRANSFER);
+}
+
+static void drum_selftest_assert_store_address_equals(t_uint64 expectedValue)
+{
+	drum_selftest_assert_reg_equals_mask(REG_STOREADDRESS, RA_MASK_FULL, expectedValue);
 }
 
 static void drum_selftest_current_position_incremented_on_each_cycle(TESTCONTEXT *testContext)
@@ -532,5 +538,27 @@ static void drum_selftest_io_transfer_updates_disc_status_on_completion(TESTCONT
 	{
 		drum_selftest_execute_cycle();
 		drum_selftest_assert_request_complete();
+	}
+}
+
+static void drum_selftest_io_transfer_updates_store_address_during_transfer(TESTCONTEXT *testContext)
+{
+	int i;
+	t_uint64 request = DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 1, 2);
+	drum_selftest_setup_request(request);
+
+	drum_selftest_execute_cycle();
+	drum_selftest_assert_store_address_equals(TEST_STORE_ADDRESS);
+
+	drum_selftest_execute_cycle();
+	drum_selftest_assert_store_address_equals(TEST_STORE_ADDRESS + DRUM_WORDS_PER_BLOCK);
+
+	drum_selftest_execute_cycle();
+	drum_selftest_assert_store_address_equals(TEST_STORE_ADDRESS + (2 * DRUM_WORDS_PER_BLOCK));
+
+	for (i = 0; i < DRUM_BLOCKS_PER_BAND; i++)
+	{
+		drum_selftest_execute_cycle();
+		drum_selftest_assert_store_address_equals(TEST_STORE_ADDRESS + (2 * DRUM_WORDS_PER_BLOCK));
 	}
 }

@@ -94,10 +94,10 @@ static void drum_write_complete_address_callback(uint8 line, t_uint64 value);
 
 static UNIT drum_unit[] =
 {
-	{ UDATA(&drum_svc, UNIT_FIX | UNIT_BINK | UNIT_ATTABLE | UNIT_DISABLE, DRUM_BLOCKS_PER_BAND * DRUM_WORDS_PER_BLOCK * DRUM_BANDS_PER_UNIT) },
-	{ UDATA(&drum_svc, UNIT_FIX | UNIT_BINK | UNIT_ATTABLE | UNIT_DISABLE, DRUM_BLOCKS_PER_BAND * DRUM_WORDS_PER_BLOCK * DRUM_BANDS_PER_UNIT) },
-	{ UDATA(&drum_svc, UNIT_FIX | UNIT_BINK | UNIT_ATTABLE | UNIT_DISABLE, DRUM_BLOCKS_PER_BAND * DRUM_WORDS_PER_BLOCK * DRUM_BANDS_PER_UNIT) },
-	{ UDATA(&drum_svc, UNIT_FIX | UNIT_BINK | UNIT_ATTABLE | UNIT_DISABLE, DRUM_BLOCKS_PER_BAND * DRUM_WORDS_PER_BLOCK * DRUM_BANDS_PER_UNIT) }
+	{ UDATA(&drum_svc, UNIT_FIX | UNIT_BINK | UNIT_ATTABLE | UNIT_DISABLE, DRUM_BLOCKS_PER_BAND * DRUM_BYTES_PER_BLOCK * DRUM_BANDS_PER_UNIT) },
+	{ UDATA(&drum_svc, UNIT_FIX | UNIT_BINK | UNIT_ATTABLE | UNIT_DISABLE, DRUM_BLOCKS_PER_BAND * DRUM_BYTES_PER_BLOCK * DRUM_BANDS_PER_UNIT) },
+	{ UDATA(&drum_svc, UNIT_FIX | UNIT_BINK | UNIT_ATTABLE | UNIT_DISABLE, DRUM_BLOCKS_PER_BAND * DRUM_BYTES_PER_BLOCK * DRUM_BANDS_PER_UNIT) },
+	{ UDATA(&drum_svc, UNIT_FIX | UNIT_BINK | UNIT_ATTABLE | UNIT_DISABLE, DRUM_BLOCKS_PER_BAND * DRUM_BYTES_PER_BLOCK * DRUM_BANDS_PER_UNIT) }
 };
 
 BITFIELD disc_address_bits[] = {
@@ -316,6 +316,7 @@ static t_stat drum_svc(UNIT *uptr)
 		{
 			int size = drum_get_size(reg_disc_address) - 1;
 			reg_disc_address = (reg_disc_address & 0xFFFFC000) | (current_position << 8) | size & 0x3F;
+			reg_store_address += DRUM_WORDS_PER_BLOCK; /* TODO: transfer actual data */
 			if (size == 0)
 			{
 				transfer_requested = 0;
@@ -334,7 +335,7 @@ t_stat drum_attach(UNIT *uptr, CONST char *cptr)
 {
 	t_stat r;
 	size_t xferElementSize = drum_dev.dwidth / 8;
-	size_t sectorSizeBytes = DRUM_WORDS_PER_BLOCK * drum_dev.aincr * xferElementSize;
+	size_t sectorSizeBytes = DRUM_BYTES_PER_BLOCK * drum_dev.aincr * xferElementSize;
 	int unit_num = drum_get_unit_num(uptr);
 
 	r = sim_disk_attach(uptr, cptr, sectorSizeBytes, xferElementSize, 1, 0, "DRUM", 0, 0);

@@ -28,7 +28,8 @@ in this Software without prior written authorization from Robert Jarratt.
 
 #define DRUM_NUM_UNITS 4
 #define DRUM_BLOCKS_PER_BAND 37
-#define DRUM_WORDS_PER_BLOCK 1024
+#define DRUM_BYTES_PER_BLOCK 1024
+#define DRUM_WORDS_PER_BLOCK 256
 #define DRUM_BANDS_PER_UNIT 64
 
 #define DRUM_VX_STORE_DISC_ADDRESS 0
