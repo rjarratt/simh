@@ -41,7 +41,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define READ 1
 #define WRITE 0
 
-#define DISC_ADDRESS(rw, disc, band, block, size) (((t_uint64)rw << 30) | ((t_uint64)disc << 20) | ((t_uint64)band << 14) | ((t_uint64)block << 8) | (t_uint64)size)
+#define DISC_ADDRESS(rw, disc, band, block, size) (((t_uint64)(rw) << 30) | ((t_uint64)(disc) << 20) | ((t_uint64)(band) << 14) | ((t_uint64)(block) << 8) | (t_uint64)(size))
 
 static TESTCONTEXT *localTestContext;
 extern DEVICE cpu_dev;
@@ -89,9 +89,11 @@ static void drum_selftest_io_request_for_invalid_size_sets_illegal_request(TESTC
 static void drum_selftest_io_waits_for_starting_block(TESTCONTEXT *testContext);
 static void drum_selftest_io_waits_for_full_revolution_if_starting_block_is_current_block(TESTCONTEXT *testContext);
 static void drum_selftest_io_transfer_stops_updating_disc_address_on_completion(TESTCONTEXT *testContext);
-// TODO: length 1, length > 1, length 37
-//static void drum_selftest_io_updates_disc_address_with_progress(TESTCONTEXT *testContext);
-// TODO: stop on completion
+static void drum_selftest_io_transfer_of_n_blocks_updates_disc_address_and_stops_updating_on_completion(TESTCONTEXT *testContext, int n);
+static void drum_selftest_io_transfer_of_1_block_updates_disc_address_and_stops_updating_on_completion(TESTCONTEXT *testContext);
+static void drum_selftest_io_transfer_of_3_blocks_updates_disc_address_and_stops_updating_on_completion(TESTCONTEXT *testContext);
+static void drum_selftest_io_transfer_of_37_blocks_updates_disc_address_and_stops_updating_on_completion(TESTCONTEXT *testContext);
+
 //static void drum_selftest_io_updates_store_address_with_progress(TESTCONTEXT *testContext);
 // TODO: stop on completion
 //static void drum_selftest_io_updates_disc_status_on_completion(TESTCONTEXT *testContext);
@@ -122,8 +124,11 @@ static UNITTEST tests[] =
     { "I/O request for invalid size sets illegal request bit", drum_selftest_io_request_for_invalid_size_sets_illegal_request },
     { "I/O operation waits for drum to rotate to starting block", drum_selftest_io_waits_for_starting_block },
 	{ "I/O operation waits for drum to do a full rotation if the starting block is the current block", drum_selftest_io_waits_for_full_revolution_if_starting_block_is_current_block },
-	{ "I/O operation stops updating disc address on completion", drum_selftest_io_transfer_stops_updating_disc_address_on_completion }
-    // TODO: Interrupts
+	{ "I/O operation stops updating disc address on completion", drum_selftest_io_transfer_stops_updating_disc_address_on_completion },
+	{ "I/O operation to transfer 1 block updates disc address during transfer and then stops updating it", drum_selftest_io_transfer_of_1_block_updates_disc_address_and_stops_updating_on_completion },
+	{ "I/O operation to transfer 3 blocks updates disc address during transfer and then stops updating it", drum_selftest_io_transfer_of_3_blocks_updates_disc_address_and_stops_updating_on_completion },
+	{ "I/O operation to transfer 37 updates disc address during transfer and then stops updating it", drum_selftest_io_transfer_of_37_blocks_updates_disc_address_and_stops_updating_on_completion }
+// TODO: Interrupts
     // TODO: Read
     // TODO: Write
     // TODO: multiple blocks
@@ -419,5 +424,44 @@ static void drum_selftest_io_transfer_stops_updating_disc_address_on_completion(
 		drum_selftest_execute_cycle();
 		drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_DISC_ADDRESS, final);
 	}
+}
+
+static void drum_selftest_io_transfer_of_n_blocks_updates_disc_address_and_stops_updating_on_completion(TESTCONTEXT *testContext, int n)
+{
+	int i;
+	t_uint64 request = DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 1, n);
+	t_uint64 final = DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, (1 + n) % DRUM_BLOCKS_PER_BAND, 0);
+
+	drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, request);
+	drum_selftest_assert_legal_request();
+
+	drum_selftest_execute_cycle();
+
+	for (i = 0; i < n; i++)
+	{
+		drum_selftest_execute_cycle();
+		drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, (2 + i) % DRUM_BANDS_PER_UNIT, n-i-1));
+	}
+
+	for (i = 0; i < DRUM_BLOCKS_PER_BAND; i++)
+	{
+		drum_selftest_execute_cycle();
+		drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_DISC_ADDRESS, final);
+	}
+}
+
+static void drum_selftest_io_transfer_of_1_block_updates_disc_address_and_stops_updating_on_completion(TESTCONTEXT *testContext)
+{
+	drum_selftest_io_transfer_of_n_blocks_updates_disc_address_and_stops_updating_on_completion(testContext, 1);
+}
+
+static void drum_selftest_io_transfer_of_3_blocks_updates_disc_address_and_stops_updating_on_completion(TESTCONTEXT *testContext)
+{
+	drum_selftest_io_transfer_of_n_blocks_updates_disc_address_and_stops_updating_on_completion(testContext, 3);
+}
+
+static void drum_selftest_io_transfer_of_37_blocks_updates_disc_address_and_stops_updating_on_completion(TESTCONTEXT *testContext)
+{
+	drum_selftest_io_transfer_of_n_blocks_updates_disc_address_and_stops_updating_on_completion(testContext, 3);
 }
 
