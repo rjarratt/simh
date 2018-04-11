@@ -67,6 +67,7 @@ static void drum_selftest_set_failure(void);
 static void drum_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 static void drum_selftest_assert_reg_equals_mask(char *name, t_uint64 mask, t_uint64 expectedValue);
 static void drum_selftest_assert_vx_line_contents(uint8 line, t_uint64 expectedValue);
+static void drum_selftest_assert_real_address_contents(t_addr address, t_uint64 expectedValue);
 static void drum_selftest_assert_legal_request();
 static void drum_selftest_assert_illegal_request();
 static void drum_selftest_assert_request_incomplete();
@@ -105,7 +106,8 @@ static void drum_selftest_io_transfer_of_3_blocks_updates_disc_address_and_stops
 static void drum_selftest_io_transfer_of_37_blocks_updates_disc_address_and_stops_updating_on_completion(TESTCONTEXT *testContext);
 static void drum_selftest_io_transfer_updates_disc_status_on_completion(TESTCONTEXT *testContext);
 static void drum_selftest_io_transfer_updates_store_address_during_transfer(TESTCONTEXT *testContext);
-// TODO write to complete address
+static void drum_selftest_io_transfer_writes_status_to_complete_address_on_completion(TESTCONTEXT *testContext);
+// TODO: attach makes disk present, detach makes it absent.
 
 static UNITTEST tests[] =
 {
@@ -139,7 +141,8 @@ static UNITTEST tests[] =
 	{ "I/O operation to transfer 3 blocks updates disc address during transfer and then stops updating it", drum_selftest_io_transfer_of_3_blocks_updates_disc_address_and_stops_updating_on_completion },
 	{ "I/O operation to transfer 37 updates disc address during transfer and then stops updating it", drum_selftest_io_transfer_of_37_blocks_updates_disc_address_and_stops_updating_on_completion },
 	{ "I/O operation updates disc status on completion", drum_selftest_io_transfer_updates_disc_status_on_completion },
-	{ "I/O operation updates store address during transfer", drum_selftest_io_transfer_updates_store_address_during_transfer }
+	{ "I/O operation updates store address during transfer", drum_selftest_io_transfer_updates_store_address_during_transfer },
+	{ "I/O operation stores disc status to complete address on completion", drum_selftest_io_transfer_writes_status_to_complete_address_on_completion }
 // TODO: Interrupts
     // TODO: Read
     // TODO: Write
@@ -180,6 +183,7 @@ static void drum_selftest_detach_and_delete_test_file(void)
 
 static void drum_selftest_reset(UNITTEST *test)
 {
+	sac_reset_state(); /* reset memory that gets set by transfers, including the complete address write */
 	drum_reset_state();
 }
 
@@ -229,6 +233,16 @@ static void drum_selftest_assert_vx_line_contents(uint8 line, t_uint64 expectedV
         sim_debug(LOG_SELFTEST_FAIL, &drum_dev, "Expected value at Vx line %hu to be %016llX, but was %016llX\n", line, expectedValue, actualValue);
         drum_selftest_set_failure();
     }
+}
+
+static void drum_selftest_assert_real_address_contents(t_addr address, t_uint64 expectedValue)
+{
+	t_uint64 actualValue = exch_read(address);
+	if (actualValue != expectedValue)
+	{
+		sim_debug(LOG_SELFTEST_FAIL, &drum_dev, "Expected value at read address %06x to be %016llX, but was %016llX\n", address, expectedValue, actualValue);
+		drum_selftest_set_failure();
+	}
 }
 
 static void drum_selftest_assert_legal_request()
@@ -560,5 +574,30 @@ static void drum_selftest_io_transfer_updates_store_address_during_transfer(TEST
 	{
 		drum_selftest_execute_cycle();
 		drum_selftest_assert_store_address_equals(TEST_STORE_ADDRESS + (2 * DRUM_WORDS_PER_BLOCK));
+	}
+}
+
+static void drum_selftest_io_transfer_writes_status_to_complete_address_on_completion(TESTCONTEXT *testContext)
+{
+	int i;
+	t_uint64 request = DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 1, 2);
+	t_uint64 finalStatus;
+	drum_selftest_setup_request(request);
+
+	drum_selftest_execute_cycle();
+
+	drum_selftest_assert_real_address_contents(TEST_COMPLETE_ADDRESS, 0);
+
+	drum_selftest_execute_cycle();
+	drum_selftest_assert_real_address_contents(TEST_COMPLETE_ADDRESS, 0);
+
+	drum_selftest_execute_cycle();
+	finalStatus = mu5_selftest_get_register(testContext, &drum_dev, REG_DISCSTATUS);
+	drum_selftest_assert_real_address_contents(TEST_COMPLETE_ADDRESS, finalStatus);
+
+	for (i = 0; i < DRUM_BLOCKS_PER_BAND; i++)
+	{
+		drum_selftest_execute_cycle();
+		drum_selftest_assert_real_address_contents(TEST_COMPLETE_ADDRESS, finalStatus);
 	}
 }

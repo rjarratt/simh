@@ -322,6 +322,7 @@ static t_stat drum_svc(UNIT *uptr)
 				transfer_requested = 0;
 				transfer_in_progress = 0;
 				drum_set_request_completed();
+				exch_write(reg_complete_address, reg_disc_status);
 				sim_debug(LOG_DRUM_REQUEST, &drum_dev, "Transfer completed\n");
 			}
 		}
