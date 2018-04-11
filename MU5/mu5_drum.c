@@ -65,6 +65,7 @@ static void drum_update_current_position(int unit_num);
 static int drum_get_unit_num(UNIT *uptr);
 static void drum_set_unit_present(int unit_num, int present);
 static void drum_set_illegal_request();
+static void drum_set_request_completed();
 
 static uint8 drum_get_unit(t_uint64 disc_address);
 static uint8 drum_get_band(t_uint64 disc_address);
@@ -313,6 +314,7 @@ static t_stat drum_svc(UNIT *uptr)
 			{
 				transfer_requested = 0;
 				transfer_in_progress = 0;
+				drum_set_request_completed();
 			}
 		}
 	}
@@ -473,6 +475,11 @@ static void drum_set_unit_present(int unit_num, int present)
 static void drum_set_illegal_request()
 {
 	reg_disc_status |= DRUM_DISC_STATUS_DECODE | DRUM_DISC_STATUS_ILLEGAL_REQUEST;
+}
+
+static void drum_set_request_completed()
+{
+	reg_disc_status |= DRUM_DISC_STATUS_DECODE | DRUM_DISC_STATUS_END_TRANSFER;
 }
 
 static uint8 drum_get_unit(t_uint64 disc_address)
