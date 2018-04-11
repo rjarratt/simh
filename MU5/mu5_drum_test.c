@@ -96,9 +96,10 @@ static void drum_selftest_io_transfer_of_1_block_updates_disc_address_and_stops_
 static void drum_selftest_io_transfer_of_3_blocks_updates_disc_address_and_stops_updating_on_completion(TESTCONTEXT *testContext);
 static void drum_selftest_io_transfer_of_37_blocks_updates_disc_address_and_stops_updating_on_completion(TESTCONTEXT *testContext);
 static void drum_selftest_io_transfer_updates_disc_status_on_completion(TESTCONTEXT *testContext);
-
+// TODO: validate store address and complete address
 //static void drum_selftest_io_updates_store_address_with_progress(TESTCONTEXT *testContext);
 // TODO: stop on completion
+// TODO write to complete address
 
 static UNITTEST tests[] =
 {

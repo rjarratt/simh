@@ -46,6 +46,8 @@ Lockout and self test functions are not emulated.
 #include "mu5_sac.h"
 #include "mu5_drum.h"
 
+#define LOG_DRUM_REQUEST           (1 << 0)
+
 #define BLOCK_TIME_USECS (20000 / DRUM_BLOCKS_PER_BAND) /* Rotation is 20ms */
 #define D0_ABSENT_MASK (1 << 17)
 #define D1_ABSENT_MASK (1 << 21)
@@ -73,6 +75,7 @@ static uint8 drum_get_block(t_uint64 disc_address);
 static uint8 drum_get_size(t_uint64 disc_address);
 static int drum_is_disc_attached(UNIT *unit);
 static int drum_is_valid_request(UNIT *unit, t_uint64 disc_address);
+static int drum_is_read_request(t_uint64 disc_address);
 
 static t_uint64 drum_read_vx_store(t_addr addr);
 static void drum_write_vx_store(t_addr addr, t_uint64 value);
@@ -234,9 +237,10 @@ static MTAB drum_mod[] =
 
 static DEBTAB drum_debtab[] =
 {
-	{ "EVENT",          SIM_DBG_EVENT,     "event dispatch activities" },
+	{ "EVENT",          SIM_DBG_EVENT,        "event dispatch activities" },
 	{ "SELFTESTDETAIL", LOG_SELFTEST_DETAIL,  "self test detailed output" },
-	{ "SELFTESTFAIL",   LOG_SELFTEST_FAIL,  "self test failure output" },
+	{ "SELFTESTFAIL",   LOG_SELFTEST_FAIL,    "self test failure output" },
+	{ "REQUEST",        LOG_DRUM_REQUEST,     "i/o requests"},
 	{ NULL,           0 }
 };
 
@@ -303,6 +307,7 @@ static t_stat drum_svc(UNIT *uptr)
 
 		if (!transfer_in_progress && current_position == desired_position)
 		{
+			sim_debug(LOG_DRUM_REQUEST, &drum_dev, "Transfer starting\n");
 			transfer_in_progress = 1;
 		}
 
@@ -315,6 +320,7 @@ static t_stat drum_svc(UNIT *uptr)
 				transfer_requested = 0;
 				transfer_in_progress = 0;
 				drum_set_request_completed();
+				sim_debug(LOG_DRUM_REQUEST, &drum_dev, "Transfer completed\n");
 			}
 		}
 	}
@@ -513,22 +519,45 @@ static int drum_is_disc_attached(UNIT *unit)
 
 static int drum_is_valid_request(UNIT *unit, t_uint64 disc_address)
 {
-    int result = 0;
+    int result = 1;
     uint8 band = drum_get_band(disc_address);
     uint8 block = drum_get_block(disc_address);
     uint8 size = drum_get_size(disc_address);
 
-    result = drum_is_disc_attached(unit)
-             &&
-             band < DRUM_BANDS_PER_UNIT
-             &&
-             block < DRUM_BLOCKS_PER_BAND
-             &&
-             size > 0
-             &&
-             size < DRUM_BLOCKS_PER_BAND;
+	if (!drum_is_disc_attached(unit))
+	{
+		result = 0;
+		sim_debug(LOG_DRUM_REQUEST, &drum_dev, " Not attached");
+	}
 
-    return result;
+	if (block >= DRUM_BLOCKS_PER_BAND)
+	{
+		result = 0;
+		sim_debug(LOG_DRUM_REQUEST, &drum_dev, " Invalid band");
+	}
+
+	if (size <= 0)
+	{
+		result = 0;
+		sim_debug(LOG_DRUM_REQUEST, &drum_dev, " Zero size");
+	}
+
+	if (size >= DRUM_BLOCKS_PER_BAND)
+	{
+		result = 0;
+		sim_debug(LOG_DRUM_REQUEST, &drum_dev, " Invalid size");
+	}
+
+	sim_debug(LOG_DRUM_REQUEST, &drum_dev, " %s", result ? "[VALID]\n" : "[INVALID]\n");
+
+	return result;
+}
+
+static int drum_is_read_request(t_uint64 disc_address)
+{
+	int result;
+	result = disc_address & 0x40000000;
+	return result;
 }
 
 static void drum_setup_vx_store_location(uint8 line, t_uint64(*readCallback)(uint8), void(*writeCallback)(uint8,t_uint64))
@@ -551,6 +580,7 @@ static void drum_write_disc_address_callback(uint8 line, t_uint64 value)
     unit_num = drum_get_unit(reg_disc_address);
     unit = &drum_dev.units[unit_num];
 
+	sim_debug(LOG_DRUM_REQUEST, &drum_dev, "%s disk %d. Band=%d Block=%d Size=%d", drum_is_read_request(reg_disc_address) ? "Read" : "Write", unit_num, drum_get_band(reg_disc_address), drum_get_block(reg_disc_address), drum_get_size(reg_disc_address));
     if (!(drum_is_valid_request(unit, reg_disc_address)))
     {
         drum_set_illegal_request();
