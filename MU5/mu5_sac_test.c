@@ -630,8 +630,9 @@ static void sac_selftest_read_write_vstore_location_can_be_read_back_after_write
 
 static void sac_selftest_write_v_register_can_be_read_back_from_vstore(TESTCONTEXT *testContext)
 {
-    exdep_cmd(EX_D, "sac v[4] A8A8A8A8");
-    sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, 4, 0xA8A8A8A8);
+	sac_write_v_store(SAC_V_STORE_BLOCK, 4, 0xA8A8A8A8);
+	/* exdep_cmd(EX_D, "sac v[4] A8A8A8A8"); code previously used this in the line above, but it resets the sim_switches variable which prevents memory being cleared in subsequent tests */
+	sac_selftest_assert_vstore_contents(SAC_V_STORE_BLOCK, 4, 0xA8A8A8A8);
 }
 
 static void sac_selftest_can_write_real_address_to_cpr(TESTCONTEXT *testContext)
