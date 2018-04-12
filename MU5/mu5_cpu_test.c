@@ -404,6 +404,7 @@ static void cpu_selftest_assert_illegal_v_store_access_interrupt();
 static void cpu_selftest_assert_illegal_function_as_system_error(void);
 static void cpu_selftest_assert_illegal_function_as_illegal_order(void);
 static void cpu_selftest_assert_cpr_not_equivalence_system_error_interrupt(void);
+static void cpu_selftest_assert_peripheral_window_interrupt(void);
 static void cpu_selftest_assert_test_equals(void);
 static void cpu_selftest_assert_test_greater_than(void);
 static void cpu_selftest_assert_test_less_than(void);
@@ -1015,6 +1016,12 @@ static void cpu_selftest_peripheral_window_interrupt_inhibited_if_L0IF_is_set(TE
 static void cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_level_1_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set(TESTCONTEXT *testContext);
+static void cpu_selftest_peripheral_window_message_generates_peripheral_window_interrupt(TESTCONTEXT *testContext);
+
+// TODO: Interrupts inhibited causes other interrupts to be queued.
+// TODO: Write to V-line sets it as not busy so other queued interrupts can be processed (after interrupt mode exited).
+// TODO: Message window V-line gets message, can be read, but is "reset" when written
+
 
 static void cpu_selftest_cpr_not_equivalance_interrupt_on_order_fetch_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext);
 static void cpu_selftest_cpr_not_equivalance_interrupt_on_primary_operand_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext);
@@ -1732,6 +1739,7 @@ static UNITTEST tests[] =
     { "Level 0 interrupt not inhibited if L1IF is set", cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set },
 	{ "Level 1 interrupt inhibited if L0IF is set", cpu_selftest_level_1_interrupt_inhibited_if_L0IF_is_set },
 	{ "Level 1 interrupt inhibited if L1IF is set", cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set },
+	{ "A peripheral window message generates a peripheral window interrupt", cpu_selftest_peripheral_window_message_generates_peripheral_window_interrupt },
 
     { "CPR Not Equivalence interrupt on order fetch stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_on_order_fetch_stores_link_that_re_executes_failed_order },
     { "CPR Not Equivalence interrupt on primary operand stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_on_primary_operand_stores_link_that_re_executes_failed_order },
@@ -2600,6 +2608,11 @@ static void cpu_selftest_assert_cpr_not_equivalence_system_error_interrupt(void)
 {
     cpu_selftest_assert_interrupt(INT_SYSTEM_ERROR);
     mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, SYSTEM_ERROR_STATUS_MASK_CPR_NEQV);
+}
+
+static void cpu_selftest_assert_peripheral_window_interrupt(void)
+{
+	cpu_selftest_assert_interrupt(INT_PERIPHERAL_WINDOW);
 }
 
 static void cpu_selftest_assert_test_equals(void)
@@ -8811,6 +8824,12 @@ static void cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set(TESTCONTEXT 
 	cpu_selftest_set_register(REG_BOD, BOD_BOVF_MASK);
 	cpu_selftest_assert_B_program_fault();
 	cpu_selftest_assert_interrupt_inhibited();
+}
+
+static void cpu_selftest_peripheral_window_message_generates_peripheral_window_interrupt(TESTCONTEXT *testContext)
+{
+	cpu_set_peripheral_window_message(0xA5A5A5A5);
+	cpu_selftest_assert_peripheral_window_interrupt();
 }
 
 static void cpu_selftest_cpr_not_equivalance_interrupt_on_order_fetch_stores_link_that_re_executes_failed_order(TESTCONTEXT *testContext)

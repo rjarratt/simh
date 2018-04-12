@@ -1594,6 +1594,11 @@ void cpu_spm_interrupt(void)
     cpu_set_program_fault_interrupt_status_and_generate_interrupt(PROGRAM_FAULT_STATUS_MASK_SYSTEM_PERFORMANCE_MONITOR);
 }
 
+void cpu_set_peripheral_window_message(uint32 message)
+{
+	cpu_set_interrupt(INT_PERIPHERAL_WINDOW);
+}
+
 void cpu_set_access_violation_interrupt()
 {
     if (cpu_ms_is_all(MS_MASK_EXEC))
