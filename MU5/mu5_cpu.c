@@ -195,6 +195,8 @@ static t_uint64 prop_read_system_error_status_callback(uint8 line);
 static void prop_write_system_error_status_callback(uint8 line, t_uint64 value);
 static t_uint64 prop_read_instruction_counter(uint8 line);
 static void prop_write_instruction_counter(uint8 line, t_uint64 value);
+static t_uint64 peripheral_window_read_message_window(uint8 line);
+static void peripheral_window_write_message_window(uint8 line, t_uint64 value);
 
 static void prop_v_store_register_read_callback(struct REG *reg, int index);
 static void prop_v_store_register_write_callback(t_value old_val, struct REG *reg, int index);
@@ -568,6 +570,8 @@ t_uint64 *PROPProcessNumber;
 static t_uint64 *PROPProgramFaultStatus;
 static t_uint64 *PROPSystemErrorStatus;
 static t_uint64 *PROPInstructionCounter;
+
+static t_uint64 *MessageWindow;
 
 DEVICE cpu_dev = {
     "CPU",            /* name */
@@ -1424,6 +1428,8 @@ void cpu_reset_state(void)
     PROPProgramFaultStatus = sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, prop_read_program_fault_status_callback, prop_write_program_fault_status_callback);
     PROPSystemErrorStatus = sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, prop_read_system_error_status_callback, prop_write_system_error_status_callback);
     PROPInstructionCounter = sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, prop_read_instruction_counter, prop_write_instruction_counter);
+
+    MessageWindow = sac_setup_v_store_location(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW, peripheral_window_read_message_window, peripheral_window_write_message_window);
 }
 
 void cpu_set_interrupt(uint8 number)
@@ -1596,6 +1602,7 @@ void cpu_spm_interrupt(void)
 
 void cpu_set_peripheral_window_message(uint32 message)
 {
+    *MessageWindow = message;
 	cpu_set_interrupt(INT_PERIPHERAL_WINDOW);
 }
 
@@ -2771,6 +2778,16 @@ static t_uint64 prop_read_instruction_counter(uint8 line)
 static void prop_write_instruction_counter(uint8 line, t_uint64 value)
 {
     *PROPInstructionCounter = value & 0xFFFF;
+}
+
+static t_uint64 peripheral_window_read_message_window(uint8 line)
+{
+    return *MessageWindow;
+}
+
+static void peripheral_window_write_message_window(uint8 line, t_uint64 value)
+{
+    *MessageWindow = 0;
 }
 
 static void prop_v_store_register_read_callback(struct REG *reg, int index)

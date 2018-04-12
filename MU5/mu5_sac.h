@@ -40,6 +40,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define PROP_V_STORE_BLOCK 1
 #define CONSOLE_V_STORE_BLOCK 3
 #define SAC_V_STORE_BLOCK 4
+#define PERIPHERAL_WINDOW_V_STORE_BLOCK 6
 
 #define PROP_V_STORE_PROGRAM_FAULT_STATUS 0
 #define PROP_V_STORE_SYSTEM_ERROR_STATUS 1
@@ -68,6 +69,8 @@ in this Software without prior written authorization from Robert Jarratt.
 #define SAC_V_STORE_CPR_NOT_EQUIVALENCE_S 17 
 #define SAC_V_STORE_ACCESS_VIOLATION 22
 #define SAC_V_STORE_SYSTEM_ERROR_INTERRUPTS 23
+
+#define PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW 1
 
 typedef struct VSTORE_LINE
 {
