@@ -44,6 +44,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define DRUM_DISC_STATUS_INPUT_PARITY_ERROR (0x1 << 10)
 #define DRUM_DISC_STATUS_IGNORE_PARITY_ERROR (0x1 << 5)
 #define DRUM_DISC_STATUS_END_TRANSFER (0x1 << 4)
+#define DRUM_ABSENT_MASK(unit) (1 << (17 + (4 * unit)))
 
 void drum_reset_state(void);
 t_uint64 drum_exch_read(t_addr addr);

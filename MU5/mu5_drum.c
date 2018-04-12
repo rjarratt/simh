@@ -360,9 +360,10 @@ t_stat drum_detach(UNIT *uptr)
 
 void drum_reset_state(void)
 {
+	int i;
 	reg_disc_address = 0;
 	reg_store_address = 0;
-	reg_disc_status = D0_ABSENT_MASK | D1_ABSENT_MASK | D2_ABSENT_MASK | D3_ABSENT_MASK;
+	reg_disc_status = 0;
 	reg_current_positions = 0;
 	reg_complete_address = 0;
 	reg_lockout_01 = 0;
@@ -370,6 +371,11 @@ void drum_reset_state(void)
 	reg_request_self_test = 0;
 	reg_self_test_command = 0;
 	reg_self_test_state = 0;
+
+	for (i = 0; i < DRUM_NUM_UNITS; i++)
+	{
+		drum_set_unit_present(i, drum_is_disc_attached(&drum_dev.units[i]));
+	}
 
 	transfer_requested = 0;
 	transfer_in_progress = 0;

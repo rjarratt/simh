@@ -73,7 +73,9 @@ static void drum_selftest_assert_illegal_request();
 static void drum_selftest_assert_request_incomplete();
 static void drum_selftest_assert_request_complete();
 static void drum_selftest_assert_store_address_equals(t_uint64 expectedValue);
+static void drum_selftest_assert_attached_units_are_present_in_disc_status(void);
 
+static void drum_selftest_disc_status_reflects_attached_status_of_each_unit_after_reset(TESTCONTEXT *testContext);
 static void drum_selftest_current_position_incremented_on_each_cycle(TESTCONTEXT *testContext);
 static void drum_selftest_current_position_wraps_after_last_block(TESTCONTEXT *testContext);
 static void drum_selftest_current_position_incremented_independently_by_each_unit(TESTCONTEXT *testContext);
@@ -107,10 +109,10 @@ static void drum_selftest_io_transfer_of_37_blocks_updates_disc_address_and_stop
 static void drum_selftest_io_transfer_updates_disc_status_on_completion(TESTCONTEXT *testContext);
 static void drum_selftest_io_transfer_updates_store_address_during_transfer(TESTCONTEXT *testContext);
 static void drum_selftest_io_transfer_writes_status_to_complete_address_on_completion(TESTCONTEXT *testContext);
-// TODO: attach makes disk present, detach makes it absent.
 
 static UNITTEST tests[] =
 {
+	{ "Disc status reflects actual attached status of each unit after a reset", drum_selftest_disc_status_reflects_attached_status_of_each_unit_after_reset },
 	{ "Each execution cycle of the drum unit advances the current position", drum_selftest_current_position_incremented_on_each_cycle },
 	{ "The current position wraps after the last block", drum_selftest_current_position_wraps_after_last_block },
 	{ "Each drum unit advances its current position independent of the others", drum_selftest_current_position_incremented_independently_by_each_unit },
@@ -268,6 +270,35 @@ static void drum_selftest_assert_request_complete()
 static void drum_selftest_assert_store_address_equals(t_uint64 expectedValue)
 {
 	drum_selftest_assert_reg_equals_mask(REG_STOREADDRESS, RA_MASK_FULL, expectedValue);
+}
+
+static void drum_selftest_assert_attached_units_are_present_in_disc_status(void)
+{
+	int i;
+	for (i = 0; i < DRUM_NUM_UNITS; i++)
+	{
+		UNIT *unit = &drum_dev.units[i];
+		uint32 absentMask = DRUM_ABSENT_MASK(i);
+		if (unit->flags & UNIT_ATT)
+		{
+			drum_selftest_assert_reg_equals_mask(REG_DISCSTATUS, absentMask, 0);
+		}
+		else
+		{
+			drum_selftest_assert_reg_equals_mask(REG_DISCSTATUS, absentMask, absentMask);
+		}
+	}
+}
+
+static void drum_selftest_disc_status_reflects_attached_status_of_each_unit_after_reset(TESTCONTEXT *testContext)
+{
+	drum_selftest_assert_attached_units_are_present_in_disc_status();
+	drum_selftest_attach_test_file();
+	drum_selftest_assert_attached_units_are_present_in_disc_status();
+	drum_reset_state();
+	drum_selftest_assert_attached_units_are_present_in_disc_status();
+	drum_selftest_detach_and_delete_test_file();
+	drum_selftest_assert_attached_units_are_present_in_disc_status();
 }
 
 static void drum_selftest_current_position_incremented_on_each_cycle(TESTCONTEXT *testContext)
