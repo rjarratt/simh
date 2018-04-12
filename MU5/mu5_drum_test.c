@@ -26,6 +26,7 @@ in this Software without prior written authorization from Robert Jarratt.
 */
 
 #include "mu5_defs.h"
+#include "mu5_cpu.h"
 #include "mu5_sac.h"
 #include "mu5_exch.h"
 #include "mu5_drum.h"
@@ -109,6 +110,8 @@ static void drum_selftest_io_transfer_of_37_blocks_updates_disc_address_and_stop
 static void drum_selftest_io_transfer_updates_disc_status_on_completion(TESTCONTEXT *testContext);
 static void drum_selftest_io_transfer_updates_store_address_during_transfer(TESTCONTEXT *testContext);
 static void drum_selftest_io_transfer_writes_status_to_complete_address_on_completion(TESTCONTEXT *testContext);
+static void drum_selftest_illegal_request_generates_interrupt(TESTCONTEXT *testContext);
+static void drum_selftest_completed_transfer_generates_interrupt(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
@@ -144,12 +147,13 @@ static UNITTEST tests[] =
 	{ "I/O operation to transfer 37 updates disc address during transfer and then stops updating it", drum_selftest_io_transfer_of_37_blocks_updates_disc_address_and_stops_updating_on_completion },
 	{ "I/O operation updates disc status on completion", drum_selftest_io_transfer_updates_disc_status_on_completion },
 	{ "I/O operation updates store address during transfer", drum_selftest_io_transfer_updates_store_address_during_transfer },
-	{ "I/O operation stores disc status to complete address on completion", drum_selftest_io_transfer_writes_status_to_complete_address_on_completion }
-// TODO: Interrupts
+	{ "I/O operation stores disc status to complete address on completion", drum_selftest_io_transfer_writes_status_to_complete_address_on_completion },
+    { "Illegal request generates an interrupt", drum_selftest_illegal_request_generates_interrupt },
+    { "Completed transfer generates an interrupt", drum_selftest_completed_transfer_generates_interrupt }
+
+    // TODO: Interrupts
     // TODO: Read
     // TODO: Write
-    // TODO: multiple blocks
-    // TODO: Update store address, complete address, disc status
 };
 
 void drum_selftest(TESTCONTEXT *testContext)
@@ -185,8 +189,9 @@ static void drum_selftest_detach_and_delete_test_file(void)
 
 static void drum_selftest_reset(UNITTEST *test)
 {
-	sac_reset_state(); /* reset memory that gets set by transfers, including the complete address write */
-	drum_reset_state();
+    cpu_reset_state(); /* reset interrupts */
+    sac_reset_state(); /* reset memory that gets set by transfers, including the complete address write */
+    drum_reset_state();
 }
 
 static void drum_selftest_execute_cycle(void)
@@ -631,4 +636,26 @@ static void drum_selftest_io_transfer_writes_status_to_complete_address_on_compl
 		drum_selftest_execute_cycle();
 		drum_selftest_assert_real_address_contents(TEST_COMPLETE_ADDRESS, finalStatus);
 	}
+}
+
+static void drum_selftest_illegal_request_generates_interrupt(TESTCONTEXT *testContext)
+{
+    // TODO: Documentation not clear if this should actually generate an interrupt, but it sets the Disc Status decode bit, which I suspect generates an interrupt
+    drum_selftest_setup_request(DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 0, 0));
+    mu5_selftest_assert_interrupt_number(testContext, INT_PERIPHERAL_WINDOW);
+}
+
+static void drum_selftest_completed_transfer_generates_interrupt(TESTCONTEXT *testContext)
+{
+    t_uint64 request = DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 1, 1);
+
+    drum_selftest_setup_request(request);
+    drum_selftest_assert_legal_request();
+    mu5_selftest_assert_no_interrupt(testContext);
+
+    drum_selftest_execute_cycle();
+    mu5_selftest_assert_no_interrupt(testContext);
+
+    drum_selftest_execute_cycle();
+    mu5_selftest_assert_interrupt_number(testContext, INT_PERIPHERAL_WINDOW);
 }
