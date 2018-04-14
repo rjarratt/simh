@@ -32,6 +32,10 @@ The service routine operates at the real time speed of the drum in that it is
 scheduled once per block, of which there were 37 per band (or track in modern
 parlance).
 
+The SIMH backing file is organised into logical blocks. It starts with all the
+band 0 blocks, then all the band 1 blocks, up to band 63. The block is laid out
+as 64-bit words in big-endian order.
+
 Known Limitations
 -----------------
 
@@ -78,6 +82,8 @@ static uint8 drum_get_size(t_uint64 disc_address);
 static int drum_is_disc_attached(UNIT *unit);
 static int drum_is_valid_request(UNIT *unit, t_uint64 disc_address, t_uint64 store_address, t_uint64 complete_address);
 static int drum_is_read_request(t_uint64 disc_address);
+static void drum_transfer_block(UNIT *uptr, uint8 block);
+static t_lba drum_compute_lba(uint8 band, uint8 block);
 
 static t_uint64 drum_read_vx_store(t_addr addr);
 static void drum_write_vx_store(t_addr addr, t_uint64 value);
@@ -302,7 +308,7 @@ static t_stat drum_svc(UNIT *uptr)
 	int unit_num = drum_get_unit_num(uptr);
 	drum_update_current_position(unit_num);
 
-	if (transfer_requested)
+	if (transfer_requested && unit_num == drum_get_unit(reg_disc_address))
 	{
 		int current_position = drum_get_current_position(unit_num);
 		int desired_position = drum_get_block(reg_disc_address);
@@ -317,7 +323,8 @@ static t_stat drum_svc(UNIT *uptr)
 		{
 			int size = drum_get_size(reg_disc_address) - 1;
 			reg_disc_address = (reg_disc_address & 0xFFFFC000) | (current_position << 8) | size & 0x3F;
-			reg_store_address += DRUM_WORDS_PER_BLOCK; /* TODO: transfer actual data */
+            drum_transfer_block(uptr, desired_position);
+			reg_store_address += DRUM_WORDS_PER_BLOCK;
 			if (size == 0)
 			{
 				transfer_requested = 0;
@@ -336,8 +343,8 @@ static t_stat drum_svc(UNIT *uptr)
 t_stat drum_attach(UNIT *uptr, CONST char *cptr)
 {
 	t_stat r;
-	size_t xferElementSize = drum_dev.dwidth / 8;
-	size_t sectorSizeBytes = DRUM_BYTES_PER_BLOCK * drum_dev.aincr * xferElementSize;
+	size_t xferElementSize = drum_dev.aincr;
+	size_t sectorSizeBytes = DRUM_BYTES_PER_BLOCK;
 	int unit_num = drum_get_unit_num(uptr);
 
 	r = sim_disk_attach(uptr, cptr, sectorSizeBytes, xferElementSize, 1, 0, "DRUM", 0, 0);
@@ -583,6 +590,62 @@ static int drum_is_read_request(t_uint64 disc_address)
 	result = disc_address & 0x40000000;
 	return result;
 }
+
+static void drum_transfer_block(UNIT *uptr, uint8 block)
+{
+    uint8 buf[DRUM_BYTES_PER_BLOCK];
+    uint8 *bufptr;
+    t_uint64 word;
+    int i;
+    int j;
+    t_lba lba;
+    t_stat io_result;
+    
+    bufptr = buf;
+    lba = drum_compute_lba(drum_get_band(reg_disc_address), block);
+    if (drum_is_read_request(reg_disc_address))
+    {
+        io_result = sim_disk_rdsect(uptr, lba, buf, NULL, 1);
+        if (io_result == SCPE_OK)
+        {
+            for (i = 0; i < DRUM_BYTES_PER_BLOCK / 8; i++)
+            {
+                word = 0;
+                for (j = 0; j < 8; j++)
+                {
+                    word = word | (t_uint64)(*bufptr++) << (8 * (7 - j));
+                }
+                exch_write(reg_store_address + (i << 1), word);
+            }
+        }
+    }
+    else
+    {
+        for (i = 0; i < DRUM_BYTES_PER_BLOCK / 8; i++)
+        {
+            word = exch_read(reg_store_address + (i << 1));
+            for (j = 0; j < 8; j++)
+            {
+                *bufptr++ = (word >> (8 * (7 - j))) & 0xFF;
+            }
+        }
+        io_result = sim_disk_wrsect(uptr, lba, buf, NULL, 1);
+    }
+
+    if (io_result != SCPE_OK)
+    {
+        sim_disk_perror(uptr, "Drum I/O error");
+        sim_disk_clearerr(uptr);
+    }
+}
+
+static t_lba drum_compute_lba(uint8 band, uint8 block)
+{
+    t_lba result;
+    result = (band * DRUM_BLOCKS_PER_BAND) + block;
+    return result;
+}
+
 
 static void drum_setup_vx_store_location(uint8 line, t_uint64(*readCallback)(uint8), void(*writeCallback)(uint8,t_uint64))
 {

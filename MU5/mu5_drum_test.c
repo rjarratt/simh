@@ -100,6 +100,7 @@ static void drum_selftest_io_request_for_zero_size_sets_illegal_request(TESTCONT
 static void drum_selftest_io_request_for_invalid_size_sets_illegal_request(TESTCONTEXT *testContext);
 static void drum_selftest_io_request_for_unit_0_store_address_sets_illegal_request(TESTCONTEXT *testContext);
 static void drum_selftest_io_request_for_unit_0_complete_address_sets_illegal_request(TESTCONTEXT *testContext);
+static void drum_selftest_io_request_only_processed_by_unit_corresponding_to_request(TESTCONTEXT *testContext);
 static void drum_selftest_io_waits_for_starting_block(TESTCONTEXT *testContext);
 static void drum_selftest_io_waits_for_full_revolution_if_starting_block_is_current_block(TESTCONTEXT *testContext);
 static void drum_selftest_io_transfer_stops_updating_disc_address_on_completion(TESTCONTEXT *testContext);
@@ -112,6 +113,7 @@ static void drum_selftest_io_transfer_updates_store_address_during_transfer(TEST
 static void drum_selftest_io_transfer_writes_status_to_complete_address_on_completion(TESTCONTEXT *testContext);
 static void drum_selftest_illegal_request_generates_interrupt(TESTCONTEXT *testContext);
 static void drum_selftest_completed_transfer_generates_interrupt(TESTCONTEXT *testContext);
+static void drum_selftest_reads_and_writes_data(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
@@ -139,6 +141,7 @@ static UNITTEST tests[] =
     { "I/O request for invalid size sets illegal request bit", drum_selftest_io_request_for_invalid_size_sets_illegal_request },
 	{ "I/O request for unit 0 store address sets illegal request bit", drum_selftest_io_request_for_unit_0_store_address_sets_illegal_request },
 	{ "I/O request for unit 0 complete address sets illegal request bit", drum_selftest_io_request_for_unit_0_complete_address_sets_illegal_request },
+    { "I/O request is only processed by the unit corresponding to the request", drum_selftest_io_request_only_processed_by_unit_corresponding_to_request },
     { "I/O operation waits for drum to rotate to starting block", drum_selftest_io_waits_for_starting_block },
 	{ "I/O operation waits for drum to do a full rotation if the starting block is the current block", drum_selftest_io_waits_for_full_revolution_if_starting_block_is_current_block },
 	{ "I/O operation stops updating disc address on completion", drum_selftest_io_transfer_stops_updating_disc_address_on_completion },
@@ -149,11 +152,10 @@ static UNITTEST tests[] =
 	{ "I/O operation updates store address during transfer", drum_selftest_io_transfer_updates_store_address_during_transfer },
 	{ "I/O operation stores disc status to complete address on completion", drum_selftest_io_transfer_writes_status_to_complete_address_on_completion },
     { "Illegal request generates an interrupt", drum_selftest_illegal_request_generates_interrupt },
-    { "Completed transfer generates an interrupt", drum_selftest_completed_transfer_generates_interrupt }
+    { "Completed transfer generates an interrupt", drum_selftest_completed_transfer_generates_interrupt },
+    { "Reads and writes data", drum_selftest_reads_and_writes_data }
 
     // TODO: Interrupts
-    // TODO: Read
-    // TODO: Write
 };
 
 void drum_selftest(TESTCONTEXT *testContext)
@@ -477,6 +479,25 @@ static void drum_selftest_io_request_for_unit_0_complete_address_sets_illegal_re
 	drum_selftest_assert_illegal_request();
 }
 
+static void drum_selftest_io_request_only_processed_by_unit_corresponding_to_request(TESTCONTEXT *testContext)
+{
+    int i;
+    t_uint64 request = DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 2, 1);
+
+    drum_selftest_setup_request(request);
+    drum_selftest_assert_legal_request();
+
+    for (i = 0; i < DRUM_BLOCKS_PER_BAND; i++)
+    {
+        drum_selftest_execute_cycle_unit(0);
+        drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_DISC_ADDRESS, request);
+        drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_STORE_ADDRESS, TEST_STORE_ADDRESS);
+        drum_selftest_assert_request_incomplete();
+        mu5_selftest_assert_no_interrupt(testContext);
+    }
+}
+
+
 static void drum_selftest_io_waits_for_starting_block(TESTCONTEXT *testContext)
 {
 	t_uint64 request = DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 2, 1);
@@ -658,4 +679,73 @@ static void drum_selftest_completed_transfer_generates_interrupt(TESTCONTEXT *te
 
     drum_selftest_execute_cycle();
     mu5_selftest_assert_interrupt_number(testContext, INT_PERIPHERAL_WINDOW);
+}
+
+static void drum_selftest_reads_and_writes_data(TESTCONTEXT *testContext)
+{
+    /* this test sets up 2 blocks in local store, writes them to disk, and then reads them back to mass store */
+
+    int i;
+    int blocks = 2;
+    int words = (DRUM_BYTES_PER_BLOCK * blocks) / 8; /* 64-bit words */
+    t_uint64 word;
+    t_uint64 expected;
+    t_addr addr;
+
+    drum_selftest_attach_test_file();
+
+    for (i = 0; i < words; i++)
+    {
+        addr = TEST_STORE_ADDRESS + (i << 1);
+        expected = i * 256;
+        exch_write(addr, expected);
+    }
+
+    /* Set up write request */
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_STORE_ADDRESS, TEST_STORE_ADDRESS);
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_COMPLETE_ADDRESS, TEST_COMPLETE_ADDRESS);
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(WRITE, TEST_UNIT_NUM, 0, 1, 2));
+    drum_selftest_assert_legal_request();
+
+    /* rotate drum one revolution */
+    for (i = 0; i < DRUM_BLOCKS_PER_BAND; i++)
+    {
+        drum_selftest_execute_cycle();
+    }
+
+    drum_selftest_assert_request_complete();
+
+    /* reset disc status */
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_STATUS, 0xFFFFFFFF);
+
+    /* Set up read request */
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_STORE_ADDRESS, RA_MASS(0));
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_COMPLETE_ADDRESS, TEST_COMPLETE_ADDRESS);
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 1, 2));
+    drum_selftest_assert_legal_request();
+
+    /* rotate drum one revolution */
+    for (i = 0; i < DRUM_BLOCKS_PER_BAND; i++)
+    {
+        drum_selftest_execute_cycle();
+    }
+
+    /* Verify data was read back */
+
+    for (i = 0; i < words; i++)
+    {
+        addr = RA_MASS(i << 1);
+        word = exch_read(addr);
+        expected = i * 256;
+        if (word != expected)
+        {
+            sim_debug(LOG_SELFTEST_FAIL, &drum_dev, "Mass store address %08X should be %016llX but was %016llx\n", addr, expected, word);
+            mu5_selftest_set_failure(testContext);
+            break;
+        }
+    }
+
+    drum_selftest_assert_request_complete();
+
+    drum_selftest_detach_and_delete_test_file();
 }
