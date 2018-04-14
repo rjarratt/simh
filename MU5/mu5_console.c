@@ -54,6 +54,9 @@ Only does Teletype output.
 static t_stat console_reset(DEVICE *dptr);
 static t_stat console_detach(UNIT* uptr);
 static t_stat console_svc(UNIT *uptr);
+static t_stat console_set_hooter(UNIT* uptr, int32 val, CONST char* cptr, void* desc);
+static t_stat console_show_hooter(FILE* st, UNIT* uptr, int32 val, CONST void* desc);
+
 static void console_schedule_next_poll(UNIT *uptr);
 
 static void console_v_store_register_read_callback(struct REG *reg, int index);
@@ -92,6 +95,7 @@ static t_uint64 *DateLower;
 static t_uint64 *DateUpper;
 static t_uint64 *ConsoleHoot;
 
+static bool enable_hooter = 0;
 static volatile int terminate_thread = 0;
 
 #if defined(HAVE_LIBSDL)
@@ -122,6 +126,7 @@ static REG console_reg[] =
 
 static MTAB console_mod[] =
 {
+    { MTAB_XTD | MTAB_VDV | MTAB_VALR, 0, "HOOTER", "HOOTER={ON|OFF}", &console_set_hooter, &console_show_hooter, NULL, "Hooter" },
     { 0 }
 };
 
@@ -172,7 +177,6 @@ static t_stat console_reset(DEVICE *dptr)
     t_stat result = SCPE_OK;
 	StopAudioOutput();
     console_reset_state();
-	StartAudioOutput();
 	sim_cancel(&console_unit);
 	sim_activate(&console_unit, 1);
 	return result;
@@ -214,6 +218,38 @@ static t_stat console_svc(UNIT *uptr)
 	}
 	console_schedule_next_poll(uptr);
 	return SCPE_OK;
+}
+
+static t_stat console_set_hooter(UNIT* uptr, int32 val, CONST char* cptr, void* desc)
+{
+    t_stat result = SCPE_OK;
+
+    if (cptr == NULL)
+    {
+        result = SCPE_ARG;
+    }
+    else if (!strcmp(cptr, "ON"))
+    {
+        enable_hooter = 1;
+        StartAudioOutput();
+    }
+    else if (!strcmp(cptr, "OFF"))
+    {
+        enable_hooter = 0;
+        StopAudioOutput();
+    }
+    else
+    {
+        result = SCPE_ARG;
+    }
+
+    return result;
+}
+
+static t_stat console_show_hooter(FILE* st, UNIT* uptr, int32 val, CONST void* desc)
+{
+    fprintf(st, "hooter=%s", enable_hooter ? "on" : "off");
+    return SCPE_OK;
 }
 
 static void console_schedule_next_poll(UNIT *uptr)
