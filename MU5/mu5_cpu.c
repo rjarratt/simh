@@ -1602,6 +1602,14 @@ void cpu_spm_interrupt(void)
 
 void cpu_set_peripheral_window_message(uint32 message)
 {
+    /* TODO: It seems that the PW message was actually written to the V-line by other units through the Exchange using a
+       Vx-Line for the MU5 Processor unit. However it is unclear how this worked because the Programming Manual in
+       Section 7.3 where it discusses the PW interrupt seems to be saying that if an interrupt is in progress that another
+       write to the Message Window V-line will be held up and generate a new interrupt. But if it was written through the
+       Exchange then there couldn't be any feedback to the sending unit about is "busy-ness". It suggests some possible
+       queuing mechanism, although the previous paragraph in the manual seems to be saying that the OS must do the queuing.
+       For now I am ignoring that it was a write through the Exchange and I am not sure how to implement the "busy" nature
+       of the V-line. */
     *MessageWindow = message;
 	cpu_set_interrupt(INT_PERIPHERAL_WINDOW);
 }

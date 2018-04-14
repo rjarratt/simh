@@ -154,8 +154,6 @@ static UNITTEST tests[] =
     { "Illegal request generates an interrupt", drum_selftest_illegal_request_generates_interrupt },
     { "Completed transfer generates an interrupt", drum_selftest_completed_transfer_generates_interrupt },
     { "Reads and writes data", drum_selftest_reads_and_writes_data }
-
-    // TODO: Interrupts
 };
 
 void drum_selftest(TESTCONTEXT *testContext)
