@@ -70,7 +70,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define SAC_V_STORE_ACCESS_VIOLATION 22
 #define SAC_V_STORE_SYSTEM_ERROR_INTERRUPTS 23
 
-#define PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW 1
+#define PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW 0
 
 typedef struct VSTORE_LINE
 {

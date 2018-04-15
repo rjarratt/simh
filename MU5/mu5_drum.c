@@ -508,13 +508,11 @@ static void drum_set_unit_present(int unit_num, int present)
 static void drum_set_illegal_request()
 {
 	reg_disc_status |= DRUM_DISC_STATUS_DECODE | DRUM_DISC_STATUS_ILLEGAL_REQUEST;
-    cpu_set_peripheral_window_message(0); /* TODO: Don't know what message to supply */
 }
 
 static void drum_set_request_completed()
 {
 	reg_disc_status |= DRUM_DISC_STATUS_DECODE | DRUM_DISC_STATUS_END_TRANSFER;
-    cpu_set_peripheral_window_message(0); /* TODO: Don't know what message to supply */
 }
 
 static uint8 drum_get_unit(t_uint64 disc_address)

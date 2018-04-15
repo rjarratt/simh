@@ -83,11 +83,13 @@ void cpu_set_register(REG *reg, t_uint64 value); /* for selftest purposes only, 
 void cpu_set_interrupt(uint8 number);
 uint8 cpu_get_interrupt_number(void);
 void cpu_spm_interrupt(void);
-void cpu_set_peripheral_window_message(uint32 message);
 void cpu_set_access_violation_interrupt(void);
 void cpu_set_cpr_non_equivalence_interrupt(void);
 void cpu_set_cpr_multiple_equivalence_interrupt(void);
 uint16 cpu_get_ms(void);
 int cpu_ms_is_all(uint16 bits);
 int cpu_ms_is_any(uint16 bits);
+t_uint64 cpu_exch_read(t_addr addr);
+void cpu_exch_write(t_addr addr, t_uint64 value);
+
 

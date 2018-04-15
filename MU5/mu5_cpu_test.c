@@ -29,6 +29,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #include "mu5_cpu.h"
 #include "mu5_test.h"
 #include "mu5_cpu_test.h"
+#include "mu5_exch.h"
 #include "mu5_sac.h"
 
 #define CR_ORG 0
@@ -1016,10 +1017,11 @@ static void cpu_selftest_peripheral_window_interrupt_inhibited_if_L0IF_is_set(TE
 static void cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_level_1_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set(TESTCONTEXT *testContext);
-static void cpu_selftest_peripheral_window_message_generates_peripheral_window_interrupt(TESTCONTEXT *testContext);
-static void cpu_selftest_peripheral_window_message_sets_message_window_v_line(TESTCONTEXT *testContext);
+static void cpu_selftest_writing_peripheral_window_message_generates_peripheral_window_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_writing_peripheral_window_message_sets_message_window_v_line(TESTCONTEXT *testContext);
 static void cpu_selftest_message_window_v_line_is_reset_when_written(TESTCONTEXT *testContext);
 
+// TODO: exch read/write without V bit is ignored.
 // TODO: Interrupts inhibited causes other interrupts to be queued.
 // TODO: Write to V-line sets it as not busy so other queued interrupts can be processed (after interrupt mode exited).
 
@@ -1740,8 +1742,8 @@ static UNITTEST tests[] =
     { "Level 0 interrupt not inhibited if L1IF is set", cpu_selftest_level_0_interrupt_not_inhibited_if_L1IF_is_set },
     { "Level 1 interrupt inhibited if L0IF is set", cpu_selftest_level_1_interrupt_inhibited_if_L0IF_is_set },
     { "Level 1 interrupt inhibited if L1IF is set", cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set },
-    { "A peripheral window message generates a peripheral window interrupt", cpu_selftest_peripheral_window_message_generates_peripheral_window_interrupt },
-    { "A peripheral window message sets the message window V-line", cpu_selftest_peripheral_window_message_sets_message_window_v_line },
+    { "Writing to peripheral window message generates a peripheral window interrupt", cpu_selftest_writing_peripheral_window_message_generates_peripheral_window_interrupt },
+    { "Writing to peripheral window message sets the message window V-line", cpu_selftest_writing_peripheral_window_message_sets_message_window_v_line },
     { "Writing to the message window V-line resets it", cpu_selftest_message_window_v_line_is_reset_when_written },
 
     { "CPR Not Equivalence interrupt on order fetch stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_on_order_fetch_stores_link_that_re_executes_failed_order },
@@ -8829,21 +8831,21 @@ static void cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set(TESTCONTEXT 
     cpu_selftest_assert_interrupt_inhibited();
 }
 
-static void cpu_selftest_peripheral_window_message_generates_peripheral_window_interrupt(TESTCONTEXT *testContext)
+static void cpu_selftest_writing_peripheral_window_message_generates_peripheral_window_interrupt(TESTCONTEXT *testContext)
 {
-    cpu_set_peripheral_window_message(0xA5A5A5A5);
+    exch_write(RA_VX_MU5(VX_ADDR(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW)), 0xFFFFFFFF);
     cpu_selftest_assert_peripheral_window_interrupt();
 }
 
-static void cpu_selftest_peripheral_window_message_sets_message_window_v_line(TESTCONTEXT *testContext)
+static void cpu_selftest_writing_peripheral_window_message_sets_message_window_v_line(TESTCONTEXT *testContext)
 {
-    cpu_set_peripheral_window_message(0xA5A5A5A5);
+    exch_write(RA_VX_MU5(VX_ADDR(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW)), 0xA5A5A5A5);
     cpu_selftest_assert_v_store_contents(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW, 0xA5A5A5A5);
 }
 
 static void cpu_selftest_message_window_v_line_is_reset_when_written(TESTCONTEXT *testContext)
 {
-    cpu_set_peripheral_window_message(0xA5A5A5A5);
+    exch_write(RA_VX_MU5(VX_ADDR(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW)), 0xA5A5A5A5);
     sac_write_v_store(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW, 0x5A5A5A5A);
     cpu_selftest_assert_v_store_contents(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW, 0);
     // TODO: Reset sets it "not busy", not sure what this means yet, but further tests will be needed.

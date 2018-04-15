@@ -116,6 +116,8 @@ static SIM_INLINE t_uint64 cpu_get_register_64(REG *reg);
 static SIM_INLINE int cpu_get_register_bit_16(REG *reg, uint16 mask);
 static SIM_INLINE int cpu_get_register_bit_32(REG *reg, uint32 mask);
 static SIM_INLINE int cpu_get_register_bit_64(REG *reg, t_uint64 mask);
+static t_uint64 cpu_read_vx_store(t_addr addr);
+static void cpu_write_vx_store(t_addr addr, t_uint64 value);
 static void cpu_set_ms(uint16 value);
 static void cpu_set_nb(uint16 value);
 static void cpu_set_xnb(uint32 value);
@@ -1269,6 +1271,47 @@ static SIM_INLINE int cpu_get_register_bit_64(REG *reg, t_uint64 mask)
     return result;
 }
 
+static t_uint64 cpu_read_vx_store(t_addr addr)
+{
+    return 0;
+}
+
+static void cpu_write_vx_store(t_addr addr, t_uint64 value)
+{
+    if (VX_BLOCK(addr) == PERIPHERAL_WINDOW_V_STORE_BLOCK && VX_LINE(addr) == PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW)
+    {
+        /* TODO: It seems that the PW message was actually written to the V-line by other units through the Exchange using a
+        Vx-Line for the MU5 Processor unit. However it is unclear how this worked because the Programming Manual in
+        Section 7.3 where it discusses the PW interrupt seems to be saying that if an interrupt is in progress that another
+        write to the Message Window V-line will be held up and generate a new interrupt. But if it was written through the
+        Exchange then there couldn't be any feedback to the sending unit about is "busy-ness". It suggests some possible
+        queuing mechanism, although the previous paragraph in the manual seems to be saying that the OS must do the queuing.
+        I am not sure how to implement the "busy" nature of the V-line. */
+        *MessageWindow = value;
+        cpu_set_interrupt(INT_PERIPHERAL_WINDOW);
+    }
+
+}
+
+t_uint64 cpu_exch_read(t_addr addr)
+{
+    t_uint64 result = 0;
+    if (RA_VX_MASK & addr)
+    {
+        result = cpu_read_vx_store((addr & RA_X_MASK) >> 1);
+    }
+
+    return result;
+}
+
+void cpu_exch_write(t_addr addr, t_uint64 value)
+{
+    if (RA_VX_MASK & addr)
+    {
+        cpu_write_vx_store((addr & RA_X_MASK) >> 1, value);
+    }
+}
+
 static void cpu_set_ms(uint16 value)
 {
     uint16 msMask = (cpu_is_executive_mode()) ? 0xFFFF : 0xCF00;
@@ -1598,20 +1641,6 @@ static void cpu_set_illegal_function_interrupt(void)
 void cpu_spm_interrupt(void)
 {
     cpu_set_program_fault_interrupt_status_and_generate_interrupt(PROGRAM_FAULT_STATUS_MASK_SYSTEM_PERFORMANCE_MONITOR);
-}
-
-void cpu_set_peripheral_window_message(uint32 message)
-{
-    /* TODO: It seems that the PW message was actually written to the V-line by other units through the Exchange using a
-       Vx-Line for the MU5 Processor unit. However it is unclear how this worked because the Programming Manual in
-       Section 7.3 where it discusses the PW interrupt seems to be saying that if an interrupt is in progress that another
-       write to the Message Window V-line will be held up and generate a new interrupt. But if it was written through the
-       Exchange then there couldn't be any feedback to the sending unit about is "busy-ness". It suggests some possible
-       queuing mechanism, although the previous paragraph in the manual seems to be saying that the OS must do the queuing.
-       For now I am ignoring that it was a write through the Exchange and I am not sure how to implement the "busy" nature
-       of the V-line. */
-    *MessageWindow = message;
-	cpu_set_interrupt(INT_PERIPHERAL_WINDOW);
 }
 
 void cpu_set_access_violation_interrupt()

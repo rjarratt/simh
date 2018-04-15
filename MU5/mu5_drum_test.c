@@ -40,8 +40,8 @@ in this Software without prior written authorization from Robert Jarratt.
 #define REG_COMPLETEADDRESS "COMPLETEADDRESS"
 
 #define TEST_UNIT_NUM 3
-#define TEST_COMPLETE_ADDRESS RA_LOCAL(0)
-#define TEST_STORE_ADDRESS RA_LOCAL(2)
+#define TEST_COMPLETE_ADDRESS RA_VX_MU5(VX_ADDR(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW))
+#define TEST_STORE_ADDRESS RA_LOCAL(0)
 
 #define READ 1
 #define WRITE 0
@@ -74,6 +74,7 @@ static void drum_selftest_assert_illegal_request();
 static void drum_selftest_assert_request_incomplete();
 static void drum_selftest_assert_request_complete();
 static void drum_selftest_assert_store_address_equals(t_uint64 expectedValue);
+static void drum_selftest_assert_peripheral_window_equals(t_uint64 expectedValue);
 static void drum_selftest_assert_attached_units_are_present_in_disc_status(void);
 
 static void drum_selftest_disc_status_reflects_attached_status_of_each_unit_after_reset(TESTCONTEXT *testContext);
@@ -113,11 +114,11 @@ static void drum_selftest_io_transfer_of_37_blocks_updates_disc_address_and_stop
 static void drum_selftest_io_transfer_updates_disc_status_on_completion(TESTCONTEXT *testContext);
 static void drum_selftest_io_transfer_updates_store_address_during_transfer(TESTCONTEXT *testContext);
 static void drum_selftest_io_transfer_writes_status_to_complete_address_on_completion(TESTCONTEXT *testContext);
-static void drum_selftest_illegal_request_generates_interrupt(TESTCONTEXT *testContext);
+static void drum_selftest_illegal_request_does_not_generate_interrupt(TESTCONTEXT *testContext);
 static void drum_selftest_completed_transfer_generates_interrupt(TESTCONTEXT *testContext);
+static void drum_selftest_completed_transfer_does_not_generate_interrupt_if_complete_address_is_not_message_window(TESTCONTEXT *testContext);
 static void drum_selftest_reads_and_writes_data(TESTCONTEXT *testContext);
 
-// TODO: make message window vx-addressable for the Complete Address
 static UNITTEST tests[] =
 {
 	{ "Disc status reflects actual attached status of each unit after a reset", drum_selftest_disc_status_reflects_attached_status_of_each_unit_after_reset },
@@ -156,8 +157,9 @@ static UNITTEST tests[] =
 	{ "I/O operation updates disc status on completion", drum_selftest_io_transfer_updates_disc_status_on_completion },
 	{ "I/O operation updates store address during transfer", drum_selftest_io_transfer_updates_store_address_during_transfer },
 	{ "I/O operation stores disc status to complete address on completion", drum_selftest_io_transfer_writes_status_to_complete_address_on_completion },
-    { "Illegal request generates an interrupt", drum_selftest_illegal_request_generates_interrupt },
+    { "Illegal request does not generate an interrupt", drum_selftest_illegal_request_does_not_generate_interrupt },
     { "Completed transfer generates an interrupt", drum_selftest_completed_transfer_generates_interrupt },
+    { "Completed transfer does not generate an interrupt if complete address is not message window", drum_selftest_completed_transfer_does_not_generate_interrupt_if_complete_address_is_not_message_window },
     { "Reads and writes data", drum_selftest_reads_and_writes_data }
 };
 
@@ -197,8 +199,8 @@ static void drum_selftest_detach_and_delete_test_file(void)
 
 static void drum_selftest_reset(UNITTEST *test)
 {
+    sac_reset_state(); /* reset memory that gets set by transfers, including the complete address write. Reset first as it clears the V-store */
     cpu_reset_state(); /* reset interrupts */
-    sac_reset_state(); /* reset memory that gets set by transfers, including the complete address write */
     drum_reset_state();
 }
 
@@ -283,6 +285,11 @@ static void drum_selftest_assert_request_complete()
 static void drum_selftest_assert_store_address_equals(t_uint64 expectedValue)
 {
 	drum_selftest_assert_reg_equals_mask(REG_STOREADDRESS, RA_MASK_FULL, expectedValue);
+}
+
+static void drum_selftest_assert_peripheral_window_equals(t_uint64 expectedValue)
+{
+    mu5_selftest_assert_vstore_contents(localTestContext, PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW, expectedValue);
 }
 
 static void drum_selftest_assert_attached_units_are_present_in_disc_status(void)
@@ -664,27 +671,26 @@ static void drum_selftest_io_transfer_writes_status_to_complete_address_on_compl
 
 	drum_selftest_execute_cycle();
 
-	drum_selftest_assert_real_address_contents(TEST_COMPLETE_ADDRESS, 0);
+    drum_selftest_assert_peripheral_window_equals(0);
 
 	drum_selftest_execute_cycle();
-	drum_selftest_assert_real_address_contents(TEST_COMPLETE_ADDRESS, 0);
+    drum_selftest_assert_peripheral_window_equals(0);
 
 	drum_selftest_execute_cycle();
 	finalStatus = mu5_selftest_get_register(testContext, &drum_dev, REG_DISCSTATUS);
-	drum_selftest_assert_real_address_contents(TEST_COMPLETE_ADDRESS, finalStatus);
+    drum_selftest_assert_peripheral_window_equals(finalStatus);
 
 	for (i = 0; i < DRUM_BLOCKS_PER_BAND; i++)
 	{
 		drum_selftest_execute_cycle();
-		drum_selftest_assert_real_address_contents(TEST_COMPLETE_ADDRESS, finalStatus);
+        drum_selftest_assert_peripheral_window_equals(finalStatus);
 	}
 }
 
-static void drum_selftest_illegal_request_generates_interrupt(TESTCONTEXT *testContext)
+static void drum_selftest_illegal_request_does_not_generate_interrupt(TESTCONTEXT *testContext)
 {
-    // TODO: Documentation not clear if this should actually generate an interrupt, but it sets the Disc Status decode bit, which I suspect generates an interrupt
     drum_selftest_setup_request(DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 0, 0));
-    mu5_selftest_assert_interrupt_number(testContext, INT_PERIPHERAL_WINDOW);
+    mu5_selftest_assert_no_interrupt(testContext);
 }
 
 static void drum_selftest_completed_transfer_generates_interrupt(TESTCONTEXT *testContext)
@@ -700,6 +706,21 @@ static void drum_selftest_completed_transfer_generates_interrupt(TESTCONTEXT *te
 
     drum_selftest_execute_cycle();
     mu5_selftest_assert_interrupt_number(testContext, INT_PERIPHERAL_WINDOW);
+}
+
+static void drum_selftest_completed_transfer_does_not_generate_interrupt_if_complete_address_is_not_message_window(TESTCONTEXT *testContext)
+{
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_STORE_ADDRESS, TEST_STORE_ADDRESS);
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_COMPLETE_ADDRESS, RA_MASS(0));
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 1, 1));
+    drum_selftest_assert_legal_request();
+    mu5_selftest_assert_no_interrupt(testContext);
+
+    drum_selftest_execute_cycle();
+    mu5_selftest_assert_no_interrupt(testContext);
+
+    drum_selftest_execute_cycle();
+    mu5_selftest_assert_no_interrupt(testContext);
 }
 
 static void drum_selftest_reads_and_writes_data(TESTCONTEXT *testContext)
