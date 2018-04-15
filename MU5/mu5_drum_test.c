@@ -61,13 +61,13 @@ static void drum_selftest_reset(UNITTEST *test);
 static void drum_selftest_execute_cycle(void);
 static void drum_selftest_execute_cycle_unit(int unitNum);
 
-static void drum_selftest_setup_vx_line(uint8 line, t_uint64 value);
+static void drum_selftest_setup_vx_line(t_addr line, t_uint64 value);
 static void drum_selftest_setup_request(t_uint64 disc_address);
 
 static void drum_selftest_set_failure(void);
 static void drum_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 static void drum_selftest_assert_reg_equals_mask(char *name, t_uint64 mask, t_uint64 expectedValue);
-static void drum_selftest_assert_vx_line_contents(uint8 line, t_uint64 expectedValue);
+static void drum_selftest_assert_vx_line_contents(t_addr line, t_uint64 expectedValue);
 static void drum_selftest_assert_real_address_contents(t_addr address, t_uint64 expectedValue);
 static void drum_selftest_assert_legal_request();
 static void drum_selftest_assert_illegal_request();
@@ -94,6 +94,8 @@ static void drum_selftest_write_to_current_positions_ignored(TESTCONTEXT *testCo
 static void drum_selftest_read_from_current_positions(TESTCONTEXT *testContext);
 static void drum_selftest_write_to_complete_address(TESTCONTEXT *testContext);
 static void drum_selftest_read_from_complete_address(TESTCONTEXT *testContext);
+static void drum_selftest_read_from_other_vx_block_returns_zero(TESTCONTEXT *testContext);
+static void drum_selftest_write_to_other_vx_block_has_no_effect(TESTCONTEXT *testContext);
 static void drum_selftest_io_request_for_unattached_disk_sets_illegal_request(TESTCONTEXT *testContext);
 static void drum_selftest_io_request_for_invalid_block_sets_illegal_request(TESTCONTEXT *testContext);
 static void drum_selftest_io_request_for_zero_size_sets_illegal_request(TESTCONTEXT *testContext);
@@ -115,6 +117,7 @@ static void drum_selftest_illegal_request_generates_interrupt(TESTCONTEXT *testC
 static void drum_selftest_completed_transfer_generates_interrupt(TESTCONTEXT *testContext);
 static void drum_selftest_reads_and_writes_data(TESTCONTEXT *testContext);
 
+// TODO: make message window vx-addressable for the Complete Address
 static UNITTEST tests[] =
 {
 	{ "Disc status reflects actual attached status of each unit after a reset", drum_selftest_disc_status_reflects_attached_status_of_each_unit_after_reset },
@@ -135,6 +138,8 @@ static UNITTEST tests[] =
     { "Can read from the current positions Vx line", drum_selftest_read_from_current_positions },
     { "Can write to the complete address Vx line", drum_selftest_write_to_complete_address },
     { "Can read from the complete address Vx line", drum_selftest_read_from_complete_address },
+    { "Reading from a Vx block that is not block 0 returns 0", drum_selftest_read_from_other_vx_block_returns_zero },
+    { "Writing to a Vx block that is not block 0 has no effect", drum_selftest_write_to_other_vx_block_has_no_effect },
     { "I/O request to an unattached disk sets illegal request bit", drum_selftest_io_request_for_unattached_disk_sets_illegal_request },
     { "I/O request for invalid block sets illegal request bit", drum_selftest_io_request_for_invalid_block_sets_illegal_request },
     { "I/O request for zero size sets illegal request bit", drum_selftest_io_request_for_zero_size_sets_illegal_request },
@@ -177,7 +182,10 @@ static void drum_selftest_detach_existing_file(void)
 static void drum_selftest_attach_test_file(void)
 {
     UNIT *unit = &drum_dev.units[TEST_UNIT_NUM];
+    int old_quiet = sim_quiet;
+    sim_quiet = 1;
     drum_dev.attach(unit, tmpnam(NULL));
+    sim_quiet = old_quiet;
 }
 
 static void drum_selftest_detach_and_delete_test_file(void)
@@ -205,7 +213,7 @@ static void drum_selftest_execute_cycle_unit(int unitNum)
 	unit->action(unit);
 }
 
-static void drum_selftest_setup_vx_line(uint8 line, t_uint64 value)
+static void drum_selftest_setup_vx_line(t_addr line, t_uint64 value)
 {
     exch_write(RA_VX_DRUM(line), value);
 }
@@ -232,7 +240,7 @@ static void drum_selftest_assert_reg_equals_mask(char *name, t_uint64 mask, t_ui
 	mu5_selftest_assert_reg_equals_mask(localTestContext, &drum_dev, name, mask, expectedValue);
 }
 
-static void drum_selftest_assert_vx_line_contents(uint8 line, t_uint64 expectedValue)
+static void drum_selftest_assert_vx_line_contents(t_addr line, t_uint64 expectedValue)
 {
     t_uint64 actualValue = exch_read(RA_VX_DRUM(line));
     if (actualValue != expectedValue)
@@ -429,6 +437,21 @@ static void drum_selftest_read_from_complete_address(TESTCONTEXT *testContext)
 {
     mu5_selftest_set_register(testContext, &drum_dev, REG_COMPLETEADDRESS, 0xA5A5A5A);
     drum_selftest_assert_vx_line_contents(DRUM_VX_STORE_COMPLETE_ADDRESS, 0xA5A5A5A);
+}
+
+static void drum_selftest_read_from_other_vx_block_returns_zero(TESTCONTEXT *testContext)
+{
+    drum_selftest_setup_vx_line(VX_ADDR(0,0), 0xFFFFFFFFFFFFFFFF);
+    drum_selftest_assert_vx_line_contents(VX_ADDR(1,0), 0);
+}
+
+static void drum_selftest_write_to_other_vx_block_has_no_effect(TESTCONTEXT *testContext)
+{
+    t_uint64 actualValue;
+    drum_selftest_setup_vx_line(VX_ADDR(0, 0), 0xFFFFFFFFFFFFFFFF);
+    actualValue = exch_read(RA_VX_DRUM(VX_ADDR(0, 0)));
+    drum_selftest_setup_vx_line(VX_ADDR(1, 0), 0);
+    drum_selftest_assert_vx_line_contents(VX_ADDR(0, 0), actualValue);
 }
 
 static void drum_selftest_io_request_for_unattached_disk_sets_illegal_request(TESTCONTEXT *testContext)

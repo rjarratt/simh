@@ -425,24 +425,34 @@ void drum_exch_write(t_addr addr, t_uint64 value)
 static t_uint64 drum_read_vx_store(t_addr addr)
 {
 	t_uint64 result = 0;
-	uint8 line = addr & MASK_8;
-	VXSTORE_LINE *vx_line = &VxStore[line];
-	if (vx_line->ReadCallback != NULL)
-	{
-		result = vx_line->ReadCallback(line);
-	}
+	uint8 line = VX_LINE(addr);
+    VXSTORE_LINE *vx_line;
+    
+    if (VX_BLOCK(addr) == 0)
+    {
+        vx_line = &VxStore[line];
+        if (vx_line->ReadCallback != NULL)
+        {
+            result = vx_line->ReadCallback(line);
+        }
+    }
 
 	return result;
 }
 
 static void drum_write_vx_store(t_addr addr, t_uint64 value)
 {
-	uint8 line = addr & MASK_8;
-	VXSTORE_LINE *vx_line = &VxStore[line];
-	if (vx_line->WriteCallback != NULL)
-	{
-		vx_line->WriteCallback(line, value);
-	}
+	uint8 line = VX_LINE(addr);
+    VXSTORE_LINE *vx_line;
+    
+    if (VX_BLOCK(addr) == 0)
+    {
+        vx_line = &VxStore[line];
+        if (vx_line->WriteCallback != NULL)
+        {
+            vx_line->WriteCallback(line, value);
+        }
+    }
 }
 
 static void drum_start_polling_if_attached(UNIT *uptr)

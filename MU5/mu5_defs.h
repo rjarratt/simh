@@ -112,3 +112,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define RA_LOCAL(address) ((UNIT_LOCAL_STORE << RA_BIT_LENGTH) | (address & RA_MASK))
 #define RA_MASS(address) ((UNIT_MASS_STORE << RA_BIT_LENGTH) | (address & RA_MASK))
 #define RA_LOCAL_BYTE(address) ((UNIT_LOCAL_STORE << (RA_BIT_LENGTH + 2)) | (address & RA_MASK))
+
+#define VX_ADDR(block,line) ((block << 5) | (line & 0x1F))
+#define VX_LINE(addr) (addr & 0x1F)
+#define VX_BLOCK(addr) ((addr & ~RA_VX_MASK) >> 5)
