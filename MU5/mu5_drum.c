@@ -47,7 +47,6 @@ Lockout and self test functions are not emulated.
 #include "sim_defs.h"
 #include "sim_disk.h"
 #include "mu5_defs.h"
-#include "mu5_cpu.h"
 #include "mu5_exch.h"
 #include "mu5_sac.h"
 #include "mu5_drum.h"
