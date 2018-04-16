@@ -61,6 +61,12 @@ static void btu_schedule_next_poll(UNIT *uptr);
 //static t_uint64 btu_read_complete_address_callback(uint8 line);
 //static void btu_write_complete_address_callback(uint8 line, t_uint64 value);
 
+static uint32 source_address[BTU_NUM_UNITS];
+static uint32 destination_address[BTU_NUM_UNITS];
+static uint32 size[BTU_NUM_UNITS];
+static uint32 transfer_status[BTU_NUM_UNITS];
+static uint32 btu_ripf;
+static uint32 transfer_complete;
 
 static UNIT btu_unit[] =
 {
@@ -72,6 +78,13 @@ static UNIT btu_unit[] =
 
 static REG btu_reg[] =
 {
+    { URDATAD(SOURCEADDR,         source_address, 16, 28, 4, BTU_NUM_UNITS, 0, "source address, units 0 to 3") },
+    { URDATAD(DESTINATIONADDR,    destination_address, 16, 28, 4, BTU_NUM_UNITS, 0, "destination address, units 0 to 3") },
+    { URDATAD(DESTINATIONADDR,    destination_address, 16, 28, 4, BTU_NUM_UNITS, 0, "destination address, units 0 to 3") },
+    { URDATAD(SIZE,               size, 16,20, 12, BTU_NUM_UNITS, 0, "transfer size, units 0 to 3") }, // TODO: change to fields
+    { URDATAD(TRANSFERSTATUS,     transfer_status, 16, 4, 28, BTU_NUM_UNITS, 0, "transfer status, units 0 to 3") }, // TODO: change to fields
+    { GRDATAD(BTURIPF,            btu_ripf,      16,  31, 1, "request inhibit") },
+    { GRDATAD(TRANSFERCOMPLETE,   transfer_complete, 16,  28, 4, "transfer complete") },
     { NULL }
 };
 
