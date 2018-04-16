@@ -1021,7 +1021,6 @@ static void cpu_selftest_writing_peripheral_window_message_generates_peripheral_
 static void cpu_selftest_writing_peripheral_window_message_sets_message_window_v_line(TESTCONTEXT *testContext);
 static void cpu_selftest_message_window_v_line_is_reset_when_written(TESTCONTEXT *testContext);
 
-// TODO: exch read/write without V bit is ignored.
 // TODO: Interrupts inhibited causes other interrupts to be queued.
 // TODO: Write to V-line sets it as not busy so other queued interrupts can be processed (after interrupt mode exited).
 
@@ -1061,6 +1060,9 @@ static void cpu_selftest_instruction_counter_not_decremented_if_inhibited(TESTCO
 static void cpu_selftest_instruction_counter_not_decremented_if_already_zero(TESTCONTEXT *testContext);
 static void cpu_selftest_instruction_counter_zero_generates_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_instruction_counter_already_zero_does_not_generate_new_interrupt(TESTCONTEXT *testContext);
+
+static void cpu_selftest_read_non_v_address_returns_zero(TESTCONTEXT *testContext);
+static void cpu_selftest_write_non_v_address_is_ignored(TESTCONTEXT *testContext);
 
 CONDITIONTABLE conditionalFuncsTable[] =
 {
@@ -1781,6 +1783,9 @@ static UNITTEST tests[] =
     { "Instruction counter not decremented if already zero", cpu_selftest_instruction_counter_not_decremented_if_already_zero },
     { "Instruction counter zero generates interrupt", cpu_selftest_instruction_counter_zero_generates_interrupt },
     { "Instruction counter already zero does not generate new interrupt", cpu_selftest_instruction_counter_already_zero_does_not_generate_new_interrupt },
+
+    { "Read of non-V address returns zero",cpu_selftest_read_non_v_address_returns_zero },
+    { "Write of non-V address is ignored", cpu_selftest_write_non_v_address_is_ignored }
 
 };
 
@@ -9145,4 +9150,27 @@ static void cpu_selftest_instruction_counter_already_zero_does_not_generate_new_
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
     cpu_selftest_run_code();
     cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_read_non_v_address_returns_zero(TESTCONTEXT *testContext)
+{
+    t_addr addr = RA_X(0);
+    t_uint64 result = cpu_exch_read(addr);
+    if (result != 0)
+    {
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected 0 when reading non-V-address but got %016llX\n", result);
+        mu5_selftest_set_failure(testContext);
+    }
+}
+
+static void cpu_selftest_write_non_v_address_is_ignored(TESTCONTEXT *testContext)
+{
+    t_addr addr = RA_X(0);
+    cpu_exch_write(addr, 0xFFFFFFFFFFFFFFFF);
+    t_uint64 result = cpu_exch_read(RA_VX(0));
+    if (result != 0)
+    {
+        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "Expected 0 after writing non-V-address but got %016llX\n", result);
+        mu5_selftest_set_failure(testContext);
+    }
 }
