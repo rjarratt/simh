@@ -76,13 +76,27 @@ static UNIT btu_unit[] =
     { UDATA(&btu_svc, 0, 0) }
 };
 
+static BITFIELD size_bits[] = {
+    BITF(N,16),
+    BITF(UI,4),
+    ENDBITS
+};
+
+static BITFIELD transfer_status_bits[] = {
+    BITNCF(1),
+    BIT(PDT),
+    BIT(TC),
+    BIT(TIP),
+    ENDBITS
+};
+
 static REG btu_reg[] =
 {
     { URDATAD(SOURCEADDR,         source_address, 16, 28, 4, BTU_NUM_UNITS, 0, "source address, units 0 to 3") },
     { URDATAD(DESTINATIONADDR,    destination_address, 16, 28, 4, BTU_NUM_UNITS, 0, "destination address, units 0 to 3") },
     { URDATAD(DESTINATIONADDR,    destination_address, 16, 28, 4, BTU_NUM_UNITS, 0, "destination address, units 0 to 3") },
-    { URDATAD(SIZE,               size, 16,20, 12, BTU_NUM_UNITS, 0, "transfer size, units 0 to 3") }, // TODO: change to fields
-    { URDATAD(TRANSFERSTATUS,     transfer_status, 16, 4, 28, BTU_NUM_UNITS, 0, "transfer status, units 0 to 3") }, // TODO: change to fields
+    { URDATADF(SIZE,               size, 16,20, 12, BTU_NUM_UNITS, 0, "transfer size, units 0 to 3", size_bits) },
+    { URDATADF(TRANSFERSTATUS,     transfer_status, 16, 4, 28, BTU_NUM_UNITS, 0, "transfer status, units 0 to 3", transfer_status_bits) },
     { GRDATAD(BTURIPF,            btu_ripf,      16,  31, 1, "request inhibit") },
     { GRDATAD(TRANSFERCOMPLETE,   transfer_complete, 16,  28, 4, "transfer complete") },
     { NULL }
