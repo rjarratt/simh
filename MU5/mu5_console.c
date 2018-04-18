@@ -95,7 +95,7 @@ static t_uint64 *DateLower;
 static t_uint64 *DateUpper;
 static t_uint64 *ConsoleHoot;
 
-static bool enable_hooter = 0;
+static int enable_hooter = 0;
 static volatile int terminate_thread = 0;
 
 #if defined(HAVE_LIBSDL)
