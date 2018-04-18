@@ -1,4 +1,4 @@
-/* mu5_btu.h: MU5 Block Transfer Unit
+/* mu5_btu_test.h: MU5 simulator Block Transfer Unit test definitions
 
 Copyright (c) 2016-2018, Robert Jarratt
 
@@ -24,15 +24,9 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Robert Jarratt.
 */
 
-#include "sim_defs.h"
+#include "mu5_defs.h"
+#include "mu5_test.h"
 
-#define BTU_NUM_UNITS 4
+#pragma once
+void btu_selftest(TESTCONTEXT *testContext);
 
-#define BTU_VX_STORE_SOURCE_ADDRESS(unit)  VX_ADDR(unit, 0)
-#define BTU_VX_STORE_DESTINATION_ADDRESS(unit)  VX_ADDR(unit, 1)
-#define BTU_VX_STORE_SIZE(unit)  VX_ADDR(unit, 3)
-#define BTU_VX_STORE_TRANSFER_STATUS(unit)  VX_ADDR(unit, 4)
-
-void btu_reset_state(void);
-t_uint64 btu_exch_read(t_addr addr);
-void btu_exch_write(t_addr addr, t_uint64 value);

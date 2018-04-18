@@ -113,6 +113,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define RA_MASS(address) ((UNIT_MASS_STORE << RA_BIT_LENGTH) | (address & RA_MASK))
 #define RA_LOCAL_BYTE(address) ((UNIT_LOCAL_STORE << (RA_BIT_LENGTH + 2)) | (address & RA_MASK))
 #define RA_VX_MU5(address) (RA_VX_MASK | (UNIT_MU5_PROCESSOR << RA_BIT_LENGTH) | ((address << 1) & RA_MASK)) /* address is in 64-bit units */
+#define RA_VX_BTU(address) (RA_VX_MASK | (UNIT_BTU << RA_BIT_LENGTH) | ((address << 1) & RA_X_MASK)) /* address is in 64-bit units */
 
 #define VX_ADDR(block,line) ((block << 5) | (line & 0x1F))
 #define VX_LINE(addr) (addr & 0x1F)

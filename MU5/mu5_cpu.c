@@ -56,6 +56,7 @@ So for a V-store access, the name part of the instruction just points to a 64-bi
 #include "mu5_cpu_test.h"
 #include "mu5_sac_test.h"
 #include "mu5_drum_test.h"
+#include "mu5_btu_test.h"
 #include "mu5_console_test.h"
 
 /* This structure is used to allow instruction execution to be table driven. It allows for tables to be nested. At each level the
@@ -1008,6 +1009,7 @@ static t_stat cpu_reset(DEVICE *dptr)
         cpu_selftest(&testContext);
         sac_selftest(&testContext);
 		drum_selftest(&testContext);
+        btu_selftest(&testContext);
 		console_selftest(&testContext);
 		result = mu5_selftest_end(&testContext);
     }
