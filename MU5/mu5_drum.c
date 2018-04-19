@@ -387,11 +387,11 @@ void drum_reset_state(void)
 	transfer_requested = 0;
 	transfer_in_progress = 0;
 
-    drum_setup_vx_store_location(DRUM_VX_STORE_DISC_ADDRESS, drum_read_disc_address_callback, drum_write_disc_address_callback);
-    drum_setup_vx_store_location(DRUM_VX_STORE_STORE_ADDRESS, drum_read_store_address_callback, drum_write_store_address_callback);
-    drum_setup_vx_store_location(DRUM_VX_STORE_DISC_STATUS, drum_read_disc_status_callback, drum_write_disc_status_callback);
-    drum_setup_vx_store_location(DRUM_VX_STORE_CURRENT_POSITIONS, drum_read_current_positions_callback, NULL);
-    drum_setup_vx_store_location(DRUM_VX_STORE_COMPLETE_ADDRESS, drum_read_complete_address_callback, drum_write_complete_address_callback);
+    drum_setup_vx_store_location(DRUM_VX_STORE_DISC_ADDRESS_LINE, drum_read_disc_address_callback, drum_write_disc_address_callback);
+    drum_setup_vx_store_location(DRUM_VX_STORE_STORE_ADDRESS_LINE, drum_read_store_address_callback, drum_write_store_address_callback);
+    drum_setup_vx_store_location(DRUM_VX_STORE_DISC_STATUS_LINE, drum_read_disc_status_callback, drum_write_disc_status_callback);
+    drum_setup_vx_store_location(DRUM_VX_STORE_CURRENT_POSITIONS_LINE, drum_read_current_positions_callback, NULL);
+    drum_setup_vx_store_location(DRUM_VX_STORE_COMPLETE_ADDRESS_LINE, drum_read_complete_address_callback, drum_write_complete_address_callback);
 }
 
 t_uint64 drum_exch_read(t_addr addr)
