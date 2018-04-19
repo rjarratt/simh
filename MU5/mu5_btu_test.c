@@ -52,14 +52,14 @@ static void btu_selftest_execute_cycle(void);
 static void btu_selftest_execute_cycle_unit(int unitNum);
 
 static void btu_selftest_set_register_instance(char *name, uint8 index, t_uint64 value);
-static void btu_selftest_setup_vx_line(t_addr line, t_uint64 value);
+static void btu_selftest_setup_vx_line(t_addr address, t_uint64 value);
 static void btu_selftest_setup_request(t_uint64 disc_address);
 
 static void btu_selftest_set_failure(void);
 static void btu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 static void btu_selftest_assert_reg_instance_equals(char *name, uint8 index, t_uint64 expectedValue);
 static void btu_selftest_assert_reg_equals_mask(char *name, t_uint64 mask, t_uint64 expectedValue);
-static void btu_selftest_assert_vx_line_contents(t_addr line, t_uint64 expectedValue);
+static void btu_selftest_assert_vx_line_contents(t_addr address, t_uint64 expectedValue);
 
 static void btu_selftest_write_to_source_address(TESTCONTEXT *testContext);
 static void btu_selftest_read_from_source_address(TESTCONTEXT *testContext);
@@ -68,6 +68,8 @@ static UNITTEST tests[] =
 {
     { "Can write to the source address Vx line", btu_selftest_write_to_source_address },
     { "Can read from the source address Vx line", btu_selftest_read_from_source_address },
+    /* read/write other blocks */
+    /* read/write non-existent blocks */
 };
 
 void btu_selftest(TESTCONTEXT *testContext)
@@ -104,9 +106,9 @@ static void btu_selftest_set_register_instance(char *name, uint8 index, t_uint64
     mu5_selftest_set_register_instance(localTestContext, &btu_dev, name, index, value);
 }
 
-static void btu_selftest_setup_vx_line(t_addr line, t_uint64 value)
+static void btu_selftest_setup_vx_line(t_addr address, t_uint64 value)
 {
-    exch_write(RA_VX_BTU(line), value);
+    exch_write(RA_VX_BTU(address), value);
 }
 
 static void btu_selftest_setup_request(t_uint64 disc_address)
@@ -136,12 +138,12 @@ static void btu_selftest_assert_reg_equals_mask(char *name, t_uint64 mask, t_uin
     mu5_selftest_assert_reg_equals_mask(localTestContext, &btu_dev, name, mask, expectedValue);
 }
 
-static void btu_selftest_assert_vx_line_contents(t_addr line, t_uint64 expectedValue)
+static void btu_selftest_assert_vx_line_contents(t_addr address, t_uint64 expectedValue)
 {
-    t_uint64 actualValue = exch_read(RA_VX_BTU(line));
+    t_uint64 actualValue = exch_read(RA_VX_BTU(address));
     if (actualValue != expectedValue)
     {
-        sim_debug(LOG_SELFTEST_FAIL, &btu_dev, "Expected value at Vx line %hu to be %016llX, but was %016llX\n", line, expectedValue, actualValue);
+        sim_debug(LOG_SELFTEST_FAIL, &btu_dev, "Expected value at Vx line %hu to be %016llX, but was %016llX\n", address, expectedValue, actualValue);
         btu_selftest_set_failure();
     }
 }
@@ -149,11 +151,11 @@ static void btu_selftest_assert_vx_line_contents(t_addr line, t_uint64 expectedV
 static void btu_selftest_write_to_source_address(TESTCONTEXT *testContext)
 {
     btu_selftest_setup_vx_line(BTU_VX_STORE_SOURCE_ADDRESS(TEST_UNIT_NUM), 0xFFFFFFFFA5A5A5A5);
-    btu_selftest_assert_reg_instance_equals(REG_SOURCEADDR, TEST_UNIT_NUM, 0x8025A525);
+    btu_selftest_assert_reg_instance_equals(REG_SOURCEADDR, TEST_UNIT_NUM, 0x05A5A5A5);
 }
 
 static void btu_selftest_read_from_source_address(TESTCONTEXT *testContext)
 {
     btu_selftest_set_register_instance(REG_SOURCEADDR, TEST_UNIT_NUM, 0xA5A5A5A5);
-    btu_selftest_assert_vx_line_contents(BTU_VX_STORE_SOURCE_ADDRESS(TEST_UNIT_NUM), 0xA5A5A5A5);
+    btu_selftest_assert_vx_line_contents(BTU_VX_STORE_SOURCE_ADDRESS(TEST_UNIT_NUM), 0x05A5A5A5);
 }

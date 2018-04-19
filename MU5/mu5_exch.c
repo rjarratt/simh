@@ -50,6 +50,7 @@ on p134 of the book, namely:
 #include "mu5_cpu.h"
 #include "mu5_sac.h"
 #include "mu5_drum.h"
+#include "mu5_btu.h"
 
 #define LOG_EXCH_REAL_ACCESSES   (1 << 0)
 
@@ -144,9 +145,16 @@ t_uint64 exch_read(t_addr address)
             break;
         }
 
+        case UNIT_BTU:
+        {
+            result = btu_exch_read(unit_addr);
+            sim_debug(LOG_EXCH_REAL_ACCESSES, &exch_dev, "Read BTU real address %08X, result=%016llX\n", address, result);
+            break;
+        }
+
         case UNIT_MU5_PROCESSOR:
         {
-            result =cpu_exch_read(unit_addr);
+            result = cpu_exch_read(unit_addr);
             sim_debug(LOG_EXCH_REAL_ACCESSES, &exch_dev, "Read MU5 real address %08X, result=%016llX\n", address, result);
             break;
         }
@@ -186,6 +194,13 @@ void exch_write(t_addr address, t_uint64 value)
         {
             sac_mass_store_exch_write(unit_addr, value);
             sim_debug(LOG_EXCH_REAL_ACCESSES, &exch_dev, "Write mass store real address %08X, value=%016llX\n", address, value);
+            break;
+        }
+
+        case UNIT_BTU:
+        {
+            btu_exch_write(unit_addr, value);
+            sim_debug(LOG_EXCH_REAL_ACCESSES, &exch_dev, "Write BTU real address %08X, value=%016llX\n", address, value);
             break;
         }
 
