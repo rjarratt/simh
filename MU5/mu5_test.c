@@ -364,35 +364,21 @@ t_uint64 mu5_selftest_get_register_instance(TESTCONTEXT *context, DEVICE *device
         loc = (uint8 *)reg->loc + index * (reg->width/8);
     }
 
-    switch (reg->width)
+    mask = ((t_uint64)1 << reg->width) - 1;
+    if (reg->width <= 16)
     {
-        case 16:
-        {
-            result = *(uint16 *)(loc);
-            mask = 0xFFFF;
-            break;
-        }
-        case 32:
-        {
-            result = *(uint32 *)(loc);
-            mask = 0xFFFFFFFF;
-            break;
-        }
-        case 64:
-        {
-            result = *(t_uint64 *)(loc);
-            mask = 0xFFFFFFFFFFFFFFFF;
-            break;
-        }
-        default:
-        {
-            mu5_selftest_set_failure(context);
-            break;
-        }
+        result = *(uint16 *)(loc);
+    }
+    else if(reg->width <= 32)
+    {
+        result = *(uint32 *)(loc);
+    }
+    else
+    {
+        result = *(t_uint64 *)(loc);
     }
 
     return result & mask;
-
 }
 
 void mu5_selftest_set_register(TESTCONTEXT *context, DEVICE *device, char *name, t_uint64 value)
@@ -404,6 +390,7 @@ void mu5_selftest_set_register_instance(TESTCONTEXT *context, DEVICE *device, ch
 {
     REG *reg = mu5_selftest_find_register(context, device, name);
     void *loc;
+    t_uint64 mask;
 
     assert(index >= 0 && index < reg->depth);
     if (reg->depth == 1)
@@ -414,29 +401,18 @@ void mu5_selftest_set_register_instance(TESTCONTEXT *context, DEVICE *device, ch
     {
         loc = (uint8 *)reg->loc + index * (reg->width / 8);
 
-        switch (reg->width)
+        mask = ((t_uint64)1 << reg->width) - 1;
+        if (reg->width <= 16)
         {
-            case 16:
-            {
-                *(uint16 *)(loc) = value & 0xFFFF;
-                break;
-            }
-            case 32:
-            {
-                *(uint32 *)(loc) = value & 0xFFFFFFFF;
-                break;
-            }
-            case 64:
-            {
-                *(t_uint64 *)(loc) = value & 0xFFFFFFFFFFFFFFFF;
-                break;
-            }
-            default:
-            {
-                sim_debug(LOG_SELFTEST_FAIL, context->dev, "Unexpected register width %d for register %s\n", reg->width, name);
-                mu5_selftest_set_failure(context);
-                break;
-            }
+            *(uint16 *)(loc) = value & mask & 0xFFFF;
+        }
+        else if (reg->width <= 32)
+        {
+            *(uint32 *)(loc) = value & mask & 0xFFFFFFFF;
+        }
+        else
+        {
+            *(t_uint64 *)(loc) = value & mask;
         }
     }
 }
