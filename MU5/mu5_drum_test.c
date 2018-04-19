@@ -61,13 +61,13 @@ static void drum_selftest_reset(UNITTEST *test);
 static void drum_selftest_execute_cycle(void);
 static void drum_selftest_execute_cycle_unit(int unitNum);
 
-static void drum_selftest_setup_vx_line(t_addr line, t_uint64 value);
+static void drum_selftest_setup_vx_line(t_addr address, t_uint64 value);
 static void drum_selftest_setup_request(t_uint64 disc_address);
 
 static void drum_selftest_set_failure(void);
 static void drum_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 static void drum_selftest_assert_reg_equals_mask(char *name, t_uint64 mask, t_uint64 expectedValue);
-static void drum_selftest_assert_vx_line_contents(t_addr line, t_uint64 expectedValue);
+static void drum_selftest_assert_vx_line_contents(t_addr address, t_uint64 expectedValue);
 static void drum_selftest_assert_real_address_contents(t_addr address, t_uint64 expectedValue);
 static void drum_selftest_assert_legal_request();
 static void drum_selftest_assert_illegal_request();
@@ -215,9 +215,9 @@ static void drum_selftest_execute_cycle_unit(int unitNum)
 	unit->action(unit);
 }
 
-static void drum_selftest_setup_vx_line(t_addr line, t_uint64 value)
+static void drum_selftest_setup_vx_line(t_addr address, t_uint64 value)
 {
-    exch_write(RA_VX_DRUM(line), value);
+    exch_write(RA_VX_DRUM(address), value);
 }
 
 static void drum_selftest_setup_request(t_uint64 disc_address)
@@ -242,12 +242,12 @@ static void drum_selftest_assert_reg_equals_mask(char *name, t_uint64 mask, t_ui
 	mu5_selftest_assert_reg_equals_mask(localTestContext, &drum_dev, name, mask, expectedValue);
 }
 
-static void drum_selftest_assert_vx_line_contents(t_addr line, t_uint64 expectedValue)
+static void drum_selftest_assert_vx_line_contents(t_addr address, t_uint64 expectedValue)
 {
-    t_uint64 actualValue = exch_read(RA_VX_DRUM(line));
+    t_uint64 actualValue = exch_read(RA_VX_DRUM(address));
     if (actualValue != expectedValue)
     {
-        sim_debug(LOG_SELFTEST_FAIL, &drum_dev, "Expected value at Vx line %hu to be %016llX, but was %016llX\n", line, expectedValue, actualValue);
+        sim_debug(LOG_SELFTEST_FAIL, &drum_dev, "Expected value at Vx line %hu to be %016llX, but was %016llX\n", address, expectedValue, actualValue);
         drum_selftest_set_failure();
     }
 }
