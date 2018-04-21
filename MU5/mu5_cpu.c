@@ -1064,23 +1064,19 @@ static t_stat cpu_dep(t_value val, t_addr addr, UNIT *uptr, int32 sw)
 /* used for self test purposes only, so register setting includes calling the callbacks if appropriate, to make interrupt testing easier */
 void cpu_set_register(REG *reg, t_uint64 value)
 {
-    switch (reg->width)
+    t_uint64 mask = ((t_uint64)1 << reg->width) - 1;
+
+    if (reg->width <= 16)
     {
-        case 16:
-        {
-            cpu_set_register_16(reg, value & 0xFFFF);
-            break;
-        }
-        case 32:
-        {
-            cpu_set_register_32(reg, value & 0xFFFFFFFF);
-            break;
-        }
-        case 64:
-        {
-            cpu_set_register_64(reg, value & 0xFFFFFFFFFFFFFFFF);
-            break;
-        }
+        cpu_set_register_16(reg, (uint16)(value & mask));
+    }
+    else if (reg->width <= 32)
+    {
+        cpu_set_register_32(reg, (uint32)(value & mask));
+    }
+    else
+    {
+        cpu_set_register_64(reg, value & mask);
     }
 }
 
@@ -1133,7 +1129,7 @@ static SIM_INLINE void cpu_set_register_16(REG *reg, uint16 value)
 {
     uint16 old_value;
     uint16 *backing;
-    assert(reg->width == 16);
+    assert(reg->width <= 16);
     backing = reg->loc;
     old_value = *backing;
     *backing = value;
@@ -1147,7 +1143,7 @@ static SIM_INLINE void cpu_set_register_32(REG *reg, uint32 value)
 {
     uint32 old_value;
     uint32 *backing;
-    assert(reg->width == 32);
+    assert(reg->width <= 32);
     backing = reg->loc;
     old_value = *backing;
     *backing = value;
@@ -1161,7 +1157,7 @@ static SIM_INLINE void cpu_set_register_64(REG *reg, t_uint64 value)
 {
     t_uint64 old_value;
     t_uint64 *backing;
-    assert(reg->width == 64);
+    assert(reg->width <= 64);
     backing = reg->loc;
 	old_value = *backing;
     *backing = value;
@@ -1175,7 +1171,7 @@ static SIM_INLINE void cpu_set_register_bit_16(REG *reg, uint16 mask, int bit)
 {
     uint16 old_value;
     uint16 new_value;
-    assert(reg->width == 16);
+    assert(reg->width <= 16);
     old_value = *(uint16 *)(reg->loc);
     new_value = cpu_set_value_bit_16(old_value, mask, bit);
     cpu_set_register_16(reg, new_value);
@@ -1185,7 +1181,7 @@ static SIM_INLINE void cpu_set_register_bit_32(REG *reg, uint32 mask, int bit)
 {
     uint32 old_value;
     uint32 new_value;
-    assert(reg->width == 32);
+    assert(reg->width <= 32);
     old_value = *(uint32 *)(reg->loc);
     new_value = cpu_set_value_bit_32(old_value, mask, bit);
     cpu_set_register_32(reg, new_value);
@@ -1195,7 +1191,7 @@ static SIM_INLINE void cpu_set_register_bit_64(REG *reg, t_uint64 mask, int bit)
 {
     t_uint64 old_value;
     t_uint64 new_value;
-    assert(reg->width == 64);
+    assert(reg->width <= 64);
     old_value = *(t_uint64 *)(reg->loc);
     new_value = cpu_set_value_bit_64(old_value, mask, bit);
     cpu_set_register_64(reg, new_value);
@@ -1204,7 +1200,7 @@ static SIM_INLINE void cpu_set_register_bit_64(REG *reg, t_uint64 mask, int bit)
 static SIM_INLINE uint16 cpu_get_register_16(REG *reg)
 {
     uint16 result;
-    assert(reg->width == 16);
+    assert(reg->width <= 16);
     result = *(uint16 *)(reg->loc);
     return result;
 }
@@ -1212,7 +1208,7 @@ static SIM_INLINE uint16 cpu_get_register_16(REG *reg)
 static SIM_INLINE uint32 cpu_get_register_32(REG *reg)
 {
     uint32 result;
-    assert(reg->width == 32);
+    assert(reg->width <= 32);
     result = *(uint32 *)(reg->loc);
     return result;
 }
@@ -1220,7 +1216,7 @@ static SIM_INLINE uint32 cpu_get_register_32(REG *reg)
 static SIM_INLINE t_uint64 cpu_get_register_64(REG *reg)
 {
     t_uint64 result;
-    assert(reg->width == 64);
+    assert(reg->width <= 64);
     result = *(t_uint64 *)(reg->loc);
     return result;
 }
@@ -1228,7 +1224,7 @@ static SIM_INLINE t_uint64 cpu_get_register_64(REG *reg)
 static SIM_INLINE int cpu_get_register_bit_16(REG *reg, uint16 mask)
 {
     int result;
-    assert(reg->width == 16);
+    assert(reg->width <= 16);
     if (*(uint16 *)(reg->loc) & mask)
     {
         result = 1;
@@ -1244,7 +1240,7 @@ static SIM_INLINE int cpu_get_register_bit_16(REG *reg, uint16 mask)
 static SIM_INLINE int cpu_get_register_bit_32(REG *reg, uint32 mask)
 {
     int result;
-    assert(reg->width == 32);
+    assert(reg->width <= 32);
     if (*(uint32 *)(reg->loc) & mask)
     {
         result = 1;
@@ -1260,7 +1256,7 @@ static SIM_INLINE int cpu_get_register_bit_32(REG *reg, uint32 mask)
 static SIM_INLINE int cpu_get_register_bit_64(REG *reg, t_uint64 mask)
 {
     int result;
-    assert(reg->width == 64);
+    assert(reg->width <= 64);
     if (*(t_uint64 *)(reg->loc) & mask)
     {
         result = 1;
