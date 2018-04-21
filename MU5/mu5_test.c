@@ -352,6 +352,7 @@ t_uint64 mu5_selftest_get_register_instance(TESTCONTEXT *context, DEVICE *device
     t_uint64 result = 0;
     t_uint64 mask;
     void *loc;
+    int byte_width;
     REG *reg = mu5_selftest_find_register(context, device, name);
 
     assert(index >= 0 && index < reg->depth);
@@ -361,7 +362,8 @@ t_uint64 mu5_selftest_get_register_instance(TESTCONTEXT *context, DEVICE *device
     }
     else
     {
-        loc = (uint8 *)reg->loc + index * (reg->width/8);
+        byte_width = reg->width / 8 + ((reg->width % 8) == 0 ? 0 : 1);
+        loc = (uint8 *)reg->loc + index * byte_width;
     }
 
     mask = ((t_uint64)1 << reg->width) - 1;
@@ -390,6 +392,7 @@ void mu5_selftest_set_register_instance(TESTCONTEXT *context, DEVICE *device, ch
 {
     REG *reg = mu5_selftest_find_register(context, device, name);
     void *loc;
+    int byte_width;
     t_uint64 mask;
 
     assert(index >= 0 && index < reg->depth);
@@ -399,7 +402,8 @@ void mu5_selftest_set_register_instance(TESTCONTEXT *context, DEVICE *device, ch
     }
     else
     {
-        loc = (uint8 *)reg->loc + index * (reg->width / 8);
+        byte_width = reg->width / 8 + ((reg->width % 8) == 0 ? 0 : 1);
+        loc = (uint8 *)reg->loc + index * byte_width;
 
         mask = ((t_uint64)1 << reg->width) - 1;
         if (reg->width <= 16)
