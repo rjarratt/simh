@@ -52,9 +52,9 @@ static void btu_schedule_next_poll(UNIT *uptr);
 
 static t_uint64 btu_read_vx_store(t_addr addr);
 static void btu_write_vx_store(t_addr addr, t_uint64 value);
-static void btu_setup_vx_store_location(uint8 block, uint8 line, t_uint64(*readCallback)(uint8), void(*writeCallback)(uint8, t_uint64));
-static t_uint64 btu_read_source_address_callback(uint8 line);
-static void btu_write_source_address_callback(uint8 line, t_uint64 value);
+static void btu_setup_vx_store_location(uint8 block, uint8 line, t_uint64(*readCallback)(uint8, uint8), void(*writeCallback)(uint8, uint8, t_uint64));
+static t_uint64 btu_read_source_address_callback(uint8 block, uint8 line);
+static void btu_write_source_address_callback(uint8 block, uint8 line, t_uint64 value);
 
 static uint32 reg_source_address[BTU_NUM_UNITS];
 static uint32 reg_destination_address[BTU_NUM_UNITS];
@@ -171,6 +171,13 @@ void btu_reset_state(void)
 {
     int i;
 
+    memset(reg_source_address, 0, sizeof(reg_source_address));
+    memset(reg_destination_address, 0, sizeof(reg_destination_address));
+    memset(reg_size, 0, sizeof(reg_size));
+    memset(reg_transfer_status, 0, sizeof(reg_transfer_status));
+    reg_btu_ripf = 0;
+    reg_transfer_complete = 0;
+
     for (i = 0; i < BTU_NUM_UNITS; i++)
     {
         btu_setup_vx_store_location(i, BTU_VX_STORE_SOURCE_ADDRESS_LINE, btu_read_source_address_callback, btu_write_source_address_callback);
@@ -207,7 +214,7 @@ static t_uint64 btu_read_vx_store(t_addr addr)
     vx_line = &VxStore[block][line];
     if (vx_line->ReadCallback != NULL)
     {
-        result = vx_line->ReadCallback(line);
+        result = vx_line->ReadCallback(block, line);
     }
 
     return result;
@@ -222,23 +229,23 @@ static void btu_write_vx_store(t_addr addr, t_uint64 value)
     vx_line = &VxStore[block][line];
     if (vx_line->WriteCallback != NULL)
     {
-        vx_line->WriteCallback(line, value);
+        vx_line->WriteCallback(block, line, value);
     }
 }
 
-static void btu_setup_vx_store_location(uint8 block, uint8 line, t_uint64(*readCallback)(uint8), void(*writeCallback)(uint8, t_uint64))
+static void btu_setup_vx_store_location(uint8 block, uint8 line, t_uint64(*readCallback)(uint8, uint8), void(*writeCallback)(uint8, uint8, t_uint64))
 {
     VXSTORE_LINE *l = &VxStore[block][line];
     l->ReadCallback = readCallback;
     l->WriteCallback = writeCallback;
 }
 
-static t_uint64 btu_read_source_address_callback(uint8 line)
+static t_uint64 btu_read_source_address_callback(uint8 block, uint8 line)
 {
-    return reg_source_address[0] & 0x0FFFFFFF;
+    return reg_source_address[block] & 0x0FFFFFFF;
 }
 
-static void btu_write_source_address_callback(uint8 line, t_uint64 value)
+static void btu_write_source_address_callback(uint8 block, uint8 line, t_uint64 value)
 {
-    reg_source_address[0] = value & 0x0FFFFFFF;
+    reg_source_address[block] = value & 0x0FFFFFFF;
 }

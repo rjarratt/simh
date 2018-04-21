@@ -81,8 +81,8 @@ typedef struct VSTORE_LINE
 
 typedef struct VXSTORE_LINE
 {
-	t_uint64(*ReadCallback)(uint8 line);
-	void(*WriteCallback)(uint8 line, t_uint64 value);
+	t_uint64(*ReadCallback)(uint8 block, uint8 line);
+	void(*WriteCallback)(uint8 block, uint8 line, t_uint64 value);
 } VXSTORE_LINE;
 
 void sac_reset_state(void);

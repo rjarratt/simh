@@ -86,16 +86,16 @@ static t_lba drum_compute_lba(uint8 band, uint8 block);
 
 static t_uint64 drum_read_vx_store(t_addr addr);
 static void drum_write_vx_store(t_addr addr, t_uint64 value);
-static void drum_setup_vx_store_location(uint8 line, t_uint64(*readCallback)(uint8), void(*writeCallback)(uint8, t_uint64));
-static t_uint64 drum_read_disc_address_callback(uint8 line);
-static void drum_write_disc_address_callback(uint8 line, t_uint64 value);
-static t_uint64 drum_read_store_address_callback(uint8 line);
-static void drum_write_store_address_callback(uint8 line, t_uint64 value);
-static t_uint64 drum_read_disc_status_callback(uint8 line);
-static void drum_write_disc_status_callback(uint8 line, t_uint64 value);
-static t_uint64 drum_read_current_positions_callback(uint8 line);
-static t_uint64 drum_read_complete_address_callback(uint8 line);
-static void drum_write_complete_address_callback(uint8 line, t_uint64 value);
+static void drum_setup_vx_store_location(uint8 line, t_uint64(*readCallback)(uint8,uint8), void(*writeCallback)(uint8,uint8, t_uint64));
+static t_uint64 drum_read_disc_address_callback(uint8 block, uint8 line);
+static void drum_write_disc_address_callback(uint8 block, uint8 line, t_uint64 value);
+static t_uint64 drum_read_store_address_callback(uint8 block, uint8 line);
+static void drum_write_store_address_callback(uint8 block, uint8 line, t_uint64 value);
+static t_uint64 drum_read_disc_status_callback(uint8 block, uint8 line);
+static void drum_write_disc_status_callback(uint8 block, uint8 line, t_uint64 value);
+static t_uint64 drum_read_current_positions_callback(uint8 block, uint8 line);
+static t_uint64 drum_read_complete_address_callback(uint8 block, uint8 line);
+static void drum_write_complete_address_callback(uint8 block, uint8 line, t_uint64 value);
 
 
 static UNIT drum_unit[] =
@@ -432,7 +432,7 @@ static t_uint64 drum_read_vx_store(t_addr addr)
         vx_line = &VxStore[line];
         if (vx_line->ReadCallback != NULL)
         {
-            result = vx_line->ReadCallback(line);
+            result = vx_line->ReadCallback(0, line);
         }
     }
 
@@ -449,7 +449,7 @@ static void drum_write_vx_store(t_addr addr, t_uint64 value)
         vx_line = &VxStore[line];
         if (vx_line->WriteCallback != NULL)
         {
-            vx_line->WriteCallback(line, value);
+            vx_line->WriteCallback(0, line, value);
         }
     }
 }
@@ -654,19 +654,19 @@ static t_lba drum_compute_lba(uint8 band, uint8 block)
 }
 
 
-static void drum_setup_vx_store_location(uint8 line, t_uint64(*readCallback)(uint8), void(*writeCallback)(uint8,t_uint64))
+static void drum_setup_vx_store_location(uint8 line, t_uint64(*readCallback)(uint8, uint8), void(*writeCallback)(uint8,uint8,t_uint64))
 {
     VXSTORE_LINE *l = &VxStore[line];
     l->ReadCallback = readCallback;
     l->WriteCallback = writeCallback;
 }
 
-static t_uint64 drum_read_disc_address_callback(uint8 line)
+static t_uint64 drum_read_disc_address_callback(uint8 block, uint8 line)
 {
 	return reg_disc_address & 0xC03FFF3F;
 }
 
-static void drum_write_disc_address_callback(uint8 line, t_uint64 value)
+static void drum_write_disc_address_callback(uint8 block, uint8 line, t_uint64 value)
 {
     uint8 unit_num;
     UNIT *unit;
@@ -685,22 +685,22 @@ static void drum_write_disc_address_callback(uint8 line, t_uint64 value)
 	}
 }
 
-static t_uint64 drum_read_store_address_callback(uint8 line)
+static t_uint64 drum_read_store_address_callback(uint8 block, uint8 line)
 {
     return reg_store_address & 0x0FFFFFFF;
 }
 
-static void drum_write_store_address_callback(uint8 line, t_uint64 value)
+static void drum_write_store_address_callback(uint8 block, uint8 line, t_uint64 value)
 {
     reg_store_address = value & 0x0FFFFFFF;
 }
 
-static t_uint64 drum_read_disc_status_callback(uint8 line)
+static t_uint64 drum_read_disc_status_callback(uint8 block, uint8 line)
 {
     return reg_disc_status & 0x0FFFFFF0;
 }
 
-static void drum_write_disc_status_callback(uint8 line, t_uint64 value)
+static void drum_write_disc_status_callback(uint8 block, uint8 line, t_uint64 value)
 {
     if (value & DRUM_DISC_STATUS_DECODE)
     {
@@ -728,17 +728,17 @@ static void drum_write_disc_status_callback(uint8 line, t_uint64 value)
     }
 }
 
-static t_uint64 drum_read_current_positions_callback(uint8 line)
+static t_uint64 drum_read_current_positions_callback(uint8 block, uint8 line)
 {
     return reg_current_positions & 0x03FFFFFF;
 }
 
-static t_uint64 drum_read_complete_address_callback(uint8 line)
+static t_uint64 drum_read_complete_address_callback(uint8 block, uint8 line)
 {
     return reg_complete_address & 0x0FFFFFFF;
 }
 
-static void drum_write_complete_address_callback(uint8 line, t_uint64 value)
+static void drum_write_complete_address_callback(uint8 block, uint8 line, t_uint64 value)
 {
     reg_complete_address = value & 0x0FFFFFFF;
 }

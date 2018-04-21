@@ -63,12 +63,15 @@ static void btu_selftest_assert_vx_line_contents(t_addr address, t_uint64 expect
 
 static void btu_selftest_write_to_source_address(TESTCONTEXT *testContext);
 static void btu_selftest_read_from_source_address(TESTCONTEXT *testContext);
+static void btu_selftest_write_to_source_address_of_different_unit(TESTCONTEXT *testContext);
+static void btu_selftest_read_from_source_address_of_different_unit(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
     { "Can write to the source address Vx line", btu_selftest_write_to_source_address },
     { "Can read from the source address Vx line", btu_selftest_read_from_source_address },
-    /* read/write other blocks */
+    { "Can write to the source address Vx line of a different unit", btu_selftest_write_to_source_address_of_different_unit },
+    { "Can read from the source address Vx line of a different unit", btu_selftest_read_from_source_address_of_different_unit },
     /* read/write non-existent blocks */
 };
 
@@ -158,4 +161,16 @@ static void btu_selftest_read_from_source_address(TESTCONTEXT *testContext)
 {
     btu_selftest_set_register_instance(REG_SOURCEADDR, TEST_UNIT_NUM, 0xA5A5A5A5);
     btu_selftest_assert_vx_line_contents(BTU_VX_STORE_SOURCE_ADDRESS(TEST_UNIT_NUM), 0x05A5A5A5);
+}
+
+static void btu_selftest_write_to_source_address_of_different_unit(TESTCONTEXT *testContext)
+{
+    btu_selftest_setup_vx_line(BTU_VX_STORE_SOURCE_ADDRESS(BTU_NUM_UNITS - 1), 0xFFFFFFFFA5A5A5A5);
+    btu_selftest_assert_reg_instance_equals(REG_SOURCEADDR, BTU_NUM_UNITS - 1, 0x05A5A5A5);
+}
+
+static void btu_selftest_read_from_source_address_of_different_unit(TESTCONTEXT *testContext)
+{
+    btu_selftest_set_register_instance(REG_SOURCEADDR, BTU_NUM_UNITS - 1, 0xA5A5A5A5);
+    btu_selftest_assert_vx_line_contents(BTU_VX_STORE_SOURCE_ADDRESS(BTU_NUM_UNITS - 1), 0x05A5A5A5);
 }
