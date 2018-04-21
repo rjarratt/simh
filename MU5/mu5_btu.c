@@ -61,12 +61,15 @@ static t_uint64 btu_read_size_callback(uint8 block, uint8 line);
 static void btu_write_size_callback(uint8 block, uint8 line, t_uint64 value);
 static t_uint64 btu_read_transfer_status_callback(uint8 block, uint8 line);
 static void btu_write_transfer_status_callback(uint8 block, uint8 line, t_uint64 value);
+static t_uint64 btu_read_btu_ripf_callback(uint8 block, uint8 line);
+static void btu_write_btu_ripf_callback(uint8 block, uint8 line, t_uint64 value);
+static t_uint64 btu_read_transfer_complete_callback(uint8 block, uint8 line);
 
 static uint32 reg_source_address[BTU_NUM_UNITS];
 static uint32 reg_destination_address[BTU_NUM_UNITS];
 static uint32 reg_size[BTU_NUM_UNITS];
 static uint32 reg_transfer_status[BTU_NUM_UNITS];
-static uint32 reg_btu_ripf;
+static uint16 reg_btu_ripf;
 static uint32 reg_transfer_complete;
 
 static UNIT btu_unit[] =
@@ -97,7 +100,7 @@ static REG btu_reg[] =
     { URDATAD(DESTINATIONADDR,    reg_destination_address, 16, 28, 4, BTU_NUM_UNITS, 0, "destination address, units 0 to 3") },
     { URDATADF(SIZE,              reg_size, 16,20, 12, BTU_NUM_UNITS, 0, "transfer size, units 0 to 3", size_bits) },
     { URDATADF(TRANSFERSTATUS,    reg_transfer_status, 16, 4, 28, BTU_NUM_UNITS, 0, "transfer status, units 0 to 3", transfer_status_bits) },
-    { GRDATAD(BTURIPF,            reg_btu_ripf,      16,  31, 1, "request inhibit") },
+    { GRDATAD(BTURIPF,            reg_btu_ripf,      16,  1, 31, "request inhibit") },
     { GRDATAD(TRANSFERCOMPLETE,   reg_transfer_complete, 16,  28, 4, "transfer complete") },
     { NULL }
 };
@@ -191,6 +194,9 @@ void btu_reset_state(void)
         btu_setup_vx_store_location(i, BTU_VX_STORE_SIZE_LINE, btu_read_size_callback, btu_write_size_callback);
         btu_setup_vx_store_location(i, BTU_VX_STORE_TRANSFER_STATUS_LINE, btu_read_transfer_status_callback, btu_write_transfer_status_callback);
     }
+
+    btu_setup_vx_store_location(BTU_VX_STORE_PARITY_BLOCK, BTU_VX_STORE_BTU_RIPF_LINE, btu_read_btu_ripf_callback, btu_write_btu_ripf_callback);
+    btu_setup_vx_store_location(BTU_VX_STORE_PARITY_BLOCK, BTU_VX_STORE_TRANSFER_COMPLETE_LINE, btu_read_transfer_complete_callback, NULL);
 
 }
 
@@ -295,3 +301,17 @@ static void btu_write_transfer_status_callback(uint8 block, uint8 line, t_uint64
     reg_transfer_status[block] = value & 0xE;
 }
 
+static t_uint64 btu_read_btu_ripf_callback(uint8 block, uint8 line)
+{
+    return reg_btu_ripf & 0x1;
+}
+
+static void btu_write_btu_ripf_callback(uint8 block, uint8 line, t_uint64 value)
+{
+    reg_btu_ripf = value & 0x1;
+}
+
+static t_uint64 btu_read_transfer_complete_callback(uint8 block, uint8 line)
+{
+    return reg_transfer_complete & 0xF;
+}

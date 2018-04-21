@@ -51,6 +51,7 @@ static void btu_selftest_reset(UNITTEST *test);
 static void btu_selftest_execute_cycle(void);
 static void btu_selftest_execute_cycle_unit(int unitNum);
 
+static void btu_selftest_set_register(char *name, t_uint64 value);
 static void btu_selftest_set_register_instance(char *name, uint8 index, t_uint64 value);
 static void btu_selftest_setup_vx_line(t_addr address, t_uint64 value);
 static void btu_selftest_setup_request(t_uint64 disc_address);
@@ -73,6 +74,10 @@ static void btu_selftest_write_to_size(TESTCONTEXT *testContext);
 static void btu_selftest_read_from_size(TESTCONTEXT *testContext);
 static void btu_selftest_write_to_transfer_status(TESTCONTEXT *testContext);
 static void btu_selftest_read_from_transfer_status(TESTCONTEXT *testContext);
+static void btu_selftest_write_to_ripf(TESTCONTEXT *testContext);
+static void btu_selftest_read_from_ripf(TESTCONTEXT *testContext);
+static void btu_selftest_write_to_transfer_complete_is_ignored(TESTCONTEXT *testContext);
+static void btu_selftest_read_from_transfer_complete(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
@@ -88,6 +93,10 @@ static UNITTEST tests[] =
     { "Can read from the size Vx line", btu_selftest_read_from_size },
     { "Can write to the transfer status Vx line", btu_selftest_write_to_transfer_status },
     { "Can read from the transfer status Vx line", btu_selftest_read_from_transfer_status },
+    { "Can write to the ripf Vx line", btu_selftest_write_to_ripf },
+    { "Can read from the ripf Vx line", btu_selftest_read_from_ripf },
+    { "Write to the transfer complete Vx line is ignored", btu_selftest_write_to_transfer_complete_is_ignored },
+    { "Can read from the transfer complete Vx line", btu_selftest_read_from_transfer_complete },
 };
 
 void btu_selftest(TESTCONTEXT *testContext)
@@ -117,6 +126,11 @@ static void btu_selftest_execute_cycle_unit(int unitNum)
 {
     UNIT *unit = &btu_dev.units[unitNum];
     unit->action(unit);
+}
+
+static void btu_selftest_set_register(char *name, t_uint64 value)
+{
+    mu5_selftest_set_register(localTestContext, &btu_dev, name, value);
 }
 
 static void btu_selftest_set_register_instance(char *name, uint8 index, t_uint64 value)
@@ -253,5 +267,29 @@ static void btu_selftest_read_from_transfer_status(TESTCONTEXT *testContext)
 {
     btu_selftest_set_register_instance(REG_TRANSFERSTATUS, TEST_UNIT_NUM, 0xE);
     btu_selftest_assert_vx_line_contents(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0xE);
+}
+
+static void btu_selftest_write_to_ripf(TESTCONTEXT *testContext)
+{
+    btu_selftest_setup_vx_line(BTU_VX_STORE_BTU_RIPF, 0xFFFFFFFFFFFFFFFF);
+    btu_selftest_assert_reg_equals(REG_BTURIPF, 0x1);
+}
+
+static void btu_selftest_read_from_ripf(TESTCONTEXT *testContext)
+{
+    btu_selftest_set_register(REG_BTURIPF, 0xF);
+    btu_selftest_assert_vx_line_contents(BTU_VX_STORE_BTU_RIPF, 0x1);
+}
+
+static void btu_selftest_write_to_transfer_complete_is_ignored(TESTCONTEXT *testContext)
+{
+    btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_COMPLETE, 0xFFFFFFFFFFFFFFFF);
+    btu_selftest_assert_reg_equals(REG_TRANSFERCOMPLETE, 0);
+}
+
+static void btu_selftest_read_from_transfer_complete(TESTCONTEXT *testContext)
+{
+    btu_selftest_set_register(REG_TRANSFERCOMPLETE, 0xFF);
+    btu_selftest_assert_vx_line_contents(BTU_VX_STORE_TRANSFER_COMPLETE, 0xF);
 }
 
