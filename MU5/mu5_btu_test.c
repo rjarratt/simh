@@ -65,6 +65,8 @@ static void btu_selftest_write_to_source_address(TESTCONTEXT *testContext);
 static void btu_selftest_read_from_source_address(TESTCONTEXT *testContext);
 static void btu_selftest_write_to_source_address_of_different_unit(TESTCONTEXT *testContext);
 static void btu_selftest_read_from_source_address_of_different_unit(TESTCONTEXT *testContext);
+static void btu_selftest_write_to_non_existent_vx_block_is_ignored(TESTCONTEXT *testContext);
+static void btu_selftest_read_from_non_existent_vx_block_returns_zero(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
@@ -72,7 +74,8 @@ static UNITTEST tests[] =
     { "Can read from the source address Vx line", btu_selftest_read_from_source_address },
     { "Can write to the source address Vx line of a different unit", btu_selftest_write_to_source_address_of_different_unit },
     { "Can read from the source address Vx line of a different unit", btu_selftest_read_from_source_address_of_different_unit },
-    /* read/write non-existent blocks */
+    { "Write to a non-existent Vx block is ignored", btu_selftest_write_to_non_existent_vx_block_is_ignored },
+    { "Read from a non-existent Vx block returns zero", btu_selftest_read_from_non_existent_vx_block_returns_zero }
 };
 
 void btu_selftest(TESTCONTEXT *testContext)
@@ -174,3 +177,33 @@ static void btu_selftest_read_from_source_address_of_different_unit(TESTCONTEXT 
     btu_selftest_set_register_instance(REG_SOURCEADDR, BTU_NUM_UNITS - 1, 0xA5A5A5A5);
     btu_selftest_assert_vx_line_contents(BTU_VX_STORE_SOURCE_ADDRESS(BTU_NUM_UNITS - 1), 0x05A5A5A5);
 }
+
+static void btu_selftest_write_to_non_existent_vx_block_is_ignored(TESTCONTEXT *testContext)
+{
+    int i;
+    for (i = 0; i < BTU_NUM_UNITS; i++)
+    {
+        btu_selftest_set_register_instance(REG_SOURCEADDR, i, 0xA5A5A5A5);
+    }
+
+    btu_selftest_setup_vx_line(BTU_VX_STORE_SOURCE_ADDRESS(BTU_NUM_UNITS + 2), 0xFFFFFFFFFFFFFFFF);
+
+    for (i = 0; i < BTU_NUM_UNITS; i++)
+    {
+        btu_selftest_assert_reg_instance_equals(REG_SOURCEADDR, i, 0x05A5A5A5);
+    }
+}
+
+static void btu_selftest_read_from_non_existent_vx_block_returns_zero(TESTCONTEXT *testContext)
+{
+    int i;
+    for (i = 0; i < BTU_NUM_UNITS; i++)
+    {
+        btu_selftest_set_register_instance(REG_SOURCEADDR, i, 0xA5A5A5A5);
+    }
+
+    btu_selftest_setup_vx_line(BTU_VX_STORE_SOURCE_ADDRESS(BTU_NUM_UNITS + 2), 0xFFFFFFFFFFFFFFFF);
+
+    btu_selftest_assert_vx_line_contents(BTU_VX_STORE_SOURCE_ADDRESS(BTU_NUM_UNITS + 2), 0);
+}
+

@@ -211,10 +211,13 @@ static t_uint64 btu_read_vx_store(t_addr addr)
     uint8 line = VX_LINE(addr);
     VXSTORE_LINE *vx_line;
 
-    vx_line = &VxStore[block][line];
-    if (vx_line->ReadCallback != NULL)
+    if (block <= NUM_VX_BLOCKS)
     {
-        result = vx_line->ReadCallback(block, line);
+        vx_line = &VxStore[block][line];
+        if (vx_line->ReadCallback != NULL)
+        {
+            result = vx_line->ReadCallback(block, line);
+        }
     }
 
     return result;
@@ -226,10 +229,13 @@ static void btu_write_vx_store(t_addr addr, t_uint64 value)
     uint8 line = VX_LINE(addr);
     VXSTORE_LINE *vx_line;
 
-    vx_line = &VxStore[block][line];
-    if (vx_line->WriteCallback != NULL)
+    if (block <= NUM_VX_BLOCKS)
     {
-        vx_line->WriteCallback(block, line, value);
+        vx_line = &VxStore[block][line];
+        if (vx_line->WriteCallback != NULL)
+        {
+            vx_line->WriteCallback(block, line, value);
+        }
     }
 }
 
