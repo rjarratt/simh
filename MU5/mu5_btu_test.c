@@ -67,6 +67,8 @@ static void btu_selftest_write_to_source_address_of_different_unit(TESTCONTEXT *
 static void btu_selftest_read_from_source_address_of_different_unit(TESTCONTEXT *testContext);
 static void btu_selftest_write_to_non_existent_vx_block_is_ignored(TESTCONTEXT *testContext);
 static void btu_selftest_read_from_non_existent_vx_block_returns_zero(TESTCONTEXT *testContext);
+static void btu_selftest_write_to_destination_address(TESTCONTEXT *testContext);
+static void btu_selftest_read_from_destination_address(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
@@ -75,7 +77,9 @@ static UNITTEST tests[] =
     { "Can write to the source address Vx line of a different unit", btu_selftest_write_to_source_address_of_different_unit },
     { "Can read from the source address Vx line of a different unit", btu_selftest_read_from_source_address_of_different_unit },
     { "Write to a non-existent Vx block is ignored", btu_selftest_write_to_non_existent_vx_block_is_ignored },
-    { "Read from a non-existent Vx block returns zero", btu_selftest_read_from_non_existent_vx_block_returns_zero }
+    { "Read from a non-existent Vx block returns zero", btu_selftest_read_from_non_existent_vx_block_returns_zero },
+    { "Can write to the destination address Vx line", btu_selftest_write_to_destination_address },
+    { "Can read from the destination address Vx line", btu_selftest_read_from_destination_address },
 };
 
 void btu_selftest(TESTCONTEXT *testContext)
@@ -207,3 +211,14 @@ static void btu_selftest_read_from_non_existent_vx_block_returns_zero(TESTCONTEX
     btu_selftest_assert_vx_line_contents(BTU_VX_STORE_SOURCE_ADDRESS(BTU_NUM_UNITS + 2), 0);
 }
 
+static void btu_selftest_write_to_destination_address(TESTCONTEXT *testContext)
+{
+    btu_selftest_setup_vx_line(BTU_VX_STORE_DESTINATION_ADDRESS(TEST_UNIT_NUM), 0xFFFFFFFFA5A5A5A5);
+    btu_selftest_assert_reg_instance_equals(REG_DESTINATIONADDR, TEST_UNIT_NUM, 0x05A5A5A5);
+}
+
+static void btu_selftest_read_from_destination_address(TESTCONTEXT *testContext)
+{
+    btu_selftest_set_register_instance(REG_DESTINATIONADDR, TEST_UNIT_NUM, 0xA5A5A5A5);
+    btu_selftest_assert_vx_line_contents(BTU_VX_STORE_DESTINATION_ADDRESS(TEST_UNIT_NUM), 0x05A5A5A5);
+}
