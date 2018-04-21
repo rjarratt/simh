@@ -57,6 +57,10 @@ static t_uint64 btu_read_source_address_callback(uint8 block, uint8 line);
 static void btu_write_source_address_callback(uint8 block, uint8 line, t_uint64 value);
 static t_uint64 btu_read_destination_address_callback(uint8 block, uint8 line);
 static void btu_write_destination_address_callback(uint8 block, uint8 line, t_uint64 value);
+static t_uint64 btu_read_size_callback(uint8 block, uint8 line);
+static void btu_write_size_callback(uint8 block, uint8 line, t_uint64 value);
+static t_uint64 btu_read_transfer_status_callback(uint8 block, uint8 line);
+static void btu_write_transfer_status_callback(uint8 block, uint8 line, t_uint64 value);
 
 static uint32 reg_source_address[BTU_NUM_UNITS];
 static uint32 reg_destination_address[BTU_NUM_UNITS];
@@ -184,6 +188,8 @@ void btu_reset_state(void)
     {
         btu_setup_vx_store_location(i, BTU_VX_STORE_SOURCE_ADDRESS_LINE, btu_read_source_address_callback, btu_write_source_address_callback);
         btu_setup_vx_store_location(i, BTU_VX_STORE_DESTINATION_ADDRESS_LINE, btu_read_destination_address_callback, btu_write_destination_address_callback);
+        btu_setup_vx_store_location(i, BTU_VX_STORE_SIZE_LINE, btu_read_size_callback, btu_write_size_callback);
+        btu_setup_vx_store_location(i, BTU_VX_STORE_TRANSFER_STATUS_LINE, btu_read_transfer_status_callback, btu_write_transfer_status_callback);
     }
 
 }
@@ -268,3 +274,24 @@ static void btu_write_destination_address_callback(uint8 block, uint8 line, t_ui
 {
     reg_destination_address[block] = value & 0x0FFFFFFF;
 }
+
+static t_uint64 btu_read_size_callback(uint8 block, uint8 line)
+{
+    return reg_size[block] & 0x000FFFFF;
+}
+
+static void btu_write_size_callback(uint8 block, uint8 line, t_uint64 value)
+{
+    reg_size[block] = value & 0x000FFFFF;
+}
+
+static t_uint64 btu_read_transfer_status_callback(uint8 block, uint8 line)
+{
+    return reg_transfer_status[block] & 0xE;
+}
+
+static void btu_write_transfer_status_callback(uint8 block, uint8 line, t_uint64 value)
+{
+    reg_transfer_status[block] = value & 0xE;
+}
+

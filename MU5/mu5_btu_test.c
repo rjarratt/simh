@@ -69,6 +69,10 @@ static void btu_selftest_write_to_non_existent_vx_block_is_ignored(TESTCONTEXT *
 static void btu_selftest_read_from_non_existent_vx_block_returns_zero(TESTCONTEXT *testContext);
 static void btu_selftest_write_to_destination_address(TESTCONTEXT *testContext);
 static void btu_selftest_read_from_destination_address(TESTCONTEXT *testContext);
+static void btu_selftest_write_to_size(TESTCONTEXT *testContext);
+static void btu_selftest_read_from_size(TESTCONTEXT *testContext);
+static void btu_selftest_write_to_transfer_status(TESTCONTEXT *testContext);
+static void btu_selftest_read_from_transfer_status(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
@@ -80,6 +84,10 @@ static UNITTEST tests[] =
     { "Read from a non-existent Vx block returns zero", btu_selftest_read_from_non_existent_vx_block_returns_zero },
     { "Can write to the destination address Vx line", btu_selftest_write_to_destination_address },
     { "Can read from the destination address Vx line", btu_selftest_read_from_destination_address },
+    { "Can write to the size Vx line", btu_selftest_write_to_size },
+    { "Can read from the size Vx line", btu_selftest_read_from_size },
+    { "Can write to the transfer status Vx line", btu_selftest_write_to_transfer_status },
+    { "Can read from the transfer status Vx line", btu_selftest_read_from_transfer_status },
 };
 
 void btu_selftest(TESTCONTEXT *testContext)
@@ -222,3 +230,28 @@ static void btu_selftest_read_from_destination_address(TESTCONTEXT *testContext)
     btu_selftest_set_register_instance(REG_DESTINATIONADDR, TEST_UNIT_NUM, 0xA5A5A5A5);
     btu_selftest_assert_vx_line_contents(BTU_VX_STORE_DESTINATION_ADDRESS(TEST_UNIT_NUM), 0x05A5A5A5);
 }
+
+static void btu_selftest_write_to_size(TESTCONTEXT *testContext)
+{
+    btu_selftest_setup_vx_line(BTU_VX_STORE_SIZE(TEST_UNIT_NUM), 0xFFFFFFFFFFFFFFFF);
+    btu_selftest_assert_reg_instance_equals(REG_SIZE, TEST_UNIT_NUM, 0x000FFFFF);
+}
+
+static void btu_selftest_read_from_size(TESTCONTEXT *testContext)
+{
+    btu_selftest_set_register_instance(REG_SIZE, TEST_UNIT_NUM, 0x0005A5A5);
+    btu_selftest_assert_vx_line_contents(BTU_VX_STORE_SIZE(TEST_UNIT_NUM), 0x0005A5A5);
+}
+
+static void btu_selftest_write_to_transfer_status(TESTCONTEXT *testContext)
+{
+    btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0xFFFFFFFFFFFFFFFF);
+    btu_selftest_assert_reg_instance_equals(REG_TRANSFERSTATUS, TEST_UNIT_NUM, 0xE);
+}
+
+static void btu_selftest_read_from_transfer_status(TESTCONTEXT *testContext)
+{
+    btu_selftest_set_register_instance(REG_TRANSFERSTATUS, TEST_UNIT_NUM, 0xE);
+    btu_selftest_assert_vx_line_contents(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0xE);
+}
+
