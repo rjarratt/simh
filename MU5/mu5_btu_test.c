@@ -61,6 +61,8 @@ static void btu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 static void btu_selftest_assert_reg_instance_equals(char *name, uint8 index, t_uint64 expectedValue);
 static void btu_selftest_assert_reg_equals_mask(char *name, t_uint64 mask, t_uint64 expectedValue);
 static void btu_selftest_assert_vx_line_contents(t_addr address, t_uint64 expectedValue);
+static void btu_selftest_assert_unit_is_active(int unit_num);
+static void btu_selftest_assert_unit_is_inactive(int unit_num);
 
 static void btu_selftest_write_to_source_address(TESTCONTEXT *testContext);
 static void btu_selftest_read_from_source_address(TESTCONTEXT *testContext);
@@ -78,6 +80,8 @@ static void btu_selftest_write_to_ripf(TESTCONTEXT *testContext);
 static void btu_selftest_read_from_ripf(TESTCONTEXT *testContext);
 static void btu_selftest_write_to_transfer_complete_is_ignored(TESTCONTEXT *testContext);
 static void btu_selftest_read_from_transfer_complete(TESTCONTEXT *testContext);
+static void btu_selftest_unit_is_initially_inactive(TESTCONTEXT *testContext);
+static void btu_selftest_setting_transfer_in_progress_activates_unit(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
@@ -97,6 +101,8 @@ static UNITTEST tests[] =
     { "Can read from the ripf Vx line", btu_selftest_read_from_ripf },
     { "Write to the transfer complete Vx line is ignored", btu_selftest_write_to_transfer_complete_is_ignored },
     { "Can read from the transfer complete Vx line", btu_selftest_read_from_transfer_complete },
+    { "Unit is initially inactive", btu_selftest_unit_is_initially_inactive },
+    { "Setting the transfer in progress bit activates the unit", btu_selftest_setting_transfer_in_progress_activates_unit }
 };
 
 void btu_selftest(TESTCONTEXT *testContext)
@@ -176,6 +182,26 @@ static void btu_selftest_assert_vx_line_contents(t_addr address, t_uint64 expect
     if (actualValue != expectedValue)
     {
         sim_debug(LOG_SELFTEST_FAIL, &btu_dev, "Expected value at Vx line %hu to be %016llX, but was %016llX\n", address, expectedValue, actualValue);
+        btu_selftest_set_failure();
+    }
+}
+
+static void btu_selftest_assert_unit_is_active(int unit_num)
+{
+    UNIT *unit = &btu_dev.units[unit_num];
+    if (!sim_is_active(unit))
+    {
+        sim_debug(LOG_SELFTEST_FAIL, &btu_dev, "Expected unit to be active but it was inactive\n");
+        btu_selftest_set_failure();
+    }
+}
+
+static void btu_selftest_assert_unit_is_inactive(int unit_num)
+{
+    UNIT *unit = &btu_dev.units[unit_num];
+    if (sim_is_active(unit))
+    {
+        sim_debug(LOG_SELFTEST_FAIL, &btu_dev, "Expected unit to be inactive but it was active\n");
         btu_selftest_set_failure();
     }
 }
@@ -293,3 +319,13 @@ static void btu_selftest_read_from_transfer_complete(TESTCONTEXT *testContext)
     btu_selftest_assert_vx_line_contents(BTU_VX_STORE_TRANSFER_COMPLETE, 0xF);
 }
 
+static void btu_selftest_unit_is_initially_inactive(TESTCONTEXT *testContext)
+{
+    btu_selftest_assert_unit_is_inactive(TEST_UNIT_NUM);
+}
+
+static void btu_selftest_setting_transfer_in_progress_activates_unit(TESTCONTEXT *testContext)
+{
+    btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0x8);
+    btu_selftest_assert_unit_is_active(TEST_UNIT_NUM);
+}

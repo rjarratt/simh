@@ -26,8 +26,35 @@ in this Software without prior written authorization from Robert Jarratt.
 This is the MU5 Block Transfer Unit. It can perform up to 4 concurrent
 transfers and uses one unit per transfer.
 
+The BTU was generally used for transfers between Local and Mass Store. To
+keep the emulation simple, the emulated BTU is arranged to run at the
+relative speed of the Mass Store, transferring one 64-bit word per
+invocation of the service routine, so that transfers do not appear to be
+instantaneous. The emulated BTU units are only activated (service routine
+calls scheduled) when a transfer is active, otherwise they remain inactive.
+
+According to page 52 of the book, the Mass Store had a cycle time of
+2.5us. It had two units allowing 64-bit words to be accessed in one
+cycle. According to the tables on p228 of the book, orders took
+between 50ns and 250ns. So the processor could execute between
+10 and 50 instructions per Mass Store cycle. Therefore the simulation
+schedules one transfer every 25 instructions, as a compromise "typical"
+instruction/mass store ratio.
+
+The emulation could have been arranged to calculate the number of 
+instructions that would be executed as a function of the size of the
+transfer, so that the emulated unit is only polled once per transfer,
+making the emulation more efficient. However, this would make the
+transfers appear not to make any progress at all and then suddenly
+complete. This is because the BTU updates the Vx-lines with progress.
+Furthermore, transfers could be cancelled before they completed,
+which would not be emulated accurately either if this approach were
+taken.
+
 Known Limitations
 -----------------
+
+Parity is not implemented.
 
 */
 
@@ -42,12 +69,13 @@ Known Limitations
 
 #define LOG_BTU_REQUEST           (1 << 0)
 
+#define BTU_SERVICE_INTERVAL 25 /* processor instructions per service interval */
+
 #define NUM_VX_BLOCKS (BTU_NUM_UNITS + 2)
 
 static t_stat btu_reset(DEVICE *dptr);
 t_stat btu_svc(UNIT *uptr);
 
-static void btu_start_polling_if_attached(UNIT *uptr);
 static void btu_schedule_next_poll(UNIT *uptr);
 
 static t_uint64 btu_read_vx_store(t_addr addr);
@@ -172,7 +200,6 @@ static t_stat btu_svc(UNIT *uptr)
 {
     t_stat result = SCPE_OK;
 
-    //btu_schedule_next_poll(uptr);
     return result;
 }
 
@@ -189,6 +216,8 @@ void btu_reset_state(void)
 
     for (i = 0; i < BTU_NUM_UNITS; i++)
     {
+        sim_cancel(&btu_unit[i]);
+        
         btu_setup_vx_store_location(i, BTU_VX_STORE_SOURCE_ADDRESS_LINE, btu_read_source_address_callback, btu_write_source_address_callback);
         btu_setup_vx_store_location(i, BTU_VX_STORE_DESTINATION_ADDRESS_LINE, btu_read_destination_address_callback, btu_write_destination_address_callback);
         btu_setup_vx_store_location(i, BTU_VX_STORE_SIZE_LINE, btu_read_size_callback, btu_write_size_callback);
@@ -217,6 +246,11 @@ void btu_exch_write(t_addr addr, t_uint64 value)
     {
         btu_write_vx_store((addr & RA_X_MASK) >> 1, value);
     }
+}
+
+static void btu_schedule_next_poll(UNIT *uptr)
+{
+    sim_activate(uptr, BTU_SERVICE_INTERVAL);
 }
 
 static t_uint64 btu_read_vx_store(t_addr addr)
@@ -298,7 +332,13 @@ static t_uint64 btu_read_transfer_status_callback(uint8 block, uint8 line)
 
 static void btu_write_transfer_status_callback(uint8 block, uint8 line, t_uint64 value)
 {
-    reg_transfer_status[block] = value & 0xE;
+    uint32 old_value = reg_transfer_status[block];
+    uint32 new_value = value & 0xE;
+    reg_transfer_status[block] = new_value;
+    if ((old_value & 0x8) == 0 && (new_value & 0x8) == 0x8)
+    {
+        btu_schedule_next_poll(&btu_unit[block]);
+    }
 }
 
 static t_uint64 btu_read_btu_ripf_callback(uint8 block, uint8 line)
