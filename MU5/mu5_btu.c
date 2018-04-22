@@ -75,6 +75,7 @@ Parity is not implemented.
 
 static t_stat btu_reset(DEVICE *dptr);
 t_stat btu_svc(UNIT *uptr);
+static int btu_get_unit_num(UNIT *uptr);
 
 static void btu_schedule_next_poll(UNIT *uptr);
 
@@ -191,7 +192,7 @@ static t_stat btu_reset(DEVICE *dptr)
     btu_reset_state();
     for (i = 0; i < BTU_NUM_UNITS; i++)
     {
-//        btu_start_polling(&btu_unit[i]);
+        sim_cancel(&btu_unit[i]);
     }
     return result;
 }
@@ -199,9 +200,31 @@ static t_stat btu_reset(DEVICE *dptr)
 static t_stat btu_svc(UNIT *uptr)
 {
     t_stat result = SCPE_OK;
+    uint16 old_size;
+    uint16 size;
+    uint8 unit_num = btu_get_unit_num(uptr);
+
+    old_size = reg_size[unit_num] & MASK_16;
+
+    size = old_size - 2;
+
+    if (old_size == 0)
+    {
+        sim_cancel(uptr);
+    }
+    else
+    {
+        btu_schedule_next_poll(uptr);
+    }
 
     return result;
 }
+
+static int btu_get_unit_num(UNIT *uptr)
+{
+    return (int)(uptr - btu_unit);
+}
+
 
 void btu_reset_state(void)
 {
@@ -216,8 +239,6 @@ void btu_reset_state(void)
 
     for (i = 0; i < BTU_NUM_UNITS; i++)
     {
-        sim_cancel(&btu_unit[i]);
-        
         btu_setup_vx_store_location(i, BTU_VX_STORE_SOURCE_ADDRESS_LINE, btu_read_source_address_callback, btu_write_source_address_callback);
         btu_setup_vx_store_location(i, BTU_VX_STORE_DESTINATION_ADDRESS_LINE, btu_read_destination_address_callback, btu_write_destination_address_callback);
         btu_setup_vx_store_location(i, BTU_VX_STORE_SIZE_LINE, btu_read_size_callback, btu_write_size_callback);

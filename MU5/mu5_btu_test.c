@@ -40,7 +40,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #define REG_BTURIPF "BTURIPF"
 #define REG_TRANSFERCOMPLETE "TRANSFERCOMPLETE"
 
-#define TEST_UNIT_NUM 0
+#define TEST_UNIT_NUM 3
 
 static TESTCONTEXT *localTestContext;
 extern DEVICE btu_dev;
@@ -54,7 +54,7 @@ static void btu_selftest_execute_cycle_unit(int unitNum);
 static void btu_selftest_set_register(char *name, t_uint64 value);
 static void btu_selftest_set_register_instance(char *name, uint8 index, t_uint64 value);
 static void btu_selftest_setup_vx_line(t_addr address, t_uint64 value);
-static void btu_selftest_setup_request(t_uint64 disc_address);
+static void btu_selftest_setup_request(t_addr from, t_addr to, uint16 size, uint8 unit_num);
 
 static void btu_selftest_set_failure(void);
 static void btu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
@@ -82,6 +82,10 @@ static void btu_selftest_write_to_transfer_complete_is_ignored(TESTCONTEXT *test
 static void btu_selftest_read_from_transfer_complete(TESTCONTEXT *testContext);
 static void btu_selftest_unit_is_initially_inactive(TESTCONTEXT *testContext);
 static void btu_selftest_setting_transfer_in_progress_activates_unit(TESTCONTEXT *testContext);
+static void btu_selftest_counts_down_size_during_transfer(TESTCONTEXT *testContext);
+static void btu_selftest_keeps_unit_active_during_transfer(TESTCONTEXT *testContext);
+static void btu_selftest_stops_counting_down_size_at_end_of_transfer(TESTCONTEXT *testContext);
+static void btu_selftest_leaves_unit_inactive_at_end_of_transfer(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
@@ -102,7 +106,11 @@ static UNITTEST tests[] =
     { "Write to the transfer complete Vx line is ignored", btu_selftest_write_to_transfer_complete_is_ignored },
     { "Can read from the transfer complete Vx line", btu_selftest_read_from_transfer_complete },
     { "Unit is initially inactive", btu_selftest_unit_is_initially_inactive },
-    { "Setting the transfer in progress bit activates the unit", btu_selftest_setting_transfer_in_progress_activates_unit }
+    { "Setting the transfer in progress bit activates the unit", btu_selftest_setting_transfer_in_progress_activates_unit },
+    { "Counts down the size during a transfer", btu_selftest_counts_down_size_during_transfer },
+    { "Keeps the unit active during a transfer", btu_selftest_keeps_unit_active_during_transfer },
+    { "Stops counting down the size at the end of a transfer", btu_selftest_stops_counting_down_size_at_end_of_transfer },
+    { "Leaves unit inactive at the end of a transfer", btu_selftest_leaves_unit_inactive_at_end_of_transfer }
 };
 
 void btu_selftest(TESTCONTEXT *testContext)
@@ -149,11 +157,12 @@ static void btu_selftest_setup_vx_line(t_addr address, t_uint64 value)
     exch_write(RA_VX_BTU(address), value);
 }
 
-static void btu_selftest_setup_request(t_uint64 disc_address)
+static void btu_selftest_setup_request(t_addr from, t_addr to, uint16 size, uint8 unit_num)
 {
-    ////btu_selftest_setup_vx_line(DRUM_VX_STORE_STORE_ADDRESS, TEST_STORE_ADDRESS);
-    ////btu_selftest_setup_vx_line(DRUM_VX_STORE_COMPLETE_ADDRESS, TEST_COMPLETE_ADDRESS);
-    ////btu_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, disc_address);
+    btu_selftest_setup_vx_line(BTU_VX_STORE_SOURCE_ADDRESS(unit_num), from);
+    btu_selftest_setup_vx_line(BTU_VX_STORE_DESTINATION_ADDRESS(unit_num), to);
+    btu_selftest_setup_vx_line(BTU_VX_STORE_SIZE(unit_num), ((uint32)unit_num) << 16 & size);
+    btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(unit_num), 0x8);
 }
 
 static void btu_selftest_set_failure(void)
@@ -326,6 +335,39 @@ static void btu_selftest_unit_is_initially_inactive(TESTCONTEXT *testContext)
 
 static void btu_selftest_setting_transfer_in_progress_activates_unit(TESTCONTEXT *testContext)
 {
-    btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0x8);
+    btu_selftest_setup_request(0, 0, 2, TEST_UNIT_NUM);
     btu_selftest_assert_unit_is_active(TEST_UNIT_NUM);
+}
+
+static void btu_selftest_counts_down_size_during_transfer(TESTCONTEXT *testContext)
+{
+    mu5_selftest_assert_fail(testContext);
+}
+
+static void btu_selftest_keeps_unit_active_during_transfer(TESTCONTEXT *testContext)
+{
+    int i;
+    btu_selftest_setup_request(0, 0, 6, TEST_UNIT_NUM);
+    for (i = 0; i < 3; i++)
+    {
+        btu_selftest_execute_cycle();
+        btu_selftest_assert_unit_is_active(TEST_UNIT_NUM);
+    }
+}
+
+static void btu_selftest_stops_counting_down_size_at_end_of_transfer(TESTCONTEXT *testContext)
+{
+    mu5_selftest_assert_fail(testContext);
+}
+
+static void btu_selftest_leaves_unit_inactive_at_end_of_transfer(TESTCONTEXT *testContext)
+{
+    int i;
+    btu_selftest_setup_request(0, 0, 6, TEST_UNIT_NUM);
+    for (i = 0; i < 4; i++)
+    {
+        btu_selftest_execute_cycle();
+    }
+
+    btu_selftest_assert_unit_is_inactive(TEST_UNIT_NUM);
 }
