@@ -161,7 +161,7 @@ static void btu_selftest_setup_request(t_addr from, t_addr to, uint16 size, uint
 {
     btu_selftest_setup_vx_line(BTU_VX_STORE_SOURCE_ADDRESS(unit_num), from);
     btu_selftest_setup_vx_line(BTU_VX_STORE_DESTINATION_ADDRESS(unit_num), to);
-    btu_selftest_setup_vx_line(BTU_VX_STORE_SIZE(unit_num), ((uint32)unit_num) << 16 & size);
+    btu_selftest_setup_vx_line(BTU_VX_STORE_SIZE(unit_num), ((uint32)unit_num) << 16 | size);
     btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(unit_num), 0x8);
 }
 
