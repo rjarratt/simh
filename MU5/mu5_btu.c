@@ -128,8 +128,8 @@ static REG btu_reg[] =
     { URDATAD(SOURCEADDR,         reg_source_address, 16, 28, 4, BTU_NUM_UNITS, 0, "source address, units 0 to 3") },
     { URDATAD(DESTINATIONADDR,    reg_destination_address, 16, 28, 4, BTU_NUM_UNITS, 0, "destination address, units 0 to 3") },
     { URDATADF(SIZE,              reg_size, 16,20, 12, BTU_NUM_UNITS, 0, "transfer size, units 0 to 3", size_bits) },
-    { URDATADF(TRANSFERSTATUS,    reg_transfer_status, 16, 4, 28, BTU_NUM_UNITS, 0, "transfer status, units 0 to 3", transfer_status_bits) },
-    { GRDATAD(BTURIPF,            reg_btu_ripf,      16,  1, 31, "request inhibit") },
+    { URDATADF(TRANSFERSTATUS,    reg_transfer_status, 16, 28, 4, BTU_NUM_UNITS, 0, "transfer status, units 0 to 3", transfer_status_bits) },
+    { GRDATAD(BTURIPF,            reg_btu_ripf,      16,  31, 1, "request inhibit") },
     { GRDATAD(TRANSFERCOMPLETE,   reg_transfer_complete, 16,  28, 4, "transfer complete") },
     { NULL }
 };

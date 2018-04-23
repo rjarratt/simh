@@ -35,12 +35,33 @@ extern DEVICE cpu_dev;
 t_uint64 VStoreTestLocation;
 
 static void mu5_reset_test(TESTCONTEXT *context, UNITTEST *unitTest, void(*reset)(UNITTEST *unitTest));
+static uint8 mu5_selftest_reg_byte_width(REG *reg);
 
 static void mu5_reset_test(TESTCONTEXT *context, UNITTEST *unitTest, void(*reset)(UNITTEST *unitTest))
 {
     context->testName = unitTest->name;
     context->result = SCPE_OK;
     reset(unitTest);
+}
+
+static uint8 mu5_selftest_reg_byte_width(REG *reg)
+{
+    uint8 result;
+
+    if (reg->width <= 16)
+    {
+        result = 2;
+    }
+    else if (reg->width <= 32)
+    {
+        result = 4;
+    }
+    else
+    {
+        result = 8;
+    }
+
+    return result;
 }
 
 void mu5_selftest_start(TESTCONTEXT *context)
@@ -352,7 +373,6 @@ t_uint64 mu5_selftest_get_register_instance(TESTCONTEXT *context, DEVICE *device
     t_uint64 result = 0;
     t_uint64 mask;
     void *loc;
-    int byte_width;
     REG *reg = mu5_selftest_find_register(context, device, name);
 
     assert(index >= 0 && index < reg->depth);
@@ -362,8 +382,7 @@ t_uint64 mu5_selftest_get_register_instance(TESTCONTEXT *context, DEVICE *device
     }
     else
     {
-        byte_width = reg->width / 8 + ((reg->width % 8) == 0 ? 0 : 1);
-        loc = (uint8 *)reg->loc + index * byte_width;
+        loc = (uint8 *)reg->loc + index * mu5_selftest_reg_byte_width(reg);
     }
 
     mask = ((t_uint64)1 << reg->width) - 1;
@@ -392,7 +411,6 @@ void mu5_selftest_set_register_instance(TESTCONTEXT *context, DEVICE *device, ch
 {
     REG *reg = mu5_selftest_find_register(context, device, name);
     void *loc;
-    int byte_width;
     t_uint64 mask;
 
     assert(index >= 0 && index < reg->depth);
@@ -402,8 +420,7 @@ void mu5_selftest_set_register_instance(TESTCONTEXT *context, DEVICE *device, ch
     }
     else
     {
-        byte_width = reg->width / 8 + ((reg->width % 8) == 0 ? 0 : 1);
-        loc = (uint8 *)reg->loc + index * byte_width;
+        loc = (uint8 *)reg->loc + index * mu5_selftest_reg_byte_width(reg);
 
         mask = ((t_uint64)1 << reg->width) - 1;
         if (reg->width <= 16)
