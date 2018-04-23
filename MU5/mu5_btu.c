@@ -187,13 +187,8 @@ static VXSTORE_LINE VxStore[NUM_VX_BLOCKS][32];
 /* reset routine */
 static t_stat btu_reset(DEVICE *dptr)
 {
-    int i;
     t_stat result = SCPE_OK;
     btu_reset_state();
-    for (i = 0; i < BTU_NUM_UNITS; i++)
-    {
-        sim_cancel(&btu_unit[i]);
-    }
     return result;
 }
 
@@ -217,6 +212,8 @@ static t_stat btu_svc(UNIT *uptr)
         btu_schedule_next_poll(uptr);
     }
 
+    reg_size[unit_num] = (reg_size[unit_num] & ~MASK_16) | (size & MASK_16);
+
     return result;
 }
 
@@ -239,6 +236,8 @@ void btu_reset_state(void)
 
     for (i = 0; i < BTU_NUM_UNITS; i++)
     {
+        sim_cancel(&btu_unit[i]);
+
         btu_setup_vx_store_location(i, BTU_VX_STORE_SOURCE_ADDRESS_LINE, btu_read_source_address_callback, btu_write_source_address_callback);
         btu_setup_vx_store_location(i, BTU_VX_STORE_DESTINATION_ADDRESS_LINE, btu_read_destination_address_callback, btu_write_destination_address_callback);
         btu_setup_vx_store_location(i, BTU_VX_STORE_SIZE_LINE, btu_read_size_callback, btu_write_size_callback);
