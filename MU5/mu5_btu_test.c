@@ -86,6 +86,8 @@ static void btu_selftest_setting_transfer_in_progress_activates_unit(TESTCONTEXT
 static void btu_selftest_counts_down_size_during_transfer(TESTCONTEXT *testContext);
 static void btu_selftest_keeps_unit_active_during_transfer(TESTCONTEXT *testContext);
 static void btu_selftest_leaves_unit_inactive_at_end_of_transfer(TESTCONTEXT *testContext);
+static void btu_selftest_counts_down_minimum_size_transfer(TESTCONTEXT *testContext);
+static void btu_selftest_counts_down_maximum_size_transfer(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
@@ -109,7 +111,9 @@ static UNITTEST tests[] =
     { "Setting the transfer in progress bit activates the unit", btu_selftest_setting_transfer_in_progress_activates_unit },
     { "Counts down the size during a transfer", btu_selftest_counts_down_size_during_transfer },
     { "Keeps the unit active during a transfer", btu_selftest_keeps_unit_active_during_transfer },
-    { "Leaves unit inactive at the end of a transfer", btu_selftest_leaves_unit_inactive_at_end_of_transfer }
+    { "Leaves unit inactive at the end of a transfer", btu_selftest_leaves_unit_inactive_at_end_of_transfer },
+    { "Counts down the size of a minimum size transfer", btu_selftest_counts_down_minimum_size_transfer },
+    { "Counts down the size of a maximum size transfer", btu_selftest_counts_down_maximum_size_transfer }
 };
 
 void btu_selftest(TESTCONTEXT *testContext)
@@ -383,3 +387,34 @@ static void btu_selftest_leaves_unit_inactive_at_end_of_transfer(TESTCONTEXT *te
 
     btu_selftest_assert_unit_is_inactive(TEST_UNIT_NUM);
 }
+
+static void btu_selftest_counts_down_minimum_size_transfer(TESTCONTEXT *testContext)
+{
+    int i;
+    uint16 expected_size = 0;
+    btu_selftest_setup_request(0, 0, expected_size, TEST_UNIT_NUM);
+    for (i = 0; i < 1; i++)
+    {
+        btu_selftest_execute_cycle();
+        expected_size -= 2;
+        btu_selftest_assert_btu_size_is(TEST_UNIT_NUM, expected_size);
+    }
+
+    btu_selftest_assert_unit_is_inactive(TEST_UNIT_NUM);
+}
+
+static void btu_selftest_counts_down_maximum_size_transfer(TESTCONTEXT *testContext)
+{
+    int i;
+    uint16 expected_size = 65534;
+    btu_selftest_setup_request(0, 0, expected_size, TEST_UNIT_NUM);
+    for (i = 0; i < 32768; i++)
+    {
+        btu_selftest_execute_cycle();
+        expected_size -= 2;
+        btu_selftest_assert_btu_size_is(TEST_UNIT_NUM, expected_size);
+    }
+
+    btu_selftest_assert_unit_is_inactive(TEST_UNIT_NUM);
+}
+
