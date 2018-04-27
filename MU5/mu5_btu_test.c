@@ -60,10 +60,13 @@ static void btu_selftest_set_failure(void);
 static void btu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
 static void btu_selftest_assert_reg_instance_equals(char *name, uint8 index, t_uint64 expectedValue);
 static void btu_selftest_assert_reg_equals_mask(char *name, t_uint64 mask, t_uint64 expectedValue);
+static void btu_selftest_assert_reg_instance_equals_mask(char *name, uint8 index, t_uint64 mask, t_uint64 expectedValue);
 static void btu_selftest_assert_vx_line_contents(t_addr address, t_uint64 expectedValue);
 static void btu_selftest_assert_unit_is_active(int unit_num);
 static void btu_selftest_assert_unit_is_inactive(int unit_num);
 static void btu_selftest_assert_btu_size_is(int unit_num, uint16 expected_size);
+static void btu_selftest_assert_transfer_status_incomplete(int unit_num);
+static void btu_selftest_assert_transfer_status_complete(int unit_num);
 
 static void btu_selftest_write_to_source_address(TESTCONTEXT *testContext);
 static void btu_selftest_read_from_source_address(TESTCONTEXT *testContext);
@@ -83,11 +86,14 @@ static void btu_selftest_write_to_transfer_complete_is_ignored(TESTCONTEXT *test
 static void btu_selftest_read_from_transfer_complete(TESTCONTEXT *testContext);
 static void btu_selftest_unit_is_initially_inactive(TESTCONTEXT *testContext);
 static void btu_selftest_setting_transfer_in_progress_activates_unit(TESTCONTEXT *testContext);
+static void btu_selftest_setting_transfer_in_progress_does_not_clear_transfer_complete_bit(TESTCONTEXT *testContext);
 static void btu_selftest_counts_down_size_during_transfer(TESTCONTEXT *testContext);
 static void btu_selftest_keeps_unit_active_during_transfer(TESTCONTEXT *testContext);
 static void btu_selftest_leaves_unit_inactive_at_end_of_transfer(TESTCONTEXT *testContext);
 static void btu_selftest_counts_down_minimum_size_transfer(TESTCONTEXT *testContext);
 static void btu_selftest_counts_down_maximum_size_transfer(TESTCONTEXT *testContext);
+static void btu_selftest_transfer_complete_bit_tracks_progress(TESTCONTEXT *testContext);
+/* cancel transfer, interrupt, actual transfer */
 
 static UNITTEST tests[] =
 {
@@ -109,11 +115,13 @@ static UNITTEST tests[] =
     { "Can read from the transfer complete Vx line", btu_selftest_read_from_transfer_complete },
     { "Unit is initially inactive", btu_selftest_unit_is_initially_inactive },
     { "Setting the transfer in progress bit activates the unit", btu_selftest_setting_transfer_in_progress_activates_unit },
+    { "Setting transfer in progress bit does not clear the transfer complete bit", btu_selftest_setting_transfer_in_progress_does_not_clear_transfer_complete_bit },
     { "Counts down the size during a transfer", btu_selftest_counts_down_size_during_transfer },
     { "Keeps the unit active during a transfer", btu_selftest_keeps_unit_active_during_transfer },
     { "Leaves unit inactive at the end of a transfer", btu_selftest_leaves_unit_inactive_at_end_of_transfer },
     { "Counts down the size of a minimum size transfer", btu_selftest_counts_down_minimum_size_transfer },
-    { "Counts down the size of a maximum size transfer", btu_selftest_counts_down_maximum_size_transfer }
+    { "Counts down the size of a maximum size transfer", btu_selftest_counts_down_maximum_size_transfer },
+    { "The transfer complete bit tracks the progress of the transfer", btu_selftest_transfer_complete_bit_tracks_progress }
 };
 
 void btu_selftest(TESTCONTEXT *testContext)
@@ -188,6 +196,11 @@ static void btu_selftest_assert_reg_equals_mask(char *name, t_uint64 mask, t_uin
     mu5_selftest_assert_reg_equals_mask(localTestContext, &btu_dev, name, mask, expectedValue);
 }
 
+static void btu_selftest_assert_reg_instance_equals_mask(char *name, uint8 index, t_uint64 mask, t_uint64 expectedValue)
+{
+    mu5_selftest_assert_reg_instance_equals_mask(localTestContext, &btu_dev, name, index, mask, expectedValue);
+}
+
 static void btu_selftest_assert_vx_line_contents(t_addr address, t_uint64 expectedValue)
 {
     t_uint64 actualValue = exch_read(RA_VX_BTU(address));
@@ -226,6 +239,18 @@ static void btu_selftest_assert_btu_size_is(int unit_num, uint16 expected_size)
         sim_debug(LOG_SELFTEST_FAIL, &btu_dev, "Expected size to be %hu, but was %hu\n", expected_size, actual);
         btu_selftest_set_failure();
     }
+}
+
+static void btu_selftest_assert_transfer_status_incomplete(int unit_num)
+{
+    btu_selftest_assert_reg_instance_equals_mask(REG_TRANSFERSTATUS, TEST_UNIT_NUM, 0x4, 0x0);
+
+}
+
+static void btu_selftest_assert_transfer_status_complete(int unit_num)
+{
+    btu_selftest_assert_reg_instance_equals_mask(REG_TRANSFERSTATUS, TEST_UNIT_NUM, 0x4, 0x4);
+
 }
 
 static void btu_selftest_write_to_source_address(TESTCONTEXT *testContext)
@@ -352,6 +377,13 @@ static void btu_selftest_setting_transfer_in_progress_activates_unit(TESTCONTEXT
     btu_selftest_assert_unit_is_active(TEST_UNIT_NUM);
 }
 
+static void btu_selftest_setting_transfer_in_progress_does_not_clear_transfer_complete_bit(TESTCONTEXT *testContext)
+{
+    btu_selftest_setup_vx_line(BTU_VX_STORE_SIZE(TEST_UNIT_NUM), ((uint32)TEST_UNIT_NUM) << 16 | 6);
+    btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0xC);
+    btu_selftest_assert_vx_line_contents(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0xC);
+}
+
 static void btu_selftest_counts_down_size_during_transfer(TESTCONTEXT *testContext)
 {
     int i;
@@ -418,3 +450,16 @@ static void btu_selftest_counts_down_maximum_size_transfer(TESTCONTEXT *testCont
     btu_selftest_assert_unit_is_inactive(TEST_UNIT_NUM);
 }
 
+static void btu_selftest_transfer_complete_bit_tracks_progress(TESTCONTEXT *testContext)
+{
+    int i;
+    uint16 expected_size = 65534;
+    btu_selftest_setup_request(0, 0, expected_size, TEST_UNIT_NUM);
+    for (i = 0; i < 32768; i++)
+    {
+        btu_selftest_assert_transfer_status_incomplete(TEST_UNIT_NUM);
+        btu_selftest_execute_cycle();
+    }
+
+    btu_selftest_assert_transfer_status_complete(TEST_UNIT_NUM);
+}

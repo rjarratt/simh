@@ -221,6 +221,17 @@ void mu5_selftest_assert_reg_instance_equals(TESTCONTEXT *context, DEVICE *devic
     }
 }
 
+void mu5_selftest_assert_reg_instance_equals_mask(TESTCONTEXT *context, DEVICE *device, char *name, uint8 index, t_uint64 mask, t_uint64 expectedValue)
+{
+    t_uint64 actualValue = mu5_selftest_get_register_instance(context, device, name, index);
+
+    if ((actualValue & mask) != expectedValue)
+    {
+        sim_debug(LOG_SELFTEST_FAIL, context->dev, "Expected value in register %s[%hu] to be %llX, but was %llX (masked %llx)\n", name, (unsigned short)index, expectedValue, actualValue & mask, mask);
+        mu5_selftest_set_failure(context);
+    }
+}
+
 void mu5_selftest_assert_no_system_error(TESTCONTEXT *context)
 {
     mu5_selftest_assert_vstore_contents(context, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0);

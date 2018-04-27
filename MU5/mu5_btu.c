@@ -205,6 +205,7 @@ static t_stat btu_svc(UNIT *uptr)
 
     if (old_size == 0)
     {
+        reg_transfer_status[unit_num] |= 0x4;
         sim_cancel(uptr);
     }
     else

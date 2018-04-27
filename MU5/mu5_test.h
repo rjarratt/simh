@@ -79,6 +79,7 @@ void mu5_selftest_set_failure(TESTCONTEXT *context);
 void mu5_selftest_assert_reg_equals(TESTCONTEXT *context, DEVICE *device, char *name, t_uint64 expectedValue);
 void mu5_selftest_assert_reg_equals_mask(TESTCONTEXT *context, DEVICE *device, char *name, t_uint64 mask, t_uint64 expectedValue);
 void mu5_selftest_assert_reg_instance_equals(TESTCONTEXT *context, DEVICE *device, char *name, uint8 index, t_uint64 expectedValue);
+void mu5_selftest_assert_reg_instance_equals_mask(TESTCONTEXT *context, DEVICE *device, char *name, uint8 index, t_uint64 mask, t_uint64 expectedValue);
 void mu5_selftest_assert_no_system_error(TESTCONTEXT *context);
 void mu5_selftest_assert_no_program_fault(TESTCONTEXT *context);
 void mu5_selftest_assert_interrupt_inhibited(TESTCONTEXT *context);
