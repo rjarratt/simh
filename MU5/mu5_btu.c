@@ -214,6 +214,7 @@ static t_stat btu_svc(UNIT *uptr)
     t_addr src_addr;
     t_addr dst_addr;
     uint16 old_size;
+    t_uint64 word;
     uint16 size;
     uint8 unit_num = btu_get_unit_num(uptr);
 
@@ -223,7 +224,16 @@ static t_stat btu_svc(UNIT *uptr)
 
         src_addr = uptr->u3 + old_size;
         dst_addr = uptr->u4 + old_size;
-        exch_write(dst_addr, exch_read(src_addr));
+        if ((src_addr & 0x400000) && (exch_get_unit(src_addr) == UNIT_LOCAL_STORE)) /* bit 41 indicates a zero source if local store */
+        {
+            word = 0;
+        }
+        else
+        {
+            word = exch_read(src_addr);
+        }
+
+        exch_write(dst_addr, word);
 
         size = old_size - 2;
 

@@ -138,7 +138,7 @@ static UNITTEST tests[] =
     { "Transfer starts on a minimum 16-word boundary", btu_selftest_transfer_starts_on_minimum_16_word_boundary },
     { "Transfer starts on a rounded up power of 2 boundary", btu_selftest_transfer_starts_on_rounded_up_power_of_2_word_boundary },
     { "Transfer from local store with bit 41 set transfers zeroes", btu_selftest_transfer_from_local_with_bit_41_set_transfers_zeroes },
-    { "Transfer from mass store with bit 41 set transfers zeroes", btu_selftest_transfer_from_mass_with_bit_41_set_transfers_words }
+    { "Transfer from mass store with bit 41 set transfers words", btu_selftest_transfer_from_mass_with_bit_41_set_transfers_words }
 };
 
 void btu_selftest(TESTCONTEXT *testContext)
@@ -634,10 +634,74 @@ static void btu_selftest_transfer_starts_on_rounded_up_power_of_2_word_boundary(
 
 static void btu_selftest_transfer_from_local_with_bit_41_set_transfers_zeroes(TESTCONTEXT *testContext)
 {
-    mu5_selftest_assert_fail(testContext);
+    int i;
+    int words = 16; /* 64-bit words */
+    t_uint64 word;
+    t_uint64 expected;
+    t_addr addr;
+
+    for (i = 0; i < words; i++)
+    {
+        expected = i * 256;
+        addr = RA_MASS(i << 1);
+        exch_write(addr, expected);
+        addr = RA_LOCAL(i << 1);
+        exch_write(addr, expected);
+    }
+
+    btu_selftest_setup_request(RA_LOCAL(0x400000), RA_MASS(0), 2 * (words - 1), TEST_UNIT_NUM);
+
+    do
+    {
+        btu_selftest_execute_cycle();
+    } while (btu_selftest_transfer_in_progress(TEST_UNIT_NUM));
+
+    for (i = 0; i < words; i++)
+    {
+        addr = RA_MASS(i << 1);
+        word = exch_read(addr);
+        if (word != 0)
+        {
+            sim_debug(LOG_SELFTEST_FAIL, &btu_dev, "Mass store address %08X should be 0 but was %016llx\n", addr, word);
+            mu5_selftest_set_failure(testContext);
+            break;
+        }
+    }
 }
 
 static void btu_selftest_transfer_from_mass_with_bit_41_set_transfers_words(TESTCONTEXT *testContext)
 {
-    mu5_selftest_assert_fail(testContext);
+    int i;
+    int words = 16; /* 64-bit words */
+    t_uint64 word;
+    t_uint64 expected;
+    t_addr addr;
+
+    for (i = 0; i < words; i++)
+    {
+        expected = i * 256;
+        addr = RA_MASS(i << 1);
+        exch_write(addr, expected);
+    }
+
+    btu_selftest_setup_request(RA_MASS(0x400000), RA_LOCAL(0), 2 * (words - 1), TEST_UNIT_NUM);
+
+    do
+    {
+        btu_selftest_execute_cycle();
+    } while (btu_selftest_transfer_in_progress(TEST_UNIT_NUM));
+
+    for (i = 0; i < words; i++)
+    {
+        addr = RA_LOCAL(i << 1);
+        word = exch_read(addr);
+        expected = i * 256;
+        if (word != expected)
+        {
+            sim_debug(LOG_SELFTEST_FAIL, &btu_dev, "Local store address %08X should be %016llX but was %016llx\n", addr, expected, word);
+            mu5_selftest_set_failure(testContext);
+            break;
+        }
+    }
 }
+
