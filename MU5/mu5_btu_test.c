@@ -94,6 +94,8 @@ static void btu_selftest_counts_down_minimum_size_transfer(TESTCONTEXT *testCont
 static void btu_selftest_counts_down_maximum_size_transfer(TESTCONTEXT *testContext);
 static void btu_selftest_transfer_complete_bit_tracks_progress(TESTCONTEXT *testContext);
 static void btu_selftest_clearing_transfer_in_progress_cancels_transfer(TESTCONTEXT *testContext);
+static void btu_selftest_setting_transfer_complete_bit_sets_transfer_complete(TESTCONTEXT *testContext);
+static void btu_selftest_completion_of_transfer_sets_transfer_complete(TESTCONTEXT *testContext);
 /* cancel transfer does not copy all words, interrupt, actual transfer, bit 41 transfer of zeroes, boundaries */
 
 static UNITTEST tests[] =
@@ -123,7 +125,9 @@ static UNITTEST tests[] =
     { "Counts down the size of a minimum size transfer", btu_selftest_counts_down_minimum_size_transfer },
     { "Counts down the size of a maximum size transfer", btu_selftest_counts_down_maximum_size_transfer },
     { "The transfer complete bit tracks the progress of the transfer", btu_selftest_transfer_complete_bit_tracks_progress },
-    { "Clearing the transfer in progress bit cancels a transfer", btu_selftest_clearing_transfer_in_progress_cancels_transfer }
+    { "Clearing the transfer in progress bit cancels a transfer", btu_selftest_clearing_transfer_in_progress_cancels_transfer },
+    { "Setting the transfer complete bit sets the corresponding bit in the transfer complete Vx line", btu_selftest_setting_transfer_complete_bit_sets_transfer_complete },
+    { "Completion of a transfer sets the corresponding bit in the transfer complete Vx line", btu_selftest_completion_of_transfer_sets_transfer_complete }
 };
 
 void btu_selftest(TESTCONTEXT *testContext)
@@ -364,8 +368,8 @@ static void btu_selftest_write_to_transfer_complete_is_ignored(TESTCONTEXT *test
 
 static void btu_selftest_read_from_transfer_complete(TESTCONTEXT *testContext)
 {
-    btu_selftest_set_register(REG_TRANSFERCOMPLETE, 0xFF);
-    btu_selftest_assert_vx_line_contents(BTU_VX_STORE_TRANSFER_COMPLETE, 0xF);
+    btu_selftest_set_register(REG_TRANSFERCOMPLETE, 0xFFF);
+    btu_selftest_assert_vx_line_contents(BTU_VX_STORE_TRANSFER_COMPLETE, 0xF0);
 }
 
 static void btu_selftest_unit_is_initially_inactive(TESTCONTEXT *testContext)
@@ -480,4 +484,24 @@ static void btu_selftest_clearing_transfer_in_progress_cancels_transfer(TESTCONT
     btu_selftest_assert_transfer_status_complete(TEST_UNIT_NUM);
     btu_selftest_assert_btu_size_is(TEST_UNIT_NUM, expected_size - 2);
     btu_selftest_assert_unit_is_inactive(TEST_UNIT_NUM);
+}
+
+static void btu_selftest_setting_transfer_complete_bit_sets_transfer_complete(TESTCONTEXT *testContext)
+{
+    btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(0), 0x4);
+    btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(2), 0x4);
+    btu_selftest_assert_reg_equals(REG_TRANSFERCOMPLETE, 0xA0);
+
+    btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(0), 0x0);
+    btu_selftest_assert_reg_equals(REG_TRANSFERCOMPLETE, 0x20);
+}
+
+static void btu_selftest_completion_of_transfer_sets_transfer_complete(TESTCONTEXT *testContext)
+{
+    btu_selftest_setup_request(0, 0, 2, TEST_UNIT_NUM);
+    btu_selftest_assert_reg_equals(REG_TRANSFERCOMPLETE, 0x0);
+    btu_selftest_execute_cycle();
+    btu_selftest_assert_reg_equals(REG_TRANSFERCOMPLETE, 0x0);
+    btu_selftest_execute_cycle();
+    btu_selftest_assert_reg_equals(REG_TRANSFERCOMPLETE, 1 << ((4 - TEST_UNIT_NUM) + 3));
 }

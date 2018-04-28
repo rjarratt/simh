@@ -73,12 +73,17 @@ Parity is not implemented.
 
 #define NUM_VX_BLOCKS (BTU_NUM_UNITS + 2)
 
+#define TIP_MASK 0x8
+#define TC_MASK 0x4
+
 static t_stat btu_reset(DEVICE *dptr);
 t_stat btu_svc(UNIT *uptr);
 static int btu_get_unit_num(UNIT *uptr);
 static uint16 btu_get_transfer_size(uint8 unit_num);
 static void btu_set_transfer_size(uint8 unit_num, uint16 size);
-static int btu_is_transfer_in_progress(uint8 unit_num);
+static int btu_is_transfer_status_in_progress(uint8 unit_num);
+static void btu_set_transfer_status_complete(uint8 unit_num);
+static void btu_clear_transfer_complete(uint8 unit_num);
 static void btu_set_transfer_complete(uint8 unit_num);
 
 static void btu_schedule_next_poll(UNIT *uptr);
@@ -203,7 +208,7 @@ static t_stat btu_svc(UNIT *uptr)
     uint16 size;
     uint8 unit_num = btu_get_unit_num(uptr);
 
-    if (btu_is_transfer_in_progress(unit_num))
+    if (btu_is_transfer_status_in_progress(unit_num))
     {
         old_size = btu_get_transfer_size(unit_num);
 
@@ -211,7 +216,7 @@ static t_stat btu_svc(UNIT *uptr)
 
         if (old_size == 0)
         {
-            btu_set_transfer_complete(unit_num);
+            btu_set_transfer_status_complete(unit_num);
             sim_cancel(uptr);
         }
         else
@@ -223,7 +228,7 @@ static t_stat btu_svc(UNIT *uptr)
     }
     else
     {
-        btu_set_transfer_complete(unit_num);
+        btu_set_transfer_status_complete(unit_num);
         sim_cancel(uptr);
     }
 
@@ -245,15 +250,26 @@ static void btu_set_transfer_size(uint8 unit_num, uint16 size)
     reg_size[unit_num] = (reg_size[unit_num] & ~MASK_16) | (size & MASK_16);
 }
 
-static int btu_is_transfer_in_progress(uint8 unit_num)
+static int btu_is_transfer_status_in_progress(uint8 unit_num)
 {
-    return (reg_transfer_status[unit_num] & 0x8) != 0;
+    return (reg_transfer_status[unit_num] & TIP_MASK) != 0;
+}
+
+static void btu_set_transfer_status_complete(uint8 unit_num)
+{
+    reg_transfer_status[unit_num] &= ~TIP_MASK;
+    reg_transfer_status[unit_num] |= TC_MASK;
+    btu_set_transfer_complete(unit_num);
+}
+
+static void btu_clear_transfer_complete(uint8 unit_num)
+{
+    reg_transfer_complete &= ~(1 << ((4 - unit_num) + 3));
 }
 
 static void btu_set_transfer_complete(uint8 unit_num)
 {
-    reg_transfer_status[unit_num] &= ~0x8;
-    reg_transfer_status[unit_num] |= 0x4;
+    reg_transfer_complete |= 1 << ((4 - unit_num) + 3);
 }
 
 void btu_reset_state(void)
@@ -388,9 +404,18 @@ static void btu_write_transfer_status_callback(uint8 block, uint8 line, t_uint64
     uint32 old_value = reg_transfer_status[block];
     uint32 new_value = value & 0xE;
     reg_transfer_status[block] = new_value;
-    if ((old_value & 0x8) == 0 && (new_value & 0x8) == 0x8)
+    if ((old_value & TIP_MASK) == 0 && (new_value & TIP_MASK) == TIP_MASK)
     {
         btu_schedule_next_poll(&btu_unit[block]);
+    }
+
+    if (value & TC_MASK)
+    {
+        btu_set_transfer_complete(block);
+    }
+    else
+    {
+        btu_clear_transfer_complete(block);
     }
 }
 
@@ -406,5 +431,5 @@ static void btu_write_btu_ripf_callback(uint8 block, uint8 line, t_uint64 value)
 
 static t_uint64 btu_read_transfer_complete_callback(uint8 block, uint8 line)
 {
-    return reg_transfer_complete & 0xF;
+    return reg_transfer_complete & 0xF0;
 }
