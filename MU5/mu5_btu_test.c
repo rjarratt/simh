@@ -93,7 +93,8 @@ static void btu_selftest_leaves_unit_inactive_at_end_of_transfer(TESTCONTEXT *te
 static void btu_selftest_counts_down_minimum_size_transfer(TESTCONTEXT *testContext);
 static void btu_selftest_counts_down_maximum_size_transfer(TESTCONTEXT *testContext);
 static void btu_selftest_transfer_complete_bit_tracks_progress(TESTCONTEXT *testContext);
-/* cancel transfer, interrupt, actual transfer */
+static void btu_selftest_clearing_transfer_in_progress_cancels_transfer(TESTCONTEXT *testContext);
+/* cancel transfer does not copy all words, interrupt, actual transfer, bit 41 transfer of zeroes, boundaries */
 
 static UNITTEST tests[] =
 {
@@ -121,7 +122,8 @@ static UNITTEST tests[] =
     { "Leaves unit inactive at the end of a transfer", btu_selftest_leaves_unit_inactive_at_end_of_transfer },
     { "Counts down the size of a minimum size transfer", btu_selftest_counts_down_minimum_size_transfer },
     { "Counts down the size of a maximum size transfer", btu_selftest_counts_down_maximum_size_transfer },
-    { "The transfer complete bit tracks the progress of the transfer", btu_selftest_transfer_complete_bit_tracks_progress }
+    { "The transfer complete bit tracks the progress of the transfer", btu_selftest_transfer_complete_bit_tracks_progress },
+    { "Clearing the transfer in progress bit cancels a transfer", btu_selftest_clearing_transfer_in_progress_cancels_transfer }
 };
 
 void btu_selftest(TESTCONTEXT *testContext)
@@ -462,4 +464,20 @@ static void btu_selftest_transfer_complete_bit_tracks_progress(TESTCONTEXT *test
     }
 
     btu_selftest_assert_transfer_status_complete(TEST_UNIT_NUM);
+}
+
+static void btu_selftest_clearing_transfer_in_progress_cancels_transfer(TESTCONTEXT *testContext)
+{
+    uint16 expected_size = 4;
+    btu_selftest_setup_request(0, 0, expected_size, TEST_UNIT_NUM);
+    btu_selftest_execute_cycle();
+
+    btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0x0);
+    btu_selftest_assert_transfer_status_incomplete(TEST_UNIT_NUM);
+    btu_selftest_assert_unit_is_active(TEST_UNIT_NUM);
+    btu_selftest_execute_cycle();
+
+    btu_selftest_assert_transfer_status_complete(TEST_UNIT_NUM);
+    btu_selftest_assert_btu_size_is(TEST_UNIT_NUM, expected_size - 2);
+    btu_selftest_assert_unit_is_inactive(TEST_UNIT_NUM);
 }

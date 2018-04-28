@@ -76,6 +76,10 @@ Parity is not implemented.
 static t_stat btu_reset(DEVICE *dptr);
 t_stat btu_svc(UNIT *uptr);
 static int btu_get_unit_num(UNIT *uptr);
+static uint16 btu_get_transfer_size(uint8 unit_num);
+static void btu_set_transfer_size(uint8 unit_num, uint16 size);
+static int btu_is_transfer_in_progress(uint8 unit_num);
+static void btu_set_transfer_complete(uint8 unit_num);
 
 static void btu_schedule_next_poll(UNIT *uptr);
 
@@ -199,21 +203,29 @@ static t_stat btu_svc(UNIT *uptr)
     uint16 size;
     uint8 unit_num = btu_get_unit_num(uptr);
 
-    old_size = reg_size[unit_num] & MASK_16;
-
-    size = old_size - 2;
-
-    if (old_size == 0)
+    if (btu_is_transfer_in_progress(unit_num))
     {
-        reg_transfer_status[unit_num] |= 0x4;
-        sim_cancel(uptr);
+        old_size = btu_get_transfer_size(unit_num);
+
+        size = old_size - 2;
+
+        if (old_size == 0)
+        {
+            btu_set_transfer_complete(unit_num);
+            sim_cancel(uptr);
+        }
+        else
+        {
+            btu_schedule_next_poll(uptr);
+        }
+
+        btu_set_transfer_size(unit_num, size);
     }
     else
     {
-        btu_schedule_next_poll(uptr);
+        btu_set_transfer_complete(unit_num);
+        sim_cancel(uptr);
     }
-
-    reg_size[unit_num] = (reg_size[unit_num] & ~MASK_16) | (size & MASK_16);
 
     return result;
 }
@@ -223,6 +235,26 @@ static int btu_get_unit_num(UNIT *uptr)
     return (int)(uptr - btu_unit);
 }
 
+static uint16 btu_get_transfer_size(uint8 unit_num)
+{
+    return reg_size[unit_num] & MASK_16;
+}
+
+static void btu_set_transfer_size(uint8 unit_num, uint16 size)
+{
+    reg_size[unit_num] = (reg_size[unit_num] & ~MASK_16) | (size & MASK_16);
+}
+
+static int btu_is_transfer_in_progress(uint8 unit_num)
+{
+    return (reg_transfer_status[unit_num] & 0x8) != 0;
+}
+
+static void btu_set_transfer_complete(uint8 unit_num)
+{
+    reg_transfer_status[unit_num] &= ~0x8;
+    reg_transfer_status[unit_num] |= 0x4;
+}
 
 void btu_reset_state(void)
 {
