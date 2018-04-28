@@ -55,6 +55,7 @@ static void btu_selftest_set_register(char *name, t_uint64 value);
 static void btu_selftest_set_register_instance(char *name, uint8 index, t_uint64 value);
 static void btu_selftest_setup_vx_line(t_addr address, t_uint64 value);
 static void btu_selftest_setup_request(t_addr from, t_addr to, uint16 size, uint8 unit_num);
+static int btu_selftest_transfer_in_progress(uint8 unit_num);
 
 static void btu_selftest_set_failure(void);
 static void btu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
@@ -96,7 +97,11 @@ static void btu_selftest_transfer_complete_bit_tracks_progress(TESTCONTEXT *test
 static void btu_selftest_clearing_transfer_in_progress_cancels_transfer(TESTCONTEXT *testContext);
 static void btu_selftest_setting_transfer_complete_bit_sets_transfer_complete(TESTCONTEXT *testContext);
 static void btu_selftest_completion_of_transfer_sets_transfer_complete(TESTCONTEXT *testContext);
-/* cancel transfer does not copy all words, interrupt, actual transfer, bit 41 transfer of zeroes, boundaries */
+static void btu_selftest_transfer_copies_words_from_source_to_destination(TESTCONTEXT *testContext);
+static void btu_selftest_transfer_starts_on_16_word_boundary(TESTCONTEXT *testContext);
+static void btu_selftest_transfer_from_local_with_bit_41_set_transfers_zeroes(TESTCONTEXT *testContext);
+static void btu_selftest_transfer_from_mass_with_bit_41_set_transfers_words(TESTCONTEXT *testContext);
+/* cancel transfer does not copy all words, interrupt, */
 
 static UNITTEST tests[] =
 {
@@ -127,7 +132,11 @@ static UNITTEST tests[] =
     { "The transfer complete bit tracks the progress of the transfer", btu_selftest_transfer_complete_bit_tracks_progress },
     { "Clearing the transfer in progress bit cancels a transfer", btu_selftest_clearing_transfer_in_progress_cancels_transfer },
     { "Setting the transfer complete bit sets the corresponding bit in the transfer complete Vx line", btu_selftest_setting_transfer_complete_bit_sets_transfer_complete },
-    { "Completion of a transfer sets the corresponding bit in the transfer complete Vx line", btu_selftest_completion_of_transfer_sets_transfer_complete }
+    { "Completion of a transfer sets the corresponding bit in the transfer complete Vx line", btu_selftest_completion_of_transfer_sets_transfer_complete },
+    { "Transfer copies words from source to destination", btu_selftest_transfer_copies_words_from_source_to_destination },
+    { "Transfer starts on a 16-word boundary", btu_selftest_transfer_starts_on_16_word_boundary },
+    { "Transfer from local store with bit 41 set transfers zeroes", btu_selftest_transfer_from_local_with_bit_41_set_transfers_zeroes },
+    { "Transfer from mass store with bit 41 set transfers zeroes", btu_selftest_transfer_from_mass_with_bit_41_set_transfers_words }
 };
 
 void btu_selftest(TESTCONTEXT *testContext)
@@ -180,6 +189,13 @@ static void btu_selftest_setup_request(t_addr from, t_addr to, uint16 size, uint
     btu_selftest_setup_vx_line(BTU_VX_STORE_DESTINATION_ADDRESS(unit_num), to);
     btu_selftest_setup_vx_line(BTU_VX_STORE_SIZE(unit_num), ((uint32)unit_num) << 16 | size);
     btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(unit_num), 0x8);
+}
+
+static int btu_selftest_transfer_in_progress(uint8 unit_num)
+{
+    t_uint64 tc = mu5_selftest_get_register(localTestContext, &btu_dev, REG_TRANSFERCOMPLETE);
+    int result = (tc & ((t_uint64)1 << ((4 - unit_num) + 3))) == 0;
+    return result;
 }
 
 static void btu_selftest_set_failure(void)
@@ -504,4 +520,54 @@ static void btu_selftest_completion_of_transfer_sets_transfer_complete(TESTCONTE
     btu_selftest_assert_reg_equals(REG_TRANSFERCOMPLETE, 0x0);
     btu_selftest_execute_cycle();
     btu_selftest_assert_reg_equals(REG_TRANSFERCOMPLETE, 1 << ((4 - TEST_UNIT_NUM) + 3));
+}
+
+static void btu_selftest_transfer_copies_words_from_source_to_destination(TESTCONTEXT *testContext)
+{
+    int i;
+    int words = 16384; /* 64-bit words, local memory is this size */
+    t_uint64 word;
+    t_uint64 expected;
+    t_addr addr;
+
+    for (i = 0; i < words; i++)
+    {
+        addr = RA_MASS(i << 1);
+        expected = i * 256;
+        exch_write(addr, expected);
+    }
+
+    btu_selftest_setup_request(RA_MASS(0), RA_LOCAL(0), 2 * (words - 1), TEST_UNIT_NUM);
+
+    do
+    {
+        btu_selftest_execute_cycle();
+    } while (btu_selftest_transfer_in_progress(TEST_UNIT_NUM));
+
+    for (i = 0; i < words; i++)
+    {
+        addr = RA_LOCAL(i << 1);
+        word = exch_read(addr);
+        expected = i * 256;
+        if (word != expected)
+        {
+            sim_debug(LOG_SELFTEST_FAIL, &btu_dev, "Local store address %08X should be %016llX but was %016llx\n", addr, expected, word);
+            mu5_selftest_set_failure(testContext);
+            break;
+        }
+    }
+}
+
+static void btu_selftest_transfer_starts_on_16_word_boundary(TESTCONTEXT *testContext) /* src and dst */
+{
+    mu5_selftest_assert_fail(testContext);
+}
+static void btu_selftest_transfer_from_local_with_bit_41_set_transfers_zeroes(TESTCONTEXT *testContext)
+{
+    mu5_selftest_assert_fail(testContext);
+}
+
+static void btu_selftest_transfer_from_mass_with_bit_41_set_transfers_words(TESTCONTEXT *testContext)
+{
+    mu5_selftest_assert_fail(testContext);
 }

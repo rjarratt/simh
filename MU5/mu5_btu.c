@@ -204,6 +204,8 @@ static t_stat btu_reset(DEVICE *dptr)
 static t_stat btu_svc(UNIT *uptr)
 {
     t_stat result = SCPE_OK;
+    t_addr src_addr;
+    t_addr dst_addr;
     uint16 old_size;
     uint16 size;
     uint8 unit_num = btu_get_unit_num(uptr);
@@ -211,6 +213,10 @@ static t_stat btu_svc(UNIT *uptr)
     if (btu_is_transfer_status_in_progress(unit_num))
     {
         old_size = btu_get_transfer_size(unit_num);
+
+        src_addr = reg_source_address[unit_num] + old_size;
+        dst_addr = reg_destination_address[unit_num] + old_size;
+        exch_write(dst_addr, exch_read(src_addr));
 
         size = old_size - 2;
 
