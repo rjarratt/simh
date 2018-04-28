@@ -98,7 +98,8 @@ static void btu_selftest_clearing_transfer_in_progress_cancels_transfer(TESTCONT
 static void btu_selftest_setting_transfer_complete_bit_sets_transfer_complete(TESTCONTEXT *testContext);
 static void btu_selftest_completion_of_transfer_sets_transfer_complete(TESTCONTEXT *testContext);
 static void btu_selftest_transfer_copies_words_from_source_to_destination(TESTCONTEXT *testContext);
-static void btu_selftest_transfer_starts_on_16_word_boundary(TESTCONTEXT *testContext);
+static void btu_selftest_transfer_starts_on_minimum_16_word_boundary(TESTCONTEXT *testContext);
+static void btu_selftest_transfer_starts_on_rounded_up_power_of_2_word_boundary(TESTCONTEXT *testContext);
 static void btu_selftest_transfer_from_local_with_bit_41_set_transfers_zeroes(TESTCONTEXT *testContext);
 static void btu_selftest_transfer_from_mass_with_bit_41_set_transfers_words(TESTCONTEXT *testContext);
 /* cancel transfer does not copy all words, interrupt, */
@@ -134,7 +135,8 @@ static UNITTEST tests[] =
     { "Setting the transfer complete bit sets the corresponding bit in the transfer complete Vx line", btu_selftest_setting_transfer_complete_bit_sets_transfer_complete },
     { "Completion of a transfer sets the corresponding bit in the transfer complete Vx line", btu_selftest_completion_of_transfer_sets_transfer_complete },
     { "Transfer copies words from source to destination", btu_selftest_transfer_copies_words_from_source_to_destination },
-    { "Transfer starts on a 16-word boundary", btu_selftest_transfer_starts_on_16_word_boundary },
+    { "Transfer starts on a minimum 16-word boundary", btu_selftest_transfer_starts_on_minimum_16_word_boundary },
+    { "Transfer starts on a rounded up power of 2 boundary", btu_selftest_transfer_starts_on_rounded_up_power_of_2_word_boundary },
     { "Transfer from local store with bit 41 set transfers zeroes", btu_selftest_transfer_from_local_with_bit_41_set_transfers_zeroes },
     { "Transfer from mass store with bit 41 set transfers zeroes", btu_selftest_transfer_from_mass_with_bit_41_set_transfers_words }
 };
@@ -558,10 +560,10 @@ static void btu_selftest_transfer_copies_words_from_source_to_destination(TESTCO
     }
 }
 
-static void btu_selftest_transfer_starts_on_16_word_boundary(TESTCONTEXT *testContext) /* src and dst */
+static void btu_selftest_transfer_starts_on_minimum_16_word_boundary(TESTCONTEXT *testContext)
 {
     int i;
-    int words = 2; /* 64-bit words, local memory is this size */
+    int words = 2; /* 64-bit words */
     t_uint64 word;
     t_uint64 expected;
     t_addr addr;
@@ -594,7 +596,41 @@ static void btu_selftest_transfer_starts_on_16_word_boundary(TESTCONTEXT *testCo
     }
 }
 
-/* boundary on power of 2 of size */
+static void btu_selftest_transfer_starts_on_rounded_up_power_of_2_word_boundary(TESTCONTEXT *testContext)
+{
+    int i;
+    int words = 50; /* 64-bit words */
+    t_uint64 word;
+    t_uint64 expected;
+    t_addr addr;
+
+    for (i = 0; i < words; i++)
+    {
+        addr = RA_MASS(i << 1);
+        expected = i * 256;
+        exch_write(addr, expected);
+    }
+
+    btu_selftest_setup_request(RA_MASS(126), RA_LOCAL(130), 2 * (words - 1), TEST_UNIT_NUM);
+
+    do
+    {
+        btu_selftest_execute_cycle();
+    } while (btu_selftest_transfer_in_progress(TEST_UNIT_NUM));
+
+    for (i = 0; i < words; i++)
+    {
+        addr = RA_LOCAL((64 + i) << 1);
+        word = exch_read(addr);
+        expected = i * 256;
+        if (word != expected)
+        {
+            sim_debug(LOG_SELFTEST_FAIL, &btu_dev, "Local store address %08X should be %016llX but was %016llx\n", addr, expected, word);
+            mu5_selftest_set_failure(testContext);
+            break;
+        }
+    }
+}
 
 static void btu_selftest_transfer_from_local_with_bit_41_set_transfers_zeroes(TESTCONTEXT *testContext)
 {

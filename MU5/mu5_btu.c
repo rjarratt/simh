@@ -51,6 +51,11 @@ Furthermore, transfers could be cancelled before they completed,
 which would not be emulated accurately either if this approach were
 taken.
 
+The UNIT structure fields are used as follows:
+
+u3 - base source address (after correcting to the appropriate boundary)
+u4 - base destination address (after correcting to the appropriate boundary)
+
 Known Limitations
 -----------------
 
@@ -85,7 +90,9 @@ static int btu_is_transfer_status_in_progress(uint8 unit_num);
 static void btu_set_transfer_status_complete(uint8 unit_num);
 static void btu_clear_transfer_complete(uint8 unit_num);
 static void btu_set_transfer_complete(uint8 unit_num);
+static uint16 btu_next_power_of_2(uint16 n);
 
+static void btu_start_transfer(UNIT *uptr);
 static void btu_schedule_next_poll(UNIT *uptr);
 
 static t_uint64 btu_read_vx_store(t_addr addr);
@@ -214,8 +221,8 @@ static t_stat btu_svc(UNIT *uptr)
     {
         old_size = btu_get_transfer_size(unit_num);
 
-        src_addr = (reg_source_address[unit_num] & ~0xF) + old_size;
-        dst_addr = (reg_destination_address[unit_num] & ~0xF) + old_size;
+        src_addr = uptr->u3 + old_size;
+        dst_addr = uptr->u4 + old_size;
         exch_write(dst_addr, exch_read(src_addr));
 
         size = old_size - 2;
@@ -278,6 +285,14 @@ static void btu_set_transfer_complete(uint8 unit_num)
     reg_transfer_complete |= 1 << ((4 - unit_num) + 3);
 }
 
+static uint16 btu_next_power_of_2(uint16 n)
+{
+    uint16 power = 2;
+    uint16 temp = n;
+    while (temp >>= 1) power <<= 1;
+    return power;
+}
+
 void btu_reset_state(void)
 {
     int i;
@@ -321,6 +336,21 @@ void btu_exch_write(t_addr addr, t_uint64 value)
     {
         btu_write_vx_store((addr & RA_X_MASK) >> 1, value);
     }
+}
+
+static void btu_start_transfer(UNIT *uptr)
+{
+    uint8 unit_num = btu_get_unit_num(uptr);
+    uint16 boundary_mask = btu_next_power_of_2(btu_get_transfer_size(unit_num)) - 1;
+    if (boundary_mask < 0xF)
+    {
+        boundary_mask = 0xF;
+    }
+
+    uptr->u3 = reg_source_address[unit_num] & ~boundary_mask;
+    uptr->u4 = reg_destination_address[unit_num] & ~boundary_mask;
+
+    btu_schedule_next_poll(uptr);
 }
 
 static void btu_schedule_next_poll(UNIT *uptr)
@@ -412,7 +442,7 @@ static void btu_write_transfer_status_callback(uint8 block, uint8 line, t_uint64
     reg_transfer_status[block] = new_value;
     if ((old_value & TIP_MASK) == 0 && (new_value & TIP_MASK) == TIP_MASK)
     {
-        btu_schedule_next_poll(&btu_unit[block]);
+        btu_start_transfer(&btu_unit[block]);
     }
 
     if (value & TC_MASK)
