@@ -560,8 +560,42 @@ static void btu_selftest_transfer_copies_words_from_source_to_destination(TESTCO
 
 static void btu_selftest_transfer_starts_on_16_word_boundary(TESTCONTEXT *testContext) /* src and dst */
 {
-    mu5_selftest_assert_fail(testContext);
+    int i;
+    int words = 2; /* 64-bit words, local memory is this size */
+    t_uint64 word;
+    t_uint64 expected;
+    t_addr addr;
+
+    for (i = 0; i < words; i++)
+    {
+        addr = RA_MASS(i << 1);
+        expected = i * 256;
+        exch_write(addr, expected);
+    }
+
+    btu_selftest_setup_request(RA_MASS(4), RA_LOCAL(0x14), 2 * (words - 1), TEST_UNIT_NUM);
+
+    do
+    {
+        btu_selftest_execute_cycle();
+    } while (btu_selftest_transfer_in_progress(TEST_UNIT_NUM));
+
+    for (i = 0; i < words; i++)
+    {
+        addr = RA_LOCAL((0x8 + i) << 1);
+        word = exch_read(addr);
+        expected = i * 256;
+        if (word != expected)
+        {
+            sim_debug(LOG_SELFTEST_FAIL, &btu_dev, "Local store address %08X should be %016llX but was %016llx\n", addr, expected, word);
+            mu5_selftest_set_failure(testContext);
+            break;
+        }
+    }
 }
+
+/* boundary on power of 2 of size */
+
 static void btu_selftest_transfer_from_local_with_bit_41_set_transfers_zeroes(TESTCONTEXT *testContext)
 {
     mu5_selftest_assert_fail(testContext);

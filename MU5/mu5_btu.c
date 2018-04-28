@@ -214,8 +214,8 @@ static t_stat btu_svc(UNIT *uptr)
     {
         old_size = btu_get_transfer_size(unit_num);
 
-        src_addr = reg_source_address[unit_num] + old_size;
-        dst_addr = reg_destination_address[unit_num] + old_size;
+        src_addr = (reg_source_address[unit_num] & ~0xF) + old_size;
+        dst_addr = (reg_destination_address[unit_num] & ~0xF) + old_size;
         exch_write(dst_addr, exch_read(src_addr));
 
         size = old_size - 2;
