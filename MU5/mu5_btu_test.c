@@ -102,7 +102,8 @@ static void btu_selftest_transfer_starts_on_minimum_16_word_boundary(TESTCONTEXT
 static void btu_selftest_transfer_starts_on_rounded_up_power_of_2_word_boundary(TESTCONTEXT *testContext);
 static void btu_selftest_transfer_from_local_with_bit_41_set_transfers_zeroes(TESTCONTEXT *testContext);
 static void btu_selftest_transfer_from_mass_with_bit_41_set_transfers_words(TESTCONTEXT *testContext);
-/* cancel transfer does not copy all words, interrupt, */
+static void btu_selftest_cancelling_transfer_stops_word_transfer(TESTCONTEXT *testContext);
+/* interrupt, */
 
 static UNITTEST tests[] =
 {
@@ -138,7 +139,8 @@ static UNITTEST tests[] =
     { "Transfer starts on a minimum 16-word boundary", btu_selftest_transfer_starts_on_minimum_16_word_boundary },
     { "Transfer starts on a rounded up power of 2 boundary", btu_selftest_transfer_starts_on_rounded_up_power_of_2_word_boundary },
     { "Transfer from local store with bit 41 set transfers zeroes", btu_selftest_transfer_from_local_with_bit_41_set_transfers_zeroes },
-    { "Transfer from mass store with bit 41 set transfers words", btu_selftest_transfer_from_mass_with_bit_41_set_transfers_words }
+    { "Transfer from mass store with bit 41 set transfers words", btu_selftest_transfer_from_mass_with_bit_41_set_transfers_words },
+    { "Cancelling a transfer stops the transfer of words", btu_selftest_cancelling_transfer_stops_word_transfer }
 };
 
 void btu_selftest(TESTCONTEXT *testContext)
@@ -705,3 +707,52 @@ static void btu_selftest_transfer_from_mass_with_bit_41_set_transfers_words(TEST
     }
 }
 
+static void btu_selftest_cancelling_transfer_stops_word_transfer(TESTCONTEXT *testContext)
+{
+    int i;
+    int words = 16; /* 64-bit words */
+    t_uint64 word;
+    t_uint64 expected;
+    t_addr addr;
+
+    for (i = 0; i < words; i++)
+    {
+        expected = i * 256;
+        addr = RA_MASS(i << 1);
+        exch_write(addr, expected);
+    }
+
+    btu_selftest_setup_request(RA_MASS(0x0), RA_LOCAL(0), 2 * (words - 1), TEST_UNIT_NUM);
+
+    i = 0;
+    do
+    {
+        if (i++ == 8)
+        {
+            btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0x0);
+        }
+
+        btu_selftest_execute_cycle();
+    } while (btu_selftest_transfer_in_progress(TEST_UNIT_NUM));
+
+    for (i = 0; i < words; i++)
+    {
+        addr = RA_LOCAL(i << 1);
+        word = exch_read(addr);
+        if (i < 8)
+        {
+            expected = 0;
+        }
+        else
+        {
+            expected = i * 256;
+        }
+
+        if (word != expected)
+        {
+            sim_debug(LOG_SELFTEST_FAIL, &btu_dev, "Local store address %08X should be %016llX but was %016llx\n", addr, expected, word);
+            mu5_selftest_set_failure(testContext);
+            break;
+        }
+    }
+}
