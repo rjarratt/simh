@@ -8838,19 +8838,19 @@ static void cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set(TESTCONTEXT 
 
 static void cpu_selftest_writing_peripheral_window_message_generates_peripheral_window_interrupt(TESTCONTEXT *testContext)
 {
-    exch_write(RA_VX_MU5(VX_ADDR(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW)), 0xFFFFFFFF);
+    exch_write(PERIPHERAL_WINDOW_ADDRESS, 0xFFFFFFFF);
     cpu_selftest_assert_peripheral_window_interrupt();
 }
 
 static void cpu_selftest_writing_peripheral_window_message_sets_message_window_v_line(TESTCONTEXT *testContext)
 {
-    exch_write(RA_VX_MU5(VX_ADDR(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW)), 0xA5A5A5A5);
+    exch_write(PERIPHERAL_WINDOW_ADDRESS, 0xA5A5A5A5);
     cpu_selftest_assert_v_store_contents(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW, 0xA5A5A5A5);
 }
 
 static void cpu_selftest_message_window_v_line_is_reset_when_written(TESTCONTEXT *testContext)
 {
-    exch_write(RA_VX_MU5(VX_ADDR(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW)), 0xA5A5A5A5);
+    exch_write(PERIPHERAL_WINDOW_ADDRESS, 0xA5A5A5A5);
     sac_write_v_store(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW, 0x5A5A5A5A);
     cpu_selftest_assert_v_store_contents(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW, 0);
     // TODO: Reset sets it "not busy", not sure what this means yet, but further tests will be needed.

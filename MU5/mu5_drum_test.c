@@ -40,7 +40,6 @@ in this Software without prior written authorization from Robert Jarratt.
 #define REG_COMPLETEADDRESS "COMPLETEADDRESS"
 
 #define TEST_UNIT_NUM 3
-#define TEST_COMPLETE_ADDRESS RA_VX_MU5(VX_ADDR(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW))
 #define TEST_STORE_ADDRESS RA_LOCAL(0)
 
 #define READ 1
@@ -223,7 +222,7 @@ static void drum_selftest_setup_vx_line(t_addr address, t_uint64 value)
 static void drum_selftest_setup_request(t_uint64 disc_address)
 {
 	drum_selftest_setup_vx_line(DRUM_VX_STORE_STORE_ADDRESS, TEST_STORE_ADDRESS);
-	drum_selftest_setup_vx_line(DRUM_VX_STORE_COMPLETE_ADDRESS, TEST_COMPLETE_ADDRESS);
+	drum_selftest_setup_vx_line(DRUM_VX_STORE_COMPLETE_ADDRESS, PERIPHERAL_WINDOW_ADDRESS);
 	drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, disc_address);
 }
 
@@ -745,7 +744,7 @@ static void drum_selftest_reads_and_writes_data(TESTCONTEXT *testContext)
 
     /* Set up write request */
     drum_selftest_setup_vx_line(DRUM_VX_STORE_STORE_ADDRESS, TEST_STORE_ADDRESS);
-    drum_selftest_setup_vx_line(DRUM_VX_STORE_COMPLETE_ADDRESS, TEST_COMPLETE_ADDRESS);
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_COMPLETE_ADDRESS, PERIPHERAL_WINDOW_ADDRESS);
     drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(WRITE, TEST_UNIT_NUM, 0, 1, 2));
     drum_selftest_assert_legal_request();
 
@@ -762,7 +761,7 @@ static void drum_selftest_reads_and_writes_data(TESTCONTEXT *testContext)
 
     /* Set up read request */
     drum_selftest_setup_vx_line(DRUM_VX_STORE_STORE_ADDRESS, RA_MASS(0));
-    drum_selftest_setup_vx_line(DRUM_VX_STORE_COMPLETE_ADDRESS, TEST_COMPLETE_ADDRESS);
+    drum_selftest_setup_vx_line(DRUM_VX_STORE_COMPLETE_ADDRESS, PERIPHERAL_WINDOW_ADDRESS);
     drum_selftest_setup_vx_line(DRUM_VX_STORE_DISC_ADDRESS, DISC_ADDRESS(READ, TEST_UNIT_NUM, 0, 1, 2));
     drum_selftest_assert_legal_request();
 

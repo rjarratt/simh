@@ -118,3 +118,5 @@ in this Software without prior written authorization from Robert Jarratt.
 #define VX_ADDR(block,line) (((block) << 5) | ((line) & 0x1F))
 #define VX_LINE(addr) ((addr) & 0x1F)
 #define VX_BLOCK(addr) (((addr) & ~RA_VX_MASK) >> 5)
+
+#define PERIPHERAL_WINDOW_ADDRESS RA_VX_MU5(VX_ADDR(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW))

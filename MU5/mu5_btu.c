@@ -59,6 +59,10 @@ u4 - base destination address (after correcting to the appropriate boundary)
 Known Limitations
 -----------------
 
+The documentation is unclear on exactly how interrupts worked. The working
+assumption is that the unit number in the Transfer Size Vx-line is written
+to the 4 least significant bits of the peripheral window message.
+
 Parity is not implemented.
 
 */
@@ -240,6 +244,7 @@ static t_stat btu_svc(UNIT *uptr)
         if (old_size == 0)
         {
             btu_set_transfer_status_complete(unit_num);
+            exch_write(PERIPHERAL_WINDOW_ADDRESS, (reg_size[unit_num] >> 16) & 0xF);
             sim_cancel(uptr);
         }
         else
