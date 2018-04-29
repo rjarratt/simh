@@ -55,6 +55,7 @@ static void btu_selftest_set_register(char *name, t_uint64 value);
 static void btu_selftest_set_register_instance(char *name, uint8 index, t_uint64 value);
 static void btu_selftest_setup_vx_line(t_addr address, t_uint64 value);
 static void btu_selftest_setup_request(t_addr from, t_addr to, uint16 size, uint8 unit_num);
+static void btu_selftest_cancel_transfer(void);
 static int btu_selftest_transfer_in_progress(uint8 unit_num);
 
 static void btu_selftest_set_failure(void);
@@ -106,6 +107,7 @@ static void btu_selftest_transfer_from_local_with_bit_41_set_transfers_zeroes(TE
 static void btu_selftest_transfer_from_mass_with_bit_41_set_transfers_words(TESTCONTEXT *testContext);
 static void btu_selftest_cancelling_transfer_stops_word_transfer(TESTCONTEXT *testContext);
 static void btu_selftest_transfer_completion_generates_interrupt(TESTCONTEXT *testContext);
+static void btu_selftest_transfer_completion_after_cancellation_generates_interrupt(TESTCONTEXT *testContext);
 /* prop vx line to distinguish console and btu */
 
 static UNITTEST tests[] =
@@ -144,7 +146,8 @@ static UNITTEST tests[] =
     { "Transfer from local store with bit 41 set transfers zeroes", btu_selftest_transfer_from_local_with_bit_41_set_transfers_zeroes },
     { "Transfer from mass store with bit 41 set transfers words", btu_selftest_transfer_from_mass_with_bit_41_set_transfers_words },
     { "Cancelling a transfer stops the transfer of words", btu_selftest_cancelling_transfer_stops_word_transfer },
-    { "Transfer completion generates an interrupt", btu_selftest_transfer_completion_generates_interrupt }
+    { "Transfer completion generates an interrupt", btu_selftest_transfer_completion_generates_interrupt },
+    { "Transfer completion after cancellation generates an interrupt", btu_selftest_transfer_completion_after_cancellation_generates_interrupt }
 };
 
 void btu_selftest(TESTCONTEXT *testContext)
@@ -197,6 +200,11 @@ static void btu_selftest_setup_request(t_addr from, t_addr to, uint16 size, uint
     btu_selftest_setup_vx_line(BTU_VX_STORE_DESTINATION_ADDRESS(unit_num), to);
     btu_selftest_setup_vx_line(BTU_VX_STORE_SIZE(unit_num), ((uint32)unit_num) << 16 | size);
     btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(unit_num), 0x8);
+}
+
+static void btu_selftest_cancel_transfer(void)
+{
+    btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0x0);
 }
 
 static int btu_selftest_transfer_in_progress(uint8 unit_num)
@@ -510,7 +518,7 @@ static void btu_selftest_clearing_transfer_in_progress_cancels_transfer(TESTCONT
     btu_selftest_setup_request(0, 0, expected_size, TEST_UNIT_NUM);
     btu_selftest_execute_cycle();
 
-    btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0x0);
+    btu_selftest_cancel_transfer();
     btu_selftest_assert_transfer_status_incomplete(TEST_UNIT_NUM);
     btu_selftest_assert_unit_is_active(TEST_UNIT_NUM);
     btu_selftest_execute_cycle();
@@ -723,7 +731,7 @@ static void btu_selftest_cancelling_transfer_stops_word_transfer(TESTCONTEXT *te
     {
         if (i++ == 8)
         {
-            btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0x0);
+            btu_selftest_cancel_transfer();
         }
 
         btu_selftest_execute_cycle();
@@ -756,6 +764,24 @@ static void btu_selftest_transfer_completion_generates_interrupt(TESTCONTEXT *te
     do
     {
         mu5_selftest_assert_no_interrupt(testContext);
+        btu_selftest_execute_cycle();
+    } while (btu_selftest_transfer_in_progress(TEST_UNIT_NUM));
+
+    mu5_selftest_assert_interrupt_number(testContext, INT_PERIPHERAL_WINDOW);
+    btu_selftest_assert_peripheral_window_equals(TEST_UNIT_NUM);
+}
+
+static void btu_selftest_transfer_completion_after_cancellation_generates_interrupt(TESTCONTEXT *testContext)
+{
+    int i = 0;
+    btu_selftest_setup_request(RA_MASS(0), RA_LOCAL(0), 6, TEST_UNIT_NUM);
+
+    do
+    {
+        if (i++ == 1)
+        {
+            btu_selftest_cancel_transfer();
+        }
         btu_selftest_execute_cycle();
     } while (btu_selftest_transfer_in_progress(TEST_UNIT_NUM));
 

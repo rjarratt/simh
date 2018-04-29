@@ -97,6 +97,7 @@ static void btu_set_transfer_complete(uint8 unit_num);
 static uint16 btu_next_power_of_2(uint16 n);
 
 static void btu_start_transfer(UNIT *uptr);
+static void btu_complete_transfer(UNIT *uptr);
 static void btu_schedule_next_poll(UNIT *uptr);
 
 static t_uint64 btu_read_vx_store(t_addr addr);
@@ -243,9 +244,7 @@ static t_stat btu_svc(UNIT *uptr)
 
         if (old_size == 0)
         {
-            btu_set_transfer_status_complete(unit_num);
-            exch_write(PERIPHERAL_WINDOW_ADDRESS, (reg_size[unit_num] >> 16) & 0xF);
-            sim_cancel(uptr);
+            btu_complete_transfer(uptr);
         }
         else
         {
@@ -256,8 +255,7 @@ static t_stat btu_svc(UNIT *uptr)
     }
     else
     {
-        btu_set_transfer_status_complete(unit_num);
-        sim_cancel(uptr);
+        btu_complete_transfer(uptr);
     }
 
     return result;
@@ -366,6 +364,14 @@ static void btu_start_transfer(UNIT *uptr)
     uptr->u4 = reg_destination_address[unit_num] & ~boundary_mask;
 
     btu_schedule_next_poll(uptr);
+}
+
+static void btu_complete_transfer(UNIT *uptr)
+{
+    uint8 unit_num = btu_get_unit_num(uptr);
+    btu_set_transfer_status_complete(unit_num);
+    exch_write(PERIPHERAL_WINDOW_ADDRESS, (reg_size[unit_num] >> 16) & 0xF);
+    sim_cancel(uptr);
 }
 
 static void btu_schedule_next_poll(UNIT *uptr)
