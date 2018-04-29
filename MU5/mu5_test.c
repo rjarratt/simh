@@ -29,6 +29,7 @@ in this Software without prior written authorization from Robert Jarratt.
 #include "mu5_test.h"
 #include "mu5_sac.h"
 #include "mu5_cpu.h"
+#include "mu5_exch.h"
 
 extern DEVICE cpu_dev;
 
@@ -82,7 +83,7 @@ void mu5_selftest_run_suite(TESTCONTEXT *context, UNITTEST *unitTests, uint32 nu
         if (test->runner != NULL)
         {
             test->runner(context);
-            if (context->result == SCPE_OK)
+            if (mu5_selftest_is_test_ok(context))
             {
                 sim_debug(LOG_SELFTEST_DETAIL, context->dev, "%s [OK]\n", test->name);
                 context->countSuccessful++;
@@ -186,6 +187,11 @@ void mu5_selftest_assert_fail(TESTCONTEXT *context)
 void mu5_selftest_set_failure(TESTCONTEXT *context)
 {
     context->result = SCPE_AFAIL;
+}
+
+int mu5_selftest_is_test_ok(TESTCONTEXT *context)
+{
+    return context->result == SCPE_OK;
 }
 
 void mu5_selftest_assert_reg_equals(TESTCONTEXT *context, DEVICE *device, char *name, t_uint64 expectedValue)
@@ -320,6 +326,16 @@ void mu5_selftest_assert_vstore_contents(TESTCONTEXT *context, uint8 block, uint
     if (actualValue != expectedValue)
     {
         sim_debug(LOG_SELFTEST_FAIL, context->dev, "Expected value in V-Store block %hu line %hu to be %llX, but was %llX\n", (unsigned short)block, (unsigned short)line, expectedValue, actualValue);
+        mu5_selftest_set_failure(context);
+    }
+}
+
+void mu5_selftest_assert_real_address_equals(TESTCONTEXT *context, t_addr address, t_uint64 expectedValue)
+{
+    t_uint64 actualValue = exch_read(address);
+    if (actualValue != expectedValue)
+    {
+        sim_debug(LOG_SELFTEST_FAIL, context->dev, "Expected value in real address location %07X to be %llX, but was %llX\n", address, expectedValue, actualValue);
         mu5_selftest_set_failure(context);
     }
 }
