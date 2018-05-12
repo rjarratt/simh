@@ -189,6 +189,7 @@ static void cpu_push_value(t_uint64 value);
 static t_addr cpu_pop_address(void);
 static t_uint64 cpu_pop_value(void);
 static void cpu_test_value(t_int64 value);
+static void cpu_set_display_lamps(uint32 value);
 
 static t_uint64 prop_read_process_number_callback(uint8 line);
 static void prop_write_process_number_callback(uint8 line, t_uint64 value);
@@ -198,6 +199,8 @@ static t_uint64 prop_read_system_error_status_callback(uint8 line);
 static void prop_write_system_error_status_callback(uint8 line, t_uint64 value);
 static t_uint64 prop_read_instruction_counter(uint8 line);
 static void prop_write_instruction_counter(uint8 line, t_uint64 value);
+static t_uint64 prop_read_display_lamps(uint8 line);
+static void prop_write_display_lamps(uint8 line, t_uint64 value);
 static t_uint64 peripheral_window_read_message_window(uint8 line);
 static void peripheral_window_write_message_window(uint8 line, t_uint64 value);
 
@@ -1469,6 +1472,7 @@ void cpu_reset_state(void)
     PROPProgramFaultStatus = sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, prop_read_program_fault_status_callback, prop_write_program_fault_status_callback);
     PROPSystemErrorStatus = sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, prop_read_system_error_status_callback, prop_write_system_error_status_callback);
     PROPInstructionCounter = sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, prop_read_instruction_counter, prop_write_instruction_counter);
+    sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_DISPLAY_LAMPS, prop_read_display_lamps, prop_write_display_lamps);
 
     MessageWindow = sac_setup_v_store_location(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW, peripheral_window_read_message_window, peripheral_window_write_message_window);
 }
@@ -2737,6 +2741,18 @@ static void cpu_test_value(t_int64 value)
     cpu_set_register_bit_16(reg_ms, mask_ms_t2, value < 0);
 }
 
+static void cpu_set_display_lamps(uint32 value)
+{
+    int i;
+    cpu_set_register_32(reg_dl, value);
+
+    for (i = 0; i < 32; i++)
+    {
+        printf("%c", (value >> (31 - i)) & 1 ? '1' : '0');
+    }
+    printf("\r");
+}
+
 void cpu_execute_next_order(void)
 {
     uint16 order;
@@ -2813,6 +2829,24 @@ static t_uint64 prop_read_instruction_counter(uint8 line)
 static void prop_write_instruction_counter(uint8 line, t_uint64 value)
 {
     *PROPInstructionCounter = value & 0xFFFF;
+}
+
+static t_uint64 prop_read_display_lamps(uint8 line)
+{
+    return 0; // TODO: unserviced interrupt items and PW reason
+}
+
+static void prop_write_display_lamps(uint8 line, t_uint64 value)
+{
+    /* RNI note about this V-line writing the display lamps and the DL= order:
+    I think what happened is that originally DL was just a V-line and some bright spark,
+    almost certainly Eric, said it would be nice if DL could be accessible to user programs.
+    There were a couple of spare function slots in the organisational set, now occupied by
+    DL= and SPM, the latter definitely being a late addition, and I'm sure the DL flip-flops
+    were somewhere in PROP, though I can't remember where. So I would have been the one to
+    find enough spare logic gates on PROP platter F26 to allow for a DL= order.
+    */
+    cpu_set_display_lamps(value & MASK_32);
 }
 
 static t_uint64 peripheral_window_read_message_window(uint8 line)
@@ -3117,16 +3151,9 @@ static void cpu_execute_organisational_MS_load(uint16 order, DISPATCH_ENTRY *inn
 
 static void cpu_execute_organisational_DL_load(uint16 order, DISPATCH_ENTRY *innerTable)
 {
-	int i;
     sim_debug(LOG_CPU_DECODE, &cpu_dev, "DL= ");
     uint32 operand = cpu_get_operand(order) & MASK_32;
-    cpu_set_register_32(reg_dl, operand & MASK_32);
-	
-	for (i = 0; i < 32; i++)
-	{
-		printf("%c", (operand >> (31 - i)) & 1 ? '1' : '0');
-	}
-	printf("\r");
+    cpu_set_display_lamps(operand & MASK_32);
 }
 
 static void cpu_execute_organisational_spm(uint16 order, DISPATCH_ENTRY *innerTable)

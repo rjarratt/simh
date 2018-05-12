@@ -1060,6 +1060,8 @@ static void cpu_selftest_instruction_counter_not_decremented_if_inhibited(TESTCO
 static void cpu_selftest_instruction_counter_not_decremented_if_already_zero(TESTCONTEXT *testContext);
 static void cpu_selftest_instruction_counter_zero_generates_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_instruction_counter_already_zero_does_not_generate_new_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_read_and_write_process_number(TESTCONTEXT *testContext);
+static void cpu_selftest_write_display_lamps_v_line(TESTCONTEXT *testContext);
 
 static void cpu_selftest_read_non_v_address_returns_zero(TESTCONTEXT *testContext);
 static void cpu_selftest_write_non_v_address_is_ignored(TESTCONTEXT *testContext);
@@ -1783,6 +1785,8 @@ static UNITTEST tests[] =
     { "Instruction counter not decremented if already zero", cpu_selftest_instruction_counter_not_decremented_if_already_zero },
     { "Instruction counter zero generates interrupt", cpu_selftest_instruction_counter_zero_generates_interrupt },
     { "Instruction counter already zero does not generate new interrupt", cpu_selftest_instruction_counter_already_zero_does_not_generate_new_interrupt },
+    { "Read and write the process number V-line", cpu_selftest_read_and_write_process_number },
+    { "Write the display lamps V-line", cpu_selftest_write_display_lamps_v_line },
 
     { "Read of non-V address returns zero",cpu_selftest_read_non_v_address_returns_zero },
     { "Write of non-V address is ignored", cpu_selftest_write_non_v_address_is_ignored }
@@ -9150,6 +9154,18 @@ static void cpu_selftest_instruction_counter_already_zero_does_not_generate_new_
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
     cpu_selftest_run_code();
     cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_read_and_write_process_number(TESTCONTEXT *testContext)
+{
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xFA);
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xA);
+}
+
+static void cpu_selftest_write_display_lamps_v_line(TESTCONTEXT *testContext)
+{
+    sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_DISPLAY_LAMPS, 0x5A5A5A5A);
+    cpu_selftest_assert_reg_equals(REG_DL, 0x5A5A5A5A);
 }
 
 static void cpu_selftest_read_non_v_address_returns_zero(TESTCONTEXT *testContext)
