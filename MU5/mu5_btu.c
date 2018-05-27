@@ -459,7 +459,12 @@ static t_uint64 btu_read_transfer_status_callback(uint8 block, uint8 line)
 static void btu_write_transfer_status_callback(uint8 block, uint8 line, t_uint64 value)
 {
     uint32 old_value = reg_transfer_status[block];
-    uint32 new_value = value & 0xE;
+    uint32 new_value = (value | (old_value & TC_MASK)) & 0xE;
+    if (new_value & TC_MASK)
+    {
+        new_value = new_value & ~TC_MASK;
+    }
+
     reg_transfer_status[block] = new_value;
     if ((old_value & TIP_MASK) == 0 && (new_value & TIP_MASK) == TIP_MASK)
     {
@@ -467,10 +472,6 @@ static void btu_write_transfer_status_callback(uint8 block, uint8 line, t_uint64
     }
 
     if (value & TC_MASK)
-    {
-        btu_set_transfer_complete(block);
-    }
-    else
     {
         btu_clear_transfer_complete(block);
     }

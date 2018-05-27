@@ -108,6 +108,8 @@ static void btu_selftest_transfer_from_mass_with_bit_41_set_transfers_words(TEST
 static void btu_selftest_cancelling_transfer_stops_word_transfer(TESTCONTEXT *testContext);
 static void btu_selftest_transfer_completion_generates_interrupt(TESTCONTEXT *testContext);
 static void btu_selftest_transfer_completion_after_cancellation_generates_interrupt(TESTCONTEXT *testContext);
+static void btu_selftest_setting_transfer_complete_bit_in_transfer_status_resets_it(TESTCONTEXT *testContext);
+static void btu_selftest_clearing_transfer_complete_bit_in_transfer_status_is_ignored(TESTCONTEXT *testContext);
 /* writing to transfer completion bit clears it */
 /* writing to transfer completion bit clears interrupt */
 /* prop vx line to distinguish console and btu, note RNI says the other bits are not real bits they are signals taken from the outputs of the flip-flops registering the interrupts, so they will each go to zero when the relevant interrupt flip-flop is reset by the interrupt service routine */
@@ -149,7 +151,9 @@ static UNITTEST tests[] =
     { "Transfer from mass store with bit 41 set transfers words", btu_selftest_transfer_from_mass_with_bit_41_set_transfers_words },
     { "Cancelling a transfer stops the transfer of words", btu_selftest_cancelling_transfer_stops_word_transfer },
     { "Transfer completion generates an interrupt", btu_selftest_transfer_completion_generates_interrupt },
-    { "Transfer completion after cancellation generates an interrupt", btu_selftest_transfer_completion_after_cancellation_generates_interrupt }
+    { "Transfer completion after cancellation generates an interrupt", btu_selftest_transfer_completion_after_cancellation_generates_interrupt },
+    { "Setting the transfer complete bit in the transfer status line resets it", btu_selftest_setting_transfer_complete_bit_in_transfer_status_resets_it },
+    { "Clearing the transfer complete bit in the transfer status line is ignored", btu_selftest_clearing_transfer_complete_bit_in_transfer_status_is_ignored }
 };
 
 void btu_selftest(TESTCONTEXT *testContext)
@@ -383,7 +387,7 @@ static void btu_selftest_read_from_size(TESTCONTEXT *testContext)
 static void btu_selftest_write_to_transfer_status(TESTCONTEXT *testContext)
 {
     btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0xFFFFFFFFFFFFFFFF);
-    btu_selftest_assert_reg_instance_equals(REG_TRANSFERSTATUS, TEST_UNIT_NUM, 0xE);
+    btu_selftest_assert_reg_instance_equals(REG_TRANSFERSTATUS, TEST_UNIT_NUM, 0xA);
 }
 
 static void btu_selftest_read_from_transfer_status(TESTCONTEXT *testContext)
@@ -430,7 +434,8 @@ static void btu_selftest_setting_transfer_in_progress_activates_unit(TESTCONTEXT
 static void btu_selftest_setting_transfer_in_progress_does_not_clear_transfer_complete_bit(TESTCONTEXT *testContext)
 {
     btu_selftest_setup_vx_line(BTU_VX_STORE_SIZE(TEST_UNIT_NUM), ((uint32)TEST_UNIT_NUM) << 16 | 6);
-    btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0xC);
+    btu_selftest_set_register_instance(REG_TRANSFERSTATUS, TEST_UNIT_NUM, 0x4);
+    btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0x8);
     btu_selftest_assert_vx_line_contents(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0xC);
 }
 
@@ -790,3 +795,18 @@ static void btu_selftest_transfer_completion_after_cancellation_generates_interr
     mu5_selftest_assert_interrupt_number(testContext, INT_PERIPHERAL_WINDOW);
     btu_selftest_assert_peripheral_window_equals(TEST_UNIT_NUM);
 }
+
+static void btu_selftest_setting_transfer_complete_bit_in_transfer_status_resets_it(TESTCONTEXT *testContext)
+{
+    btu_selftest_set_register_instance(REG_TRANSFERSTATUS, TEST_UNIT_NUM, 0x4);
+    btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0x4);
+    btu_selftest_assert_transfer_status_incomplete(TEST_UNIT_NUM);
+}
+
+static void btu_selftest_clearing_transfer_complete_bit_in_transfer_status_is_ignored(TESTCONTEXT *testContext)
+{
+    btu_selftest_set_register_instance(REG_TRANSFERSTATUS, TEST_UNIT_NUM, 0x4);
+    btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0x0);
+    btu_selftest_assert_transfer_status_complete(TEST_UNIT_NUM);
+}
+
