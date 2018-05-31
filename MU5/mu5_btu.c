@@ -471,7 +471,11 @@ static void btu_write_transfer_status_callback(uint8 block, uint8 line, t_uint64
         btu_start_transfer(&btu_unit[block]);
     }
 
-    if (value & TC_MASK)
+    if (new_value & TC_MASK)
+    {
+        btu_set_transfer_complete(block);
+    }
+    else
     {
         btu_clear_transfer_complete(block);
     }
