@@ -34,6 +34,7 @@ Only does Teletype output.
 
 #include <assert.h>
 #include "mu5_defs.h"
+#include "mu5_cpu.h"
 #include "mu5_sac.h"
 #include "mu5_console.h"
 #if defined(HAVE_LIBSDL)
@@ -212,8 +213,9 @@ static t_stat console_svc(UNIT *uptr)
 		{
 			sim_putchar((int32)(*TeletypeData));
 			*ConsoleInterrupt |= MASK_TCI;
-			/* TODO actually set interrupt here, for now just enable polling */
-		}
+            cpu_set_console_peripheral_window_interrupt(0);
+        }
+
 		TeletypeOperationInProgress = 0;
 	}
 	console_schedule_next_poll(uptr);

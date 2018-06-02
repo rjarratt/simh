@@ -91,5 +91,4 @@ int cpu_ms_is_all(uint16 bits);
 int cpu_ms_is_any(uint16 bits);
 t_uint64 cpu_exch_read(t_addr addr);
 void cpu_exch_write(t_addr addr, t_uint64 value);
-
-
+void cpu_set_console_peripheral_window_interrupt(t_uint64 message);

@@ -141,6 +141,7 @@ static int cpu_is_executive_mode(void);
 
 static void cpu_clear_interrupt(uint8 number);
 static void cpu_clear_all_interrupts(void);
+static void cpu_set_external_peripheral_window_interrupt(t_uint64 message);
 static int cpu_check_condition_with_inhibit_32(REG *reg, uint32 condition_mask, uint32 inhibit_mask);
 static int cpu_check_condition_with_inhibit_64(REG *reg, t_uint64 condition_mask, t_uint64 inhibit_mask);
 static void cpu_evaluate_interrupts(void);
@@ -576,6 +577,7 @@ t_uint64 *PROPProcessNumber;
 static t_uint64 *PROPProgramFaultStatus;
 static t_uint64 *PROPSystemErrorStatus;
 static t_uint64 *PROPInstructionCounter;
+static t_uint64 *PROPDisplayLamps; /* Actually used to store status of unserviced interrupts! RNI says the other bits are not real bits they are signals taken from the outputs of the flip-flops registering the interrupts, so they will each go to zero when the relevant interrupt flip-flop is reset by the interrupt service routine */
 
 static t_uint64 *MessageWindow;
 
@@ -1281,17 +1283,8 @@ static void cpu_write_vx_store(t_addr addr, t_uint64 value)
 {
     if (VX_BLOCK(addr) == PERIPHERAL_WINDOW_V_STORE_BLOCK && VX_LINE(addr) == PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW)
     {
-        /* TODO: It seems that the PW message was actually written to the V-line by other units through the Exchange using a
-        Vx-Line for the MU5 Processor unit. However it is unclear how this worked because the Programming Manual in
-        Section 7.3 where it discusses the PW interrupt seems to be saying that if an interrupt is in progress that another
-        write to the Message Window V-line will be held up and generate a new interrupt. But if it was written through the
-        Exchange then there couldn't be any feedback to the sending unit about is "busy-ness". It suggests some possible
-        queuing mechanism, although the previous paragraph in the manual seems to be saying that the OS must do the queuing.
-        I am not sure how to implement the "busy" nature of the V-line. */
-        *MessageWindow = value;
-        cpu_set_interrupt(INT_PERIPHERAL_WINDOW);
+        cpu_set_external_peripheral_window_interrupt(value);
     }
-
 }
 
 t_uint64 cpu_exch_read(t_addr addr)
@@ -1311,6 +1304,28 @@ void cpu_exch_write(t_addr addr, t_uint64 value)
     {
         cpu_write_vx_store((addr & RA_X_MASK) >> 1, value);
     }
+}
+
+static void cpu_set_external_peripheral_window_interrupt(t_uint64 message)
+{
+    /* TODO: It seems that the PW message was actually written to the V-line by other units through the Exchange using a
+    Vx-Line for the MU5 Processor unit. However it is unclear how this worked because the Programming Manual in
+    Section 7.3 where it discusses the PW interrupt seems to be saying that if an interrupt is in progress that another
+    write to the Message Window V-line will be held up and generate a new interrupt. But if it was written through the
+    Exchange then there couldn't be any feedback to the sending unit about is "busy-ness". It suggests some possible
+    queuing mechanism, although the previous paragraph in the manual seems to be saying that the OS must do the queuing.
+    I am not sure how to implement the "busy" nature of the V-line. */
+    *MessageWindow = message;
+    *PROPDisplayLamps |= 0x4; /* external cause */
+    cpu_set_interrupt(INT_PERIPHERAL_WINDOW);
+}
+
+void cpu_set_console_peripheral_window_interrupt(t_uint64 message)
+{
+    *MessageWindow = message;
+    *PROPDisplayLamps |= 0x8; /* console cause */
+    /* TODO actually set interrupt here, for now just enable polling */
+    /* cpu_set_interrupt(INT_PERIPHERAL_WINDOW); */
 }
 
 static void cpu_set_ms(uint16 value)
@@ -1472,7 +1487,7 @@ void cpu_reset_state(void)
     PROPProgramFaultStatus = sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, prop_read_program_fault_status_callback, prop_write_program_fault_status_callback);
     PROPSystemErrorStatus = sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, prop_read_system_error_status_callback, prop_write_system_error_status_callback);
     PROPInstructionCounter = sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, prop_read_instruction_counter, prop_write_instruction_counter);
-    sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_DISPLAY_LAMPS, prop_read_display_lamps, prop_write_display_lamps);
+    PROPDisplayLamps = sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_DISPLAY_LAMPS, prop_read_display_lamps, prop_write_display_lamps);
 
     MessageWindow = sac_setup_v_store_location(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW, peripheral_window_read_message_window, peripheral_window_write_message_window);
 }
@@ -2833,7 +2848,7 @@ static void prop_write_instruction_counter(uint8 line, t_uint64 value)
 
 static t_uint64 prop_read_display_lamps(uint8 line)
 {
-    return 0; // TODO: unserviced interrupt items and PW reason
+    return *PROPDisplayLamps;
 }
 
 static void prop_write_display_lamps(uint8 line, t_uint64 value)

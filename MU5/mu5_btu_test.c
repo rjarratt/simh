@@ -57,6 +57,8 @@ static void btu_selftest_setup_vx_line(t_addr address, t_uint64 value);
 static void btu_selftest_setup_request(t_addr from, t_addr to, uint16 size, uint8 unit_num);
 static void btu_selftest_cancel_transfer(void);
 static int btu_selftest_transfer_in_progress(uint8 unit_num);
+static void btu_selftest_perform_transfer(t_addr from, t_addr to, uint16 size, uint8 unit_num);
+static void btu_selftest_perform_any_transfer();
 
 static void btu_selftest_set_failure(void);
 static void btu_selftest_assert_reg_equals(char *name, t_uint64 expectedValue);
@@ -109,7 +111,7 @@ static void btu_selftest_transfer_completion_generates_interrupt(TESTCONTEXT *te
 static void btu_selftest_transfer_completion_after_cancellation_generates_interrupt(TESTCONTEXT *testContext);
 static void btu_selftest_setting_transfer_complete_bit_in_transfer_status_resets_it(TESTCONTEXT *testContext);
 static void btu_selftest_clearing_transfer_complete_bit_in_transfer_status_is_ignored(TESTCONTEXT *testContext);
-/* prop vx line to distinguish console and btu, note RNI says the other bits are not real bits they are signals taken from the outputs of the flip-flops registering the interrupts, so they will each go to zero when the relevant interrupt flip-flop is reset by the interrupt service routine */
+static void btu_selftest_interrupt_sets_external_cause_bit_in_prop_display_lamps_v_line(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
@@ -150,6 +152,7 @@ static UNITTEST tests[] =
     { "Transfer completion after cancellation generates an interrupt", btu_selftest_transfer_completion_after_cancellation_generates_interrupt },
     { "Setting the transfer complete bit in the transfer status line resets it", btu_selftest_setting_transfer_complete_bit_in_transfer_status_resets_it },
     { "Clearing the transfer complete bit in the transfer status line is ignored", btu_selftest_clearing_transfer_complete_bit_in_transfer_status_is_ignored },
+    { "Interrupt sets the external cause bit in the PROP Display Lamps V-Line", btu_selftest_interrupt_sets_external_cause_bit_in_prop_display_lamps_v_line }
 };
 
 void btu_selftest(TESTCONTEXT *testContext)
@@ -214,6 +217,20 @@ static int btu_selftest_transfer_in_progress(uint8 unit_num)
     t_uint64 tc = mu5_selftest_get_register(localTestContext, &btu_dev, REG_TRANSFERCOMPLETE);
     int result = (tc & ((t_uint64)1 << ((4 - unit_num) + 3))) == 0;
     return result;
+}
+static void btu_selftest_perform_transfer(t_addr from, t_addr to, uint16 size, uint8 unit_num)
+{
+    btu_selftest_setup_request(from, to, size, unit_num);
+
+    do
+    {
+        btu_selftest_execute_cycle();
+    } while (btu_selftest_transfer_in_progress(unit_num));
+}
+
+static void btu_selftest_perform_any_transfer()
+{
+    btu_selftest_perform_transfer(RA_MASS(0), RA_LOCAL(0), 6, TEST_UNIT_NUM);
 }
 
 static void btu_selftest_set_failure(void)
@@ -555,12 +572,7 @@ static void btu_selftest_transfer_copies_words_from_source_to_destination(TESTCO
         exch_write(addr, expected);
     }
 
-    btu_selftest_setup_request(RA_MASS(0), RA_LOCAL(0), 2 * (words - 1), TEST_UNIT_NUM);
-
-    do
-    {
-        btu_selftest_execute_cycle();
-    } while (btu_selftest_transfer_in_progress(TEST_UNIT_NUM));
+    btu_selftest_perform_transfer(RA_MASS(0), RA_LOCAL(0), 2 * (words - 1), TEST_UNIT_NUM);
 
     for (i = 0; i < words; i++)
     {
@@ -587,12 +599,7 @@ static void btu_selftest_transfer_starts_on_minimum_16_word_boundary(TESTCONTEXT
         exch_write(addr, expected);
     }
 
-    btu_selftest_setup_request(RA_MASS(4), RA_LOCAL(0x14), 2 * (words - 1), TEST_UNIT_NUM);
-
-    do
-    {
-        btu_selftest_execute_cycle();
-    } while (btu_selftest_transfer_in_progress(TEST_UNIT_NUM));
+    btu_selftest_perform_transfer(RA_MASS(4), RA_LOCAL(0x14), 2 * (words - 1), TEST_UNIT_NUM);
 
     for (i = 0; i < words; i++)
     {
@@ -619,12 +626,7 @@ static void btu_selftest_transfer_starts_on_rounded_up_power_of_2_word_boundary(
         exch_write(addr, expected);
     }
 
-    btu_selftest_setup_request(RA_MASS(126), RA_LOCAL(130), 2 * (words - 1), TEST_UNIT_NUM);
-
-    do
-    {
-        btu_selftest_execute_cycle();
-    } while (btu_selftest_transfer_in_progress(TEST_UNIT_NUM));
+    btu_selftest_perform_transfer(RA_MASS(126), RA_LOCAL(130), 2 * (words - 1), TEST_UNIT_NUM);
 
     for (i = 0; i < words; i++)
     {
@@ -653,12 +655,7 @@ static void btu_selftest_transfer_from_local_with_bit_41_set_transfers_zeroes(TE
         exch_write(addr, expected);
     }
 
-    btu_selftest_setup_request(RA_LOCAL(0x400000), RA_MASS(0), 2 * (words - 1), TEST_UNIT_NUM);
-
-    do
-    {
-        btu_selftest_execute_cycle();
-    } while (btu_selftest_transfer_in_progress(TEST_UNIT_NUM));
+    btu_selftest_perform_transfer(RA_LOCAL(0x400000), RA_MASS(0), 2 * (words - 1), TEST_UNIT_NUM);
 
     for (i = 0; i < words; i++)
     {
@@ -685,12 +682,7 @@ static void btu_selftest_transfer_from_mass_with_bit_41_set_transfers_words(TEST
         exch_write(addr, expected);
     }
 
-    btu_selftest_setup_request(RA_MASS(0x400000), RA_LOCAL(0), 2 * (words - 1), TEST_UNIT_NUM);
-
-    do
-    {
-        btu_selftest_execute_cycle();
-    } while (btu_selftest_transfer_in_progress(TEST_UNIT_NUM));
+    btu_selftest_perform_transfer(RA_MASS(0x400000), RA_LOCAL(0), 2 * (words - 1), TEST_UNIT_NUM);
 
     for (i = 0; i < words; i++)
     {
@@ -794,4 +786,10 @@ static void btu_selftest_clearing_transfer_complete_bit_in_transfer_status_is_ig
     btu_selftest_set_register_instance(REG_TRANSFERSTATUS, TEST_UNIT_NUM, 0x4);
     btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0x0);
     btu_selftest_assert_transfer_status_complete(TEST_UNIT_NUM);
+}
+
+static void btu_selftest_interrupt_sets_external_cause_bit_in_prop_display_lamps_v_line(TESTCONTEXT *testContext)
+{
+    btu_selftest_perform_any_transfer();
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_DISPLAY_LAMPS, 0x4);
 }

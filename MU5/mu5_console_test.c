@@ -26,6 +26,7 @@ in this Software without prior written authorization from Robert Jarratt.
 */
 
 #include "mu5_defs.h"
+#include "mu5_cpu.h"
 #include "mu5_sac.h"
 #include "mu5_console.h"
 #include "mu5_test.h"
@@ -43,19 +44,16 @@ static void console_selftest_execute_cycle(void);
 static void console_selftest_assert_vstore_contents(uint8 block, uint8 line, t_uint64 expectedValue);
 
 static void console_selftest_write_console_interrupt_resets_tci(TESTCONTEXT *testContext);
-
 static void console_selftest_after_writing_teletype_data_in_output_mode_tci_is_set(TESTCONTEXT *testContext);
-
+static void console_selftest_interrupt_sets_console_cause_bit_in_prop_display_lamps_v_line(TESTCONTEXT *testContext);
 static void console_selftest_engineers_handswitches_can_be_set_and_read(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
     { "Writing CONSOLE INTERRUPT V-Line resets teletype character interrupt bit", console_selftest_write_console_interrupt_resets_tci },
-
     { "After writing to TELETYPE DATA V-Line in transmit mode the teletype character interrupt bit is set", console_selftest_after_writing_teletype_data_in_output_mode_tci_is_set },
-
-	{ "Engineer's handswitches can be set and read", console_selftest_engineers_handswitches_can_be_set_and_read }
-
+    { "Interrupt sets the console cause bit in the PROP Display Lamps V-Line", console_selftest_interrupt_sets_console_cause_bit_in_prop_display_lamps_v_line },
+    { "Engineer's handswitches can be set and read", console_selftest_engineers_handswitches_can_be_set_and_read }
 };
 
 void console_selftest(TESTCONTEXT *testContext)
@@ -71,6 +69,8 @@ void console_selftest(TESTCONTEXT *testContext)
 
 static void console_selftest_reset(UNITTEST *test)
 {
+    sac_reset_state(); /* reset first as it clears the V-store */
+    cpu_reset_state(); /* reset V-store */
     console_reset_state();
 }
 
@@ -100,6 +100,14 @@ static void console_selftest_after_writing_teletype_data_in_output_mode_tci_is_s
     sac_write_v_store(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TELETYPE_DATA, 0);
     console_selftest_execute_cycle();
     console_selftest_assert_vstore_contents(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_CONSOLE_INTERRUPT, 0x2);
+}
+
+static void console_selftest_interrupt_sets_console_cause_bit_in_prop_display_lamps_v_line(TESTCONTEXT *testContext)
+{
+    sac_write_v_store(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TELETYPE_CONTROL, 0); /* set output mode */
+    sac_write_v_store(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TELETYPE_DATA, 0);
+    console_selftest_execute_cycle();
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_DISPLAY_LAMPS, 0x8);
 }
 
 static void console_selftest_engineers_handswitches_can_be_set_and_read(TESTCONTEXT *testContext)
