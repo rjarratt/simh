@@ -1019,6 +1019,7 @@ static void cpu_selftest_level_1_interrupt_inhibited_if_L0IF_is_set(TESTCONTEXT 
 static void cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set(TESTCONTEXT *testContext);
 static void cpu_selftest_writing_peripheral_window_message_generates_peripheral_window_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_writing_peripheral_window_message_sets_message_window_v_line(TESTCONTEXT *testContext);
+static void cpu_selftest_writing_peripheral_window_message_sets_external_cause_bit_in_prop_display_lamps_v_line(TESTCONTEXT *testContext);
 static void cpu_selftest_message_window_v_line_is_reset_when_written(TESTCONTEXT *testContext);
 
 // TODO: Interrupts inhibited causes other interrupts to be queued.
@@ -1748,6 +1749,7 @@ static UNITTEST tests[] =
     { "Level 1 interrupt inhibited if L1IF is set", cpu_selftest_level_1_interrupt_inhibited_if_L1IF_is_set },
     { "Writing to peripheral window message generates a peripheral window interrupt", cpu_selftest_writing_peripheral_window_message_generates_peripheral_window_interrupt },
     { "Writing to peripheral window message sets the message window V-line", cpu_selftest_writing_peripheral_window_message_sets_message_window_v_line },
+    { "Writing to peripheral window message sets external cause bit in PROP Display Lamps V-line", cpu_selftest_writing_peripheral_window_message_sets_external_cause_bit_in_prop_display_lamps_v_line },
     { "Writing to the message window V-line resets it", cpu_selftest_message_window_v_line_is_reset_when_written },
 
     { "CPR Not Equivalence interrupt on order fetch stores link that re-executes failed order", cpu_selftest_cpr_not_equivalance_interrupt_on_order_fetch_stores_link_that_re_executes_failed_order },
@@ -8850,6 +8852,12 @@ static void cpu_selftest_writing_peripheral_window_message_sets_message_window_v
 {
     exch_write(PERIPHERAL_WINDOW_ADDRESS, 0xA5A5A5A5);
     cpu_selftest_assert_v_store_contents(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW, 0xA5A5A5A5);
+}
+
+static void cpu_selftest_writing_peripheral_window_message_sets_external_cause_bit_in_prop_display_lamps_v_line(TESTCONTEXT *testContext)
+{
+    exch_write(PERIPHERAL_WINDOW_ADDRESS, 0xA5A5A5A5);
+    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_DISPLAY_LAMPS, 0x4);
 }
 
 static void cpu_selftest_message_window_v_line_is_reset_when_written(TESTCONTEXT *testContext)

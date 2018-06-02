@@ -111,7 +111,6 @@ static void btu_selftest_transfer_completion_generates_interrupt(TESTCONTEXT *te
 static void btu_selftest_transfer_completion_after_cancellation_generates_interrupt(TESTCONTEXT *testContext);
 static void btu_selftest_setting_transfer_complete_bit_in_transfer_status_resets_it(TESTCONTEXT *testContext);
 static void btu_selftest_clearing_transfer_complete_bit_in_transfer_status_is_ignored(TESTCONTEXT *testContext);
-static void btu_selftest_interrupt_sets_external_cause_bit_in_prop_display_lamps_v_line(TESTCONTEXT *testContext);
 
 static UNITTEST tests[] =
 {
@@ -152,7 +151,6 @@ static UNITTEST tests[] =
     { "Transfer completion after cancellation generates an interrupt", btu_selftest_transfer_completion_after_cancellation_generates_interrupt },
     { "Setting the transfer complete bit in the transfer status line resets it", btu_selftest_setting_transfer_complete_bit_in_transfer_status_resets_it },
     { "Clearing the transfer complete bit in the transfer status line is ignored", btu_selftest_clearing_transfer_complete_bit_in_transfer_status_is_ignored },
-    { "Interrupt sets the external cause bit in the PROP Display Lamps V-Line", btu_selftest_interrupt_sets_external_cause_bit_in_prop_display_lamps_v_line }
 };
 
 void btu_selftest(TESTCONTEXT *testContext)
@@ -786,10 +784,4 @@ static void btu_selftest_clearing_transfer_complete_bit_in_transfer_status_is_ig
     btu_selftest_set_register_instance(REG_TRANSFERSTATUS, TEST_UNIT_NUM, 0x4);
     btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0x0);
     btu_selftest_assert_transfer_status_complete(TEST_UNIT_NUM);
-}
-
-static void btu_selftest_interrupt_sets_external_cause_bit_in_prop_display_lamps_v_line(TESTCONTEXT *testContext)
-{
-    btu_selftest_perform_any_transfer();
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_DISPLAY_LAMPS, 0x4);
 }
