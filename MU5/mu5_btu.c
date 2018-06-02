@@ -296,6 +296,7 @@ static void btu_clear_transfer_complete(uint8 unit_num)
 static void btu_set_transfer_complete(uint8 unit_num)
 {
     reg_transfer_complete |= 1 << ((4 - unit_num) + 3);
+    exch_write(PERIPHERAL_WINDOW_ADDRESS, (reg_size[unit_num] >> 16) & 0xF);
 }
 
 static uint16 btu_next_power_of_2(uint16 n)
@@ -370,7 +371,6 @@ static void btu_complete_transfer(UNIT *uptr)
 {
     uint8 unit_num = btu_get_unit_num(uptr);
     btu_set_transfer_status_complete(unit_num);
-    exch_write(PERIPHERAL_WINDOW_ADDRESS, (reg_size[unit_num] >> 16) & 0xF);
     sim_cancel(uptr);
 }
 

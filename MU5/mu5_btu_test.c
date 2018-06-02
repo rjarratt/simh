@@ -109,7 +109,6 @@ static void btu_selftest_transfer_completion_generates_interrupt(TESTCONTEXT *te
 static void btu_selftest_transfer_completion_after_cancellation_generates_interrupt(TESTCONTEXT *testContext);
 static void btu_selftest_setting_transfer_complete_bit_in_transfer_status_resets_it(TESTCONTEXT *testContext);
 static void btu_selftest_clearing_transfer_complete_bit_in_transfer_status_is_ignored(TESTCONTEXT *testContext);
-/* writing to transfer completion bit clears interrupt */
 /* prop vx line to distinguish console and btu, note RNI says the other bits are not real bits they are signals taken from the outputs of the flip-flops registering the interrupts, so they will each go to zero when the relevant interrupt flip-flop is reset by the interrupt service routine */
 
 static UNITTEST tests[] =
@@ -150,7 +149,7 @@ static UNITTEST tests[] =
     { "Transfer completion generates an interrupt", btu_selftest_transfer_completion_generates_interrupt },
     { "Transfer completion after cancellation generates an interrupt", btu_selftest_transfer_completion_after_cancellation_generates_interrupt },
     { "Setting the transfer complete bit in the transfer status line resets it", btu_selftest_setting_transfer_complete_bit_in_transfer_status_resets_it },
-    { "Clearing the transfer complete bit in the transfer status line is ignored", btu_selftest_clearing_transfer_complete_bit_in_transfer_status_is_ignored }
+    { "Clearing the transfer complete bit in the transfer status line is ignored", btu_selftest_clearing_transfer_complete_bit_in_transfer_status_is_ignored },
 };
 
 void btu_selftest(TESTCONTEXT *testContext)
@@ -796,4 +795,3 @@ static void btu_selftest_clearing_transfer_complete_bit_in_transfer_status_is_ig
     btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(TEST_UNIT_NUM), 0x0);
     btu_selftest_assert_transfer_status_complete(TEST_UNIT_NUM);
 }
-
