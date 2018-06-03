@@ -33,6 +33,19 @@ invocation of the service routine, so that transfers do not appear to be
 instantaneous. The emulated BTU units are only activated (service routine
 calls scheduled) when a transfer is active, otherwise they remain inactive.
 
+The BTU generates Exchange interrupts. The following is some detail from
+RNI: "The Ui number determined which Unit on the Exchange was to be interrupted
+at the end of a transfer. This would normally have been MU5 but in principle
+it could have been any unit, e.g. the 1905E could have initiated a transfer and
+could have been sent the interrupt (and may have during commissioning).
+Because the BTU was built as part of the Exchange, there was just a
+signal wire into MU5 as part of the Exchange interface to convey the interrupt
+to MU5. I can't remember where the flip-flop was that held the interrupt
+signal until the interrupt had been serviced. Section 7 reads as if it was
+in MU5 itself and 9.4 seems to confirm this as it doesn't mention an interrupt
+bit that would need to be reset, i.e. the interrupt signal from the BTU was a
+pulse, not a level."
+
 According to page 52 of the book, the Mass Store had a cycle time of
 2.5us. It had two units allowing 64-bit words to be accessed in one
 cycle. According to the tables on p228 of the book, orders took
@@ -296,7 +309,7 @@ static void btu_clear_transfer_complete(uint8 unit_num)
 static void btu_set_transfer_complete(uint8 unit_num)
 {
     reg_transfer_complete |= 1 << ((4 - unit_num) + 3);
-    exch_write(PERIPHERAL_WINDOW_ADDRESS, (reg_size[unit_num] >> 16) & 0xF);
+    exch_interrupt((reg_size[unit_num] >> 16) & 0xF);
 }
 
 static uint16 btu_next_power_of_2(uint16 n)

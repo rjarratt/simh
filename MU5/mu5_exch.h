@@ -29,4 +29,5 @@ in this Software without prior written authorization from Robert Jarratt.
 uint8 exch_get_unit(t_addr addr);
 t_uint64 exch_read(t_addr address);
 void exch_write(t_addr address, t_uint64 value);
+void exch_interrupt(uint8 unit);
 

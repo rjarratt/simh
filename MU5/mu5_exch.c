@@ -219,6 +219,24 @@ void exch_write(t_addr address, t_uint64 value)
     }
 }
 
+void exch_interrupt(uint8 unit)
+{
+    switch (unit)
+    {
+        case UNIT_MU5_PROCESSOR:
+        {
+            cpu_set_interrupt(INT_EXCHANGE);
+            break;
+        }
+
+        default:
+        {
+            sim_debug(LOG_ERROR, &exch_dev, "Setting Exchange interrupt for unknown unit %hu\n", unit);
+            break;
+        }
+    }
+}
+
 uint8 exch_get_unit(t_addr addr)
 {
 	return (addr >> 24) & 0xF;

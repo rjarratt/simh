@@ -72,7 +72,6 @@ static void btu_selftest_assert_btu_size_is(int unit_num, uint16 expected_size);
 static void btu_selftest_assert_transfer_status_incomplete(int unit_num);
 static void btu_selftest_assert_transfer_status_complete(int unit_num);
 static void btu_selftest_assert_real_address_equals(t_addr address, t_uint64 expectedValue);
-static void btu_selftest_assert_peripheral_window_equals(t_uint64 expectedValue);
 
 static void btu_selftest_write_to_source_address(TESTCONTEXT *testContext);
 static void btu_selftest_read_from_source_address(TESTCONTEXT *testContext);
@@ -201,7 +200,7 @@ static void btu_selftest_setup_request(t_addr from, t_addr to, uint16 size, uint
 {
     btu_selftest_setup_vx_line(BTU_VX_STORE_SOURCE_ADDRESS(unit_num), from);
     btu_selftest_setup_vx_line(BTU_VX_STORE_DESTINATION_ADDRESS(unit_num), to);
-    btu_selftest_setup_vx_line(BTU_VX_STORE_SIZE(unit_num), ((uint32)unit_num) << 16 | size);
+    btu_selftest_setup_vx_line(BTU_VX_STORE_SIZE(unit_num), ((uint32)UNIT_MU5_PROCESSOR) << 16 | size);
     btu_selftest_setup_vx_line(BTU_VX_STORE_TRANSFER_STATUS(unit_num), 0x8);
 }
 
@@ -311,11 +310,6 @@ static void btu_selftest_assert_transfer_status_complete(int unit_num)
 static void btu_selftest_assert_real_address_equals(t_addr address, t_uint64 expectedValue)
 {
     mu5_selftest_assert_real_address_equals(localTestContext, address, expectedValue);
-}
-
-static void btu_selftest_assert_peripheral_window_equals(t_uint64 expectedValue)
-{
-    mu5_selftest_assert_vstore_contents(localTestContext, PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW, expectedValue);
 }
 
 static void btu_selftest_write_to_source_address(TESTCONTEXT *testContext)
@@ -750,8 +744,7 @@ static void btu_selftest_transfer_completion_generates_interrupt(TESTCONTEXT *te
         btu_selftest_execute_cycle();
     } while (btu_selftest_transfer_in_progress(TEST_UNIT_NUM));
 
-    mu5_selftest_assert_interrupt_number(testContext, INT_PERIPHERAL_WINDOW);
-    btu_selftest_assert_peripheral_window_equals(TEST_UNIT_NUM);
+    mu5_selftest_assert_interrupt_number(testContext, INT_EXCHANGE);
 }
 
 static void btu_selftest_transfer_completion_after_cancellation_generates_interrupt(TESTCONTEXT *testContext)
@@ -768,8 +761,7 @@ static void btu_selftest_transfer_completion_after_cancellation_generates_interr
         btu_selftest_execute_cycle();
     } while (btu_selftest_transfer_in_progress(TEST_UNIT_NUM));
 
-    mu5_selftest_assert_interrupt_number(testContext, INT_PERIPHERAL_WINDOW);
-    btu_selftest_assert_peripheral_window_equals(TEST_UNIT_NUM);
+    mu5_selftest_assert_interrupt_number(testContext, INT_EXCHANGE);
 }
 
 static void btu_selftest_setting_transfer_complete_bit_in_transfer_status_resets_it(TESTCONTEXT *testContext)
