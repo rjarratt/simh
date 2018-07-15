@@ -598,7 +598,7 @@ static DWORD WINAPI audio_thread_function(void *param)
 			countDiff = currentCount.QuadPart - lastSampleCount.QuadPart;
 			if (countDiff > countsPerSample)
 			{
-				currentWaveHdr->lpData[i++] = *ConsoleHoot;
+				currentWaveHdr->lpData[i++] = (char)*ConsoleHoot;
 				lastSampleCount.QuadPart += countsPerSample;
 				countDiff -= countsPerSample;
 				if (i >= AUDIO_OUT_BUFFER_SIZE)
