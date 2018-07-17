@@ -328,6 +328,7 @@ void btu_reset_state(void)
     memset(reg_destination_address, 0, sizeof(reg_destination_address));
     memset(reg_size, 0, sizeof(reg_size));
     memset(reg_transfer_status, 0, sizeof(reg_transfer_status));
+	memset(VxStore, 0, sizeof(VxStore));
     reg_btu_ripf = 0;
     reg_transfer_complete = 0;
 
@@ -399,7 +400,7 @@ static t_uint64 btu_read_vx_store(t_addr addr)
     uint8 line = VX_LINE(addr);
     VXSTORE_LINE *vx_line;
 
-    if (block <= NUM_VX_BLOCKS)
+    if (block < NUM_VX_BLOCKS)
     {
         vx_line = &VxStore[block][line];
         if (vx_line->ReadCallback != NULL)
@@ -417,7 +418,7 @@ static void btu_write_vx_store(t_addr addr, t_uint64 value)
     uint8 line = VX_LINE(addr);
     VXSTORE_LINE *vx_line;
 
-    if (block <= NUM_VX_BLOCKS)
+    if (block < NUM_VX_BLOCKS)
     {
         vx_line = &VxStore[block][line];
         if (vx_line->WriteCallback != NULL)
