@@ -1510,11 +1510,13 @@ void cpu_set_interrupt(uint8 number)
 static void cpu_clear_interrupt(uint8 number)
 {
     interrupt &= ~(1u << number);
+	*PROPDisplayLamps &= ~((t_uint64)1 << (15 - number));
 }
 
 static void cpu_clear_all_interrupts(void)
 {
     interrupt = 0;
+	/* TODO: clear prop display lamps too */
 }
 
 static int cpu_check_condition_with_inhibit_32(REG *reg, uint32 condition_mask, uint32 inhibit_mask)

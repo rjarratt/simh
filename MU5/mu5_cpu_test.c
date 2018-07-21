@@ -941,7 +941,7 @@ static void cpu_selftest_org_bn_order_tests(TESTCONTEXT *testContext);
 
 static void cpu_selftest_system_error_interrupt_sets_display_lamp_bit(TESTCONTEXT *testContext);
 static void cpu_selftest_software_interrupt_sets_display_lamp_bit(TESTCONTEXT *testContext);
-/* TODO: clearing interrupt clears display lamp bit */
+static void cpu_selftest_clearing_interrupt_resets_display_lamp_bit(TESTCONTEXT *testContext);
 /* TODO: clearing PW interrupt clears cause? */
 
 static void cpu_selftest_setting_b_or_d_fault_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext);
@@ -1676,6 +1676,7 @@ static UNITTEST tests[] =
 
 	{ "System error interrupt sets display lamp bit", cpu_selftest_system_error_interrupt_sets_display_lamp_bit },
 	{ "Software interrupt sets display lamp bit", cpu_selftest_software_interrupt_sets_display_lamp_bit },
+	{ "Clearing an interrupt clears the display lamp bit", cpu_selftest_clearing_interrupt_resets_display_lamp_bit },
 
     { "Setting a B or D fault in executive mode generates system error interrupt", cpu_selftest_setting_b_or_d_fault_in_executive_mode_generates_system_error_interrupt },
     { "Setting a B or D fault in executive mode does not generate system error interrupt if inhibited", cpu_selftest_setting_b_or_d_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited },
@@ -8334,6 +8335,13 @@ static void cpu_selftest_software_interrupt_sets_display_lamp_bit(TESTCONTEXT *t
 {
 	cpu_set_interrupt(INT_SOFTWARE_INTERRUPT);
 	cpu_selftest_assert_v_store_contents(PROP_V_STORE_BLOCK, PROP_V_STORE_DISPLAY_LAMPS, 0x100);
+}
+
+static void cpu_selftest_clearing_interrupt_resets_display_lamp_bit(TESTCONTEXT *testContext)
+{
+	cpu_set_interrupt(INT_SYSTEM_ERROR);
+	cpu_selftest_run_code(); /* clears interrupts */
+	cpu_selftest_assert_v_store_contents(PROP_V_STORE_BLOCK, PROP_V_STORE_DISPLAY_LAMPS, 0);
 }
 
 static void cpu_selftest_setting_b_or_d_fault_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext)
