@@ -107,7 +107,7 @@ static void console_selftest_interrupt_sets_console_cause_bit_in_prop_display_la
     sac_write_v_store(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TELETYPE_CONTROL, 0); /* set output mode */
     sac_write_v_store(CONSOLE_V_STORE_BLOCK, CONSOLE_V_STORE_TELETYPE_DATA, 0);
     console_selftest_execute_cycle();
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_DISPLAY_LAMPS, 0x8);
+    mu5_selftest_assert_vstore_contents_mask(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_DISPLAY_LAMPS, 0x8, 0xC);
 }
 
 static void console_selftest_engineers_handswitches_can_be_set_and_read(TESTCONTEXT *testContext)

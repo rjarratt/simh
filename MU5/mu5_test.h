@@ -94,6 +94,7 @@ void mu5_selftest_assert_instruction_access_violation_as_system_error(TESTCONTEX
 void mu5_selftest_assert_instruction_access_violation_as_system_error_interrupt(TESTCONTEXT *context);
 void mu5_selftest_assert_instruction_access_violation_as_illegal_order(TESTCONTEXT *context);
 void mu5_selftest_assert_vstore_contents(TESTCONTEXT *context, uint8 block, uint8 line, t_uint64 expectedValue);
+void mu5_selftest_assert_vstore_contents_mask(TESTCONTEXT *context, uint8 block, uint8 line, t_uint64 expectedValue, t_uint64 mask);
 void mu5_selftest_assert_real_address_equals(TESTCONTEXT *context, t_addr address, t_uint64 expectedValue);
 
 

@@ -416,6 +416,7 @@ static void cpu_selftest_assert_operand_size_64(void);
 static void cpu_selftest_assert_bn(int expectedValue);
 static void cpu_selftest_assert_boolean_order_condition(CONDITIONTABLE *entry);
 static void cpu_selftest_assert_v_store_contents(uint8 block, uint8 line, t_uint64 expectedValue);
+static void cpu_selftest_assert_v_store_contents_mask(uint8 block, uint8 line, t_uint64 expectedValue, t_uint64 mask);
 static void cpu_selftest_assert_fail(void);
 static void cpu_selftest_set_failure(void);
 
@@ -937,6 +938,11 @@ static void cpu_selftest_org_bn_ovf_on_true(TESTCONTEXT *testContext);
 static void cpu_selftest_org_bn_bn_on_false(TESTCONTEXT *testContext);
 static void cpu_selftest_org_bn_bn_on_true(TESTCONTEXT *testContext);
 static void cpu_selftest_org_bn_order_tests(TESTCONTEXT *testContext);
+
+static void cpu_selftest_system_error_interrupt_sets_display_lamp_bit(TESTCONTEXT *testContext);
+static void cpu_selftest_software_interrupt_sets_display_lamp_bit(TESTCONTEXT *testContext);
+/* TODO: clearing interrupt clears display lamp bit */
+/* TODO: clearing PW interrupt clears cause? */
 
 static void cpu_selftest_setting_b_or_d_fault_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_setting_b_or_d_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited(TESTCONTEXT *testContext);
@@ -1667,6 +1673,9 @@ static UNITTEST tests[] =
     { "Boolean order with function from operand on bn test is false", cpu_selftest_org_bn_bn_on_false },
     { "Boolean order with function from operand on bn test is ", cpu_selftest_org_bn_bn_on_true },
     { "Boolean order with function from order, tests all functions", cpu_selftest_org_bn_order_tests },
+
+	{ "System error interrupt sets display lamp bit", cpu_selftest_system_error_interrupt_sets_display_lamp_bit },
+	{ "Software interrupt sets display lamp bit", cpu_selftest_software_interrupt_sets_display_lamp_bit },
 
     { "Setting a B or D fault in executive mode generates system error interrupt", cpu_selftest_setting_b_or_d_fault_in_executive_mode_generates_system_error_interrupt },
     { "Setting a B or D fault in executive mode does not generate system error interrupt if inhibited", cpu_selftest_setting_b_or_d_fault_in_executive_mode_does_not_generate_interrupt_if_inhibited },
@@ -2696,6 +2705,19 @@ static void cpu_selftest_assert_v_store_contents(uint8 block, uint8 line, t_uint
         sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "V-Store block=%u, line=%u, expected 0x%llX, but was x%llX\n", block, line, expectedValue, actual);
         cpu_selftest_set_failure();
     }
+}
+
+// TODO: refactor v-store asserts to use the mu5_test.c versions (and make V_store vstore naming consistent)
+
+static void cpu_selftest_assert_v_store_contents_mask(uint8 block, uint8 line, t_uint64 expectedValue, t_uint64 mask)
+{
+	t_uint64 actual = sac_read_v_store(block, line);
+	if ((actual & mask) != (expectedValue & mask))
+	{
+		sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "V-Store block=%u, line=%u, expected 0x%llX, but was 0x%llX for mask 0x%llx\n", block, line, expectedValue & mask, actual & mask, mask);
+		cpu_selftest_set_failure();
+	}
+
 }
 
 static void cpu_selftest_assert_fail(void)
@@ -8302,6 +8324,18 @@ static void cpu_selftest_org_bn_order_tests(TESTCONTEXT *testContext)
     }
 }
 
+static void cpu_selftest_system_error_interrupt_sets_display_lamp_bit(TESTCONTEXT *testContext)
+{
+	cpu_set_interrupt(INT_SYSTEM_ERROR);
+	cpu_selftest_assert_v_store_contents(PROP_V_STORE_BLOCK, PROP_V_STORE_DISPLAY_LAMPS, 0x8000);
+}
+
+static void cpu_selftest_software_interrupt_sets_display_lamp_bit(TESTCONTEXT *testContext)
+{
+	cpu_set_interrupt(INT_SOFTWARE_INTERRUPT);
+	cpu_selftest_assert_v_store_contents(PROP_V_STORE_BLOCK, PROP_V_STORE_DISPLAY_LAMPS, 0x100);
+}
+
 static void cpu_selftest_setting_b_or_d_fault_in_executive_mode_generates_system_error_interrupt(TESTCONTEXT *testContext)
 {
     cpu_selftest_set_executive_mode();
@@ -8857,7 +8891,7 @@ static void cpu_selftest_writing_peripheral_window_message_sets_message_window_v
 static void cpu_selftest_writing_peripheral_window_message_sets_external_cause_bit_in_prop_display_lamps_v_line(TESTCONTEXT *testContext)
 {
     exch_write(PERIPHERAL_WINDOW_ADDRESS, 0xA5A5A5A5);
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_DISPLAY_LAMPS, 0x4);
+    cpu_selftest_assert_v_store_contents_mask(PROP_V_STORE_BLOCK, PROP_V_STORE_DISPLAY_LAMPS, 0x4, 0xC);
 }
 
 static void cpu_selftest_message_window_v_line_is_reset_when_written(TESTCONTEXT *testContext)

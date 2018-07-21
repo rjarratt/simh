@@ -330,6 +330,16 @@ void mu5_selftest_assert_vstore_contents(TESTCONTEXT *context, uint8 block, uint
     }
 }
 
+void mu5_selftest_assert_vstore_contents_mask(TESTCONTEXT *context, uint8 block, uint8 line, t_uint64 expectedValue, t_uint64 mask)
+{
+	t_uint64 actualValue = sac_read_v_store(block, line);
+	if ((actualValue & mask)!= (expectedValue & mask))
+	{
+		sim_debug(LOG_SELFTEST_FAIL, context->dev, "Expected value in V-Store block %hu line %hu to be %llX, but was %llX for mask %llX\n", (unsigned short)block, (unsigned short)line, expectedValue & mask, actualValue & mask, mask);
+		mu5_selftest_set_failure(context);
+	}
+}
+
 void mu5_selftest_assert_real_address_equals(TESTCONTEXT *context, t_addr address, t_uint64 expectedValue)
 {
     t_uint64 actualValue = exch_read(address);

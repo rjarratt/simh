@@ -1492,6 +1492,7 @@ void cpu_reset_state(void)
     MessageWindow = sac_setup_v_store_location(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW, peripheral_window_read_message_window, peripheral_window_write_message_window);
 }
 
+/* TODO: refactor to remove interrupt variable now that display lamps is used */
 void cpu_set_interrupt(uint8 number)
 {
     if (number == INT_SYSTEM_ERROR
@@ -1502,6 +1503,7 @@ void cpu_set_interrupt(uint8 number)
        )
     {
         interrupt |= 1u << number;
+		*PROPDisplayLamps |= (t_uint64)1 << (15 - number);
     }
 }
 
