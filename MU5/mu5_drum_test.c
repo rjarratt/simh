@@ -288,7 +288,7 @@ static void drum_selftest_assert_store_address_equals(t_uint64 expectedValue)
 
 static void drum_selftest_assert_peripheral_window_equals(t_uint64 expectedValue)
 {
-    mu5_selftest_assert_vstore_contents(localTestContext, PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW, expectedValue);
+    mu5_selftest_assert_v_store_contents(localTestContext, PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW, expectedValue);
 }
 
 static void drum_selftest_assert_attached_units_are_present_in_disc_status(void)

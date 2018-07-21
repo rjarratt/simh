@@ -245,7 +245,7 @@ static void sac_selftest_assert_reg_instance_equals(char *name, uint8 index, t_u
 
 static void sac_selftest_assert_vstore_contents(uint8 block, uint8 line, t_uint64 expectedValue)
 {
-    mu5_selftest_assert_vstore_contents(localTestContext, block, line, expectedValue);
+    mu5_selftest_assert_v_store_contents(localTestContext, block, line, expectedValue);
 }
 
 static void sac_selftest_assert_real_address_memory_contents(t_addr address, uint32 expectedValue)

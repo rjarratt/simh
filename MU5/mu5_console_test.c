@@ -82,7 +82,7 @@ static void console_selftest_execute_cycle(void)
 
 static void console_selftest_assert_vstore_contents(uint8 block, uint8 line, t_uint64 expectedValue)
 {
-    mu5_selftest_assert_vstore_contents(localTestContext, block, line, expectedValue);
+    mu5_selftest_assert_v_store_contents(localTestContext, block, line, expectedValue);
 }
 
 static void console_selftest_write_console_interrupt_resets_tci(TESTCONTEXT *testContext)

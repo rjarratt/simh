@@ -2546,48 +2546,48 @@ static void cpu_selftest_assert_no_sss_interrupt(void)
 static void cpu_selftest_assert_name_adder_overflow_interrupt_as_system_error(void)
 {
     cpu_selftest_assert_interrupt(INT_SYSTEM_ERROR);
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0010);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0010);
 }
 
 static void cpu_selftest_assert_name_adder_overflow_interrupt_as_illegal_order(void)
 {
     cpu_selftest_assert_interrupt(INT_ILLEGAL_ORDERS);
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x4000);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x4000);
 }
 
 static void cpu_selftest_assert_control_adder_overflow_interrupt_as_system_error(void)
 {
     cpu_selftest_assert_interrupt(INT_SYSTEM_ERROR);
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0008);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0008);
 }
 
 static void cpu_selftest_assert_control_adder_overflow_interrupt_as_illegal_order(void)
 {
     cpu_selftest_assert_interrupt(INT_ILLEGAL_ORDERS);
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x2000);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x2000);
 }
 
 static void cpu_selftest_assert_spm_program_fault_interrupt(void)
 {
     cpu_selftest_assert_interrupt(INT_PROGRAM_FAULTS);
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x0200);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x0200);
 }
 
 static void cpu_selftest_assert_acc_interrupt_as_system_error(void)
 {
     cpu_selftest_assert_interrupt(INT_SYSTEM_ERROR);
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0040);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0040);
 }
 
 static void cpu_selftest_assert_acc_interrupt_as_program_fault(void)
 {
     cpu_selftest_assert_interrupt(INT_PROGRAM_FAULTS);
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x0020);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x0020);
 }
 
 static void cpu_selftest_assert_B_or_D_system_error(void)
 {
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, SYSTEM_ERROR_STATUS_MASK_B_OR_D_ERROR);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, SYSTEM_ERROR_STATUS_MASK_B_OR_D_ERROR);
 }
 
 static void cpu_selftest_assert_B_or_D_interrupt_as_system_error(void)
@@ -2598,7 +2598,7 @@ static void cpu_selftest_assert_B_or_D_interrupt_as_system_error(void)
 
 static void cpu_selftest_assert_B_program_fault(void)
 {
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, PROGRAM_FAULT_STATUS_MASK_B_ERROR);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, PROGRAM_FAULT_STATUS_MASK_B_ERROR);
 }
 
 static void cpu_selftest_assert_B_interrupt_as_program_fault(void)
@@ -2610,30 +2610,30 @@ static void cpu_selftest_assert_B_interrupt_as_program_fault(void)
 static void cpu_selftest_assert_D_interrupt_as_program_fault(void)
 {
     cpu_selftest_assert_interrupt(INT_PROGRAM_FAULTS);
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x0040);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x0040);
 }
 
 static void cpu_selftest_assert_illegal_v_store_access_interrupt()
 {
     cpu_selftest_assert_interrupt(INT_ILLEGAL_ORDERS);
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x1000);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x1000);
 }
 
 static void cpu_selftest_assert_illegal_function_as_system_error(void)
 {
     cpu_selftest_assert_interrupt(INT_SYSTEM_ERROR);
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0020);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0x0020);
 }
 static void cpu_selftest_assert_illegal_function_as_illegal_order(void)
 {
     cpu_selftest_assert_interrupt(INT_ILLEGAL_ORDERS);
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x8000);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0x8000);
 }
 
 static void cpu_selftest_assert_cpr_not_equivalence_system_error_interrupt(void)
 {
     cpu_selftest_assert_interrupt(INT_SYSTEM_ERROR);
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, SYSTEM_ERROR_STATUS_MASK_CPR_NEQV);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, SYSTEM_ERROR_STATUS_MASK_CPR_NEQV);
 }
 
 static void cpu_selftest_assert_peripheral_window_interrupt(void)
@@ -2700,25 +2700,12 @@ static void cpu_selftest_assert_boolean_order_condition(CONDITIONTABLE *entry)
 
 static void cpu_selftest_assert_v_store_contents(uint8 block, uint8 line, t_uint64 expectedValue)
 {
-    t_uint64 actual = sac_read_v_store(block, line);
-    if (actual != expectedValue)
-    {
-        sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "V-Store block=%u, line=%u, expected 0x%llX, but was x%llX\n", block, line, expectedValue, actual);
-        cpu_selftest_set_failure();
-    }
+	mu5_selftest_assert_v_store_contents(localTestContext, block, line, expectedValue);
 }
-
-// TODO: refactor v-store asserts to use the mu5_test.c versions (and make V_store vstore naming consistent)
 
 static void cpu_selftest_assert_v_store_contents_mask(uint8 block, uint8 line, t_uint64 expectedValue, t_uint64 mask)
 {
-	t_uint64 actual = sac_read_v_store(block, line);
-	if ((actual & mask) != (expectedValue & mask))
-	{
-		sim_debug(LOG_SELFTEST_FAIL, &cpu_dev, "V-Store block=%u, line=%u, expected 0x%llX, but was 0x%llX for mask 0x%llx\n", block, line, expectedValue & mask, actual & mask, mask);
-		cpu_selftest_set_failure();
-	}
-
+	mu5_selftest_assert_vstore_contents_mask(localTestContext, block, line, expectedValue, mask);
 }
 
 static void cpu_selftest_assert_fail(void)
@@ -9096,7 +9083,7 @@ static void cpu_selftest_interrupt_stacks_link_in_system_v_store(TESTCONTEXT *te
     cpu_set_interrupt(INT_PROGRAM_FAULTS);
     cpu_selftest_setup_interrupt_entry_link(INT_PROGRAM_FAULTS);
     cpu_selftest_run_code_from_location(10);
-    mu5_selftest_assert_vstore_contents(testContext, SYSTEM_V_STORE_BLOCK, 28, 0xAA04BBBB0000000A);
+    mu5_selftest_assert_v_store_contents(testContext, SYSTEM_V_STORE_BLOCK, 28, 0xAA04BBBB0000000A);
 }
 
 static void cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store(TESTCONTEXT *testContext)
@@ -9142,7 +9129,7 @@ static void cpu_selftest_write_to_prop_program_fault_status_resets_it(TESTCONTEX
     cpu_selftest_set_user_mode();
     cpu_selftest_run_code();
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0xFF);
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, 0);
 }
 
 static void cpu_selftest_write_to_prop_system_error_status_resets_it(TESTCONTEXT *testContext)
@@ -9153,13 +9140,13 @@ static void cpu_selftest_write_to_prop_system_error_status_resets_it(TESTCONTEXT
     cpu_selftest_set_executive_mode();
     cpu_selftest_run_code();
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0xFF);
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, 0);
 }
 
 static void cpu_selftest_read_and_write_instruction_counter(TESTCONTEXT *testContext)
 {
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFFAAAA);
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xAAAA);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xAAAA);
 }
 
 static void cpu_selftest_executing_instruction_decrements_instruction_counter(TESTCONTEXT *testContext)
@@ -9167,7 +9154,7 @@ static void cpu_selftest_executing_instruction_decrements_instruction_counter(TE
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFF);
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
     cpu_selftest_run_code();
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFE);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFE);
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -9177,7 +9164,7 @@ static void cpu_selftest_instruction_counter_not_decremented_if_inhibited(TESTCO
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFF);
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
     cpu_selftest_run_code();
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFF);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0xFF);
     cpu_selftest_assert_no_interrupt();
 }
 
@@ -9186,7 +9173,7 @@ static void cpu_selftest_instruction_counter_not_decremented_if_already_zero(TES
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x00);
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
     cpu_selftest_run_code();
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x00);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x00);
 }
 
 static void cpu_selftest_instruction_counter_zero_generates_interrupt(TESTCONTEXT *testContext)
@@ -9194,7 +9181,7 @@ static void cpu_selftest_instruction_counter_zero_generates_interrupt(TESTCONTEX
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x01);
     cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0x1F);
     cpu_selftest_run_code();
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x00);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, 0x00);
     cpu_selftest_assert_interrupt(INT_INSTRUCTION_COUNT_ZERO);
 }
 
@@ -9209,7 +9196,7 @@ static void cpu_selftest_instruction_counter_already_zero_does_not_generate_new_
 static void cpu_selftest_read_and_write_process_number(TESTCONTEXT *testContext)
 {
     sac_write_v_store(PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xFA);
-    mu5_selftest_assert_vstore_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xA);
+    mu5_selftest_assert_v_store_contents(localTestContext, PROP_V_STORE_BLOCK, PROP_V_STORE_PROCESS_NUMBER, 0xA);
 }
 
 static void cpu_selftest_write_display_lamps_v_line(TESTCONTEXT *testContext)
