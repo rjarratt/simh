@@ -499,8 +499,6 @@ static uint32   reg_dt_backing_value;    /* DT Register */
 static uint32   reg_xdt_backing_value;   /* XDT Register */
 static uint32   reg_dl_backing_value;    /* Pseudo register for display lamps */
 
-static uint8 interrupt;
-
 static REG cpu_reg[] =
 {
     { HRDATAD(B,         reg_b_backing_value,       32,    "B register") },
@@ -521,7 +519,6 @@ static REG cpu_reg[] =
     { HRDATAD(DT,        reg_dt_backing_value,      32,    "DT register") },
     { HRDATAD(XDT,       reg_xdt_backing_value,     32,    "XDT register") },
     { HRDATAD(DL,        reg_dl_backing_value,      32,    "Pseudo register for display lamps") },
-    { HRDATAD(INTERRUPT, interrupt,                  8,    "Pseudo register for interrupt entry") },
     { NULL }
 };
 
@@ -577,7 +574,7 @@ t_uint64 *PROPProcessNumber;
 static t_uint64 *PROPProgramFaultStatus;
 static t_uint64 *PROPSystemErrorStatus;
 static t_uint64 *PROPInstructionCounter;
-static t_uint64 *PROPDisplayLamps; /* Actually used to store status of unserviced interrupts! RNI says the other bits are not real bits they are signals taken from the outputs of the flip-flops registering the interrupts, so they will each go to zero when the relevant interrupt flip-flop is reset by the interrupt service routine */
+static t_uint64 *interrupt; /*  This is the Display Lamps V-store line, but is actually used to store status of unserviced interrupts! RNI says the other bits are not real bits they are signals taken from the outputs of the flip-flops registering the interrupts, so they will each go to zero when the relevant interrupt flip-flop is reset by the interrupt service routine */
 
 static t_uint64 *MessageWindow;
 
@@ -976,7 +973,7 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
                 {
                     b = Fgetc(ptr);
                     sac_write_8_bit_word(origin++, b);
-					if (interrupt != 0)
+					if (*interrupt != 0)
 					{
 						r = SCPE_NXM; /* not necessarily the most appropriate error, but there isn't a better one for what is presumed to be a CPR NEQ interrupt */
 						break;
@@ -1316,14 +1313,14 @@ static void cpu_set_external_peripheral_window_interrupt(t_uint64 message)
     queuing mechanism, although the previous paragraph in the manual seems to be saying that the OS must do the queuing.
     I am not sure how to implement the "busy" nature of the V-line. */
     *MessageWindow = message;
-    *PROPDisplayLamps |= 0x4; /* external cause */
+    *interrupt |= 0x4; /* external cause */
     cpu_set_interrupt(INT_PERIPHERAL_WINDOW);
 }
 
 void cpu_set_console_peripheral_window_interrupt(t_uint64 message)
 {
     *MessageWindow = message;
-    *PROPDisplayLamps |= 0x8; /* console cause */
+    *interrupt |= 0x8; /* console cause */
     /* TODO actually set interrupt here, for now just enable polling */
     /* cpu_set_interrupt(INT_PERIPHERAL_WINDOW); */
 }
@@ -1463,7 +1460,6 @@ static int cpu_is_executive_mode(void)
 
 void cpu_reset_state(void)
 {
-    cpu_clear_all_interrupts();
     reg_b_backing_value = 0x0;
     reg_bod_backing_value = 0x0;
     reg_a_backing_value = 0x0;
@@ -1487,12 +1483,12 @@ void cpu_reset_state(void)
     PROPProgramFaultStatus = sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_PROGRAM_FAULT_STATUS, prop_read_program_fault_status_callback, prop_write_program_fault_status_callback);
     PROPSystemErrorStatus = sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_SYSTEM_ERROR_STATUS, prop_read_system_error_status_callback, prop_write_system_error_status_callback);
     PROPInstructionCounter = sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_INSTRUCTION_COUNTER, prop_read_instruction_counter, prop_write_instruction_counter);
-    PROPDisplayLamps = sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_DISPLAY_LAMPS, prop_read_display_lamps, prop_write_display_lamps);
+    interrupt = sac_setup_v_store_location(PROP_V_STORE_BLOCK, PROP_V_STORE_DISPLAY_LAMPS, prop_read_display_lamps, prop_write_display_lamps);
 
     MessageWindow = sac_setup_v_store_location(PERIPHERAL_WINDOW_V_STORE_BLOCK, PERIPHERAL_WINDOW_V_STORE_MESSAGE_WINDOW, peripheral_window_read_message_window, peripheral_window_write_message_window);
+    cpu_clear_all_interrupts();
 }
 
-/* TODO: refactor to remove interrupt variable now that display lamps is used */
 void cpu_set_interrupt(uint8 number)
 {
     if (number == INT_SYSTEM_ERROR
@@ -1502,21 +1498,18 @@ void cpu_set_interrupt(uint8 number)
         !cpu_ms_is_any(MS_MASK_LEVEL0 | MS_MASK_LEVEL1)
        )
     {
-        interrupt |= 1u << number;
-		*PROPDisplayLamps |= (t_uint64)1 << (15 - number);
+		*interrupt |= (t_uint64)1 << (15 - number);
     }
 }
 
 static void cpu_clear_interrupt(uint8 number)
 {
-    interrupt &= ~(1u << number);
-	*PROPDisplayLamps &= ~((t_uint64)1 << (15 - number));
+	*interrupt &= ~((t_uint64)1 << (15 - number));
 }
 
 static void cpu_clear_all_interrupts(void)
 {
-    interrupt = 0;
-	/* TODO: clear prop display lamps too */
+    *interrupt = 0;
 }
 
 static int cpu_check_condition_with_inhibit_32(REG *reg, uint32 condition_mask, uint32 inhibit_mask)
@@ -1697,10 +1690,9 @@ uint8 cpu_get_interrupt_number(void)
 {
     uint8 i;
     uint8 result = 255;
-
     for (i = 0; i < 7; i++)
     {
-        if (interrupt & (1u << i))
+        if (*interrupt & ((t_uint64)1 << (15 - i)))
         {
             result = i;
             break;
@@ -2778,11 +2770,11 @@ void cpu_execute_next_order(void)
     uint16 cr;
     uint32 start_co;
 
-    if (interrupt == 0)
+    if (*interrupt == 0)
     {
         start_co = cpu_get_register_32(reg_co);
         order = sac_read_16_bit_word_for_obey(start_co);
-        if (interrupt == 0)
+        if (*interrupt == 0)
         {
 			sim_debug(LOG_CPU_DECODE, &cpu_dev, "%08X: ", start_co);
 			cr = cpu_get_cr(order);
@@ -2852,7 +2844,7 @@ static void prop_write_instruction_counter(uint8 line, t_uint64 value)
 
 static t_uint64 prop_read_display_lamps(uint8 line)
 {
-    return *PROPDisplayLamps;
+    return *interrupt;
 }
 
 static void prop_write_display_lamps(uint8 line, t_uint64 value)
