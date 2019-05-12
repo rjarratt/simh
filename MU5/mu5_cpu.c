@@ -961,6 +961,15 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
             do
             {
                 segment = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
+
+                if (segment == 0xFFFF)
+                {
+                    /* skip symbol table */
+                    uint32 header_size = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
+                    fseek(ptr, header_size - 2, SEEK_CUR);
+                    segment = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
+                }
+
                 segment_length = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
                 if (feof(ptr))
                 {
