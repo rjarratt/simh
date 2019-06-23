@@ -966,7 +966,24 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
                 {
                     /* skip symbol table */
                     uint32 header_size = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
-                    fseek(ptr, header_size - 2, SEEK_CUR);
+                    uint32 skip_size = header_size - 2;
+                    uint16 module_type = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
+                    skip_size -= 2;
+                    if (module_type == 1)
+                    {
+                        uint16 start_segment = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
+                        start_segment = start_segment * 2; /* hack to get the right value for CO at the moment */
+                        uint16 start_offset = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
+                        uint32 start_address = (uint32)start_segment << 16 | start_offset;
+                        sim_printf("Loading program and setting start address to %08X\n", start_address);
+                        cpu_set_co(start_address);
+                        skip_size -= 4;
+                    }
+                    else
+                    {
+                        sim_printf("Loading library\n");
+                    }
+                    fseek(ptr, skip_size, SEEK_CUR);
                     segment = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
                 }
 
