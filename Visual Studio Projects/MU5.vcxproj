@@ -156,6 +156,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\MU5\elf.c" />
     <ClCompile Include="..\MU5\mu5_btu.c" />
     <ClCompile Include="..\MU5\mu5_btu_test.c" />
     <ClCompile Include="..\MU5\mu5_console.c" />
@@ -182,6 +183,7 @@
     <ClCompile Include="..\sim_video.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\MU5\elf.h" />
     <ClInclude Include="..\MU5\mu5_btu.h" />
     <ClInclude Include="..\MU5\mu5_btu_test.h" />
     <ClInclude Include="..\MU5\mu5_console.h" />

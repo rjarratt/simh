@@ -58,6 +58,7 @@ So for a V-store access, the name part of the instruction just points to a 64-bi
 #include "mu5_drum_test.h"
 #include "mu5_btu_test.h"
 #include "mu5_console_test.h"
+#include "elf.h"
 
 /* This structure is used to allow instruction execution to be table driven. It allows for tables to be nested. At each level the
    execute() function does anything it needs to do before invoking the function on the inner table. The leaf tables have a NULL for
@@ -916,8 +917,6 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
 {
     t_stat r = SCPE_OK;
     uint16 i;
-    uint32 segment;
-    uint16 segment_length;
     int b;
     t_addr origin, limit;
 
@@ -957,57 +956,58 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
         }
         else
         {
-			sac_set_loading();
-            do
+            sac_set_loading();
+            void *elf_context = elf_read_file(ptr, 1);
+            int section_index;
+            Elf32_Ehdr elf_header;
+            Elf32_Shdr section_header;
+            char *section_data;
+            if (elf_context == NULL)
             {
-                segment = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
-
-                if (segment == 0xFFFF)
+                sim_printf("Not an ELF file");
+                r = SCPE_ARG;
+            }
+            else
+            {
+                elf_get_elf_header(elf_context, &elf_header);
+                if (elf_header.e_type != ET_EXEC)
                 {
-                    /* skip symbol table */
-                    uint32 header_size = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
-                    uint32 skip_size = header_size - 2;
-                    uint16 module_type = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
-                    skip_size -= 2;
-                    if (module_type == 1)
+                    sim_printf("Not an executable ELF file");
+                    r = SCPE_ARG;
+                }
+                else if (elf_header.e_ident[EI_CLASS] != ELFCLASS32)
+                {
+                    sim_printf("Not a 32-bit ELF file");
+                    r = SCPE_ARG;
+                }
+                else
+                {
+                    uint32 start_address = elf_header.e_entry >> 1; /* entry point is expressed in bytes, but CO needs the address of a 16-bit word */
+                    cpu_set_co(start_address);
+                    sim_printf("Loading program and setting start address to %08X\n", start_address);
+
+                    for (section_index = 0; section_index < elf_header.e_shnum && r == SCPE_OK; section_index++)
                     {
-                        uint16 start_segment = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
-                        start_segment = start_segment * 2; /* hack to get the right value for CO at the moment */
-                        uint16 start_offset = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
-                        uint32 start_address = (uint32)start_segment << 16 | start_offset;
-                        sim_printf("Loading program and setting start address to %08X\n", start_address);
-                        cpu_set_co(start_address);
-                        skip_size -= 4;
+                        elf_get_section_header(elf_context, &section_header, &section_data, section_index);
+                        if (section_header.sh_type == SHT_PROGBITS)
+                        {
+                            origin = section_header.sh_addr;
+                            sim_printf("Loading segment of length %u bytes at virtual address %08X\n", section_header.sh_size, origin);
+                            for (i = 0; i < section_header.sh_size; i++)
+                            {
+                                sac_write_8_bit_word(origin++, section_data[i]);
+                                if (*interrupt != 0)
+                                {
+                                    r = SCPE_NXM; /* not necessarily the most appropriate error, but there isn't a better one for what is presumed to be a CPR NEQ interrupt */
+                                    break;
+                                }
+                            }
+                        }
                     }
-                    else
-                    {
-                        sim_printf("Loading library\n");
-                    }
-                    fseek(ptr, skip_size, SEEK_CUR);
-                    segment = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
                 }
+            }
 
-                segment_length = (uint8)Fgetc(ptr) << 8 | (uint8)Fgetc(ptr);
-                if (feof(ptr))
-                {
-                    break;
-                }
-
-                origin = segment << 18;
-                sim_printf("Loading segment %u of length %u bytes at virtual address %08X\n", segment, segment_length * 2, origin);
-                for (i = 0; i < 2 * segment_length; i++)
-                {
-                    b = Fgetc(ptr);
-                    sac_write_8_bit_word(origin++, b);
-					if (*interrupt != 0)
-					{
-						r = SCPE_NXM; /* not necessarily the most appropriate error, but there isn't a better one for what is presumed to be a CPR NEQ interrupt */
-						break;
-					}
-                }
-            } while (!feof(ptr) && r == SCPE_OK);
-
-			sac_clear_loading();
+            sac_clear_loading();
         }
     }
 
