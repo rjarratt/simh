@@ -4,7 +4,7 @@
 typedef unsigned int   Elf32_Addr;
 typedef unsigned short Elf32_Half;
 typedef unsigned int   Elf32_Off;
-typedef int            Elf32_SWord;
+typedef int            Elf32_Sword;
 typedef unsigned int   Elf32_Word;
 
 /* These constants are for the segment types stored in the image headers */
@@ -168,6 +168,10 @@ typedef struct elf32_phdr {
 #define ELF32_ST_TYPE(x)	ELF_ST_TYPE(x)
 #define ELF32_ST_INFO(b,t) (((b)<<4)+((t)&0xf))
 
+#define ELF32_R_SYM(i) ((i)>>8)
+#define ELF32_R_TYPE(i) ((unsigned char)(i))
+#define ELF32_R_INFO(s,t) (((s)<<8)+(unsigned char)(t))
+
 typedef struct elf32_shdr {
     Elf32_Word	sh_name;
     Elf32_Word	sh_type;
@@ -190,16 +194,31 @@ typedef struct elf32_sym {
     Elf32_Half	st_shndx;
 } Elf32_Sym;
 
+typedef struct elf32_rela {
+    Elf32_Addr	r_offset;
+    Elf32_Word	r_info;
+    Elf32_Sword	r_addend;
+} Elf32_Rela;
+
+
 void *elf_new_file(Elf32_Half e_type, Elf32_Half e_machine, Elf32_Word e_flags);
 void elf_set_entry(void *context, Elf32_Addr e_entry);
 int elf_add_code_section(void *context, Elf32_Word word_size, Elf32_Addr address, char *data);
 int elf_add_data_section(void *context, Elf32_Word word_size, Elf32_Addr address, char *data);
 int elf_add_bss_section(void *context, Elf32_Word word_size, Elf32_Addr address);
-void elf_update_section(void *context, Elf32_Half section_index, Elf32_Addr address);
-void elf_add_global_symbol(void *context, char *name, Elf32_Addr value, Elf32_Word size, int type, Elf32_Half section_index);
+void elf_update_section_address(void *context, Elf32_Half section_index, Elf32_Addr address);
+void elf_update_section_size(void *context, Elf32_Half section_index, Elf32_Word size);
+int elf_get_relocation_section(void *context, Elf32_Half section_index);
+void elf_add_relocation_entry(void *context, Elf32_Half code_section_index, Elf32_Addr offset, void *symbol, int relocation_type, Elf32_Sword addend);
+void *elf_add_global_symbol(void *context, char *name, Elf32_Addr value, Elf32_Word size, int type, Elf32_Half section_index);
+void elf_update_symbol(void *symbol, Elf32_Addr value);
 void elf_add_binary_data_to_section(void *context, Elf32_Half section_index, char *data, int length);
 void elf_write_file(void *context, char *file_name);
 void *elf_read_file(FILE *f, int check_is_elf);
 void elf_get_elf_header(void *context, Elf32_Ehdr *header);
 void elf_get_program_header(void *context, Elf32_Phdr *header, int header_index);
 void elf_get_section_header(void *context, Elf32_Shdr *header, char **data, int section_index);
+void elf_get_symbol(void *context, Elf32_Sym *symbol, int symbol_index);
+char *elf_get_string(void *context, int string_index);
+char *elf_get_section_name(void *context, int string_index);
+void elf_process_defined_symbols(void *context, void *(*process_symbol)(char *name, Elf32_Addr value, Elf32_Word size, int type, unsigned char st_other, Elf32_Half section_index));
