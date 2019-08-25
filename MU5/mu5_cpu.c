@@ -1000,7 +1000,6 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
                             sim_printf("Loading %s segment of length %u bytes at virtual byte address %08X and 32-bit physical address %08X\n", elf_get_section_name(elf_context, section_header.sh_name), section_header.sh_size, origin, origin_mapped);
                             for (i = 0; i < section_header.sh_size; i++)
                             {
-                                sac_map_address(origin >> 2, SAC_READ_ACCESS, &origin_mapped);
                                 sac_write_8_bit_word(origin++, section_data[i]);
                                 if (*interrupt != 0)
                                 {
