@@ -95,6 +95,7 @@ to set the MS register to some appropriate setting.
 
 #define LOG_CPU_PERF            (1 << 0)
 #define LOG_CPU_DECODE          (1 << 1)
+#define LOG_CPU_INTERRUPT       (1 << 2)
 
 t_stat sim_instr(void);
 
@@ -561,6 +562,7 @@ static DEBTAB cpu_debtab[] =
     { "PERF",           LOG_CPU_PERF,             "CPU performance" },
     { "EVENT",          SIM_DBG_EVENT,            "event dispatch activities" },
     { "DECODE",         LOG_CPU_DECODE,           "decode instructions" },
+    { "INTERRUPT",      LOG_CPU_INTERRUPT,        "interrupts" },
     { "SELFTEST",       LOG_SELFTEST,         "self test summary output" },
     { "SELFTESTDETAIL", LOG_SELFTEST_DETAIL,  "self test detailed output" },
     { "SELFTESTFAIL",   LOG_SELFTEST_FAIL,    "self test failure output" },
@@ -1530,6 +1532,7 @@ void cpu_set_interrupt(uint8 number)
        )
     {
 		*interrupt |= (t_uint64)1 << (15 - number);
+        sim_debug(LOG_CPU_INTERRUPT, &cpu_dev, "Interrupt %d at CO=0x%08X, MS=0x%04X", number, cpu_get_register_32(reg_co), cpu_get_ms());
     }
 }
 
