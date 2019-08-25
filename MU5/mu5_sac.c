@@ -159,7 +159,6 @@ static int sac_match_cpr(int cpr_num, uint32 *mask, uint32 va, uint32 *match_res
 static uint32 sac_search_cprs(uint32 mask, uint32 va);
 static uint32 sac_match_cprs(uint32 va, int *numMatches, int *firstMatchIndex, uint32 *segmentMask);
 static int sac_check_access(uint8 requestedAccess, uint8 permittedAccess);
-static int sac_map_address(t_addr address, uint8 access, t_addr *mappedAddress);
 static uint8 sac_get_real_address_unit(t_addr address);
 static t_uint64 sac_read_local_store_64(t_addr address);
 static void sac_write_local_store_64(t_addr address, t_uint64 value);
@@ -813,7 +812,7 @@ static int sac_check_access(uint8 requestedAccess, uint8 permittedAccess)
 	return result;
 }
 
-static int sac_map_address(t_addr address, uint8 access, t_addr *mappedAddress)
+int sac_map_address(t_addr address, uint8 access, t_addr *mappedAddress)
 {
 	int result = 0;
 	uint32 va = (address >> 4) & 0x3FFFFFF;

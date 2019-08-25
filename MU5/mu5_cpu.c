@@ -918,7 +918,9 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
     t_stat r = SCPE_OK;
     uint16 i;
     int b;
-    t_addr origin, limit;
+    t_addr origin;
+    t_addr origin_mapped;
+    t_addr limit;
 
     if (flag) /* dump? */
     {
@@ -992,12 +994,15 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
                         if (section_header.sh_type == SHT_PROGBITS)
                         {
                             origin = section_header.sh_addr;
-                            sim_printf("Loading segment of length %u bytes at virtual address %08X\n", section_header.sh_size, origin);
+                            sac_map_address(origin >> 2, SAC_READ_ACCESS, &origin_mapped);
+                            sim_printf("Loading %s segment of length %u bytes at virtual byte address %08X and 32-bit physical address %08X\n", elf_get_section_name(elf_context, section_header.sh_name), section_header.sh_size, origin, origin_mapped);
                             for (i = 0; i < section_header.sh_size; i++)
                             {
+                                sac_map_address(origin >> 2, SAC_READ_ACCESS, &origin_mapped);
                                 sac_write_8_bit_word(origin++, section_data[i]);
                                 if (*interrupt != 0)
                                 {
+                                    sim_printf("Failed at virtual address %08X\n", origin - 1);
                                     r = SCPE_NXM; /* not necessarily the most appropriate error, but there isn't a better one for what is presumed to be a CPR NEQ interrupt */
                                     break;
                                 }
@@ -2802,7 +2807,7 @@ void cpu_execute_next_order(void)
         order = sac_read_16_bit_word_for_obey(start_co);
         if (*interrupt == 0)
         {
-			sim_debug(LOG_CPU_DECODE, &cpu_dev, "%08X: ", start_co);
+			sim_debug(LOG_CPU_DECODE, &cpu_dev, "%08X: %04X ", start_co, order);
 			cr = cpu_get_cr(order);
             if ((cpu_get_ms() & MS_MASK_INH_INS_COUNT) == 0 && *PROPInstructionCounter > 0)
             {

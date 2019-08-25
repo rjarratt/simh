@@ -89,6 +89,7 @@ typedef struct VXSTORE_LINE
 void sac_reset_state(void);
 void sac_set_loading(void);
 void sac_clear_loading(void);
+int sac_map_address(t_addr address, uint8 access, t_addr *mappedAddress);
 t_uint64 sac_read_64_bit_word(t_addr address);
 void sac_write_64_bit_word(t_addr address, t_uint64 value);
 uint32 sac_read_32_bit_word(t_addr address);
