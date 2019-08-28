@@ -993,7 +993,7 @@ t_stat sim_load(FILE *ptr, CONST char *cptr, CONST char *fnam, int flag)
                     for (section_index = 0; section_index < elf_header.e_shnum && r == SCPE_OK; section_index++)
                     {
                         elf_get_section_header(elf_context, &section_header, &section_data, section_index);
-                        if (section_header.sh_type == SHT_PROGBITS)
+                        if (section_header.sh_type == SHT_PROGBITS && section_header.sh_size > 0)
                         {
                             origin = section_header.sh_addr;
                             sac_map_address(origin >> 2, SAC_READ_ACCESS, &origin_mapped);
