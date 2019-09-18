@@ -1057,6 +1057,7 @@ static void cpu_selftest_interrupt_calls_handler_using_link_in_system_v_store(TE
 static void cpu_selftest_interrupt_sets_executive_mode(TESTCONTEXT *testContext);
 static void cpu_selftest_interrupt_sequence_clears_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_interrupt_sequence_does_not_clear_interrupt_when_handling_another_interrupt(TESTCONTEXT *testContext);
+static void cpu_self_test_peripheral_window_cause_bits_do_not_trigger_an_interrupt(TESTCONTEXT *testContext);
 
 static void cpu_selftest_write_to_prop_program_fault_status_resets_it(TESTCONTEXT *testContext);
 static void cpu_selftest_write_to_prop_system_error_status_resets_it(TESTCONTEXT *testContext);
@@ -1787,6 +1788,7 @@ static UNITTEST tests[] =
     { "Interrupt sets executive mode", cpu_selftest_interrupt_sets_executive_mode },
     { "Interrupt sequence clears interrupt so it is not called again", cpu_selftest_interrupt_sequence_clears_interrupt },
     { "Interrupt sequence does not clear interrupt when handling a different interrupt", cpu_selftest_interrupt_sequence_does_not_clear_interrupt_when_handling_another_interrupt },
+    { "Peripheral Window cause bits do not trigger an interrupt", cpu_self_test_peripheral_window_cause_bits_do_not_trigger_an_interrupt },
 
     { "Write to PROP PROGRAM FAULT STATUS V-Line resets it", cpu_selftest_write_to_prop_program_fault_status_resets_it },
     { "Write to PROP SYSTEM ERROR STATUS V-Line resets it", cpu_selftest_write_to_prop_system_error_status_resets_it },
@@ -9119,6 +9121,15 @@ static void cpu_selftest_interrupt_sequence_does_not_clear_interrupt_when_handli
     cpu_set_interrupt(INT_SYSTEM_ERROR);
     cpu_selftest_run_code();
     mu5_selftest_assert_interrupt_number(localTestContext, INT_PROGRAM_FAULTS);
+}
+
+static void cpu_self_test_peripheral_window_cause_bits_do_not_trigger_an_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_set_register(REG_MS, 0);
+    cpu_selftest_load_order(CR_FLOAT, F_LOAD_64, K_LITERAL, 0);
+    cpu_set_interrupt(12); // sets one of the cause bits
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_CO, 1); // CO gets reset to zero if an interrupt is triggered as vectors are all zero
 }
 
 static void cpu_selftest_write_to_prop_program_fault_status_resets_it(TESTCONTEXT *testContext)

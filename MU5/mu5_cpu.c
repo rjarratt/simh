@@ -97,6 +97,8 @@ to set the MS register to some appropriate setting.
 #define LOG_CPU_DECODE          (1 << 1)
 #define LOG_CPU_INTERRUPT       (1 << 2)
 
+#define INTERRUPT_MASK 0x000000000000FF00
+
 t_stat sim_instr(void);
 
 static t_stat cpu_ex(t_value *vptr, t_addr addr, UNIT *uptr, int32 sw);
@@ -1353,8 +1355,7 @@ void cpu_set_console_peripheral_window_interrupt(t_uint64 message)
 {
     *MessageWindow = message;
     *interrupt |= 0x8; /* console cause */
-    /* TODO actually set interrupt here, for now just enable polling */
-    /* cpu_set_interrupt(INT_PERIPHERAL_WINDOW); */
+    cpu_set_interrupt(INT_PERIPHERAL_WINDOW);
 }
 
 static void cpu_set_ms(uint16 value)
@@ -2803,11 +2804,11 @@ void cpu_execute_next_order(void)
     uint16 cr;
     uint32 start_co;
 
-    if (*interrupt == 0)
+    if ((*interrupt & INTERRUPT_MASK) == 0)
     {
         start_co = cpu_get_register_32(reg_co);
         order = sac_read_16_bit_word_for_obey(start_co);
-        if (*interrupt == 0)
+        if ((*interrupt & INTERRUPT_MASK) == 0)
         {
 			sim_debug(LOG_CPU_DECODE, &cpu_dev, "%08X: %04X ", start_co, order);
 			cr = cpu_get_cr(order);
