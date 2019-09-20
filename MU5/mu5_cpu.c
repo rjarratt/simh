@@ -1532,7 +1532,7 @@ void cpu_set_interrupt(uint8 number)
        )
     {
 		*interrupt |= (t_uint64)1 << (15 - number);
-        sim_debug(LOG_CPU_INTERRUPT, &cpu_dev, "Interrupt %d at CO=0x%08X, MS=0x%04X", number, cpu_get_register_32(reg_co), cpu_get_ms());
+        sim_debug(LOG_CPU_INTERRUPT, &cpu_dev, "Interrupt %d at CO=0x%08X, MS=0x%04X\n", number, cpu_get_register_32(reg_co), cpu_get_ms());
     }
 }
 
