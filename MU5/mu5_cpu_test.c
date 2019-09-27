@@ -494,6 +494,24 @@ static void cpu_selftest_load_operand_extended_32_bit_variable_from_d_generates_
 static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_xnb_ref(TESTCONTEXT *testContext);
 
+static void cpu_selftest_load_single_operand_extended_32_bit_variable_offset_from_sf(TESTCONTEXT *testContext);
+static void cpu_selftest_load_single_operand_extended_32_bit_variable_offset_from_zero(TESTCONTEXT *testContext);
+static void cpu_selftest_load_single_operand_extended_32_bit_variable_offset_from_nb(TESTCONTEXT *testContext);
+static void cpu_selftest_load_single_operand_extended_32_bit_variable_offset_from_xnb(TESTCONTEXT *testContext);
+static void cpu_selftest_load_single_operand_extended_32_bit_variable_from_stack(TESTCONTEXT *testContext);
+static void cpu_selftest_load_single_operand_extended_32_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_load_single_operand_extended_32_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext);
+static void cpu_selftest_load_single_operand_extended_32_bit_variable_offset_from_xnb_ref(TESTCONTEXT *testContext);
+
+static void cpu_selftest_load_signed_operand_extended_32_bit_variable_offset_from_sf(TESTCONTEXT *testContext);
+static void cpu_selftest_load_signed_operand_extended_32_bit_variable_offset_from_zero(TESTCONTEXT *testContext);
+static void cpu_selftest_load_signed_operand_extended_32_bit_variable_offset_from_nb(TESTCONTEXT *testContext);
+static void cpu_selftest_load_signed_operand_extended_32_bit_variable_offset_from_xnb(TESTCONTEXT *testContext);
+static void cpu_selftest_load_signed_operand_extended_32_bit_variable_from_stack(TESTCONTEXT *testContext);
+static void cpu_selftest_load_signed_operand_extended_32_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_load_signed_operand_extended_32_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext);
+static void cpu_selftest_load_signed_operand_extended_32_bit_variable_offset_from_xnb_ref(TESTCONTEXT *testContext);
+
 static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_sf(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_zero(TESTCONTEXT *testContext);
 static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_nb(TESTCONTEXT *testContext);
@@ -581,6 +599,24 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_from_stack(TESTC
 static void cpu_selftest_store_operand_extended_32_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_xnb_ref(TESTCONTEXT *testContext);
+
+static void cpu_selftest_store_single_operand_extended_32_bit_variable_offset_from_sf(TESTCONTEXT *testContext);
+static void cpu_selftest_store_single_operand_extended_32_bit_variable_offset_from_zero(TESTCONTEXT *testContext);
+static void cpu_selftest_store_single_operand_extended_32_bit_variable_offset_from_nb(TESTCONTEXT *testContext);
+static void cpu_selftest_store_single_operand_extended_32_bit_variable_offset_from_xnb(TESTCONTEXT *testContext);
+static void cpu_selftest_store_single_operand_extended_32_bit_variable_from_stack(TESTCONTEXT *testContext);
+static void cpu_selftest_store_single_operand_extended_32_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_store_single_operand_extended_32_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext);
+static void cpu_selftest_store_single_operand_extended_32_bit_variable_offset_from_xnb_ref(TESTCONTEXT *testContext);
+
+static void cpu_selftest_store_signed_operand_extended_32_bit_variable_offset_from_sf(TESTCONTEXT *testContext);
+static void cpu_selftest_store_signed_operand_extended_32_bit_variable_offset_from_zero(TESTCONTEXT *testContext);
+static void cpu_selftest_store_signed_operand_extended_32_bit_variable_offset_from_nb(TESTCONTEXT *testContext);
+static void cpu_selftest_store_signed_operand_extended_32_bit_variable_offset_from_xnb(TESTCONTEXT *testContext);
+static void cpu_selftest_store_signed_operand_extended_32_bit_variable_from_stack(TESTCONTEXT *testContext);
+static void cpu_selftest_store_signed_operand_extended_32_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext);
+static void cpu_selftest_store_signed_operand_extended_32_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext);
+static void cpu_selftest_store_signed_operand_extended_32_bit_variable_offset_from_xnb_ref(TESTCONTEXT *testContext);
 
 static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_sf(TESTCONTEXT *testContext);
 static void cpu_selftest_store_operand_extended_64_bit_variable_offset_from_zero(TESTCONTEXT *testContext);
@@ -1232,6 +1268,24 @@ static UNITTEST tests[] =
     { "Load operand 32-bit variable extended from (NB)", cpu_selftest_load_operand_extended_32_bit_variable_offset_from_nb_ref },
     { "Load operand 32-bit variable extended from (XNB)", cpu_selftest_load_operand_extended_32_bit_variable_offset_from_xnb_ref },
 
+    { "Load single operand 32-bit variable extended offset from stack", cpu_selftest_load_single_operand_extended_32_bit_variable_offset_from_sf },
+    { "Load single operand 32-bit variable extended offset from zero", cpu_selftest_load_single_operand_extended_32_bit_variable_offset_from_zero },
+    { "Load single operand 32-bit variable extended offset from NB", cpu_selftest_load_single_operand_extended_32_bit_variable_offset_from_nb },
+    { "Load single operand 32-bit variable extended offset from XNB", cpu_selftest_load_single_operand_extended_32_bit_variable_offset_from_xnb },
+    { "Load single operand 32-bit variable extended from stack", cpu_selftest_load_single_operand_extended_32_bit_variable_from_stack },
+    { "Load single operand 32-bit variable extended from D generates interrupt", cpu_selftest_load_single_operand_extended_32_bit_variable_from_d_generates_interrupt },
+    { "Load single operand 32-bit variable extended from (NB)", cpu_selftest_load_single_operand_extended_32_bit_variable_offset_from_nb_ref },
+    { "Load single operand 32-bit variable extended from (XNB)", cpu_selftest_load_single_operand_extended_32_bit_variable_offset_from_xnb_ref },
+
+    { "Load signed operand 32-bit variable extended offset from stack", cpu_selftest_load_signed_operand_extended_32_bit_variable_offset_from_sf },
+    { "Load signed operand 32-bit variable extended offset from zero", cpu_selftest_load_signed_operand_extended_32_bit_variable_offset_from_zero },
+    { "Load signed operand 32-bit variable extended offset from NB", cpu_selftest_load_signed_operand_extended_32_bit_variable_offset_from_nb },
+    { "Load signed operand 32-bit variable extended offset from XNB", cpu_selftest_load_signed_operand_extended_32_bit_variable_offset_from_xnb },
+    { "Load signed operand 32-bit variable extended from stack", cpu_selftest_load_signed_operand_extended_32_bit_variable_from_stack },
+    { "Load signed operand 32-bit variable extended from D generates interrupt", cpu_selftest_load_signed_operand_extended_32_bit_variable_from_d_generates_interrupt },
+    { "Load signed operand 32-bit variable extended from (NB)", cpu_selftest_load_signed_operand_extended_32_bit_variable_offset_from_nb_ref },
+    { "Load signed operand 32-bit variable extended from (XNB)", cpu_selftest_load_signed_operand_extended_32_bit_variable_offset_from_xnb_ref },
+
     { "Load operand 64-bit variable extended offset from stack", cpu_selftest_load_operand_extended_64_bit_variable_offset_from_sf },
     { "Load operand 64-bit variable extended offset from zero", cpu_selftest_load_operand_extended_64_bit_variable_offset_from_zero },
     { "Load operand 64-bit variable extended offset from NB", cpu_selftest_load_operand_extended_64_bit_variable_offset_from_nb },
@@ -1320,6 +1374,24 @@ static UNITTEST tests[] =
     { "Store operand 32-bit variable extended from D generates interrupt", cpu_selftest_store_operand_extended_32_bit_variable_from_d_generates_interrupt },
     { "Store operand 32-bit variable extended from (NB)", cpu_selftest_store_operand_extended_32_bit_variable_offset_from_nb_ref },
     { "Store operand 32-bit variable extended from (XNB)", cpu_selftest_store_operand_extended_32_bit_variable_offset_from_xnb_ref },
+
+    { "Store single operand 32-bit variable extended offset from stack", cpu_selftest_store_single_operand_extended_32_bit_variable_offset_from_sf },
+    { "Store single operand 32-bit variable extended offset from zero", cpu_selftest_store_single_operand_extended_32_bit_variable_offset_from_zero },
+    { "Store single operand 32-bit variable extended offset from NB", cpu_selftest_store_single_operand_extended_32_bit_variable_offset_from_nb },
+    { "Store single operand 32-bit variable extended offset from XNB", cpu_selftest_store_single_operand_extended_32_bit_variable_offset_from_xnb },
+    { "Store single operand 32-bit variable extended from stack", cpu_selftest_store_single_operand_extended_32_bit_variable_from_stack },
+    { "Store single operand 32-bit variable extended from D generates interrupt", cpu_selftest_store_single_operand_extended_32_bit_variable_from_d_generates_interrupt },
+    { "Store single operand 32-bit variable extended from (NB)", cpu_selftest_store_single_operand_extended_32_bit_variable_offset_from_nb_ref },
+    { "Store single operand 32-bit variable extended from (XNB)", cpu_selftest_store_single_operand_extended_32_bit_variable_offset_from_xnb_ref },
+
+    { "Store signed operand 32-bit variable extended offset from stack", cpu_selftest_store_signed_operand_extended_32_bit_variable_offset_from_sf },
+    { "Store signed operand 32-bit variable extended offset from zero", cpu_selftest_store_signed_operand_extended_32_bit_variable_offset_from_zero },
+    { "Store signed operand 32-bit variable extended offset from NB", cpu_selftest_store_signed_operand_extended_32_bit_variable_offset_from_nb },
+    { "Store signed operand 32-bit variable extended offset from XNB", cpu_selftest_store_signed_operand_extended_32_bit_variable_offset_from_xnb },
+    { "Store signed operand 32-bit variable extended from stack", cpu_selftest_store_signed_operand_extended_32_bit_variable_from_stack },
+    { "Store signed operand 32-bit variable extended from D generates interrupt", cpu_selftest_store_signed_operand_extended_32_bit_variable_from_d_generates_interrupt },
+    { "Store signed operand 32-bit variable extended from (NB)", cpu_selftest_store_signed_operand_extended_32_bit_variable_offset_from_nb_ref },
+    { "Store signed operand 32-bit variable extended from (XNB)", cpu_selftest_store_signed_operand_extended_32_bit_variable_offset_from_xnb_ref },
 
     { "Store operand 64-bit variable extended offset from stack", cpu_selftest_store_operand_extended_64_bit_variable_offset_from_sf },
     { "Store operand 64-bit variable extended offset from zero", cpu_selftest_store_operand_extended_64_bit_variable_offset_from_zero },
@@ -3435,6 +3507,174 @@ static void cpu_selftest_load_operand_extended_32_bit_variable_offset_from_xnb_r
     cpu_selftest_assert_no_interrupt();
 }
 
+static void cpu_selftest_load_single_operand_extended_32_bit_variable_offset_from_sf(TESTCONTEXT *testContext)
+{
+    uint16 n = 0x1;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_32, K_V32, NP_SF);
+    cpu_selftest_load_16_bit_literal(n);
+    sac_write_32_bit_word(NAME_SEGMENT_STACK_OFFSET_32(n), 0xAAAABBBB);
+    cpu_selftest_setup_default_stack_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBB00000000);
+    cpu_selftest_assert_no_interrupt();
+}
+static void cpu_selftest_load_single_operand_extended_32_bit_variable_offset_from_zero(TESTCONTEXT *testContext)
+{
+    uint16 n = 0x4;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_32, K_V32, NP_0);
+    cpu_selftest_load_16_bit_literal(n);
+    cpu_selftest_setup_default_segment();
+    sac_write_32_bit_word(ZERO_OFFSET_32(n), 0xAAAABBBB);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBB00000000);
+    cpu_selftest_assert_no_interrupt();
+}
+static void cpu_selftest_load_single_operand_extended_32_bit_variable_offset_from_nb(TESTCONTEXT *testContext)
+{
+    uint16 n = 0x1;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_32, K_V32, NP_NB);
+    cpu_selftest_load_16_bit_literal(n);
+    sac_write_32_bit_word(NAME_SEGMENT_OFFSET_32(n), 0xAAAABBBB);
+    cpu_selftest_setup_default_name_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBB00000000);
+    cpu_selftest_assert_no_interrupt();
+}
+static void cpu_selftest_load_single_operand_extended_32_bit_variable_offset_from_xnb(TESTCONTEXT *testContext)
+{
+    uint16 n = 0x1;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_32, K_V32, NP_XNB);
+    cpu_selftest_load_16_bit_literal(n);
+    sac_write_32_bit_word(EXTRA_NAME_BASE_OFFSET_32(n), 0xAAAABBBB);
+    cpu_selftest_setup_default_extra_name_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBB00000000);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_load_single_operand_extended_32_bit_variable_from_stack(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_32, K_V32, NP_STACK);
+    sac_write_64_bit_word(NAME_SEGMENT_STACK_OFFSET_64(0), 0xAAAABBBB);
+    cpu_selftest_setup_default_stack_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBB00000000);
+    cpu_selftest_assert_reg_equals(REG_SF, SF_DEFAULT - 2);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_load_single_operand_extended_32_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_32, K_V32, NP_DR);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_illegal_function_as_system_error();
+}
+
+static void cpu_selftest_load_single_operand_extended_32_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_32, K_V32, NP_NB_REF);
+    sac_write_32_bit_word(NAME_SEGMENT_OFFSET_32(0), 0xAAAABBBB);
+    cpu_selftest_setup_default_name_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBB00000000);
+    cpu_selftest_assert_no_interrupt();
+}
+static void cpu_selftest_load_single_operand_extended_32_bit_variable_offset_from_xnb_ref(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_FLOAT, F_LOAD_32, K_V32, NP_XNB);
+    sac_write_32_bit_word(EXTRA_NAME_BASE_OFFSET_32(0), 0xAAAABBBB);
+    cpu_selftest_setup_default_extra_name_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_A, 0xAAAABBBB00000000);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_load_signed_operand_extended_32_bit_variable_offset_from_sf(TESTCONTEXT *testContext)
+{
+    uint16 n = 0x1;
+    cpu_selftest_load_order_extended(CR_XS, F_LOAD_32, K_V32, NP_SF);
+    cpu_selftest_load_16_bit_literal(n);
+    sac_write_32_bit_word(NAME_SEGMENT_STACK_OFFSET_32(n), 0xAAAABBBB);
+    cpu_selftest_setup_default_stack_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_X, 0xAAAABBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_load_signed_operand_extended_32_bit_variable_offset_from_zero(TESTCONTEXT *testContext)
+{
+    uint16 n = 0x4;
+    cpu_selftest_load_order_extended(CR_XS, F_LOAD_32, K_V32, NP_0);
+    cpu_selftest_load_16_bit_literal(n);
+    cpu_selftest_setup_default_segment();
+    sac_write_32_bit_word(ZERO_OFFSET_32(n), 0xAAAABBBB);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_X, 0xAAAABBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_load_signed_operand_extended_32_bit_variable_offset_from_nb(TESTCONTEXT *testContext)
+{
+    uint16 n = 0x1;
+    cpu_selftest_load_order_extended(CR_XS, F_LOAD_32, K_V32, NP_NB);
+    cpu_selftest_load_16_bit_literal(n);
+    sac_write_32_bit_word(NAME_SEGMENT_OFFSET_32(n), 0xAAAABBBB);
+    cpu_selftest_setup_default_name_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_X, 0xAAAABBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_load_signed_operand_extended_32_bit_variable_offset_from_xnb(TESTCONTEXT *testContext)
+{
+    uint16 n = 0x1;
+    cpu_selftest_load_order_extended(CR_XS, F_LOAD_32, K_V32, NP_XNB);
+    cpu_selftest_load_16_bit_literal(n);
+    sac_write_32_bit_word(EXTRA_NAME_BASE_OFFSET_32(n), 0xAAAABBBB);
+    cpu_selftest_setup_default_extra_name_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_X, 0xAAAABBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_load_signed_operand_extended_32_bit_variable_from_stack(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_XS, F_LOAD_32, K_V32, NP_STACK);
+    sac_write_64_bit_word(NAME_SEGMENT_STACK_OFFSET_64(0), 0xAAAABBBB);
+    cpu_selftest_setup_default_stack_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_X, 0xAAAABBBB);
+    cpu_selftest_assert_reg_equals(REG_SF, SF_DEFAULT - 2);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_load_signed_operand_extended_32_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_XS, F_LOAD_32, K_V32, NP_DR);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_illegal_function_as_system_error();
+}
+
+static void cpu_selftest_load_signed_operand_extended_32_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_XS, F_LOAD_32, K_V32, NP_NB_REF);
+    sac_write_32_bit_word(NAME_SEGMENT_OFFSET_32(0), 0xAAAABBBB);
+    cpu_selftest_setup_default_name_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_X, 0xAAAABBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_load_signed_operand_extended_32_bit_variable_offset_from_xnb_ref(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_XS, F_LOAD_32, K_V32, NP_XNB);
+    sac_write_32_bit_word(EXTRA_NAME_BASE_OFFSET_32(0), 0xAAAABBBB);
+    cpu_selftest_setup_default_extra_name_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_reg_equals(REG_X, 0xAAAABBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
 static void cpu_selftest_load_operand_extended_64_bit_variable_offset_from_sf(TESTCONTEXT *testContext)
 {
     uint16 n = 0x1;
@@ -4455,6 +4695,184 @@ static void cpu_selftest_store_operand_extended_32_bit_variable_offset_from_xnb_
     cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V32, NP_XNB);
     cpu_selftest_set_aod_operand_64_bit();
     cpu_selftest_set_register(REG_A, 0xFFFFFFFFAAAABBBB);
+    cpu_selftest_setup_default_extra_name_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_32_bit(EXTRA_NAME_BASE_OFFSET_32(0), 0xAAAABBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_single_operand_extended_32_bit_variable_offset_from_sf(TESTCONTEXT *testContext)
+{
+    uint16 n = 0x1;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V32, NP_SF);
+    cpu_selftest_load_16_bit_literal(n);
+    cpu_selftest_set_aod_operand_32_bit();
+    cpu_selftest_set_register(REG_A, 0xAAAABBBBFFFFFFFF);
+    cpu_selftest_setup_default_stack_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_32_bit(NAME_SEGMENT_STACK_OFFSET_32(n), 0xAAAABBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_single_operand_extended_32_bit_variable_offset_from_zero(TESTCONTEXT *testContext)
+{
+    uint16 n = 0x4;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V32, NP_0);
+    cpu_selftest_load_16_bit_literal(n);
+    cpu_selftest_setup_default_segment();
+    cpu_selftest_set_aod_operand_32_bit();
+    cpu_selftest_set_register(REG_A, 0xAAAABBBBFFFFFFFF);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_32_bit(ZERO_OFFSET_32(n), 0xAAAABBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_single_operand_extended_32_bit_variable_offset_from_nb(TESTCONTEXT *testContext)
+{
+    uint16 n = 0x1;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V32, NP_NB);
+    cpu_selftest_load_16_bit_literal(n);
+    cpu_selftest_set_aod_operand_32_bit();
+    cpu_selftest_set_register(REG_A, 0xAAAABBBBFFFFFFFF);
+    cpu_selftest_setup_default_name_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_32_bit(NAME_SEGMENT_OFFSET_32(n), 0xAAAABBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_single_operand_extended_32_bit_variable_offset_from_xnb(TESTCONTEXT *testContext)
+{
+    uint16 n = 0x1;
+    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V32, NP_XNB);
+    cpu_selftest_load_16_bit_literal(n);
+    cpu_selftest_set_aod_operand_32_bit();
+    cpu_selftest_set_register(REG_A, 0xAAAABBBBFFFFFFFF);
+    cpu_selftest_setup_default_extra_name_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_32_bit(EXTRA_NAME_BASE_OFFSET_32(n), 0xAAAABBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_single_operand_extended_32_bit_variable_from_stack(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V32, NP_STACK);
+    cpu_selftest_set_aod_operand_32_bit();
+    cpu_selftest_set_register(REG_A, 0xAAAABBBBFFFFFFFF);
+    cpu_selftest_setup_default_stack_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_32_bit(NAME_SEGMENT_STACK_OFFSET_32(1), 0xAAAABBBB);
+    cpu_selftest_assert_reg_equals(REG_SF, SF_DEFAULT - 2);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_single_operand_extended_32_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V32, NP_DR);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_illegal_function_as_system_error();
+}
+
+static void cpu_selftest_store_single_operand_extended_32_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V32, NP_NB_REF);
+    cpu_selftest_set_aod_operand_32_bit();
+    cpu_selftest_set_register(REG_A, 0xAAAABBBBFFFFFFFF);
+    cpu_selftest_setup_default_name_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_32_bit(NAME_SEGMENT_OFFSET_32(0), 0xAAAABBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_single_operand_extended_32_bit_variable_offset_from_xnb_ref(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_FLOAT, F_STORE, K_V32, NP_XNB);
+    cpu_selftest_set_aod_operand_32_bit();
+    cpu_selftest_set_register(REG_A, 0xAAAABBBBFFFFFFFF);
+    cpu_selftest_setup_default_extra_name_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_32_bit(EXTRA_NAME_BASE_OFFSET_32(0), 0xAAAABBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_signed_operand_extended_32_bit_variable_offset_from_sf(TESTCONTEXT *testContext)
+{
+    uint16 n = 0x1;
+    cpu_selftest_load_order_extended(CR_XS, F_STORE, K_V32, NP_SF);
+    cpu_selftest_load_16_bit_literal(n);
+    cpu_selftest_set_register(REG_X, 0xAAAABBBB);
+    cpu_selftest_setup_default_stack_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_32_bit(NAME_SEGMENT_STACK_OFFSET_32(n), 0xAAAABBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_signed_operand_extended_32_bit_variable_offset_from_zero(TESTCONTEXT *testContext)
+{
+    uint16 n = 0x4;
+    cpu_selftest_load_order_extended(CR_XS, F_STORE, K_V32, NP_0);
+    cpu_selftest_load_16_bit_literal(n);
+    cpu_selftest_setup_default_segment();
+    cpu_selftest_set_register(REG_X, 0xAAAABBBB);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_32_bit(ZERO_OFFSET_32(n), 0xAAAABBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_signed_operand_extended_32_bit_variable_offset_from_nb(TESTCONTEXT *testContext)
+{
+    uint16 n = 0x1;
+    cpu_selftest_load_order_extended(CR_XS, F_STORE, K_V32, NP_NB);
+    cpu_selftest_load_16_bit_literal(n);
+    cpu_selftest_set_register(REG_X, 0xAAAABBBB);
+    cpu_selftest_setup_default_name_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_32_bit(NAME_SEGMENT_OFFSET_32(n), 0xAAAABBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_signed_operand_extended_32_bit_variable_offset_from_xnb(TESTCONTEXT *testContext)
+{
+    uint16 n = 0x1;
+    cpu_selftest_load_order_extended(CR_XS, F_STORE, K_V32, NP_XNB);
+    cpu_selftest_load_16_bit_literal(n);
+    cpu_selftest_set_register(REG_X, 0xAAAABBBB);
+    cpu_selftest_setup_default_extra_name_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_32_bit(EXTRA_NAME_BASE_OFFSET_32(n), 0xAAAABBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_signed_operand_extended_32_bit_variable_from_stack(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_XS, F_STORE, K_V32, NP_STACK);
+    cpu_selftest_set_register(REG_X, 0xAAAABBBB);
+    cpu_selftest_setup_default_stack_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_32_bit(NAME_SEGMENT_STACK_OFFSET_32(1), 0xAAAABBBB);
+    cpu_selftest_assert_reg_equals(REG_SF, SF_DEFAULT - 2);
+    cpu_selftest_assert_no_interrupt();
+}
+
+static void cpu_selftest_store_signed_operand_extended_32_bit_variable_from_d_generates_interrupt(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_XS, F_STORE, K_V32, NP_DR);
+    cpu_selftest_run_code();
+    cpu_selftest_assert_illegal_function_as_system_error();
+}
+
+static void cpu_selftest_store_signed_operand_extended_32_bit_variable_offset_from_nb_ref(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_XS, F_STORE, K_V32, NP_NB_REF);
+    cpu_selftest_set_register(REG_X, 0xAAAABBBB);
+    cpu_selftest_setup_default_name_base();
+    cpu_selftest_run_code();
+    cpu_selftest_assert_memory_contents_32_bit(NAME_SEGMENT_OFFSET_32(0), 0xAAAABBBB);
+    cpu_selftest_assert_no_interrupt();
+}
+static void cpu_selftest_store_signed_operand_extended_32_bit_variable_offset_from_xnb_ref(TESTCONTEXT *testContext)
+{
+    cpu_selftest_load_order_extended(CR_XS, F_STORE, K_V32, NP_XNB);
+    cpu_selftest_set_register(REG_X, 0xAAAABBBB);
     cpu_selftest_setup_default_extra_name_base();
     cpu_selftest_run_code();
     cpu_selftest_assert_memory_contents_32_bit(EXTRA_NAME_BASE_OFFSET_32(0), 0xAAAABBBB);
