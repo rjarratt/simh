@@ -1,8 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25123.0
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30114.105
 MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{0F7722DF-6E08-49FC-B6E1-349DD62A4C9C}"
+	ProjectSection(SolutionItems) = preProject
+		..\makefile = ..\makefile
+	EndProjectSection
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "VAX", "VAX.vcxproj", "{D5D873F7-D286-43E7-958A-3D838FAA0856}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "VAX780", "VAX780.vcxproj", "{D5D873F7-D286-43E7-958A-3D83DEADBEEF}"
@@ -101,18 +106,13 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "isys8030", "isys8030.vcxpro
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "isys8024", "isys8024.vcxproj", "{ACCC3A24-56CD-4543-81F3-5F6A5E24F338}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "imds-225", "imds-225.vcproj", "{A66F0D85-174F-4AFE-A44E-7FAE3D3727BC}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "imds-225", "imds-225.vcxproj", "{A66F0D85-174F-4AFE-A44E-7FAE3D3727BC}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ibmpc", "ibmpc.vcproj", "{76EF8599-7AB0-4C8D-997B-AAEEE724A5D0}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ibmpc", "ibmpc.vcxproj", "{76EF8599-7AB0-4C8D-997B-AAEEE724A5D0}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ibmpcxt", "ibmpcxt.vcproj", "{0026A4C2-655A-4C03-B6CA-B1EAF79FA4D1}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ibmpcxt", "ibmpcxt.vcxproj", "{0026A4C2-655A-4C03-B6CA-B1EAF79FA4D1}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MU5", "MU5.vcxproj", "{992821B4-FC29-42CD-AC17-881DA4B0F37E}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{0F7722DF-6E08-49FC-B6E1-349DD62A4C9C}"
-	ProjectSection(SolutionItems) = preProject
-		..\makefile = ..\makefile
-	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -553,5 +553,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {0FAE61FD-7EA6-4CB9-82AD-C6855762F354}
 	EndGlobalSection
 EndGlobal
