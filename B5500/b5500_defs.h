@@ -72,6 +72,7 @@ typedef struct _opcode
 }
 t_opcode;
 
+void print_opcode(FILE * ofile, uint16 val, int chr_mode);
 
 t_stat chan_reset(DEVICE *);
 t_stat chan_boot(t_uint64);

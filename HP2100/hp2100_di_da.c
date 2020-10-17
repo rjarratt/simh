@@ -1,6 +1,6 @@
 /* hp2100_di_da.c: HP 12821A HP-IB Disc Interface simulator for Amigo disc drives
 
-   Copyright (c) 2011-2017, J. David Bryan
+   Copyright (c) 2011-2018, J. David Bryan
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -25,6 +25,8 @@
 
    DA           12821A Disc Interface with Amigo disc drives
 
+   11-Jul-18    JDB     Revised I/O model, changed global scope of variables to local
+   21-Feb-18    JDB     ATTACH -N now creates a full-size disc image
    11-Jul-17    JDB     Renamed "ibl_copy" to "cpu_ibl"
    15-Mar-17    JDB     Changed DEBUG_PRI calls to tprintfs
    09-Mar-17    JDB     Deprecated LOCKED/WRITEENABLED for PROTECT/UNPROTECT
@@ -349,7 +351,7 @@
 
 
 #include "hp2100_defs.h"
-#include "hp2100_cpu.h"
+#include "hp2100_io.h"
 #include "hp2100_di.h"
 #include "hp2100_disclib.h"
 
@@ -357,30 +359,30 @@
 
 /* Program constants */
 
-#define DA_UNITS        4                               /* number of addressable disc units */
+#define DA_UNITS        4                       /* number of addressable disc units */
 
 
 /* Interface states */
 
 typedef enum {
-    idle = 0,                                           /* idle = default for reset */
-    opcode_wait,                                        /* waiting for opcode reception */
-    parameter_wait,                                     /* waiting for parameter reception */
-    read_wait,                                          /* waiting for send read data secondary */
-    write_wait,                                         /* waiting for receive write data secondary */
-    status_wait,                                        /* waiting for send status secondary */
-    command_exec,                                       /* executing an interface command */
-    command_wait,                                       /* waiting for command completion */
-    read_xfer,                                          /* sending read data or status */
-    write_xfer,                                         /* receiving write data */
-    error_source,                                       /* sending bytes for error recovery */
-    error_sink                                          /* receiving bytes for error recovery */
+    idle = 0,                                   /* idle = default for reset */
+    opcode_wait,                                /* waiting for opcode reception */
+    parameter_wait,                             /* waiting for parameter reception */
+    read_wait,                                  /* waiting for send read data secondary */
+    write_wait,                                 /* waiting for receive write data secondary */
+    status_wait,                                /* waiting for send status secondary */
+    command_exec,                               /* executing an interface command */
+    command_wait,                               /* waiting for command completion */
+    read_xfer,                                  /* sending read data or status */
+    write_xfer,                                 /* receiving write data */
+    error_source,                               /* sending bytes for error recovery */
+    error_sink                                  /* receiving bytes for error recovery */
     } IF_STATE;
 
 
 /* Interface state names */
 
-static const char *if_state_name [] = {
+static const char * const if_state_name [] = {
     "idle",
     "opcode wait",
     "parameter wait",
@@ -399,51 +401,51 @@ static const char *if_state_name [] = {
 /* Next interface state after command recognition */
 
 static const IF_STATE next_state [] = {
-    read_wait,                                          /* cold load read */
-    command_exec,                                       /* recalibrate */
-    command_exec,                                       /* seek */
-    status_wait,                                        /* request status */
-    status_wait,                                        /* request sector address */
-    read_wait,                                          /* read */
-    read_wait,                                          /* read full sector */
-    command_exec,                                       /* verify */
-    write_wait,                                         /* write */
-    write_wait,                                         /* write full sector */
-    command_exec,                                       /* clear */
-    write_wait,                                         /* initialize */
-    command_exec,                                       /* address record */
-    idle,                                               /* request syndrome */
-    read_wait,                                          /* read with offset */
-    command_exec,                                       /* set file mask */
-    idle,                                               /* invalid */
-    idle,                                               /* invalid */
-    read_wait,                                          /* read without verify */
-    idle,                                               /* load TIO register */
-    status_wait,                                        /* request disc address */
-    command_exec,                                       /* end */
-    idle                                                /* wakeup */
+    read_wait,                                  /* cold load read */
+    command_exec,                               /* recalibrate */
+    command_exec,                               /* seek */
+    status_wait,                                /* request status */
+    status_wait,                                /* request sector address */
+    read_wait,                                  /* read */
+    read_wait,                                  /* read full sector */
+    command_exec,                               /* verify */
+    write_wait,                                 /* write */
+    write_wait,                                 /* write full sector */
+    command_exec,                               /* clear */
+    write_wait,                                 /* initialize */
+    command_exec,                               /* address record */
+    idle,                                       /* request syndrome */
+    read_wait,                                  /* read with offset */
+    command_exec,                               /* set file mask */
+    idle,                                       /* invalid */
+    idle,                                       /* invalid */
+    read_wait,                                  /* read without verify */
+    idle,                                       /* load TIO register */
+    status_wait,                                /* request disc address */
+    command_exec,                               /* end */
+    idle                                        /* wakeup */
     };
 
 
 /* Interface commands */
 
 typedef enum {
-    invalid = 0,                                        /* invalid = default for reset */
-    disc_command,                                       /* MLA 08 */
-    crc_listen,                                         /* MLA 09 */
-    amigo_clear,                                        /* MLA 10 */
-    write_loopback,                                     /* MLA 1E */
-    initiate_self_test,                                 /* MLA 1F */
-    crc_talk,                                           /* MTA 09 */
-    device_specified_jump,                              /* MTA 10 */
-    read_loopback,                                      /* MTA 1E */
-    return_self_test_result,                            /* MTA 1F */
-    amigo_identify                                      /* UNT MSA */
+    invalid = 0,                                /* invalid = default for reset */
+    disc_command,                               /* MLA 08 */
+    crc_listen,                                 /* MLA 09 */
+    amigo_clear,                                /* MLA 10 */
+    write_loopback,                             /* MLA 1E */
+    initiate_self_test,                         /* MLA 1F */
+    crc_talk,                                   /* MTA 09 */
+    device_specified_jump,                      /* MTA 10 */
+    read_loopback,                              /* MTA 1E */
+    return_self_test_result,                    /* MTA 1F */
+    amigo_identify                              /* UNT MSA */
     } IF_COMMAND;
 
 /* Interface command names */
 
-static const char *if_command_name [] = {
+static const char * const if_command_name [] = {
     "invalid",
     "disc command",
     "CRC listen",
@@ -461,29 +463,31 @@ static const char *if_command_name [] = {
 
 /* Amigo disc state variables */
 
-static uint16 buffer [DL_BUFSIZE];                      /* command/status/sector buffer */
+static uint16 buffer [DL_BUFSIZE];              /* command/status/sector buffer */
 
-static uint8      if_dsj     [DA_UNITS];                /* ICD controller DSJ values */
-static IF_STATE   if_state   [DA_UNITS];                /* ICD controller state */
-static IF_COMMAND if_command [DA_UNITS];                /* ICD controller command */
+static uint8      if_dsj     [DA_UNITS];        /* ICD controller DSJ values */
+static IF_STATE   if_state   [DA_UNITS];        /* ICD controller state */
+static IF_COMMAND if_command [DA_UNITS];        /* ICD controller command */
 
-static CNTLR_VARS icd_cntlr [DA_UNITS] =                /* ICD controllers: */
-    { { CNTLR_INIT (ICD, buffer, NULL) },               /*   unit 0 controller */
-      { CNTLR_INIT (ICD, buffer, NULL) },               /*   unit 1 controller */
-      { CNTLR_INIT (ICD, buffer, NULL) },               /*   unit 2 controller */
-      { CNTLR_INIT (ICD, buffer, NULL) } };             /*   unit 3 controller */
+static CNTLR_VARS icd_cntlr [DA_UNITS] =        /* ICD controllers: */
+    { { CNTLR_INIT (ICD, buffer, NULL) },       /*   unit 0 controller */
+      { CNTLR_INIT (ICD, buffer, NULL) },       /*   unit 1 controller */
+      { CNTLR_INIT (ICD, buffer, NULL) },       /*   unit 2 controller */
+      { CNTLR_INIT (ICD, buffer, NULL) } };     /*   unit 3 controller */
 
 
 
-/* Amigo disc global VM routines */
+/* Amigo disc local VM routines */
 
-t_stat da_reset   (DEVICE *dptr);
-t_stat da_attach  (UNIT   *uptr, CONST char *cptr);
-t_stat da_detach  (UNIT   *uptr);
+static t_stat da_reset   (DEVICE *dptr);
+static t_stat da_boot    (int32  unitno, DEVICE *dptr);
+static t_stat da_attach  (UNIT   *uptr, CONST char *cptr);
+static t_stat da_detach  (UNIT   *uptr);
 
-/* Amigo disc global SCP routines */
+/* Amigo disc local SCP routines */
 
-t_stat da_load_unload (UNIT *uptr, int32 value, CONST char *cptr, void *desc);
+static t_stat da_service     (UNIT *uptr);
+static t_stat da_load_unload (UNIT *uptr, int32 value, CONST char *cptr, void *desc);
 
 /* Amigo disc local utility routines */
 
@@ -532,18 +536,24 @@ static t_stat activate_unit     (UNIT   *uptr);
 
 DEVICE da_dev;
 
-DIB da_dib = { &di_io, DI_DA, da };
+static DIB da_dib = {
+    &di_interface,                              /* the device's I/O interface function pointer */
+    DI_DA,                                      /* the device's select code (02-77) */
+    da,                                         /* the card index */
+    "12821A Disc Interface",                    /* the card description */
+    "12992H 7906H/7920H/7925H/9895 Disc Loader" /* the ROM description */
+    };
 
 #define UNIT_FLAGS  (UNIT_FIX | UNIT_ATTABLE | UNIT_ROABLE | UNIT_DISABLE | UNIT_UNLOAD)
 
-UNIT da_unit [] = {
+static UNIT da_unit [] = {
     { UDATA (&da_service, UNIT_FLAGS | MODEL_7906 | SET_BUSADR (0), D7906_WORDS) }, /* drive unit 0 */
     { UDATA (&da_service, UNIT_FLAGS | MODEL_7906 | SET_BUSADR (1), D7906_WORDS) }, /* drive unit 1 */
     { UDATA (&da_service, UNIT_FLAGS | MODEL_7906 | SET_BUSADR (2), D7906_WORDS) }, /* drive unit 2 */
     { UDATA (&da_service, UNIT_FLAGS | MODEL_7906 | SET_BUSADR (3), D7906_WORDS) }  /* drive unit 3 */
     };
 
-REG da_reg [] = {
+static REG da_reg [] = {
     DI_REGS (da),
 
     { BRDATA (BUFFER, buffer,      8, 16,       DL_BUFSIZE)                              },
@@ -552,12 +562,12 @@ REG da_reg [] = {
     { BRDATA (ISTATE, if_state,   10, sizeof (IF_STATE) * CHAR_BIT,   DA_UNITS), PV_LEFT },
     { BRDATA (ICMD,   if_command, 10, sizeof (IF_COMMAND) * CHAR_BIT, DA_UNITS), PV_LEFT },
 
-    { BRDATA (CNVARS, icd_cntlr,  10, CHAR_BIT, sizeof (CNTLR_VARS) * DA_UNITS), REG_HRO },
+    { VBRDATA (CNVARS, icd_cntlr, 10, CHAR_BIT, sizeof (CNTLR_VARS) * DA_UNITS), REG_HRO },
 
     { NULL }
     };
 
-MTAB da_mod [] = {
+static MTAB da_mod [] = {
     DI_MODS (da_dev, da_dib),
 
 /*    Mask Value    Match Value   Print String       Match String     Validation        Display  Descriptor */
@@ -582,28 +592,28 @@ MTAB da_mod [] = {
     };
 
 DEVICE da_dev = {
-    "DA",                                               /* device name */
-    da_unit,                                            /* unit array */
-    da_reg,                                             /* register array */
-    da_mod,                                             /* modifier array */
-    DA_UNITS,                                           /* number of units */
-    10,                                                 /* address radix */
-    26,                                                 /* address width */
-    1,                                                  /* address increment */
-    8,                                                  /* data radix */
-    16,                                                 /* data width */
-    NULL,                                               /* examine routine */
-    NULL,                                               /* deposit routine */
-    &da_reset,                                          /* reset routine */
-    &da_boot,                                           /* boot routine */
-    &da_attach,                                         /* attach routine */
-    &da_detach,                                         /* detach routine */
-    &da_dib,                                            /* device information block */
-    DEV_DEBUG | DEV_DISABLE,                            /* device flags */
-    0,                                                  /* debug control flags */
-    di_deb,                                             /* debug flag name table */
-    NULL,                                               /* memory size change routine */
-    NULL                                                /* logical device name */
+    "DA",                                       /* device name */
+    da_unit,                                    /* unit array */
+    da_reg,                                     /* register array */
+    da_mod,                                     /* modifier array */
+    DA_UNITS,                                   /* number of units */
+    10,                                         /* address radix */
+    26,                                         /* address width */
+    1,                                          /* address increment */
+    8,                                          /* data radix */
+    16,                                         /* data width */
+    NULL,                                       /* examine routine */
+    NULL,                                       /* deposit routine */
+    &da_reset,                                  /* reset routine */
+    &da_boot,                                   /* boot routine */
+    &da_attach,                                 /* attach routine */
+    &da_detach,                                 /* detach routine */
+    &da_dib,                                    /* device information block */
+    DEV_DISABLE | DEV_DEBUG,                    /* device flags */
+    0,                                          /* debug control flags */
+    di_deb,                                     /* debug flag name table */
+    NULL,                                       /* memory size change routine */
+    NULL                                        /* logical device name */
     };
 
 
@@ -749,7 +759,7 @@ DEVICE da_dev = {
        assert NRFD if the LSTN control bit is clear).
 */
 
-t_stat da_service (UNIT *uptr)
+static t_stat da_service (UNIT *uptr)
 {
 uint8 data;
 CNTLR_CLASS command_class;
@@ -763,7 +773,7 @@ switch (if_state [unit]) {                                  /* dispatch the inte
     case command_wait:                                      /* command is waiting */
         release_interface = TRUE;                           /* release the interface at then end if it's idle */
 
-        /* fall into the command_exec handler to process the current command */
+    /* fall through into the command_exec handler to process the current command */
 
     case command_exec:                                      /* command is executing */
         switch (if_command [unit]) {                        /* dispatch the interface command */
@@ -1022,7 +1032,7 @@ return result;                                              /* return the result
    next byte sourced to the bus finds no acceptors.
 */
 
-t_stat da_reset (DEVICE *dptr)
+static t_stat da_reset (DEVICE *dptr)
 {
 uint32 unit;
 t_stat status;
@@ -1080,6 +1090,9 @@ return status;
    The unspecified responses are illegal conditions; for example, the simulator
    does not allow an attached unit to be disabled.
 
+   If a new file is specified, the file is initialized to its capacity by
+   writing a zero to the last byte in the file.
+
 
    Implementation notes:
 
@@ -1091,19 +1104,36 @@ return status;
        specifying a validation routine works for the DISABLED case but not the
        ENABLED case -- set_unit_enbdis returns SCPE_UDIS before calling the
        validation routine.
+
+    2. The C standard says, "A binary stream need not meaningfully support fseek
+       calls with a whence value of SEEK_END," so instead we determine the
+       offset from the start of the file to the last byte and seek there.
 */
 
-t_stat da_attach (UNIT *uptr, CONST char *cptr)
+static t_stat da_attach (UNIT *uptr, CONST char *cptr)
 {
-t_stat result;
+t_stat      result;
+t_addr      offset;
+const uint8 zero = 0;
 const int32 unit = uptr - da_unit;                      /* calculate the unit number */
 
 result = dl_attach (&icd_cntlr [unit], uptr, cptr);     /* attach the drive */
 
-if (result == SCPE_OK)                                  /* was the attach successful? */
-    di [da].acceptors |= (1 << unit);                   /* set the unit's accepting bit */
+if (result == SCPE_OK) {                                /* if the attach was successful */
+    di [da].acceptors |= (1 << unit);                   /*   then set the unit's accepting bit */
 
-return result;
+    if (sim_switches & SWMASK ('N')) {                  /* if this is a new disc image */
+        offset = (t_addr)                               /*   then determine the offset of */
+          (uptr->capac * sizeof (int16) - sizeof zero); /*     the last byte in a full-sized file */
+
+        if (sim_fseek (uptr->fileref, offset, SEEK_SET) != 0    /* seek to the last byte */
+          || fwrite (&zero, sizeof zero, 1, uptr->fileref) == 0 /*   and write a zero to fill */
+          || fflush (uptr->fileref) != 0)                       /*     the file to its capacity */
+            clearerr (uptr->fileref);                           /* clear and ignore any errors */
+        }
+    }
+
+return result;                                          /* return the result of the attach */
 }
 
 
@@ -1114,7 +1144,7 @@ return result;
    the detach is successful.
 */
 
-t_stat da_detach (UNIT *uptr)
+static t_stat da_detach (UNIT *uptr)
 {
 t_stat result;
 const int32 unit = uptr - da_unit;                      /* calculate the unit number */
@@ -1130,17 +1160,131 @@ return result;
 }
 
 
-/* Boot an Amigo disc drive.
+/* 7906H/20H/25H disc bootstrap loader (12992H).
 
-   The ICD disc bootstrap program is loaded from the HP 12992H Boot Loader ROM
-   into memory, the I/O instructions are configured for the interface card's
-   select code, and the program is run to boot from the specified unit.  The
-   loader supports booting the disc at bus address 0 only.  Before execution,
-   the S register is automatically set as follows:
+   The HP 1000 uses the 12992H boot loader ROM to bootstrap the ICD discs.  Bit
+   12 of the S register determines whether an RPL or manual boot is performed.
+   Bits 1-0 specify the head number to use.
 
-     15  14  13  12  11  10   9   8   7   6   5   4   3   2   1   0
-     ------  ------  ----------------------   -------------   -----
-     ROM #    0   1       select code           reserved      head
+   The loader reads 256 words from cylinder 0 sector 0 of the specified head
+   into memory starting at location 2011 octal.  Loader execution ends with one
+   of the following instructions:
+
+     * HLT 11     - the drive aborted the transfer due to an unrecoverable error
+     * JSB 2055,I - the disc read succeeded
+
+   The ICD drives are not supported on the 2100/14/15/16 CPUs, so no 21xx loader
+   is provided.
+*/
+
+static const LOADER_ARRAY da_loaders = {
+    {                               /* HP 21xx Loader does not exist */
+      IBL_NA,                       /*   loader starting index */
+      IBL_NA,                       /*   DMA index */
+      IBL_NA,                       /*   FWA index */
+      { 0 } },
+
+    {                               /* HP 1000 Loader ROM (12992H) */
+      IBL_START,                    /*   loader starting index */
+      IBL_DMA,                      /*   DMA index */
+      IBL_FWA,                      /*   FWA index */
+      { 0102501,                    /*   77700:  START LIA 1         GET SWITCH REGISTER SETTING */
+        0100044,                    /*   77701:        LSL 4         SHIFT A LEFT 4 */
+        0006111,                    /*   77702:        CLE,SLB,RSS   SR BIT 12 SET FOR MANUAL BOOT? */
+        0100041,                    /*   77703:        LSL 1         NO, SHIFT HEAD # FOR RPL BOOT */
+        0001424,                    /*   77704:        ALR,ALR       SHIFT HEAD 2, CLEAR SIGN */
+        0033744,                    /*   77705:        IOR HDSEC     SET EOI BIT */
+        0073744,                    /*   77706:        STA HDSEC     PLACE IN COMMAND BUFFER */
+        0017756,                    /*   77707:        JSB BTCTL     SEND DUMMY,U-CLR,PP */
+        0102510,                    /*   77710:        LIA IBI       READ INPUT REGISTER */
+        0101027,                    /*   77711:        ASR 7         SHIFT DRIVE 0 RESPONSE TO LSB */
+        0002011,                    /*   77712:        SLA,RSS       DID DRIVE 0 RESPOND? */
+        0027710,                    /*   77713:        JMP *-3       NO, GO LOOK AGAIN */
+        0107700,                    /*   77714:        CLC 0,C       */
+        0017756,                    /*   77715:        JSB BTCTL     SEND TALK, CL-RD,BUS HOLDER */
+        0002300,                    /*   77716:        CCE           */
+        0017756,                    /*   77717:        JSB BTCTL     TELL CARD TO LISTEN */
+        0063776,                    /*   77720:        LDA DMACW     LOAD DMA CONTROL WORD */
+        0102606,                    /*   77721:        OTA 6         OUTPUT TO DCPC */
+        0106702,                    /*   77722:        CLC 2         READY DCPC */
+        0063735,                    /*   77723:        LDA ADDR1     LOAD DMA BUFFER ADDRESS */
+        0102602,                    /*   77724:        OTA 2         OUTPUT TO DCPC */
+        0063740,                    /*   77725:        LDA DMAWC     LOAD DMA WORD COUNT */
+        0102702,                    /*   77726:        STC 2         READY DCPC */
+        0102602,                    /*   77727:        OTA 2         OUTPUT TO DCPC */
+        0103706,                    /*   77730:        STC 6,C       START DCPC */
+        0102206,                    /*   77731:  TEST  SFC 6         SKIP IF DMA NOT DONE */
+        0117750,                    /*   77732:        JSB ADDR2,I   SUCCESSFUL END OF TRANSFER */
+        0102310,                    /*   77733:        SFS IBI       SKIP IF DISC ABORTED TRANSFER */
+        0027731,                    /*   77734:        JMP TEST      RECHECK FOR TRANSFER END */
+        0102011,                    /*   77735:  ADDR1 HLT 11B       ERROR HALT */
+        0000677,                    /*   77736:  UNCLR OCT 677       UNLISTEN */
+        0000737,                    /*   77737:        OCT 737       UNTALK */
+        0176624,                    /*   77740:  DMAWC OCT 176624    UNIVERSAL CLEAR,LBO */
+        0000440,                    /*   77741:  LIST  OCT 440       LISTEN BUS ADDRESS 0 */
+        0000550,                    /*   77742:  CMSEC OCT 550       SECONDARY GET COMMAND */
+        0000000,                    /*   77743:  BOOT  OCT 0         COLD LOAD READ COMMAND */
+        0001000,                    /*   77744:  HDSEC OCT 1000      HEAD,SECTOR PLUS EOI */
+        0000677,                    /*   77745:  UNLST OCT 677       ATN,PRIMARY UNLISTEN,PARITY */
+        0000500,                    /*   77746:  TALK  OCT 500       SEND READ DATA */
+        0100740,                    /*   77747:  RDSEC OCT 100740    SECONDARY READ DATA */
+        0102055,                    /*   77750:  ADDR2 OCT 102055    BOOT EXTENSION STARTING ADDRESS */
+        0004003,                    /*   77751:  CTLP  OCT 4003      INT=LBO,T,CIC */
+        0000047,                    /*   77752:        OCT 47        PPE,L,T,CIC */
+        0004003,                    /*   77753:        OCT 4003      INT=LBO,T,CIC */
+        0000413,                    /*   77754:        OCT 413       ATN,P,L,CIC */
+        0001015,                    /*   77755:        OCT 1015      INT=EOI,P,L,CIC */
+        0000000,                    /*   77756:  BTCTL NOP           */
+        0107710,                    /*   77757:        CLC IBI,C     RESET IBI */
+        0063751,                    /*   77760:  BM    LDA CTLP      LOAD CONTROL WORD */
+        0102610,                    /*   77761:        OTA IBI       OUTPUT TO CONTROL REGISTER */
+        0102710,                    /*   77762:        STC IBI       RETURN IBI TO DATA MODE */
+        0037760,                    /*   77763:        ISZ BM        INCREMENT CONTROL WORD POINTER */
+        0002240,                    /*   77764:        SEZ,CME       */
+        0127756,                    /*   77765:        JMP BTCTL,I   RETURN */
+        0063736,                    /*   77766:  LABL  LDA UNCLR     LOAD DATA WORD */
+        0037766,                    /*   77767:        ISZ LABL      INCREMENT WORD POINTER */
+        0102610,                    /*   77770:        OTA IBI       OUTPUT TO HPIB */
+        0002021,                    /*   77771:        SSA,RSS       SKIP IF LAST WORD */
+        0027766,                    /*   77772:        JMP LABL      GO BACK FOR NEXT WORD */
+        0102310,                    /*   77773:        SFS IBI       SKIP IF LAST WORD SENT TO BUS */
+        0027773,                    /*   77774:        JMP *-1       RECHECK ACCEPTANCE */
+        0027757,                    /*   77775:        JMP BTCTL+1   */
+        0000010,                    /*   77776:  DMACW ABS IBI       */
+        0170100 } }                 /*   77777:        ABS -START    */
+    };
+
+/* Device boot routine.
+
+   This routine is called directly by the BOOT DA and LOAD DA commands to copy
+   the device bootstrap into the upper 64 words of the logical address space.
+   It is also called indirectly by a BOOT CPU or LOAD CPU command when the
+   specified HP 1000 loader ROM socket contains a 12992H ROM.
+
+   When called in response to a BOOT DA or LOAD DA command, the "unitno"
+   parameter indicates the unit number specified in the BOOT command or is zero
+   for the LOAD command, and "dptr" points at the DA device structure.  The
+   bootstrap supports loading only from the disc at bus address 0 only.  The
+   12992F loader ROM will be copied into memory and configured for the DA select
+   code.  The S register will be set as it would be by the front-panel
+   microcode.
+
+   When called for a BOOT/LOAD CPU command, the "unitno" parameter indicates the
+   select code to be used for configuration, and "dptr" will be NULL.  As above,
+   the 12992H loader ROM will be copied into memory and configured for the
+   specified select code.  The S register is assumed to be set correctly on
+   entry and is not modified.
+
+   The loader expects the S register to be is set as follows:
+
+      15  14  13  12  11  10   9   8   7   6   5   4   3   2   1   0
+     +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+     | ROM # | 0   1 |      select code      |   reserved    | head  |
+     +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+
+   Bit 12 must be 1 for a manual boot.  Bits 5-2 are nominally zero but are
+   reserved for the target operating system.  For example, RTE uses bit 5 to
+   indicate whether a standard (0) or reconfiguration (1) boot is desired.
 
    The boot routine sets bits 15-6 of the S register to appropriate values.
    Bits 5-3 and 1-0 retain their original values, so S should be set before
@@ -1149,83 +1293,27 @@ return result;
    than 0 is desired.
 */
 
-static const BOOT_ROM da_rom = {
-    0102501,                    /* START LIA 1         GET SWITCH REGISTER SETTING */
-    0100044,                    /*       LSL 4         SHIFT A LEFT 4 */
-    0006111,                    /*       CLE,SLB,RSS   SR BIT 12 SET FOR MANUAL BOOT? */
-    0100041,                    /*       LSL 1         NO. SHIFT HEAD # FOR RPL BOOT */
-    0001424,                    /*       ALR,ALR       SHIFT HEAD 2, CLEAR SIGN */
-    0033744,                    /*       IOR HDSEC     SET EOI BIT */
-    0073744,                    /*       STA HDSEC     PLACE IN COMMAND BUFFER */
-    0017756,                    /*       JSB BTCTL     SEND DUMMY,U-CLR,PP */
-    0102510,                    /*       LIA IBI       READ INPUT REGISTER */
-    0101027,                    /*       ASR 7         SHIFT DRIVE 0 RESPONSE TO LSB */
-    0002011,                    /*       SLA,RSS       DID DRIVE 0 RESPOND? */
-    0027710,                    /*       JMP *-3       NO, GO LOOK AGAIN */
-    0107700,                    /*       CLC 0,C       */
-    0017756,                    /*       JSB BTCTL     SEND TALK, CL-RD,BUS HOLDER */
-    0002300,                    /*       CCE           */
-    0017756,                    /*       JSB BTCTL     TELL CARD TO LISTEN */
-    0063776,                    /*       LDA DMACW     LOAD DMA CONTROL WORD */
-    0102606,                    /*       OTA 6         OUTPUT TO DCPC */
-    0106702,                    /*       CLC 2         READY DCPC */
-    0063735,                    /*       LDA ADDR1     LOAD DMA BUFFER ADDRESS */
-    0102602,                    /*       OTA 2         OUTPUT TO DCPC */
-    0063740,                    /*       LDA DMAWC     LOAD DMA WORD COUNT */
-    0102702,                    /*       STC 2         READY DCPC */
-    0102602,                    /*       OTA 2         OUTPUT TO DCPC */
-    0103706,                    /*       STC 6,C       START DCPC */
-    0102206,                    /* TEST  SFC 6         SKIP IF DMA NOT DONE */
-    0117750,                    /*       JSB ADDR2,I   SUCCESSFUL END OF TRANSFER */
-    0102310,                    /*       SFS IBI       SKIP IF DISC ABORTED TRANSFER */
-    0027731,                    /*       JMP TEST      RECHECK FOR TRANSFER END */
-    0102011,                    /* ADDR1 HLT 11B       ERROR HALT */
-    0000677,                    /* UNCLR OCT 677       UNLISTEN */
-    0000737,                    /*       OCT 737       UNTALK */
-    0176624,                    /* DMAWC OCT 176624    UNIVERSAL CLEAR,LBO */
-    0000440,                    /* LIST  OCT 440       LISTEN BUS ADDRESS 0 */
-    0000550,                    /* CMSEC OCT 550       SECONDARY GET COMMAND */
-    0000000,                    /* BOOT  OCT 0         COLD LOAD READ COMMAND */
-    0001000,                    /* HDSEC OCT 1000      HEAD,SECTOR PLUS EOI */
-    0000677,                    /* UNLST OCT 677       ATN,PRIMARY UNLISTEN,PARITY */
-    0000500,                    /* TALK  OCT 500       SEND READ DATA */
-    0100740,                    /* RDSEC OCT 100740    SECONDARY READ DATA */
-    0102055,                    /* ADDR2 OCT 102055    BOOT EXTENSION STARTING ADDRESS */
-    0004003,                    /* CTLP  OCT 4003      INT=LBO,T,CIC */
-    0000047,                    /*       OCT 47        PPE,L,T,CIC */
-    0004003,                    /*       OCT 4003      INT=LBO,T,CIC */
-    0000413,                    /*       OCT 413       ATN,P,L,CIC */
-    0001015,                    /*       OCT 1015      INT=EOI,P,L,CIC */
-    0000000,                    /* BTCTL NOP           */
-    0107710,                    /*       CLC IBI,C     RESET IBI */
-    0063751,                    /* BM    LDA CTLP      LOAD CONTROL WORD */
-    0102610,                    /*       OTA IBI       OUTPUT TO CONTROL REGISTER */
-    0102710,                    /*       STC IBI       RETURN IBI TO DATA MODE */
-    0037760,                    /*       ISZ BM        INCREMENT CONTROL WORD POINTER */
-    0002240,                    /*       SEZ,CME       */
-    0127756,                    /*       JMP BTCTL,I   RETURN */
-    0063736,                    /* LABL  LDA UNCLR     LOAD DATA WORD */
-    0037766,                    /*       ISZ LABL      INCREMENT WORD POINTER */
-    0102610,                    /*       OTA IBI       OUTPUT TO HPIB */
-    0002021,                    /*       SSA,RSS       SKIP IF LAST WORD */
-    0027766,                    /*       JMP LABL      GO BACK FOR NEXT WORD */
-    0102310,                    /*       SFS IBI       SKIP IF LAST WORD SENT TO BUS */
-    0027773,                    /*       JMP *-1       RECHECK ACCEPTANCE */
-    0027757,                    /*       JMP BTCTL+1   */
-    0000010,                    /* DMACW ABS IBI       */
-    0170100                     /*       ABS -START    */
-    };
-
-t_stat da_boot (int32 unitno, DEVICE *dptr)
+static t_stat da_boot (int32 unitno, DEVICE *dptr)
 {
-if (GET_BUSADR (da_unit [unitno].flags) != 0)           /* booting is supported on bus address 0 only */
-    return SCPE_NOFNC;                                  /* report "Command not allowed" if attempted */
+static const HP_WORD da_preserved   = 0000073u;             /* S-register bits 5-3 and 1-0 are preserved */
+static const HP_WORD da_manual_boot = 0010000u;             /* S-register bit 12 set for a manual boot */
+uint32 status;
 
-cpu_ibl (da_rom, da_dib.select_code,                    /* copy the boot ROM to memory and configure */
-         IBL_OPT | IBL_DS_HEAD,                         /*   the S register accordingly */
-         IBL_DS | IBL_MAN | IBL_SET_SC (da_dib.select_code));
+if (dptr == NULL)                                           /* if we are being called for a BOOT/LOAD CPU */
+    status = cpu_copy_loader (da_loaders, unitno,           /*   then copy the boot loader to memory */
+                              IBL_S_NOCLEAR, IBL_S_NOSET);  /*     but do not alter the S register */
 
-return SCPE_OK;
+else if (GET_BUSADR (da_unit [unitno].flags) != 0)          /* otherwise BOOT DA is supported on bus address 0 only */
+    return SCPE_NOFNC;                                      /*   so reject other addresses as unsupported */
+
+else                                                            /* otherwise this is a BOOT/LOAD DA */
+    status = cpu_copy_loader (da_loaders, da_dib.select_code,   /*   so copy the boot loader to memory */
+                              da_preserved, da_manual_boot);    /*     and configure the S register if 1000 CPU */
+
+if (status == 0)                                        /* if the copy failed */
+    return SCPE_NOFNC;                                  /*   then reject the command */
+else                                                    /* otherwise */
+    return SCPE_OK;                                     /*   the boot loader was successfully copied */
 }
 
 
@@ -1262,7 +1350,7 @@ return SCPE_OK;
        we match the diagnostic expectation below.
 */
 
-t_stat da_load_unload (UNIT *uptr, int32 value, CONST char *cptr, void *desc)
+static t_stat da_load_unload (UNIT *uptr, int32 value, CONST char *cptr, void *desc)
 {
 const int32 unit = uptr - da_unit;                          /* calculate the unit number */
 const t_bool load = (value != UNIT_UNLOAD);                 /* true if the heads are loading */
@@ -1759,7 +1847,7 @@ else {                                                      /* it is bus data (A
             if (icd_cntlr [unit].length > 0)                /* if there is more to transfer */
                 put_buffer_byte (&icd_cntlr [unit], data);  /*   then add the byte to the buffer */
 
-            /* fall into error_sink handler */
+        /* fall through into the error_sink handler */
 
         case error_sink:                                        /* sinking data after an error */
             if (TRACING (da_dev, DEB_XFER))

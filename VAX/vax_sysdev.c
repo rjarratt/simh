@@ -1,6 +1,6 @@
 /* vax_sysdev.c: VAX 3900 system-specific logic
 
-   Copyright (c) 1998-2013, Robert M Supnik
+   Copyright (c) 1998-2019, Robert M Supnik
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -33,6 +33,7 @@
    cmctl        memory controller
    sysd         system devices (SSC miscellany)
 
+   05-May-19    RMS     Removed Qbus memory space from register space
    20-Dec-13    RMS     Added unaligned register space access routines
    23-Dec-10    RMS     Added power clear call to boot routine (Mark Pizzolato)
    25-Oct-05    RMS     Automated CMCTL extended memory
@@ -309,8 +310,6 @@ extern int32 cqipc_rd (int32 pa);
 extern void cqipc_wr (int32 pa, int32 val, int32 lnt);
 extern int32 cqbic_rd (int32 pa);
 extern void cqbic_wr (int32 pa, int32 val, int32 lnt);
-extern int32 cqmem_rd (int32 pa);
-extern void cqmem_wr (int32 pa, int32 val, int32 lnt);
 extern int32 iccs_rd (void);
 extern int32 todr_rd (void);
 extern int32 rxcs_rd (void);
@@ -611,10 +610,8 @@ fprintf (st, "has no registers.  The boot ROM can be loaded with a binary byte s
 fprintf (st, "using the LOAD -r command:\n\n");
 fprintf (st, "    LOAD -r KA655X.BIN        load ROM image KA655X.BIN\n\n");
 fprintf (st, "When the simulator starts running (via the BOOT command), if the ROM has\n");
-fprintf (st, "not yet been loaded, an attempt will be made to automatically load the\n");
-fprintf (st, "ROM image from the file ka655x.bin in the current working directory.\n");
-fprintf (st, "If that load attempt fails, then a copy of the missing ROM file is\n");
-fprintf (st, "written to the current directory and the load attempt is retried.\n\n");
+fprintf (st, "not yet been loaded, an internal 'buit-in' copy of the KA655X.BIN image\n");
+fprintf (st, "will be loaded into the ROM address space and execution will be started.\n\n");
 fprintf (st, "ROM accesses a use a calibrated delay that slows ROM-based execution to\n");
 fprintf (st, "about 500K instructions per second.  This delay is required to make the\n");
 fprintf (st, "power-up self-test routines run correctly on very fast hosts.\n");
@@ -979,7 +976,7 @@ switch (rg) {
     case MT_SID:
     case MT_CONPC:
     case MT_CONPSL:                                     /* halt reg */
-        RSVD_OPND_FAULT;
+        RSVD_OPND_FAULT(WriteIPR);
 
     default:
         ssc_bto = ssc_bto | SSCBTO_BTO;                 /* set BTO */
@@ -1010,7 +1007,6 @@ struct reglink regtable[] = {
     { KABASE, KABASE+KASIZE, &ka_rd, &ka_wr },
     { CQBICBASE, CQBICBASE+CQBICSIZE, &cqbic_rd, &cqbic_wr },
     { CQIPCBASE, CQIPCBASE+CQIPCSIZE, &cqipc_rd, &cqipc_wr },
-    { CQMBASE, CQMBASE+CQMSIZE, &cqmem_rd, &cqmem_wr },
     { CDGBASE, CDGBASE+CDGSIZE, &cdg_rd, &cdg_wr },
     { 0, 0, NULL, NULL }
     };
@@ -1263,7 +1259,7 @@ for ( ; val != 0; val = val >> 1) {
 return odd;
 }
 
-/* SSC registers - byte/word merges done in WriteReg */
+/* SSC registers - byte/word merges done in ssc_wr */
 
 int32 ssc_rd (int32 pa)
 {
@@ -1704,6 +1700,8 @@ t_stat vax_boot (int32 flag, CONST char *ptr)
 {
 char gbuf[CBUFSIZE];
 
+if ((ptr = get_sim_sw (ptr)) == NULL)               /* get switches */
+    return SCPE_INVSW;
 get_glyph (ptr, gbuf, 0);                           /* get glyph */
 if (gbuf[0] && strcmp (gbuf, "CPU"))
     return SCPE_ARG;                                /* Only can specify CPU device */
@@ -1727,8 +1725,8 @@ if (*rom == 0) {                                        /* no boot? */
     r = cpu_load_bootcode (BOOT_CODE_FILENAME, BOOT_CODE_ARRAY, BOOT_CODE_SIZE, TRUE, 0);
     if (r != SCPE_OK)
         return r;
-    rom_wr_B (ROMBASE+4, sys_model ? 1 : 2);            /* Set Magic Byte to determine system type */
     }
+rom_wr_B (ROMBASE+4, sys_model ? 1 : 2);                /* Set Magic Byte to determine system type */
 sysd_powerup ();
 return SCPE_OK;
 }
@@ -1827,7 +1825,7 @@ if ((cptr == NULL) || (!*cptr))
 cptr = get_glyph (cptr, gbuf, 0);
 if (MATCH_CMD(gbuf, "VAXSERVER") == 0) {
     sys_model = 0;
-    strcpy (sim_name, "VAXServer 3900 (KA655)");
+    strcpy (sim_name, "VAXserver 3900 (KA655)");
     }
 else if (MATCH_CMD(gbuf, "MICROVAX") == 0) {
     sys_model = 1;
@@ -1841,14 +1839,14 @@ else if (MATCH_CMD(gbuf, "MICROVAX") == 0) {
     }
 else if (MATCH_CMD(gbuf, "VAXSTATION") == 0) {
 #if defined(USE_SIM_VIDEO) && defined(HAVE_LIBSDL)
-    strcpy (sim_name, "VAXStation 3900 (KA655)");
+    strcpy (sim_name, "VAXstation 3900 (KA655)");
     sys_model = 1;
     vc_dev.flags = vc_dev.flags & ~DEV_DIS;              /* enable QVSS */
     lk_dev.flags = lk_dev.flags & ~DEV_DIS;              /* enable keyboard */
     vs_dev.flags = vs_dev.flags & ~DEV_DIS;              /* enable mouse */
     reset_all (0);                                       /* reset everything */
 #else
-    return sim_messagef(SCPE_ARG, "Simulator built without Graphic Device Support");
+    return sim_messagef(SCPE_ARG, "Simulator built without Graphic Device Support\n");
 #endif
     }
 else
@@ -1858,7 +1856,7 @@ return SCPE_OK;
 
 t_stat cpu_print_model (FILE *st)
 {
-fprintf (st, "%s 3900 (KA655)", (sys_model ? "MicroVAX" : "VAXServer"));
+fprintf (st, "%s 3900 (KA655)", (sys_model ? "MicroVAX" : "VAXserver"));
 return SCPE_OK;
 }
 

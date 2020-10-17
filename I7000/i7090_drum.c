@@ -109,7 +109,7 @@ uint32 drm_cmd(UNIT * uptr, uint16 cmd, uint16 dev)
         /* Choose which part to use */
         uptr->u5 |= u << DRMSTA_UNITSHIFT;
         drum_addr = 0;          /* Set drum address */
-        chan_clear(chan, CHS_ATTN);     /* Clear attentions */
+        chan_clear_status(chan);
         /* Make sure drum is spinning */
         sim_activate(uptr, us_to_ticks(100));
         return SCPE_OK;
@@ -262,10 +262,6 @@ drm_detach(UNIT * uptr)
 t_stat
 drm_help (FILE *st, DEVICE *dptr, UNIT *uptr, int32 flag, const char *cptr)
 {
-   const char *cpu = cpu_description(&cpu_dev);
-   DIB        *dibp = (DIB *) dptr->ctxt;
-   int        ctype = dibp->ctype;
-
    fprintf (st, "%s\n\n", drm_description(dptr));
    fprintf (st, "Up to %d units of drum could be used\n", NUM_UNITS_DR);
    fprintf (st, "    sim> set %s UNITS=n  to set number of units\n", dptr->name);

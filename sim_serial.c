@@ -187,9 +187,9 @@ serial_open_devices = (struct open_serial_device *)realloc(serial_open_devices, 
 memset(&serial_open_devices[serial_open_device_count-1], 0, sizeof(serial_open_devices[serial_open_device_count-1]));
 serial_open_devices[serial_open_device_count-1].port = port;
 serial_open_devices[serial_open_device_count-1].line = line;
-strncpy(serial_open_devices[serial_open_device_count-1].name, name, sizeof(serial_open_devices[serial_open_device_count-1].name)-1);
+strlcpy(serial_open_devices[serial_open_device_count-1].name, name, sizeof(serial_open_devices[serial_open_device_count-1].name));
 if (config)
-    strncpy(serial_open_devices[serial_open_device_count-1].config, config, sizeof(serial_open_devices[serial_open_device_count-1].config)-1);
+    strlcpy(serial_open_devices[serial_open_device_count-1].config, config, sizeof(serial_open_devices[serial_open_device_count-1].config));
 return &serial_open_devices[serial_open_device_count-1];
 }
 
@@ -338,17 +338,21 @@ int number = sim_serial_devices(SER_MAX_DEVICE, list);
 fprintf(st, "Serial devices:\n");
 if (number == -1)
     fprintf(st, "  serial support not available in simulator\n");
-else
-if (number == 0)
-    fprintf(st, "  no serial devices are available\n");
 else {
-    size_t min, len;
-    int i;
-    for (i=0, min=0; i<number; i++)
-        if ((len = strlen(list[i].name)) > min)
-            min = len;
-    for (i=0; i<number; i++)
-        fprintf(st," ser%d\t%-*s%s%s%s\n", i, (int)min, list[i].name, list[i].desc[0] ? " (" : "", list[i].desc, list[i].desc[0] ? ")" : "");
+    if (number == 0) {
+        fprintf(st, "  no serial devices are available.\n");
+        fprintf(st, "You may need to run with privilege or set device permissions\n");
+        fprintf(st, "to access local serial ports\n");
+        }
+    else {
+        size_t min, len;
+        int i;
+        for (i=0, min=0; i<number; i++)
+            if ((len = strlen(list[i].name)) > min)
+                min = len;
+        for (i=0; i<number; i++)
+            fprintf(st," ser%d\t%-*s%s%s%s\n", i, (int)min, list[i].name, list[i].desc[0] ? " (" : "", list[i].desc, list[i].desc[0] ? ")" : "");
+        }
     }
 if (serial_open_device_count) {
     int i;
@@ -358,7 +362,7 @@ if (serial_open_device_count) {
     for (i=0; i<serial_open_device_count; i++) {
         d = sim_serial_getdesc_byname(serial_open_devices[i].name, desc);
         fprintf(st, " %s\tLn%02d %s%s%s%s\tConfig: %s\n", serial_open_devices[i].line->mp->dptr->name, (int)(serial_open_devices[i].line->mp->ldsc-serial_open_devices[i].line),
-                    serial_open_devices[i].line->destination, d ? " {" : "", d ? d : "", d ? ")" : "", serial_open_devices[i].line->serconfig);
+                    serial_open_devices[i].line->destination, ((d != NULL) && (*d != '\0')) ? " (" : "", ((d != NULL) && (*d != '\0'))  ? d : "", ((d != NULL) && (*d != '\0'))  ? ")" : "", serial_open_devices[i].line->serconfig);
         }
     }
 return SCPE_OK;
@@ -422,6 +426,8 @@ if (port == INVALID_HANDLE) {
     }
 
 status = sim_config_serial (port, config);              /* set serial configuration */
+if ((lp) && (status == SCPE_OK))                        /* line specified? */
+    status = tmxr_set_config_line (lp, config);         /* set line speed parameters */
 
 if (status != SCPE_OK) {                                /* port configuration error? */
     sim_close_serial (port);                            /* close the port */
@@ -442,8 +448,8 @@ return port;
 
 void sim_close_serial (SERHANDLE port)
 {
-sim_close_os_serial (port);
 _serial_remove_from_open_list (port);
+sim_close_os_serial (port);
 }
 
 t_stat sim_config_serial  (SERHANDLE port, CONST char *sconfig)
@@ -805,7 +811,7 @@ if (bits_to_clear&TMXR_MDM_RTS)
         }
 if (incoming_bits) {
     DWORD ModemStat;
-    if (GetCommModemStatus (port->hPort, &ModemStat)) {
+    if (!GetCommModemStatus (port->hPort, &ModemStat)) {
         sim_error_serial ("GetCommModemStatus", (int) GetLastError ());
         return SCPE_IOERR;
         }
@@ -845,6 +851,7 @@ DWORD commerrors;
 COMSTAT cs;
 char *bptr;
 
+memset (brk, 0, count);                                 /* start with no break indicators */
 if (!ClearCommError (port->hPort, &commerrors, &cs)) {  /* get the comm error flags  */
     sim_error_serial ("ClearCommError",                 /* function failed; report unexpected error */
                       (int) GetLastError ());
@@ -945,12 +952,12 @@ int ports = 0;
 memset(list, 0, max*sizeof(*list));
 #if defined(__linux) || defined(__linux__)
 if (1) {
-    struct dirent **namelist;
+    struct dirent **namelist = NULL;
     struct stat st;
 
     i = scandir("/sys/class/tty/", &namelist, NULL, NULL);
 
-    while (i--) {
+    while (0 < i--) {
         if (strcmp(namelist[i]->d_name, ".") &&
             strcmp(namelist[i]->d_name, "..")) {
             char path[1024], devicepath[1024], driverpath[1024];

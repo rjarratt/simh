@@ -55,7 +55,7 @@ extern UNIT         cpu_unit;
 extern uint16       IC;
 extern t_uint64     MQ;
 extern uint32       drum_addr;
-extern uint32       hsdrm_addr;
+extern t_uint64     hsdrm_addr;
 
 t_stat              chan_reset(DEVICE * dptr);
 void                chan_fetch(int chan);
@@ -79,7 +79,7 @@ uint8               cmd[NUM_CHAN];            /* Current command */
 uint16              wcount[NUM_CHAN];         /* Word count */
 t_uint64            assembly[NUM_CHAN];       /* Assembly register */
 uint16              location[NUM_CHAN];       /* Pointer to next opcode */
-uint32              chan_flags[NUM_CHAN];    /* Unit status */
+uint32              chan_flags[NUM_CHAN];     /* Unit status */
 uint16              chan_info[NUM_CHAN];      /* Private channel info */
 uint8               counter[NUM_CHAN];        /* Channel counter */
 uint8               sms[NUM_CHAN];            /* Channel mode infomation */
@@ -329,7 +329,9 @@ void
 chan_proc()
 {
     int                 chan;
+#ifdef I7090
     int                 cmask;
+#endif
 
     /* Scan channels looking for work */
     for (chan = 0; chan < NUM_CHAN; chan++) {
@@ -341,13 +343,11 @@ chan_proc()
         if (chan_flags[chan] & DEV_DISCO)
             continue;
 
+#ifdef I7090
         cmask = 0x0100 << chan;
+#endif
         switch (CHAN_G_TYPE(chan_unit[chan].flags)) {
         case CHAN_PIO:
-            if (chan_flags[chan] & CHS_ATTN) {
-                chan_flags[chan] &=
-                    ~(CHS_ATTN | STA_START | STA_ACTIVE | STA_WAIT);
-            }
             if ((chan_flags[chan] & (DEV_REOR|DEV_SEL|DEV_FULL)) ==
                         (DEV_SEL|DEV_REOR))  {
                 sim_debug(DEBUG_DETAIL, &chan_dev, "chan got EOR\n");
@@ -360,10 +360,10 @@ chan_proc()
             /* On first command, copy it to drum address and load another */
             if ((chan_info[chan] & (CHAINF_RUN | CHAINF_START)) ==
                 CHAINF_START) {
-                hsdrm_addr = (int)M[location[chan] - 1];
+                hsdrm_addr = M[location[chan] - 1];
                 chan_info[chan] |= CHAINF_RUN;
                 if (chan_dev.dctrl & cmask)
-                    sim_debug(DEBUG_DETAIL, &chan_dev, "chan %d HDaddr %06o\n",
+                    sim_debug(DEBUG_DETAIL, &chan_dev, "chan %d HDaddr %012llo\n",
                               chan, hsdrm_addr);
                 chan_fetch(chan);
                 continue;
@@ -399,7 +399,6 @@ chan_proc()
                         iotraps |= 1 << chan;
                         break;
                 }
-                iotraps |= 1LL << (chan + 18);
                 if (chan_dev.dctrl & cmask)
                      sim_debug(DEBUG_DETAIL, &chan_dev,
                         "chan %d attn< %o\n", chan, cmd[chan] & 070);
@@ -500,9 +499,8 @@ chan_proc()
                         chan_flags[chan] |= DEV_DISCO | DEV_WEOR;
                         chan_flags[chan] &=
                             ~(STA_START | STA_ACTIVE | STA_PEND);
-                        if (CHAN_G_TYPE(chan_unit[chan].flags) ==
-                            CHAN_7289)  {
-                                iotraps |= 1 << chan;
+                        if (CHAN_G_TYPE(chan_unit[chan].flags) == CHAN_7289)  {
+                            iotraps |= 1 << chan;
                             sim_debug(DEBUG_TRAP, &chan_dev, "chan %d Trap\n",
                                      chan);
                         }
@@ -816,8 +814,7 @@ chan_proc()
                             uptr = (*dptr)->units;
                             for (j = 0; j < num; j++, uptr++) {
                                 if ((uptr->flags & UNIT_DIS) == 0 &&
-                                    UNIT_G_CHAN(uptr->flags) ==
-                                          (unsigned int)chan &&
+                                    UNIT_G_CHAN(uptr->flags) == chan &&
                                     (sms[chan] & 1) ==
                                           ((UNIT_SELECT & uptr->flags) != 0)) {
                                     goto found;
@@ -845,8 +842,8 @@ chan_proc()
                         case SCPE_NODEV:
                             chan9_set_error(chan, SNS_IOCHECK);
                             iotraps |= 1 << chan;
-                            chan_flags[chan] &=
-                        ~(CTL_PREAD|CTL_PWRITE|CTL_SNS|CTL_CNTL|STA_ACTIVE);
+                            chan_flags[chan] &= ~(CTL_PREAD|CTL_PWRITE|CTL_SNS|
+                                 CTL_CNTL|STA_ACTIVE);
                             continue;
                         case SCPE_BUSY: /* Device not ready yet, wait */
                             continue;
@@ -1249,7 +1246,7 @@ int
 chan_cmd(uint16 dev, uint16 dcmd)
 {
     UNIT               *uptr;
-    uint32              chan;
+    int32               chan;
     DEVICE            **dptr;
     DIB                *dibp;
     int                 j;
@@ -1266,7 +1263,9 @@ chan_cmd(uint16 dev, uint16 dcmd)
         if ((chan_flags[chan] & (DEV_FULL|DEV_WRITE)) == (DEV_FULL|DEV_WRITE))
             return SCPE_BUSY;
         /* Yes, disconnect device and tell it to write a EOR */
-        chan_flags[chan] |= DEV_DISCO | DEV_WEOR;
+        if ((chan_flags[chan] & (DEV_WRITE)) == (DEV_WRITE) ||
+            (chan_flags[chan] & (DEV_FULL)) == (DEV_FULL))
+            chan_flags[chan] |= DEV_DISCO | DEV_WEOR;
         return SCPE_BUSY;
     }
     /* Unit is busy doing something, wait */

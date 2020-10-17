@@ -501,8 +501,8 @@ REG cpu_reg[] = {
     { FLDATA (DRMOD, drmod, 0) },
     { FLDATA (SRPOS, srpos, 0) },
     { HRDATA (DRPOS, drpos, 3) },
-    { BRDATA (IRQ, int_req, 16, 32, 8) },
-    { BRDATA (IEN, int_enb, 16, 32, 8) },
+    { BRDATA (IRQ, int_req, 16, 32, 4) },
+    { BRDATA (IEN, int_enb, 16, 32, 4) },
     { HRDATA (QEVENT, qevent, 4), REG_HRO },
     { FLDATA (STOP_INST, stop_inst, 0) },
     { FLDATA (STOP_WAIT, stop_inst, 0) },
@@ -2001,7 +2001,7 @@ return SCPE_OK;
 t_stat cpu_show_hist (FILE *st, UNIT *uptr, int32 val, CONST void *desc)
 {
 int32 op, k, di, lnt;
-const char *cptr = (const char *) desc;
+CONST char *cptr = (CONST char *) desc;
 t_value sim_eval[2];
 t_stat r;
 InstHistory *h;

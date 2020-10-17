@@ -93,7 +93,8 @@
         sim_devices[]           array of pointers to simulated devices
         sim_PC                  pointer to saved PC register descriptor
         sim_interval            simulator interval to next event
-        sim_stop_messages[]     array of pointers to stop messages
+        sim_stop_messages[SCPE_BASE]     
+                                array of pointers to stop messages
         sim_instr()             instruction execution routine
         sim_load()              binary loader routine
         sim_emax                maximum number of words in an instruction
@@ -125,8 +126,18 @@ extern int sim_vax_snprintf(char *buf, size_t buf_size, const char *fmt, ...);
 #include <limits.h>
 #include <ctype.h>
 
+#ifndef EXIT_FAILURE
+#define EXIT_FAILURE 1
+#endif
+#ifndef EXIT_SUCCESS
+#define EXIT_SUCCESS 0
+#endif
+
+
 #ifdef _WIN32
 #include <winsock2.h>
+#include <windows.h>
+#include <winerror.h>
 #undef PACKED                       /* avoid macro name collision */
 #undef ERROR                        /* avoid macro name collision */
 #undef MEM_MAPPED                   /* avoid macro name collision */
@@ -136,11 +147,8 @@ extern int sim_vax_snprintf(char *buf, size_t buf_size, const char *fmt, ...);
 #ifdef USE_REGEX
 #undef USE_REGEX
 #endif
-#if defined(HAVE_PCREPOSIX_H)
-#include <pcreposix.h>
-#define USE_REGEX 1
-#elif defined(HAVE_REGEX_H)
-#include <regex.h>
+#if defined(HAVE_PCRE_H)
+#include <pcre.h>
 #define USE_REGEX 1
 #endif
 
@@ -236,10 +244,12 @@ typedef unsigned long           t_uint64;
 typedef t_int64         t_svalue;                       /* signed value */
 typedef t_uint64        t_value;                        /* value */
 #define T_VALUE_MAX     0xffffffffffffffffuLL
+#define T_SVALUE_MAX    0x7fffffffffffffffLL
 #else                                                   /* 32b data */
 typedef int32           t_svalue;
 typedef uint32          t_value;
 #define T_VALUE_MAX     0xffffffffUL
+#define T_SVALUE_MAX    0x7fffffffL
 #endif                                                  /* end 64b data */
 
 #if defined (USE_INT64) && defined (USE_ADDR64)         /* 64b address */
@@ -306,19 +316,20 @@ typedef uint32          t_addr;
 #define SIM_NOINLINE
 #endif
 
-/* Storage class modifier for weak link definition for sim_vm_init() */
+/* Packed structure support */
 
-#if defined(__cplusplus)
-#if defined(__GNUC__)
-#define WEAK __attribute__((weak))
-#elif defined(_MSC_VER)
-#define WEAK __declspec(selectany) 
+#ifdef _MSC_VER
+# define PACKED_BEGIN __pragma( pack(push, 1) )
+# define PACKED_END __pragma( pack(pop) )
 #else
-#define WEAK extern 
-#endif
+# define PACKED_BEGIN
+#if defined(_WIN32)
+# define PACKED_END __attribute__((gcc_struct, packed))
 #else
-#define WEAK 
+# define PACKED_END __attribute__((packed))
 #endif
+#endif
+
 
 /* System independent definitions */
 
@@ -398,15 +409,19 @@ typedef uint32          t_addr;
 #define SCPE_STALL      (SCPE_BASE + 41)                /* Telnet conn stall */
 #define SCPE_AFAIL      (SCPE_BASE + 42)                /* assert failed */
 #define SCPE_INVREM     (SCPE_BASE + 43)                /* invalid remote console command */
-#define SCPE_NOTATT     (SCPE_BASE + 44)                /* not attached */
-#define SCPE_EXPECT     (SCPE_BASE + 45)                /* expect matched */
-#define SCPE_AMBREG     (SCPE_BASE + 46)                /* ambiguous register */
-#define SCPE_REMOTE     (SCPE_BASE + 47)                /* remote console command */
+#define SCPE_EXPECT     (SCPE_BASE + 44)                /* expect matched */
+#define SCPE_AMBREG     (SCPE_BASE + 45)                /* ambiguous register */
+#define SCPE_REMOTE     (SCPE_BASE + 46)                /* remote console command */
+#define SCPE_INVEXPR    (SCPE_BASE + 47)                /* invalid expression */
+#define SCPE_SIGTERM    (SCPE_BASE + 48)                /* SIGTERM has been received */
+#define SCPE_FSSIZE     (SCPE_BASE + 49)                /* File System size larger than disk size */
+#define SCPE_RUNTIME    (SCPE_BASE + 50)                /* Run Time Limit Exhausted */
+#define SCPE_INCOMPDSK  (SCPE_BASE + 51)                /* Incompatible Disk Container */
 
-#define SCPE_MAX_ERR    (SCPE_BASE + 48)                /* Maximum SCPE Error Value */
-#define SCPE_KFLAG      0x1000                          /* tti data flag */
-#define SCPE_BREAK      0x2000                          /* tti break flag */
-#define SCPE_NOMESSAGE  0x10000000                      /* message display supression flag */
+#define SCPE_MAX_ERR    (SCPE_BASE + 51)                /* Maximum SCPE Error Value */
+#define SCPE_KFLAG      0x10000000                      /* tti data flag */
+#define SCPE_BREAK      0x20000000                      /* tti break flag */
+#define SCPE_NOMESSAGE  0x40000000                      /* message display supression flag */
 #define SCPE_BARE_STATUS(stat) ((stat) & ~(SCPE_NOMESSAGE|SCPE_KFLAG|SCPE_BREAK))
 
 /* Print value format codes */
@@ -415,6 +430,8 @@ typedef uint32          t_addr;
 #define PV_RSPC         1                               /* right, space fill */
 #define PV_RCOMMA       2                               /* right, space fill. Comma separate every 3 */
 #define PV_LEFT         3                               /* left justify */
+#define PV_RCOMMASIGN   6                               /* right, space fill. Comma separate every 3 treat as signed */
+#define PV_LEFTSIGN     7                               /* left justify treat as signed */
 
 /* Default timing parameters */
 
@@ -509,11 +526,11 @@ struct DEVICE {
 #define DEV_V_DYNM      2                               /* mem size dynamic */
 #define DEV_V_DEBUG     3                               /* debug capability */
 #define DEV_V_TYPE      4                               /* Attach type */
-#define DEV_S_TYPE      3                               /* Width of Type Field */
-#define DEV_V_SECTORS   7                               /* Unit Capacity is in 512byte sectors */
-#define DEV_V_DONTAUTO  8                               /* Do not auto detach already attached units */
-#define DEV_V_FLATHELP  9                               /* Use traditional (unstructured) help */
-#define DEV_V_NOSAVE    10                              /* Don't save device state */
+#define DEV_S_TYPE      4                               /* Width of Type Field */
+#define DEV_V_SECTORS   8                               /* Unit Capacity is in 512byte sectors */
+#define DEV_V_DONTAUTO  9                               /* Do not auto detach already attached units */
+#define DEV_V_FLATHELP  10                              /* Use traditional (unstructured) help */
+#define DEV_V_NOSAVE    11                              /* Don't save device state */
 #define DEV_V_UF_31     12                              /* user flags, V3.1 */
 #define DEV_V_UF        16                              /* user flags */
 #define DEV_V_RSV       31                              /* reserved */
@@ -533,8 +550,9 @@ struct DEVICE {
 #define DEV_DISK        (1 << DEV_V_TYPE)               /* sim_disk Attach */
 #define DEV_TAPE        (2 << DEV_V_TYPE)               /* sim_tape Attach */
 #define DEV_MUX         (3 << DEV_V_TYPE)               /* sim_tmxr Attach */
-#define DEV_ETHER       (4 << DEV_V_TYPE)               /* Ethernet Device */
-#define DEV_DISPLAY     (5 << DEV_V_TYPE)               /* Display Device */
+#define DEV_CARD        (4 << DEV_V_TYPE)               /* sim_card Attach */
+#define DEV_ETHER       (5 << DEV_V_TYPE)               /* Ethernet Device */
+#define DEV_DISPLAY     (6 << DEV_V_TYPE)               /* Display Device */
 #define DEV_TYPE(dptr)  ((dptr)->flags & DEV_TYPEMASK)
 
 #define DEV_UFMASK_31   (((1u << DEV_V_RSV) - 1) & ~((1u << DEV_V_UF_31) - 1))
@@ -575,9 +593,13 @@ struct UNIT {
     uint16              us9;                            /* device specific */
     uint16              us10;                           /* device specific */
     void                *tmxr;                          /* TMXR linkage */
+    uint32              recsize;                        /* Tape specific info */
+    t_addr              tape_eom;                       /* Tape specific info */
     t_bool              (*cancel)(UNIT *);
     double              usecs_remaining;                /* time balance for long delays */
     char                *uname;                         /* Unit name */
+    DEVICE              *dptr;                          /* DEVICE linkage (backpointer) */
+    uint32              dctrl;                          /* debug control */
 #ifdef SIM_ASYNCH_IO
     void                (*a_check_completion)(UNIT *);
     t_bool              (*a_is_active)(UNIT *);
@@ -627,13 +649,21 @@ struct UNIT {
 
 /* These flags are only set dynamically */
 
-#define UNIT_ATTMULT    0000001         /* Allow multiple attach commands */
-#define UNIT_TM_POLL    0000002         /* TMXR Polling unit */
-#define UNIT_NO_FIO     0000004         /* fileref is NOT a FILE * */
-#define UNIT_DISK_CHK   0000010         /* disk data debug checking (sim_disk) */
-#define UNIT_TMR_UNIT   0000020         /* Unit registered as a calibrated timer */
-#define UNIT_V_DF_TAPE  5               /* Bit offset for Tape Density reservation */
-#define UNIT_S_DF_TAPE  3               /* Bits Reserved for Tape Density */
+#define UNIT_ATTMULT        0000001         /* Allow multiple attach commands */
+#define UNIT_TM_POLL        0000002         /* TMXR Polling unit */
+#define UNIT_NO_FIO         0000004         /* fileref is NOT a FILE * */
+#define UNIT_DISK_CHK       0000010         /* disk data debug checking (sim_disk) */
+#define UNIT_TMR_UNIT       0000200         /* Unit registered as a calibrated timer */
+#define UNIT_TAPE_MRK       0000400         /* Tape Unit Tapemark */
+#define UNIT_TAPE_PNU       0001000         /* Tape Unit Position Not Updated */
+#define UNIT_V_DF_TAPE      10              /* Bit offset for Tape Density reservation */
+#define UNIT_S_DF_TAPE      3               /* Bits Reserved for Tape Density */
+#define UNIT_V_TAPE_FMT     13              /* Bit offset for Tape Format */
+#define UNIT_S_TAPE_FMT     4               /* Bits Reserved for Tape Format */
+#define UNIT_M_TAPE_FMT     (((1 << UNIT_S_TAPE_FMT) - 1) << UNIT_V_TAPE_FMT)
+#define UNIT_V_TAPE_ANSI    17              /* Bit offset for ANSI Tape Type */
+#define UNIT_S_TAPE_ANSI    4               /* Bits Reserved for ANSI Tape Type */
+#define UNIT_M_TAPE_ANSI    (((1 << UNIT_S_TAPE_ANSI) - 1) << UNIT_V_TAPE_ANSI)
 
 struct BITFIELD {
     const char      *name;                              /* field name */
@@ -656,6 +686,9 @@ struct REG {
     BITFIELD            *fields;                        /* bit fields */
     uint32              qptr;                           /* circ q ptr */
     size_t              str_size;                       /* structure size */
+    size_t              obj_size;                       /* sizeof(*loc) */
+    size_t              ele_size;                       /* sizeof(**loc) or sizeof(*loc) if depth == 1 */
+    const char          *macro;                         /* Initializer Macro Name */
     /* NOTE: Flags MUST always be last since it is initialized outside of macro definitions */
     uint32              flags;                          /* flags */
     };
@@ -719,8 +752,8 @@ struct MTAB {
     t_stat              (*disp)(FILE *st, UNIT *up, int32 v, CONST void *dp);
                                                         /* display routine */
     void                *desc;                          /* value descriptor */
-                                                        /* REG * if MTAB_VAL */
-                                                        /* int * if not */
+                                                        /* pointer to something needed by */
+                                                        /* the validation and/or display routines */
     const char          *help;                          /* help string */
     };
 
@@ -788,7 +821,8 @@ struct EXPTAB {
 #define EXP_TYP_REGEX_I         (SWMASK ('I'))      /* regular expression pattern matching should be case independent */
 #define EXP_TYP_TIME            (SWMASK ('T'))      /* halt delay is in microseconds instead of instructions */
 #if defined(USE_REGEX)
-    regex_t             regex;                          /* compiled regular expression */
+    pcre                *regex;                         /* compiled regular expression */
+    int                 re_nsub;                        /* regular expression sub expression count */
 #endif
     char                *act;                           /* action string */
     };
@@ -836,10 +870,6 @@ struct DEBTAB {
 #define DEBUG_PRI(d,m)  (sim_deb && (d.dctrl & (m)))
 #define DEBUG_PRJ(d,m)  (sim_deb && ((d)->dctrl & (m)))
 
-#define SIM_DBG_EVENT       0x10000
-#define SIM_DBG_ACTIVATE    0x20000
-#define SIM_DBG_AIO_QUEUE   0x40000
-
 /* Open File Reference */
 struct FILEREF {
     char                name[CBUFSIZE];                 /* file name */
@@ -863,163 +893,183 @@ struct MEMFILE {
 #define UDATA(act,fl,cap) NULL,act,NULL,NULL,NULL,0,0,(fl),0,(cap),0,NULL,0,0
 
 /* Internal use ONLY (see below) Generic Register declaration for all fields */
-#define _REGDATANF(nm,loc,rdx,wd,off,dep,desc,flds,qptr,siz) \
-    nm, (loc), (rdx), (wd), (off), (dep), (desc), (flds), (qptr), (siz)
+#define _REGDATANF(nm,loc,rdx,wd,off,dep,desc,flds,qptr,siz,elesiz,macro) \
+    nm, (loc), (rdx), (wd), (off), (dep), (desc), (flds), (qptr), (siz), sizeof(*(loc)), (elesiz), #macro
 
 #if defined (__STDC__) || defined (_WIN32) /* Variants which depend on how macro arguments are convered to strings */
 /* Generic Register declaration for all fields.  
    If the register structure is extended, this macro will be retained and a 
    new internal macro will be provided that populates the new register structure */
 #define REGDATA(nm,loc,rdx,wd,off,dep,desc,flds,fl,qptr,siz) \
-    _REGDATANF(#nm,&(loc),rdx,wd,off,dep,desc,flds,qptr,siz),(fl)
+    _REGDATANF(#nm,&(loc),rdx,wd,off,dep,desc,flds,qptr,siz,sizeof((loc)),REGDATA),(fl)
 #define REGDATAC(nm,loc,rdx,wd,off,dep,desc,flds,fl,qptr,siz) \
-    _REGDATANF(#nm,&(loc),rdx,wd,off,dep,desc,flds,qptr,siz),(fl)
+    _REGDATANF(#nm,&(loc),rdx,wd,off,dep,desc,flds,qptr,siz,sizeof((loc)),REGDATAC),(fl)
 /* Right Justified Octal Register Data */
 #define ORDATA(nm,loc,wd) \
-    _REGDATANF(#nm,&(loc),8,wd,0,1,NULL,NULL,0,0)
+    _REGDATANF(#nm,&(loc),8,wd,0,1,NULL,NULL,0,0,sizeof((loc)),ORDATA)
 #define ORDATAD(nm,loc,wd,desc) \
-    _REGDATANF(#nm,&(loc),8,wd,0,1,desc,NULL,0,0)
+    _REGDATANF(#nm,&(loc),8,wd,0,1,desc,NULL,0,0,sizeof((loc)),ORDATAD)
 #define ORDATADF(nm,loc,wd,desc,flds) \
-    _REGDATANF(#nm,&(loc),8,wd,0,1,desc,flds,0,0)
+    _REGDATANF(#nm,&(loc),8,wd,0,1,desc,flds,0,0,sizeof((loc)),ORDATADF)
 /* Right Justified Decimal Register Data */
 #define DRDATA(nm,loc,wd) \
-    _REGDATANF(#nm,&(loc),10,wd,0,1,NULL,NULL,0,0)
+    _REGDATANF(#nm,&(loc),10,wd,0,1,NULL,NULL,0,0,sizeof((loc)),DRDATA)
 #define DRDATAD(nm,loc,wd,desc) \
-    _REGDATANF(#nm,&(loc),10,wd,0,1,desc,NULL,0,0)
+    _REGDATANF(#nm,&(loc),10,wd,0,1,desc,NULL,0,0,sizeof((loc)),DRDATAD)
 #define DRDATADF(nm,loc,wd,desc,flds) \
-    _REGDATANF(#nm,&(loc),10,wd,0,1,desc,flds,0,0)
+    _REGDATANF(#nm,&(loc),10,wd,0,1,desc,flds,0,0,sizeof((loc)),DRDATADF)
 /* Right Justified Hexadecimal Register Data */
 #define HRDATA(nm,loc,wd) \
-    _REGDATANF(#nm,&(loc),16,wd,0,1,NULL,NULL,0,0)
+    _REGDATANF(#nm,&(loc),16,wd,0,1,NULL,NULL,0,0,sizeof((loc)),HRDATA)
 #define HRDATAD(nm,loc,wd,desc) \
-    _REGDATANF(#nm,&(loc),16,wd,0,1,desc,NULL,0,0)
+    _REGDATANF(#nm,&(loc),16,wd,0,1,desc,NULL,0,0,sizeof((loc)),HRDATAD)
 #define HRDATADF(nm,loc,wd,desc,flds) \
-    _REGDATANF(#nm,&(loc),16,wd,0,1,desc,flds,0,0)
+    _REGDATANF(#nm,&(loc),16,wd,0,1,desc,flds,0,0,sizeof((loc)),HRDATADF)
 /* Right Justified Binary Register Data */
 #define BINRDATA(nm,loc,wd) \
-    _REGDATANF(#nm,&(loc),2,wd,0,1,NULL,NULL,0,0)
+    _REGDATANF(#nm,&(loc),2,wd,0,1,NULL,NULL,0,0,sizeof((loc)),BINRDATA)
 #define BINRDATAD(nm,loc,wd,desc) \
-    _REGDATANF(#nm,&(loc),2,wd,0,1,desc,NULL,0,0)
+    _REGDATANF(#nm,&(loc),2,wd,0,1,desc,NULL,0,0,sizeof((loc)),BINRDATAD)
 #define BINRDATADF(nm,loc,wd,desc,flds) \
-    _REGDATANF(#nm,&(loc),2,wd,0,1,desc,flds,0,0)
+    _REGDATANF(#nm,&(loc),2,wd,0,1,desc,flds,0,0,sizeof((loc)),BINRDATADF)
 /* One-bit binary flag at an arbitrary offset in a 32-bit word Register */
 #define FLDATA(nm,loc,pos) \
-    _REGDATANF(#nm,&(loc),2,1,pos,1,NULL,NULL,0,0)
+    _REGDATANF(#nm,&(loc),2,1,pos,1,NULL,NULL,0,0,sizeof((loc)),FLDATA)
 #define FLDATAD(nm,loc,pos,desc) \
-    _REGDATANF(#nm,&(loc),2,1,pos,1,desc,NULL,0,0)
+    _REGDATANF(#nm,&(loc),2,1,pos,1,desc,NULL,0,0,sizeof((loc)),FLDATAD)
 #define FLDATADF(nm,loc,pos,desc,flds) \
-    _REGDATANF(#nm,&(loc),2,1,pos,1,desc,flds,0,0)
+    _REGDATANF(#nm,&(loc),2,1,pos,1,desc,flds,0,0,sizeof((loc)),FLDATADF)
 /* Arbitrary location and Radix Register */
 #define GRDATA(nm,loc,rdx,wd,pos) \
-    _REGDATANF(#nm,&(loc),rdx,wd,pos,1,NULL,NULL,0,0)
+    _REGDATANF(#nm,&(loc),rdx,wd,pos,1,NULL,NULL,0,0,sizeof((loc)),GRDATA)
 #define GRDATAD(nm,loc,rdx,wd,pos,desc) \
-    _REGDATANF(#nm,&(loc),rdx,wd,pos,1,desc,NULL,0,0)
+    _REGDATANF(#nm,&(loc),rdx,wd,pos,1,desc,NULL,0,0,sizeof((loc)),GRDATAD)
 #define GRDATADF(nm,loc,rdx,wd,pos,desc,flds) \
-    _REGDATANF(#nm,&(loc),rdx,wd,pos,1,desc,flds,0,0)
+    _REGDATANF(#nm,&(loc),rdx,wd,pos,1,desc,flds,0,0,sizeof((loc)),GRDATADF)
 /* Arrayed register whose data is kept in a standard C array Register */
 #define BRDATA(nm,loc,rdx,wd,dep) \
-    _REGDATANF(#nm,loc,rdx,wd,0,dep,NULL,NULL,0,0)
+    _REGDATANF(#nm,&(loc),rdx,wd,0,dep,NULL,NULL,0,0,sizeof(*(loc)),BRDATA)
 #define BRDATAD(nm,loc,rdx,wd,dep,desc) \
-    _REGDATANF(#nm,loc,rdx,wd,0,dep,desc,NULL,0,0)
+    _REGDATANF(#nm,&(loc),rdx,wd,0,dep,desc,NULL,0,0,sizeof(*(loc)),BRDATAD)
 #define BRDATADF(nm,loc,rdx,wd,dep,desc,flds) \
-    _REGDATANF(#nm,loc,rdx,wd,0,dep,desc,flds,0,0)
+    _REGDATANF(#nm,&(loc),rdx,wd,0,dep,desc,flds,0,0,sizeof(*(loc)),BRDATADF)
+/* Range of memory whose data is successive scalar values accessed like an array Register */
+#define VBRDATA(nm,loc,rdx,wd,dep) \
+    _REGDATANF(#nm,&(loc),rdx,wd,0,dep,NULL,NULL,0,0,sizeof(loc),VBRDATA)
+#define VBRDATAD(nm,loc,rdx,wd,dep,desc) \
+    _REGDATANF(#nm,&(loc),rdx,wd,0,dep,desc,NULL,0,0,sizeof(loc),VBRDATAD)
+#define VBRDATADF(nm,loc,rdx,wd,dep,desc,flds) \
+    _REGDATANF(#nm,&(loc),rdx,wd,0,dep,desc,flds,0,0,sizeof(loc),VBRDATADF)
 /* Arrayed register whose data is part of the UNIT structure */
 #define URDATA(nm,loc,rdx,wd,off,dep,fl) \
-    _REGDATANF(#nm,&(loc),rdx,wd,off,dep,NULL,NULL,0,0),((fl) | REG_UNIT)
+    _REGDATANF(#nm,&(loc),rdx,wd,off,dep,NULL,NULL,0,0,sizeof((loc)),URDATA),((fl) | REG_UNIT)
 #define URDATAD(nm,loc,rdx,wd,off,dep,fl,desc) \
-    _REGDATANF(#nm,&(loc),rdx,wd,off,dep,desc,NULL,0,0),((fl) | REG_UNIT)
+    _REGDATANF(#nm,&(loc),rdx,wd,off,dep,desc,NULL,0,0,sizeof((loc)),URDATAD),((fl) | REG_UNIT)
 #define URDATADF(nm,loc,rdx,wd,off,dep,fl,desc,flds) \
-    _REGDATANF(#nm,&(loc),rdx,wd,off,dep,desc,flds,0,0),((fl) | REG_UNIT)
+    _REGDATANF(#nm,&(loc),rdx,wd,off,dep,desc,flds,0,0,sizeof((loc)),URDATADF),((fl) | REG_UNIT)
 /* Arrayed register whose data is part of an arbitrary structure */
 #define STRDATA(nm,loc,rdx,wd,off,dep,siz,fl) \
-    _REGDATANF(#nm,&(loc),rdx,wd,off,dep,NULL,NULL,0,siz),((fl) | REG_STRUCT)
+    _REGDATANF(#nm,&(loc),rdx,wd,off,dep,NULL,NULL,0,siz,sizeof((loc)),STRDATA),((fl) | REG_STRUCT)
 #define STRDATAD(nm,loc,rdx,wd,off,dep,siz,fl,desc) \
-    _REGDATANF(#nm,&(loc),rdx,wd,off,dep,desc,NULL,0,siz),((fl) | REG_STRUCT)
+    _REGDATANF(#nm,&(loc),rdx,wd,off,dep,desc,NULL,0,siz,sizeof((loc)),STRDATAD),((fl) | REG_STRUCT)
 #define STRDATADF(nm,loc,rdx,wd,off,dep,siz,fl,desc,flds) \
-    _REGDATANF(#nm,&(loc),rdx,wd,off,dep,desc,flds,0,siz),((fl) | REG_STRUCT)
-#define BIT(nm)              {#nm, 0xffffffff, 1}             /* Single Bit definition */
-#define BITNC                {"",  0xffffffff, 1}             /* Don't care Bit definition */
-#define BITF(nm,sz)          {#nm, 0xffffffff, sz}            /* Bit Field definition */
-#define BITNCF(sz)           {"",  0xffffffff, sz}            /* Don't care Bit Field definition */
-#define BITFFMT(nm,sz,fmt)   {#nm, 0xffffffff, sz, NULL, #fmt}/* Bit Field definition with Output format */
-#define BITFNAM(nm,sz,names) {#nm, 0xffffffff, sz, names}     /* Bit Field definition with value->name map */
+    _REGDATANF(#nm,&(loc),rdx,wd,off,dep,desc,flds,0,siz,sizeof((loc)),STRDATADF),((fl) | REG_STRUCT)
+/* Hidden Blob of Data - Only used for SAVE/RESTORE */
+#define SAVEDATA(nm,loc) \
+    _REGDATANF(#nm,&(loc),0,8,0,1,NULL,NULL,0,sizeof(loc),sizeof(loc),SAVEDATA),(REG_HRO)
+#define BIT(nm)              {#nm, 0xffffffff, 1,  NULL, NULL}  /* Single Bit definition */
+#define BITNC                {"",  0xffffffff, 1,  NULL, NULL}  /* Don't care Bit definition */
+#define BITF(nm,sz)          {#nm, 0xffffffff, sz, NULL, NULL}  /* Bit Field definition */
+#define BITNCF(sz)           {"",  0xffffffff, sz, NULL, NULL}  /* Don't care Bit Field definition */
+#define BITFFMT(nm,sz,fmt)   {#nm, 0xffffffff, sz, NULL, #fmt}  /* Bit Field definition with Output format */
+#define BITFNAM(nm,sz,names) {#nm, 0xffffffff, sz, names,NULL}  /* Bit Field definition with value->name map */
 #else /* For non-STD-C compiler which can't stringify macro arguments with # */
 /* Generic Register declaration for all fields.  
    If the register structure is extended, this macro will be retained and a 
    new macro will be provided that populates the new register structure */
 #define REGDATA(nm,loc,rdx,wd,off,dep,desc,flds,fl,qptr,siz) \
-    _REGDATANF("nm",&(loc),rdx,wd,off,dep,desc,flds,qptr,siz),(fl)
+    _REGDATANF("nm",&(loc),rdx,wd,off,dep,desc,flds,qptr,siz,sizeof((loc)),REGDATA),(fl)
 #define REGDATAC(nm,loc,rdx,wd,off,dep,desc,flds,fl,qptr,siz) \
-    _REGDATANF("nm",&(loc),rdx,wd,off,dep,desc,flds,qptr,siz),(fl)
+    _REGDATANF("nm",&(loc),rdx,wd,off,dep,desc,flds,qptr,siz,sizeof((loc)),REGDATAC),(fl)
 /* Right Justified Octal Register Data */
 #define ORDATA(nm,loc,wd) \
-    _REGDATANF("nm",&(loc),8,wd,0,1,NULL,NULL,0,0)
+    _REGDATANF("nm",&(loc),8,wd,0,1,NULL,NULL,0,0,sizeof((loc)),ORDATA)
 #define ORDATAD(nm,loc,wd,desc) \
-    _REGDATANF("nm",&(loc),8,wd,0,1,desc,NULL,0,0)
+    _REGDATANF("nm",&(loc),8,wd,0,1,desc,NULL,0,0,sizeof((loc)),ORDATAD)
 #define ORDATADF(nm,loc,wd,desc,flds) \
-    _REGDATANF("nm",&(loc),8,wd,0,1,desc,flds,0,0)
+    _REGDATANF("nm",&(loc),8,wd,0,1,desc,flds,0,0,sizeof((loc)),ORDATADF)
 /* Right Justified Decimal Register Data */
 #define DRDATA(nm,loc,wd) \
-    _REGDATANF("nm",&(loc),10,wd,0,1,NULL,NULL,0,0)
+    _REGDATANF("nm",&(loc),10,wd,0,1,NULL,NULL,0,0,sizeof((loc)),DRDATA)
 #define DRDATAD(nm,loc,wd,desc) \
-    _REGDATANF("nm",&(loc),10,wd,0,1,desc,NULL,0,0)
+    _REGDATANF("nm",&(loc),10,wd,0,1,desc,NULL,0,0,sizeof((loc)),DRDATAD)
 #define DRDATADF(nm,loc,wd,desc,flds) \
-    _REGDATANF("nm",&(loc),10,wd,0,1,desc,flds,0,0)
+    _REGDATANF("nm",&(loc),10,wd,0,1,desc,flds,0,0,sizeof((loc)),DRDATADF)
 /* Right Justified Hexadecimal Register Data */
 #define HRDATA(nm,loc,wd) \
-    _REGDATANF("nm",&(loc),16,wd,0,1,NULL,NULL,0,0)
+    _REGDATANF("nm",&(loc),16,wd,0,1,NULL,NULL,0,0,sizeof((loc)),HRDATA)
 #define HRDATAD(nm,loc,wd,desc) \
-    _REGDATANF("nm",&(loc),16,wd,0,1,desc,NULL,0,0)
+    _REGDATANF("nm",&(loc),16,wd,0,1,desc,NULL,0,0,sizeof((loc)),HRDATAD)
 #define HRDATADF(nm,loc,wd,desc,flds) \
-    _REGDATANF("nm",&(loc),16,wd,0,1,desc,flds,0,0)
+    _REGDATANF("nm",&(loc),16,wd,0,1,desc,flds,0,0,sizeof((loc)),HRDATADF)
 /* Right Justified Binary Register Data */
 #define BINRDATA(nm,loc,wd) \
-    _REGDATANF("nm",&(loc),2,wd,0,1,NULL,NULL,0,0)
+    _REGDATANF("nm",&(loc),2,wd,0,1,NULL,NULL,0,0,sizeof((loc)),BINRDATA)
 #define BINRDATAD(nm,loc,wd,desc) \
-    _REGDATANF("nm",&(loc),2,wd,0,1,desc,NULL,0,0)
+    _REGDATANF("nm",&(loc),2,wd,0,1,desc,NULL,0,0,sizeof((loc)),BINRDATAD)
 #define BINRDATADF(nm,loc,wd,desc,flds) \
-    _REGDATANF("nm",&(loc),2,wd,0,1,desc,flds,0,0)
+    _REGDATANF("nm",&(loc),2,wd,0,1,desc,flds,0,0,sizeof((loc)),BINRDATADF)
 /* One-bit binary flag at an arbitrary offset in a 32-bit word Register */
 #define FLDATA(nm,loc,pos) \
-    _REGDATANF("nm",&(loc),2,1,pos,1,NULL,NULL,0,0)
+    _REGDATANF("nm",&(loc),2,1,pos,1,NULL,NULL,0,0,sizeof((loc)),FLDATA)
 #define FLDATAD(nm,loc,pos,desc) \
-    _REGDATANF("nm",&(loc),2,1,pos,1,desc,NULL,0,0)
+    _REGDATANF("nm",&(loc),2,1,pos,1,desc,NULL,0,0,sizeof((loc)),FLDATAD)
 #define FLDATADF(nm,loc,pos,desc,flds) \
-    _REGDATANF("nm",&(loc),2,1,pos,1,desc,flds,0,0)
+    _REGDATANF("nm",&(loc),2,1,pos,1,desc,flds,0,0,sizeof((loc)),FLDATADF)
 /* Arbitrary location and Radix Register */
 #define GRDATA(nm,loc,rdx,wd,pos) \
-    _REGDATANF("nm",&(loc),rdx,wd,pos,1,NULL,NULL,0,0)
+    _REGDATANF("nm",&(loc),rdx,wd,pos,1,NULL,NULL,0,0,sizeof((loc)),GRDATA)
 #define GRDATAD(nm,loc,rdx,wd,pos,desc) \
-    _REGDATANF("nm",&(loc),rdx,wd,pos,1,desc,NULL,0,0)
+    _REGDATANF("nm",&(loc),rdx,wd,pos,1,desc,NULL,0,0,sizeof((loc)),GRDATAD)
 #define GRDATADF(nm,loc,rdx,wd,pos,desc,flds) \
-    _REGDATANF("nm",&(loc),rdx,wd,pos,1,desc,flds,0,0)
+    _REGDATANF("nm",&(loc),rdx,wd,pos,1,desc,flds,0,0,sizeof((loc)),GRDATADF)
 /* Arrayed register whose data is kept in a standard C array Register */
 #define BRDATA(nm,loc,rdx,wd,dep) \
-    _REGDATANF("nm",loc,rdx,wd,0,dep,NULL,NULL,0,0)
+    _REGDATANF("nm",&(loc),rdx,wd,0,dep,NULL,NULL,0,0,sizeof(*(loc)),BRDATA)
 #define BRDATAD(nm,loc,rdx,wd,dep,desc) \
-    _REGDATANF("nm",loc,rdx,wd,0,dep,desc,NULL,0,0)
+    _REGDATANF("nm",&(loc),rdx,wd,0,dep,desc,NULL,0,0,sizeof(*(loc)),BRDATAD)
 #define BRDATADF(nm,loc,rdx,wd,dep,desc,flds) \
-    _REGDATANF("nm",loc,rdx,wd,0,dep,desc,flds,0,0)
+    _REGDATANF("nm",&(loc),rdx,wd,0,dep,desc,flds,0,0,sizeof(*(loc)),BRDATADF)
+/* Range of memory whose data is successive scalar values accessed like an array Register */
+#define VBRDATA(nm,loc,rdx,wd,dep) \
+    _REGDATANF("nm",&(loc),rdx,wd,0,dep,NULL,NULL,0,0,sizeof(loc),VBRDATA)
+#define VBRDATAD(nm,loc,rdx,wd,dep,desc) \
+    _REGDATANF("nm",&(loc),rdx,wd,0,dep,desc,NULL,0,0,sizeof(loc),VBRDATAD)
+#define VBRDATADF(nm,loc,rdx,wd,dep,desc,flds) \
+    _REGDATANF("nm",&(loc),rdx,wd,0,dep,desc,flds,0,0,sizeof(loc),VBRDATADF)
 /* Arrayed register whose data is part of the UNIT structure */
 #define URDATA(nm,loc,rdx,wd,off,dep,fl) \
-    _REGDATANF("nm",&(loc),rdx,wd,off,dep,NULL,NULL,0,0),((fl) | REG_UNIT)
+    _REGDATANF("nm",&(loc),rdx,wd,off,dep,NULL,NULL,0,0,sizeof((loc)),URDATA),((fl) | REG_UNIT)
 #define URDATAD(nm,loc,rdx,wd,off,dep,fl,desc) \
-    _REGDATANF("nm",&(loc),rdx,wd,off,dep,desc,NULL,0,0),((fl) | REG_UNIT)
+    _REGDATANF("nm",&(loc),rdx,wd,off,dep,desc,NULL,0,0,sizeof((loc)),URDATAD),((fl) | REG_UNIT)
 #define URDATADF(nm,loc,rdx,wd,off,dep,fl,desc,flds) \
-    _REGDATANF("nm",&(loc),rdx,wd,off,dep,desc,flds,0,0),((fl) | REG_UNIT)
+    _REGDATANF("nm",&(loc),rdx,wd,off,dep,desc,flds,0,0,sizeof((loc)),URDATADF),((fl) | REG_UNIT)
 /* Arrayed register whose data is part of an arbitrary structure */
 #define STRDATA(nm,loc,rdx,wd,off,dep,siz,fl) \
-    _REGDATANF("nm",&(loc),rdx,wd,off,dep,NULL,NULL,0,siz),((fl) | REG_STRUCT)
+    _REGDATANF("nm",&(loc),rdx,wd,off,dep,NULL,NULL,0,siz,sizeof((loc)),STRDATA),((fl) | REG_STRUCT)
 #define STRDATAD(nm,loc,rdx,wd,off,dep,siz,fl,desc) \
-    _REGDATANF("nm",&(loc),rdx,wd,off,dep,desc,NULL,0,siz),((fl) | REG_STRUCT)
+    _REGDATANF("nm",&(loc),rdx,wd,off,dep,desc,NULL,0,siz,sizeof((loc)),STRDATAD),((fl) | REG_STRUCT)
 #define STRDATADF(nm,loc,rdx,wd,off,dep,siz,fl,desc,flds) \
-    _REGDATANF("nm",&(loc),rdx,wd,off,dep,desc,flds,0,siz),((fl) | REG_STRUCT)
-#define BIT(nm)              {"nm", 0xffffffff, 1}              /* Single Bit definition */
-#define BITNC                {"",   0xffffffff, 1}              /* Don't care Bit definition */
-#define BITF(nm,sz)          {"nm", 0xffffffff, sz}             /* Bit Field definition */
-#define BITNCF(sz)           {"",   0xffffffff, sz}             /* Don't care Bit Field definition */
+    _REGDATANF("nm",&(loc),rdx,wd,off,dep,desc,flds,0,siz,sizeof((loc)),STRDATADF),((fl) | REG_STRUCT)
+/* Hidden Blob of Data - Only used for SAVE/RESTORE */
+#define SAVEDATA(nm,loc) \
+    _REGDATANF("nm",&(loc),0,8,0,1,NULL,NULL,0,sizeof(loc),sizeof(loc)),SAVEDATA),(REG_HRO)
+#define BIT(nm)              {"nm", 0xffffffff, 1,  NULL, NULL} /* Single Bit definition */
+#define BITNC                {"",   0xffffffff, 1,  NULL, NULL} /* Don't care Bit definition */
+#define BITF(nm,sz)          {"nm", 0xffffffff, sz, NULL, NULL} /* Bit Field definition */
+#define BITNCF(sz)           {"",   0xffffffff, sz, NULL, NULL} /* Don't care Bit Field definition */
 #define BITFFMT(nm,sz,fmt)   {"nm", 0xffffffff, sz, NULL, "fmt"}/* Bit Field definition with Output format */
-#define BITFNAM(nm,sz,names) {"nm", 0xffffffff, sz, names}      /* Bit Field definition with value->name map */
+#define BITFNAM(nm,sz,names) {"nm", 0xffffffff, sz, names,NULL} /* Bit Field definition with value->name map */
 #endif
 #define ENDBITS {NULL}  /* end of bitfield list */
 
@@ -1062,7 +1112,11 @@ extern int32 sim_asynch_latency;
 extern int32 sim_asynch_inst_latency;
 
 /* Thread local storage */
-#if defined(__GNUC__) && !defined(__APPLE__) && !defined(__hpux) && !defined(__OpenBSD__) && !defined(_AIX)
+#if defined(thread_local)
+#define AIO_TLS thread_local
+#elif (__STDC_VERSION__ >= 201112) && !(defined(__STDC_NO_THREADS__))
+#define AIO_TLS _Thread_local
+#elif defined(__GNUC__) && !defined(__APPLE__) && !defined(__hpux) && !defined(__OpenBSD__) && !defined(_AIX)
 #define AIO_TLS __thread
 #elif defined(_MSC_VER)
 #define AIO_TLS __declspec(thread)
@@ -1084,7 +1138,8 @@ extern int32 sim_asynch_inst_latency;
                     sim_debug (SIM_DBG_EVENT, sim_dflt_dev, "Queue Corruption detected\n");\
                     fclose(sim_deb);                            \
                     }                                           \
-                sim_printf("Queue Corruption detected\n");      \
+                sim_printf("Queue Corruption detected in %s line %d\n",\
+                           __FILE__, __LINE);                   \
                 abort();                                        \
                 }                                               \
         if (lock)                                               \
@@ -1147,14 +1202,11 @@ extern int32 sim_asynch_inst_latency;
 #define AIO_QUEUE_MODE "Lock free asynchronous event queue"
 #define AIO_INIT                                                  \
     do {                                                          \
-      int tmr;                                                    \
       sim_asynch_main_threadid = pthread_self();                  \
       /* Empty list/list end uses the point value (void *)1.      \
          This allows NULL in an entry's a_next pointer to         \
          indicate that the entry is not currently in any list */  \
       sim_asynch_queue = QUEUE_LIST_END;                          \
-      for (tmr=0; tmr<SIM_NTIMERS; tmr++)                         \
-          sim_clock_cosched_queue[tmr] = QUEUE_LIST_END;          \
       } while (0)
 #define AIO_CLEANUP                                               \
     do {                                                          \
@@ -1190,7 +1242,6 @@ extern int32 sim_asynch_inst_latency;
 #define AIO_QUEUE_MODE "Lock based asynchronous event queue"
 #define AIO_INIT                                                  \
     do {                                                          \
-      int tmr;                                                    \
       pthread_mutexattr_t attr;                                   \
                                                                   \
       pthread_mutexattr_init (&attr);                             \
@@ -1202,8 +1253,6 @@ extern int32 sim_asynch_inst_latency;
          This allows NULL in an entry's a_next pointer to         \
          indicate that the entry is not currently in any list */  \
       sim_asynch_queue = QUEUE_LIST_END;                          \
-      for (tmr=0; tmr<SIM_NTIMERS; tmr++)                         \
-          sim_clock_cosched_queue[tmr] = QUEUE_LIST_END;          \
       } while (0)
 #define AIO_CLEANUP                                               \
     do {                                                          \
@@ -1232,7 +1281,11 @@ extern int32 sim_asynch_inst_latency;
         sim_asynch_queue = uptr;                                       \
       }                                                                \
       if (sim_idle_wait) {                                             \
-        sim_debug (TIMER_DBG_IDLE, &sim_timer_dev, "waking due to event on %s after %d instructions\n", sim_uname(uptr), event_time);\
+        if (sim_deb) {  /* only while debug do lock/unlock overhead */ \
+          AIO_UNLOCK;                                                  \
+          sim_debug (TIMER_DBG_IDLE, &sim_timer_dev, "waking due to event on %s after %d instructions\n", sim_uname(uptr), event_time);\
+          AIO_LOCK;                                                    \
+          }                                                            \
         pthread_cond_signal (&sim_asynch_wake);                        \
         }                                                              \
       AIO_UNLOCK;                                                      \
@@ -1240,7 +1293,12 @@ extern int32 sim_asynch_inst_latency;
       return SCPE_OK;                                                  \
     } else (void)0
 #endif /* USE_AIO_INTRINSICS */
-#define AIO_VALIDATE if (!pthread_equal ( pthread_self(), sim_asynch_main_threadid )) {sim_printf("Improper thread context for operation\n"); abort();}
+#define AIO_VALIDATE(uptr)                                             \
+    if (!pthread_equal ( pthread_self(), sim_asynch_main_threadid )) { \
+      sim_printf("Improper thread context for operation on %s in %s line %d\n", \
+                   sim_uname(uptr), __FILE__, __LINE__);               \
+      abort();                                                         \
+      } else (void)0
 #define AIO_CHECK_EVENT                                                \
     if (0 > --sim_asynch_check) {                                      \
       AIO_UPDATE_QUEUE;                                                \
@@ -1256,7 +1314,7 @@ extern int32 sim_asynch_inst_latency;
 #define AIO_QUEUE_MODE "Asynchronous I/O is not available"
 #define AIO_UPDATE_QUEUE
 #define AIO_ACTIVATE(caller, uptr, event_time)
-#define AIO_VALIDATE
+#define AIO_VALIDATE(uptr)
 #define AIO_CHECK_EVENT
 #define AIO_INIT
 #define AIO_MAIN_THREAD TRUE

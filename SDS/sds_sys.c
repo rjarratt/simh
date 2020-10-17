@@ -83,7 +83,7 @@ DEVICE *sim_devices[] = {
     NULL
     };
 
-const char *sim_stop_messages[] = {
+const char *sim_stop_messages[SCPE_BASE] = {
     "Unknown error",
     "IO device not ready",
     "HALT instruction",
@@ -196,7 +196,7 @@ int32 col, rpt, ptr, mask, cctbuf[CCT_LNT];
 t_stat r;
 extern int32 lpt_ccl, lpt_ccp;
 extern uint8 lpt_cct[CCT_LNT];
-const char *cptr;
+CONST char *cptr;
 char cbuf[CBUFSIZE], gbuf[CBUFSIZE];
 
 ptr = 0;

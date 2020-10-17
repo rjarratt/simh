@@ -52,6 +52,7 @@ extern "C" {
 
 #if defined (_WIN32)                                    /* Windows */
 #include <winsock2.h>
+#include <winerror.h>
 
 #elif !defined (__OS2__) || defined (__EMX__)           /* VMS, Mac, Unix, OS/2 EMX */
 #include <sys/types.h>                                  /* for fcntl, getpid */
@@ -89,8 +90,10 @@ extern "C" {
 #endif
 #define WSAEACCES       EACCES
 #define WSAEINTR        EINTR
-#define INVALID_SOCKET  ((SOCKET)-1) 
-#define SOCKET_ERROR    -1
+#define INVALID_SOCKET  ((SOCKET)-1)
+#if !defined(SOCKET_ERROR)
+#define SOCKET_ERROR    (-1)
+#endif
 #endif
 
 #if defined (VMS)                                       /* VMS unique */
@@ -117,7 +120,7 @@ int sim_parse_addr_ex (const char *cptr, char *host, size_t hostlen, const char 
 SOCKET sim_master_sock_ex (const char *hostport, int *parse_status, int opt_flags);
 #define sim_master_sock(hostport, parse_status) sim_master_sock_ex(hostport, parse_status, ((sim_switches & SWMASK ('U')) ? SIM_SOCK_OPT_REUSEADDR : 0))
 SOCKET sim_connect_sock_ex (const char *sourcehostport, const char *hostport, const char *default_host, const char *default_port, int opt_flags);
-#define sim_connect_sock(hostport, default_host, default_port) sim_connect_sock_ex(NULL, hostport, default_host, default_port, 0)
+#define sim_connect_sock(hostport, default_host, default_port) sim_connect_sock_ex(NULL, hostport, default_host, default_port, SIM_SOCK_OPT_BLOCKING)
 SOCKET sim_accept_conn_ex (SOCKET master, char **connectaddr, int opt_flags);
 #define sim_accept_conn(master, connectaddr) sim_accept_conn_ex(master, connectaddr, 0)
 int sim_check_conn (SOCKET sock, int rd);

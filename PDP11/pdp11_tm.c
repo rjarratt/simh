@@ -230,8 +230,8 @@ MTAB tm_mod[] = {
         &tm_vlock, NULL, NULL, "Write enable tape drive" },
     { MTUF_WLK, MTUF_WLK, "write locked",  "LOCKED", 
         &tm_vlock, NULL, NULL, "Write lock tape drive"  },
-    { MTAB_XTD|MTAB_VUN|MTAB_VALR, 0,       "FORMAT", "FORMAT",
-        &sim_tape_set_fmt, &sim_tape_show_fmt, NULL, "Set/Display tape format (SIMH, E11, TPC, P7B)" },
+    { MTAB_XTD|MTAB_VUN|MTAB_VALR, 0, "FORMAT", "FORMAT",
+      &sim_tape_set_fmt, &sim_tape_show_fmt, NULL, "Set/Display tape format (SIMH, E11, TPC, P7B, AWS, TAR)" },
     { MTAB_XTD|MTAB_VUN|MTAB_VALR, 0,       "CAPACITY", "CAPACITY",
         &sim_tape_set_capac, &sim_tape_show_capac, NULL, "Set/Display capacity" },
     { MTAB_XTD|MTAB_VDV|MTAB_VALR, 010, "ADDRESS", "ADDRESS",
@@ -377,7 +377,7 @@ uptr->USTAT = uptr->USTAT & (STA_WLK | STA_ONL);        /* clear status */
 tm_sta = 0;                                             /* clear errors */
 if (f == MTC_UNLOAD) {                                  /* unload? */
     uptr->USTAT = (uptr->USTAT | STA_REW) & ~STA_ONL;
-    detach_unit (uptr);                                 /* set offline */
+    sim_tape_detach (uptr);                             /* set offline */
     }
 else if (f == MTC_REWIND)                               /* rewind */
     uptr->USTAT = uptr->USTAT | STA_REW;                /* rewinding */
@@ -720,14 +720,14 @@ size_t i;
 sim_tape_rewind (&tm_unit[unitno]);
 if (sim_switches & SWMASK ('O')) {
     for (i = 0; i < BOOT1_LEN; i++)
-        M[(BOOT_START >> 1) + i] = boot1_rom[i];
+        WrMemW (BOOT_START + (2 * i), boot1_rom[i]);
     }
 else {
     for (i = 0; i < BOOT2_LEN; i++)
-        M[(BOOT_START >> 1) + i] = boot2_rom[i];
+        WrMemW (BOOT_START + (2 * i), boot2_rom[i]);
     }
-M[BOOT_UNIT >> 1] = (uint16)unitno;
-M[BOOT_CSR >> 1] = (tm_dib.ba & DMASK) + 06;
+WrMemW (BOOT_UNIT, (uint16)unitno);
+WrMemW (BOOT_CSR, (tm_dib.ba & DMASK) + 06);
 cpu_set_boot (BOOT_ENTRY);
 return SCPE_OK;
 } 

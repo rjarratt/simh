@@ -111,7 +111,7 @@
                                         TC59D magnetic tape
                                         TC15/TU56 DECtape
                                         LT15/LT19 additional Teletypes
-					DR15C parallel interface to UC15
+                                        DR15C parallel interface to UC15
 
    ??Indicates not implemented.  The PDP-4 manual refers to a memory
    ??extension control; there is no documentation on it.
@@ -149,6 +149,9 @@
 #define DRM             0                               /* drum */
 #define RB              0                               /* fixed head disk */
 #define GRAPHICS2       0                               /* BTL display */
+#ifdef USE_DISPLAY
+#define TYPE340         0                               /* Type 340 display */
+#endif
 #elif defined (PDP9)
 #define ADDRSIZE        15
 #define TYPE647         0                               /* sixbit printer */
@@ -169,6 +172,7 @@
 #define MTA             0                               /* magtape */
 #define TC02            0                               /* DECtape */
 #define TTY1            16                              /* second Teletype(s) */
+#define UC15            0                               /* UC15 */
 #define BRMASK          0377400                         /* bounds mask */
 #define BRMASK_XVM      0777400                         /* bounds mask, XVM */
 #endif
@@ -283,6 +287,7 @@ typedef struct {
 #define DEV_PTP         002                             /* paper tape punch */
 #define DEV_TTI         003                             /* console input */
 #define DEV_TTO         004                             /* console output */
+#define DEV_DPY         005                             /* Type 340 */
 #define DEV_TTI1        041                             /* extra terminals */
 #define DEV_TTO1        040
 #define DEV_DRM         060                             /* drum */

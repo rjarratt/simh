@@ -258,6 +258,8 @@ typedef struct {
     uint16              psw;
     uint16              src;
     uint16              dst;
+    uint16              sp;
+    uint16              pad;
     uint16              inst[HIST_ILNT];
     } InstHistory;
 
@@ -360,9 +362,6 @@ extern void fp11 (int32 IR);
 extern t_stat cis11 (int32 IR);
 extern t_stat fis11 (int32 IR);
 extern t_stat build_dib_tab (void);
-extern t_stat show_iospace (FILE *st, UNIT *uptr, int32 val, CONST void *desc);
-extern t_stat set_autocon (UNIT *uptr, int32 val, CONST char *cptr, void *desc);
-extern t_stat show_autocon (FILE *st, UNIT *uptr, int32 val, CONST void *desc);
 extern t_stat iopageR (int32 *data, uint32 addr, int32 access);
 extern t_stat iopageW (int32 data, uint32 addr, int32 access);
 extern int32 calc_ints (int32 nipl, int32 trq);
@@ -625,9 +624,13 @@ MTAB cpu_mod[] = {
     { MTAB_XTD|MTAB_VDV, OPT_MMU, NULL, "NOMMU", &cpu_clr_opt },
     { MTAB_XTD|MTAB_VDV, OPT_BVT, NULL, "BEVENT", &cpu_set_opt, NULL, NULL, "Enable BEVENT line (11/03, 11/23 only)" },
     { MTAB_XTD|MTAB_VDV, OPT_BVT, NULL, "NOBEVENT", &cpu_clr_opt, NULL, NULL, "Disable BEVENT line (11/03, 11/23 only)" },
+    { UNIT_MSIZE, 8192, NULL, "8K", &cpu_set_size},
     { UNIT_MSIZE, 16384, NULL, "16K", &cpu_set_size},
+    { UNIT_MSIZE, 24576, NULL, "24K", &cpu_set_size},
     { UNIT_MSIZE, 32768, NULL, "32K", &cpu_set_size},
+    { UNIT_MSIZE, 40960, NULL, "40K", &cpu_set_size},
     { UNIT_MSIZE, 49152, NULL, "48K", &cpu_set_size},
+    { UNIT_MSIZE, 57344, NULL, "56K", &cpu_set_size},
     { UNIT_MSIZE, 65536, NULL, "64K", &cpu_set_size},
     { UNIT_MSIZE, 98304, NULL, "96K", &cpu_set_size},
     { UNIT_MSIZE, 131072, NULL, "128K", &cpu_set_size},
@@ -650,12 +653,8 @@ MTAB cpu_mod[] = {
     { MTAB_XTD|MTAB_VDV, 0, NULL, "NOAUTOCONFIG",
       &set_autocon, NULL },
 #else
-    { MTAB_XTD|MTAB_VDV, MOD_1104, NULL, "11/04", &cpu_set_model },
-    { MTAB_XTD|MTAB_VDV, MOD_1105, NULL, "11/05", &cpu_set_model },
-    { MTAB_XTD|MTAB_VDV, MOD_1120, NULL, "11/20", &cpu_set_model },
     { UNIT_MSIZE, 16384, NULL, "16K", &cpu_set_size},
     { UNIT_MSIZE, 24576, NULL, "24K", &cpu_set_size},
-    { UNIT_MSIZE, 32768, NULL, "32K", &cpu_set_size},
 #endif
     { MTAB_XTD|MTAB_VDV|MTAB_NMO, 0, "IOSPACE", NULL,
       NULL, &show_iospace },
@@ -930,12 +929,11 @@ while (reason == 0)  {
 
     reg_mods = 0;
     inst_pc = PC;
-    /* Save PSW also because condition codes need to be preserved.
-       We just save the whole PSW because that is sufficient (that
-       representation is up to date at this point).  If restoring is
-       needed, both the PSW and the components that need to be restored
-       are handled explicitly.  */
-    inst_psw = PSW;
+    /* Save PSW also because condition codes need to be preserved.  We
+       just save the whole PSW because that is sufficient.  If
+       restoring is needed, both the PSW and the components that need
+       to be restored are handled explicitly.  */
+    inst_psw = get_PSW ();
     saved_sim_interval = sim_interval;
     if (BPT_SUMM_PC) {                                  /* possible breakpoint */
         t_addr pa = relocR (PC | isenable);             /* relocate PC */
@@ -963,6 +961,7 @@ while (reason == 0)  {
             };
         hst_ent = &hst[hst_p];
         hst_ent->pc = PC | HIST_VLD;
+        hst_ent->sp = SP;
         hst_ent->psw = get_PSW ();
         hst_ent->src = 0;
         hst_ent->dst = 0;
@@ -3336,6 +3335,19 @@ else if (CPUT (HAS_STKLR)) {                            /* register limit? */
 return;                                                 /* no stack limit */
 }
 
+/*
+ * This sequence of instructions is a mix that mimics
+ * a resonable instruction set that is a close estimate
+ * to the normal calibrated result.
+ */
+
+static const char *pdp11_clock_precalibrate_commands[] = {
+    "-m 100 INC 120",
+    "-m 104 INC 122",
+    "-m 110 BR  100",
+    "PC 100",
+    NULL};
+
 /* Reset routine */
 
 t_stat cpu_reset (DEVICE *dptr)
@@ -3363,6 +3375,7 @@ if (M == NULL) {                    /* First time init */
                     SWMASK ('W')|SWMASK ('X');
     sim_brk_type_desc = cpu_breakpoints;
     sim_vm_is_subroutine_call = &cpu_is_pc_a_subroutine_call;
+    sim_clock_precalibrate_commands = pdp11_clock_precalibrate_commands;
     auto_config(NULL, 0);           /* do an initial auto configure */
     }
 pcq_r = find_reg ("PCQ", NULL, dptr);
@@ -3551,12 +3564,12 @@ else lnt = hst_lnt;
 di = hst_p - lnt;                                       /* work forward */
 if (di < 0)
     di = di + hst_lnt;
-fprintf (st, "PC     PSW     src    dst     IR\n\n");
+fprintf (st, "PC     SP     PSW     src    dst     IR\n\n");
 for (k = 0; k < lnt; k++) {                             /* print specified */
     h = &hst[(di++) % hst_lnt];                         /* entry pointer */
     if (h->pc & HIST_VLD) {                             /* instruction? */
         ir = h->inst[0];
-        fprintf (st, "%06o %06o|", h->pc & ~HIST_VLD, h->psw);
+        fprintf (st, "%06o %06o %06o|", h->pc & ~HIST_VLD, h->sp, h->psw);
         if (((ir & 0070000) != 0) ||                    /* dops, eis, fpp */
             ((ir & 0177000) == 0004000))                /* jsr */
             fprintf (st, "%06o %06o  ", h->src, h->dst);

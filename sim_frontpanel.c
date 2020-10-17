@@ -63,6 +63,7 @@ extern "C" {
 #if defined(_WIN32)
 #include <process.h>
 #include <windows.h>
+#include <winerror.h>
 #define sleep(n) Sleep(n*1000)
 #define msleep(n) Sleep(n)
 #define strtoull _strtoui64
@@ -92,7 +93,7 @@ return 0;
 #define CLOCK_REALTIME 1
 #define NEED_CLOCK_GETTIME 1
 #if !defined(HAVE_STRUCT_TIMESPEC)
-#define HAVE_STRUCT_TIMESPEC 1
+#define HAVE_STRUCT_TIMESPEC
 #if !defined(_TIMESPEC_DEFINED)
 #define _TIMESPEC_DEFINED
 struct timespec {
@@ -866,7 +867,7 @@ if (!simulator_panel) {
     p->pidProcess = fork();
     if (p->pidProcess == 0) {
         close (0); close (1); close (2);        /* make sure not to pass the open standard handles */
-        dup (dup (open ("/dev/null", O_RDWR))); /* open standard handles to /dev/null */
+        if (dup (dup (open ("/dev/null", O_RDWR)))) {}; /* open standard handles to /dev/null */
         if (execlp (sim_path, sim_path, p->temp_config, NULL, NULL)) {
             perror ("execl");
             exit(errno);
@@ -1792,8 +1793,9 @@ if (!panel || (panel->State == Error)) {
     sim_panel_set_error (NULL, "Invalid Panel");
     return -1;
     }
-if (_panel_sendf (panel, &cmd_stat, &response, "SHOW %s", device) ||
-    (cmd_stat)) {
+if ((device != NULL) &&
+    ((_panel_sendf (panel, &cmd_stat, &response, "SHOW %s", device) ||
+     (cmd_stat)))) {
     sim_panel_set_error (NULL, "Can't %s Debug Mode: '%s' on Device '%s': %s", 
                                set_unset ? "Enable" : "Disable", mode_bits ? mode_bits : "", device, response);
     free (response);
@@ -1802,7 +1804,7 @@ if (_panel_sendf (panel, &cmd_stat, &response, "SHOW %s", device) ||
 free (response);
 response = NULL;
 if (_panel_sendf (panel, &cmd_stat, &response, "%sDEBUG %s %s", 
-                         set_unset ? "" : "NO", device, mode_bits ? mode_bits : "") ||
+                         set_unset ? "" : "NO", device ? device : "", mode_bits ? mode_bits : "") ||
     (cmd_stat)) {
     sim_panel_set_error (NULL, "Can't %s Debug Mode: '%s' on Device '%s': %s", 
                                set_unset ? "Enable" : "Disable", mode_bits ? mode_bits : "", device, response);

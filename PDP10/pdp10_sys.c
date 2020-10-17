@@ -62,6 +62,7 @@ extern DEVICE xu_dev;
 extern DEVICE dup_dev;
 extern DEVICE kmc_dev;
 extern DEVICE dmc_dev;
+extern DEVICE ch_dev;
 extern REG cpu_reg[];
 extern a10 saved_PC;
 
@@ -99,10 +100,11 @@ DEVICE *sim_devices[] = {
     &dup_dev,
     &kmc_dev,
     &dmc_dev,
+    &ch_dev,
     NULL
     };
 
-const char *sim_stop_messages[] = {
+const char *sim_stop_messages[SCPE_BASE] = {
     "Unknown error",
     "HALT instruction",
     "Breakpoint",
@@ -343,7 +345,7 @@ do {
         break;
 
     case EXE_PDV:                                       /* optional */
-        fseek (fileref, bsz * sizeof (d10), SEEK_CUR);  /* skip data */
+        (void)fseek (fileref, bsz * sizeof (d10), SEEK_CUR);/* skip data */
         break;
 
     case EXE_VEC:                                       /* entry vec */
@@ -372,7 +374,7 @@ for (i = 0; i < ndir; i = i + 2) {                      /* loop thru dir */
     rpt = ((int32) ((dirbuf[i + 1] >> 27) + 1)) & 0777; /* repeat count */
     for (j = 0; j < rpt; j++, mpage++) {                /* loop thru rpts */
         if (fpage) {                                    /* file pages? */
-            fseek (fileref, (fpage << PAG_V_PN) * sizeof (d10), SEEK_SET);
+            (void)fseek (fileref, (fpage << PAG_V_PN) * sizeof (d10), SEEK_SET);
             wc = fxread (pagbuf, sizeof (d10), PAG_SIZE, fileref);
             if (wc < PAG_SIZE)
                 return SCPE_FMT;
@@ -422,7 +424,7 @@ else {
            fmt = FMT_S;
         else fmt = FMT_R;                               /* RIM has SA == 0 */
         }
-    fseek (fileref, 0, SEEK_SET);                       /* rewind */
+    (void)fseek (fileref, 0, SEEK_SET);                 /* rewind */
     }
 
 switch (fmt) {                                          /* case fmt */

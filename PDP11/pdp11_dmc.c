@@ -109,7 +109,6 @@ The other test was to configure DECnet on VMS 4.6 and do SET HOST.
 #include "pdp11_defs.h"
 #endif
 
-#include <assert.h>
 #include "sim_tmxr.h"
 #include "pdp11_ddcmp.h"
 
@@ -468,7 +467,7 @@ static t_bool insqueue (QH *entry, QH *pred)
 {
 if ((pred->queue->size > 0) && (pred->queue->count >= pred->queue->size))
     return FALSE;
-assert (entry->queue == NULL);
+ASSURE (entry->queue == NULL);
 entry->next = pred->next;
 entry->prev = pred;
 entry->queue = pred->queue;
@@ -872,6 +871,7 @@ DDCMP_STATETABLE DDCMP_TABLE[] = {
     {41, Run,         {ddcmp_REPMessageSent},      Run,            {ddcmp_StartTimer}},
     {42, Maintenance, {ddcmp_ReceiveMaintMsg},     Maintenance,    {ddcmp_GiveBufferToUser}},
     {43, Maintenance, {ddcmp_UserSendMessage,
+                       ddcmp_LineConnected,
                        ddcmp_TransmitterIdle},     Maintenance,    {ddcmp_SendMaintMessage}},
     {44, All}           /* End of Table */
     };
@@ -1197,8 +1197,8 @@ REG dmc_reg[] = {
     { BRDATAD (SPEED,            dmc_speed, DEV_RDX, 32, DMC_NUMDEVICE,         "line speed") },
     { BRDATAD (CORRUPT,     dmc_corruption, DEV_RDX, 32, DMC_NUMDEVICE,         "data corruption factor (0.1%)") },
     { BRDATAD (DIAG,         dmc_microdiag, DEV_RDX,  1, DMC_NUMDEVICE,         "Microdiagnostic Enabled") },
-    { BRDATAD (PEER,              dmc_peer, DEV_RDX,  8, DMC_NUMDEVICE*PEERSIZE, "peer address:port") },
-    { BRDATAD (PORT,              dmc_port, DEV_RDX,  8, DMC_NUMDEVICE*PEERSIZE, "listen port") },
+    { BRDATAD (PEER,             dmc_peer,  DEV_RDX,  8, DMC_NUMDEVICE*PEERSIZE, "peer address:port") },
+    { BRDATAD (PORT,             dmc_port,  DEV_RDX,  8, DMC_NUMDEVICE*PEERSIZE, "listen port") },
     { BRDATAD (BASEADDR,      dmc_baseaddr, DEV_RDX, 32, DMC_NUMDEVICE,         "program set base address") },
     { BRDATAD (BASESIZE,      dmc_basesize, DEV_RDX, 16, DMC_NUMDEVICE,         "program set base size") },
     { BRDATAD (MODEM,            dmc_modem, DEV_RDX,  8, DMC_NUMDEVICE,         "modem control bits") },

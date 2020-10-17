@@ -1,6 +1,6 @@
 /* vax_io.c: VAX 3900 Qbus IO simulator
 
-   Copyright (c) 1998-2013, Robert M Supnik
+   Copyright (c) 1998-2019, Robert M Supnik
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -25,6 +25,7 @@
 
    qba          Qbus adapter
 
+   05-May-19    RMS     Revamped Qbus memory as Qbus peripheral
    20-Dec-13    RMS     Added unaligned access routines
    25-Mar-12    RMS     Added parameter to int_ack prototype (Mark Pizzolata)
    28-May-08    RMS     Inlined physical memory routines
@@ -117,11 +118,12 @@ int32 autcon_enb = 1;                                   /* autoconfig enable */
 
 extern int32 ssc_bto;
 extern int32 vc_mem_rd (int32 pa);
-extern void vc_mem_wr (int32 pa, int32 val, int32 lnt);
-extern uint32 *vc_buf;
+extern void vc_mem_wr (int32 pa, int32 val, int32 mode);
 
 t_stat dbl_rd (int32 *data, int32 addr, int32 access);
 t_stat dbl_wr (int32 data, int32 addr, int32 access);
+t_stat cqm_rd(int32 *dat, int32 ad, int32 md);
+t_stat cqm_wr(int32 dat, int32 ad, int32 md);
 int32 eval_int (void);
 void cq_merr (int32 pa);
 void cq_serr (int32 pa);
@@ -130,10 +132,8 @@ t_stat qba_ex (t_value *vptr, t_addr exta, UNIT *uptr, int32 sw);
 t_stat qba_dep (t_value val, t_addr exta, UNIT *uptr, int32 sw);
 t_bool qba_map_addr (uint32 qa, uint32 *ma);
 t_bool qba_map_addr_c (uint32 qa, uint32 *ma);
-t_stat set_autocon (UNIT *uptr, int32 val, CONST char *cptr, void *desc);
-t_stat show_autocon (FILE *st, UNIT *uptr, int32 val, CONST void *desc);
-t_stat show_iospace (FILE *st, UNIT *uptr, int32 val, CONST void *desc);
 t_stat qba_show_virt (FILE *of, UNIT *uptr, int32 val, CONST void *desc);
+t_stat qba_show_map (FILE *of, UNIT *uptr, int32 val, CONST void *desc);
 t_stat qba_help (FILE *st, DEVICE *dptr, UNIT *uptr, int32 flag, const char *cptr);
 const char *qba_description (DEVICE *dptr);
 
@@ -173,7 +173,9 @@ MTAB qba_mod[] = {
     { MTAB_XTD|MTAB_VDV, 0, NULL, "NOAUTOCONFIG",
       &set_autocon, NULL, NULL, "Disable autoconfiguration" },
     { MTAB_XTD|MTAB_VDV|MTAB_NMO|MTAB_SHP, 0, "VIRTUAL", NULL,
-      NULL, &qba_show_virt, NULL, "Display translation for Unibus address arg" },
+      NULL, &qba_show_virt, NULL, "Display translation for Qbus address arg" },
+    { MTAB_XTD|MTAB_VDV|MTAB_NMO|MTAB_SHP, 0, "MAP", NULL,
+      NULL, &qba_show_map, NULL, "Display Qbus map register(s)" },
     { 0 }
     };
 
@@ -190,6 +192,7 @@ DEVICE qba_dev = {
 
 t_stat (*iodispR[IOPAGESIZE >> 1])(int32 *dat, int32 ad, int32 md);
 t_stat (*iodispW[IOPAGESIZE >> 1])(int32 dat, int32 ad, int32 md);
+DIB *iodibp[IOPAGESIZE >> 1];
 
 /* Interrupt request to interrupt action map */
 
@@ -209,6 +212,10 @@ int32 ReadQb (uint32 pa)
 {
 int32 idx, val;
 
+if (ADDR_IS_CQM (pa)) {                                /* Qbus memory? */
+    cqm_rd (&val, pa, READ);
+    return val;
+    }  
 idx = (pa & IOPAGEMASK) >> 1;
 if (iodispR[idx]) {
     iodispR[idx] (&val, pa, READ);
@@ -223,6 +230,10 @@ void WriteQb (uint32 pa, int32 val, int32 mode)
 {
 int32 idx;
 
+if (ADDR_IS_CQM (pa)) {                                /* Qbus memory? */
+    cqm_wr (val, pa, mode);
+    return;
+    }
 idx = (pa & IOPAGEMASK) >> 1;
 if (iodispW[idx]) {
     iodispW[idx] (val, pa, mode);
@@ -587,44 +598,64 @@ return;
 
 /* CQBIC Qbus memory read and write (reflects to main memory)
 
-   May give master or slave error, depending on where the failure occurs
+   Qbus memory is modeled like any other Qbus peripheral.
+   On read, it returns 16b, right justified.
+   On write, it handles either 16b or 8b writes.
+
+   Qbus memory may reflect to main memory or may be locally
+   implemented for graphics cards. If reflected to main memory,
+   the normal ReadW, WriteB, and WriteW routines cannot be used,
+   as that could create a recursive loop.
 */
 
-
-int32 cqmem_rd (int32 pa)
+t_stat cqm_rd (int32 *dat, int32 pa, int32 md)
 {
 int32 qa = pa & CQMAMASK;                               /* Qbus addr */
 uint32 ma;
 
-if (qba_map_addr (qa, &ma))                             /* map addr */
-    return M[ma >> 2];
-if (ADDR_IS_QVM(pa) && vc_buf)                          /* QVSS memory? */
-    return vc_mem_rd (pa);
+if (qba_map_addr (qa, &ma)) {                           /* in map? */
+    if (ADDR_IS_MEM (ma)) {                             /* real memory? */
+        *dat = (M[ma >> 2] >> ((pa & 2) ? 16 : 0)) & WMASK;
+        return SCPE_OK;                                 /* return word */
+        }                                               /* end if mem */
+    cq_serr (ma);
+    MACH_CHECK (MCHK_READ);                             /* mcheck */
+    }                                                   /* end if mapped */
+if (ADDR_IS_QVM(pa)) {                                  /* QVSS memory? */
+    *dat = vc_mem_rd (pa);
+    return SCPE_OK;
+    }
 MACH_CHECK (MCHK_READ);                                 /* err? mcheck */
-return 0;
+return SCPE_OK;
 }
 
-void cqmem_wr (int32 pa, int32 val, int32 lnt)
+t_stat cqm_wr (int32 dat, int32 pa, int32 md)
 {
 int32 qa = pa & CQMAMASK;                               /* Qbus addr */
 uint32 ma;
 
-if (qba_map_addr (qa, &ma)) {                           /* map addr */
-    if (lnt < L_LONG) {
-        int32 sc = (pa & 3) << 3;
-        int32 mask = (lnt == L_WORD)? 0xFFFF: 0xFF;
-        int32 t = M[ma >> 2];
-        val = ((val & mask) << sc) | (t & ~(mask << sc));
-        }
-    M[ma >> 2] = val;
-    }
-else {
-    if (ADDR_IS_QVM(pa) && vc_buf)                      /* QVSS Memory */
-        vc_mem_wr (pa, val, lnt);
+if (qba_map_addr (qa, &ma)) {                           /* in map? */
+    if (ADDR_IS_MEM (ma)) {                             /* real memory? */
+        if (md == WRITE) {                              /* word access? */
+            int32 sc = (ma & 2) << 3;                   /* aligned only */
+            M[ma >> 2] = (M[ma >> 2] & ~(WMASK << sc)) |
+                ((dat & WMASK) << sc);
+            }
+        else {                                          /* byte access */
+            int32 sc = (ma & 3) << 3;
+            M[ma >> 2] = (M[ma >> 2] & ~(BMASK << sc)) |
+                ((dat & BMASK) << sc);
+            }
+        }                                               /* end if mem */
     else
         mem_err = 1;
-    }
-return;
+    return SCPE_OK;
+    }                                                   /* end if mapped */
+if (ADDR_IS_QVM(pa))                                    /* QVSS Memory */
+    vc_mem_wr (pa, dat, md);
+else
+    mem_err = 1;
+return SCPE_OK;
 }
 
 /* Map an address via the translation map */
@@ -926,6 +957,15 @@ if (cptr) {
     }
 fprintf (of, "Invalid argument\n");
 return SCPE_OK;
+}
+
+/* Show QBA map register(s) */
+
+t_stat qba_show_map (FILE *of, UNIT *uptr, int32 val, CONST void *desc)
+{
+uint32 *qb_map = &M[cq_mbr >> 2];
+
+return show_bus_map (of, (const char *)desc, qb_map, (CQMAPSIZE >> 2), "Qbus", CQMAP_VLD);
 }
 
 t_stat qba_help (FILE *st, DEVICE *dptr, UNIT *uptr, int32 flag, const char *cptr)

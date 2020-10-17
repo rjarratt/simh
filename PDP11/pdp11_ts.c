@@ -350,8 +350,8 @@ MTAB ts_mod[] = {
         NULL, NULL, NULL, "Write enable tape drive" },
     { MTUF_WLK,  MTUF_WLK, "write locked",   "LOCKED", 
         NULL, NULL, NULL, "Write lock tape drive"  },
-    { MTAB_XTD|MTAB_VUN|MTAB_VALR, 0,       "FORMAT", "FORMAT",
-        &sim_tape_set_fmt, &sim_tape_show_fmt, NULL, "Set/Display tape format (SIMH, E11, TPC, P7B)" },
+    { MTAB_XTD|MTAB_VUN|MTAB_VALR, 0, "FORMAT", "FORMAT",
+        &sim_tape_set_fmt, &sim_tape_show_fmt, NULL, "Set/Display tape format (SIMH, E11, TPC, P7B, AWS, TAR)" },
     { MTAB_XTD|MTAB_VUN|MTAB_VALR, 0,       "CAPACITY", "CAPACITY",
         &sim_tape_set_capac, &sim_tape_show_capac, NULL, "Set/Display capacity" },
     { MTAB_XTD|MTAB_VDV|MTAB_VALR, 004,     "ADDRESS", "ADDRESS",
@@ -1170,9 +1170,9 @@ size_t i;
 
 sim_tape_rewind (&ts_unit);
 for (i = 0; i < BOOT_LEN; i++)
-    M[(BOOT_START >> 1) + i] = boot_rom[i];
-M[BOOT_CSR0 >> 1] = ts_dib.ba & DMASK;
-M[BOOT_CSR1 >> 1] = (ts_dib.ba & DMASK) + 02;
+    WrMemW (BOOT_START + (2 * i), boot_rom[i]);
+WrMemW (BOOT_CSR0, ts_dib.ba & DMASK);
+WrMemW (BOOT_CSR1, (ts_dib.ba & DMASK) + 02);
 cpu_set_boot (BOOT_START);
 return SCPE_OK;
 }

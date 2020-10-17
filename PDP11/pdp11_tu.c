@@ -30,7 +30,7 @@
    23-Oct-13    RMS     Revised for new boot setup routine
    18-Apr-11    MP      Fixed t_addr printouts for 64b big-endian systems
    17-May-07    RMS     CS1 DVA resides in device, not MBA
-   29-Apr-07    RMS     Fixed bug in setting FCE on TMK Naoki Hamada)
+   29-Apr-07    RMS     Fixed bug in setting FCE on TMK (Naoki Hamada)
    16-Feb-06    RMS     Added tape capacity checking
    12-Nov-05    RMS     Changed default formatter to TM03 (for VMS)
    31-Oct-05    RMS     Fixed address width for large files
@@ -319,8 +319,8 @@ MTAB tu_mod[] = {
         NULL, NULL, NULL, "Set drive type to TU45" },
     { UNIT_TYPE, UNIT_TU77, "TU77", "TU77", 
         NULL, NULL, NULL, "Set drive type to TU77" },
-    { MTAB_XTD|MTAB_VUN|MTAB_VALR, 0,       "FORMAT", "FORMAT",
-        &sim_tape_set_fmt, &sim_tape_show_fmt, NULL, "Set/Display tape format (SIMH, E11, TPC, P7B)" },
+    { MTAB_XTD|MTAB_VUN|MTAB_VALR, 0, "FORMAT", "FORMAT",
+        &sim_tape_set_fmt, &sim_tape_show_fmt, NULL, "Set/Display tape format (SIMH, E11, TPC, P7B, AWS, TAR)" },
     { MTAB_XTD|MTAB_VUN|MTAB_VALR, 0,       "CAPACITY", "CAPACITY",
         &sim_tape_set_capac, &sim_tape_show_capac, NULL, "Set unit n capacity to arg MB (0 = unlimited)" },
     { MTAB_XTD|MTAB_VUN|MTAB_NMO, 0,        "CAPACITY", NULL,
@@ -521,7 +521,7 @@ switch (fnc) {                                          /* case on function */
             tu_set_er (ER_UNS);
             break;
             }
-        detach_unit (uptr);
+        sim_tape_detach (uptr);
         uptr->USTAT = FS_REW;
         sim_activate (uptr, tu_time);
         tucs1 = tucs1 & ~CS1_GO;
@@ -876,7 +876,7 @@ switch (st) {
         if (qdt) {                                      /* data transfer? */
             tu_set_er (ER_FCE);                         /* set FCE */
             mba_set_exc (tu_dib.ba);                    /* set exception*/
-        }
+            }
         break;
 
     case MTSE_IOERR:                                    /* IO error */
@@ -1054,9 +1054,9 @@ t_stat tu_boot (int32 unitno, DEVICE *dptr)
 size_t i;
 
 for (i = 0; i < BOOT_LEN; i++)
-    M[(BOOT_START >> 1) + i] = boot_rom[i];
-M[BOOT_UNIT >> 1] = unitno & (TU_NUMDR - 1);
-M[BOOT_CSR >> 1] = mba_get_csr (tu_dib.ba) & DMASK;
+    WrMemW (BOOT_START + (2 * i), boot_rom[i]);
+WrMemW (BOOT_UNIT, unitno & (TU_NUMDR - 1));
+WrMemW (BOOT_CSR, mba_get_csr (tu_dib.ba) & DMASK);
 cpu_set_boot (BOOT_ENTRY);
 return SCPE_OK;
 }

@@ -1,6 +1,6 @@
-/* hp2100_mpx.c: HP 2100 12792C 8-Channel Asynchronous Multiplexer
+/* hp2100_mpx.c: HP 12792C 8-Channel Asynchronous Multiplexer
 
-   Copyright (c) 2008-2017, J. David Bryan
+   Copyright (c) 2008-2019, J. David Bryan
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -25,6 +25,9 @@
 
    MPX          12792C 8-Channel Asynchronous Multiplexer
 
+   23-Jan-19    JDB     Removed DEV_MUX to avoid TMXR debug flags
+   10-Jul-18    JDB     Revised I/O model
+   01-Nov-17    JDB     Fixed serial output buffer overflow handling
    26-Jul-17    JDB     Changed BITFIELD macros to field constructors
    22-Apr-17    JDB     Corrected missing compound statements
    15-Mar-17    JDB     Trace flags are now global
@@ -73,8 +76,8 @@
    character editing, echoing, ENQ/ACK handshaking, and read terminator
    detection, substantially reducing the load on the CPU over the earlier 12920
    multiplexer.  It was supported by HP under RTE-MIII, RTE-IVB, and RTE-6/VM.
-   Under simulation, it connects with HP terminal emulators via Telnet to a
-   user-specified port.
+   Under simulation, it connects with HP terminal emulators via Telnet or serial
+   ports.
 
    The single interface card contained a Z80 CPU, DMA controller, CTC, four
    two-channel SIO UARTs, 16K of RAM, 8K of ROM, and I/O backplane latches and
@@ -157,6 +160,7 @@
 #include <ctype.h>
 
 #include "hp2100_defs.h"
+#include "hp2100_io.h"
 
 #include "sim_tmxr.h"
 
@@ -246,7 +250,7 @@
 #define MPX_CNTLS           2                  /* number of control units */
 
 #define mpx_cntl            (mpx_unit [MPX_PORTS + 0])      /* controller unit */
-#define mpx_poll            (mpx_unit [MPX_PORTS + 1])      /* Telnet polling unit */
+#define mpx_poll            (mpx_unit [MPX_PORTS + 1])      /* polling unit */
 
 
 /* Character constants */
@@ -657,7 +661,7 @@
    unsolicited inputs to the host until they are enabled again.  The host reads
    the status with an LIA/B and acknowledges the unsolicited input with an
    Acknowledge command.  In response, the card outputs the second word of status
-   and sets the flag again. The host reads the second word with an LIA/B.
+   and sets the flag again.  The host reads the second word with an LIA/B.
 
    The format of the unsolicited input is:
 
@@ -826,11 +830,13 @@ static  int32 mpx_iolen   = 0;                  /* length of current I/O xfer */
 static t_bool mpx_uien   = FALSE;               /* unsolicited interrupts enabled */
 static uint32 mpx_uicode = 0;                   /* unsolicited interrupt reason and port */
 
-struct {
-    FLIP_FLOP control;                          /* control flip-flop */
-    FLIP_FLOP flag;                             /* flag flip-flop */
-    FLIP_FLOP flagbuf;                          /* flag buffer flip-flop */
-    } mpx = { CLEAR, CLEAR, CLEAR };
+typedef struct {
+    FLIP_FLOP  control;                         /* control flip-flop */
+    FLIP_FLOP  flag;                            /* flag flip-flop */
+    FLIP_FLOP  flag_buffer;                     /* flag buffer flip-flop */
+    } CARD_STATE;
+
+static CARD_STATE mpx;                          /* per-card state */
 
 
 /* Multiplexer per-line state */
@@ -858,7 +864,7 @@ typedef enum {                                  /* buffer selectors */
     put
     } BUF_SELECT;
 
-static const char *const io_op [] = {           /* operation names, indexed by IO_OPER */
+static const char * const io_op [] = {          /* operation names, indexed by IO_OPER */
     "read",
     "write"
     };
@@ -886,7 +892,10 @@ static uint8 mpx_wbuf [MPX_PORTS] [WR_BUF_SIZE];        /* write buffer */
 
 /* Multiplexer local SCP support routines */
 
-static IOHANDLER mpx_io;
+static INTERFACE mpx_interface;
+
+
+/* Multiplexer local SCP support routines */
 
 static t_stat cntl_service  (UNIT   *uptr);
 static t_stat line_service  (UNIT   *uptr);
@@ -923,10 +932,10 @@ static uint32 buf_avail  (IO_OPER rw, uint32 port);
 /* Multiplexer SCP data structures */
 
 
-/* Terminal multiplexer library structures */
+/* Terminal multiplexer library descriptors */
 
 static int32 mpx_order [MPX_PORTS] = {          /* line connection order */
-    -1
+    -1                                          /*   use the default order */
     };
 
 static TMLN mpx_ldsc [MPX_PORTS] = {            /* line descriptors */
@@ -934,37 +943,39 @@ static TMLN mpx_ldsc [MPX_PORTS] = {            /* line descriptors */
     };
 
 static TMXR mpx_desc = {                        /* multiplexer descriptor */
-    MPX_PORTS,                                  /* number of terminal lines */
-    0,                                          /* listening port (reserved) */
-    0,                                          /* master socket  (reserved) */
-    mpx_ldsc,                                   /* line descriptors */
-    mpx_order,                                  /* line connection order */
-    NULL                                        /* multiplexer device (derived internally) */
+    MPX_PORTS,                                  /*   number of terminal lines */
+    0,                                          /*   listening port (reserved) */
+    0,                                          /*   master socket  (reserved) */
+    mpx_ldsc,                                   /*   line descriptors */
+    mpx_order,                                  /*   line connection order */
+    NULL                                        /*   multiplexer device (derived internally) */
     };
 
 
 /* Device information block */
 
 static DIB mpx_dib = {
-    &mpx_io,                                    /* device interface */
-    MPX,                                        /* select code */
-    0                                           /* card index */
+    &mpx_interface,                                     /* the device's I/O interface function pointer */
+    MPX,                                                /* the device's select code (02-77) */
+    0,                                                  /* the card index */
+    "12792C 8-Channel Asynchronous Multiplexer",        /* the card description */
+    NULL                                                /* the ROM description */
     };
 
 
 /* Unit list.
 
    The first eight units correspond to the eight multiplexer line ports.  These
-   handle character I/O via the Telnet library.  A ninth unit acts as the card
-   controller, executing commands and transferring data to and from the I/O
-   buffers.  A tenth unit is responsible for polling for connections and socket
-   I/O.  It also holds the master socket.
+   handle character I/O via the multiplexer library.  A ninth unit acts as the
+   card controller, executing commands and transferring data to and from the I/O
+   buffers.  A tenth unit is responsible for polling for connections and line
+   I/O.  It also holds the master socket for Telnet connections.
 
    The character I/O service routines run only when there are characters to read
    or write.  They operate at the approximate baud rates of the terminals (in
    CPU instructions per second) in order to be compatible with the OS drivers.
    The controller service routine runs only when a command is executing or a
-   data transfer to or from the CPU is in progress.  The Telnet poll must run
+   data transfer to or from the CPU is in progress.  The poll service must run
    continuously, but it may operate much more slowly, as the only requirement is
    that it must not present a perceptible lag to human input.  To be compatible
    with CPU idling, it is co-scheduled with the master poll timer, which uses a
@@ -986,7 +997,7 @@ static UNIT mpx_unit [] = {
     { UDATA (&line_service, UNIT_FASTTIME, 0)             },    /* terminal I/O line 6 */
     { UDATA (&line_service, UNIT_FASTTIME, 0)             },    /* terminal I/O line 7 */
     { UDATA (&cntl_service, UNIT_DIS,      0)             },    /* controller unit */
-    { UDATA (&poll_service, POLL_FLAGS,    0), POLL_FIRST }     /* Telnet poll unit */
+    { UDATA (&poll_service, POLL_FLAGS,    0), POLL_FIRST }     /* poll unit */
     };
 
 
@@ -1021,8 +1032,8 @@ static REG mpx_reg [] = {
     { BRDATA (ACKWAIT,  mpx_ack_wait,         10,    10,                    MPX_PORTS)                                },
     { BRDATA (PFLAGS,   mpx_flags,             2,    12,                    MPX_PORTS)                                },
 
-    { BRDATA (RBUF,     mpx_rbuf,              8,     8,                    MPX_PORTS * RD_BUF_SIZE), REG_A           },
-    { BRDATA (WBUF,     mpx_wbuf,              8,     8,                    MPX_PORTS * WR_BUF_SIZE), REG_A           },
+    { BRDATA (RBUF,     mpx_rbuf,             8,     8,                    MPX_PORTS * RD_BUF_SIZE), REG_A           },
+    { BRDATA (WBUF,     mpx_wbuf,             8,     8,                    MPX_PORTS * WR_BUF_SIZE), REG_A           },
 
     { BRDATA (GET,      mpx_get,              10,    10,                    MPX_PORTS * 2)                            },
     { BRDATA (SEP,      mpx_sep,              10,    10,                    MPX_PORTS * 2)                            },
@@ -1030,11 +1041,12 @@ static REG mpx_reg [] = {
 
     { FLDATA (CTL,      mpx.control,                              0)                                                  },
     { FLDATA (FLG,      mpx.flag,                                 0)                                                  },
-    { FLDATA (FBF,      mpx.flagbuf,                              0)                                                  },
-    { ORDATA (SC,       mpx_dib.select_code,          6),                                             REG_HRO         },
-    { ORDATA (DEVNO,    mpx_dib.select_code,          6),                                             REG_HRO         },
+    { FLDATA (FBF,      mpx.flag_buffer,                          0)                                                  },
 
     { BRDATA (CONNORD,  mpx_order,            10,    32,                    MPX_PORTS),               REG_HRO         },
+
+      DIB_REGS (mpx_dib),
+
     { NULL }
     };
 
@@ -1055,7 +1067,7 @@ static MTAB mpx_mod [] = {
     { MTAB_XUN | MTAB_NC,    0,   "LOG",        "LOG",         &tmxr_set_log,     &tmxr_show_log,     (void *) &mpx_desc },
     { MTAB_XUN | MTAB_NC,    0,   NULL,         "NOLOG",       &tmxr_set_nolog,   NULL,               (void *) &mpx_desc },
 
-    { MTAB_XDV,              0,   "REV",        NULL,          &set_revision,     &show_revision,     NULL },
+    { MTAB_XDV,              0,   "REV",        NULL,          &set_revision,     &show_revision,     NULL               },
     { MTAB_XDV | MTAB_NMO,   0,   "LINEORDER",  "LINEORDER",   &tmxr_set_lnorder, &tmxr_show_lnorder, (void *) &mpx_desc },
 
     { MTAB_XDV,              0,   "",            NULL,         NULL,              &show_status,       (void *) &mpx_desc },
@@ -1102,7 +1114,7 @@ DEVICE mpx_dev = {
     &mpx_attach,                                /* attach routine */
     &mpx_detach,                                /* detach routine */
     &mpx_dib,                                   /* device information block */
-    DEV_DEBUG | DEV_DISABLE | DEV_MUX,          /* device flags */
+    DEV_DISABLE | DEV_DEBUG,                    /* device flags */
     0,                                          /* debug control flags */
     mpx_deb,                                    /* debug flag name table */
     NULL,                                       /* memory size change routine */
@@ -1172,48 +1184,58 @@ DEVICE mpx_dev = {
        is reset.
 */
 
-static uint32 mpx_io (DIB *dibptr, IOCYCLE signal_set, uint32 stat_data)
+static SIGNALS_VALUE mpx_interface (const DIB *dibptr, INBOUND_SET inbound_signals, HP_WORD inbound_value)
 {
-static const char *output_state [] = { "Command", "Command override", "Parameter", "Data" };
-static const char *input_state  [] = { "Status",  "Invalid status",   "Parameter", "Data" };
-const char *hold_or_clear = (signal_set & ioCLF ? ",C" : "");
-int32    delay;
-IOSIGNAL signal;
-IOCYCLE  working_set = IOADDSIR (signal_set);           /* add ioSIR if needed */
+static const char * const output_state [] = { "Command", "Command override", "Parameter", "Data" };
+static const char * const input_state  [] = { "Status",  "Invalid status",   "Parameter", "Data" };
+const char * const hold_or_clear = (inbound_signals & ioCLF ? ",C" : "");
+int32  delay;
 
-while (working_set) {
-    signal = IONEXT (working_set);                      /* isolate next signal */
+INBOUND_SIGNAL signal;
+INBOUND_SET    working_set = inbound_signals;
+SIGNALS_VALUE  outbound    = { ioNONE, 0 };
+t_bool         irq_enabled = FALSE;
 
-    switch (signal) {                                   /* dispatch I/O signal */
+while (working_set) {                                   /* while signals remain */
+    signal = IONEXTSIG (working_set);                   /*   isolate the next signal */
 
-        case ioCLF:                                     /* clear flag flip-flop */
-            mpx.flag = mpx.flagbuf = CLEAR;             /* clear flag and flag buffer */
+    switch (signal) {                                   /* dispatch the I/O signal */
+
+        case ioCLF:                                     /* Clear Flag flip-flop */
+            mpx.flag_buffer = CLEAR;                    /* reset the flag buffer */
+            mpx.flag        = CLEAR;                    /*   and flag flip-flops */
 
             tprintf (mpx_dev, DEB_CMDS, "[CLF] Flag cleared\n");
             break;
 
 
-        case ioSTF:                                     /* set flag flip-flop */
+        case ioSTF:                                     /* Set Flag flip-flop */
+            mpx.flag_buffer = SET;                      /* set the flag buffer flip-flop */
+
             tprintf (mpx_dev, DEB_CMDS, "[STF] Flag set\n");
-                                                        /* fall into ENF */
-
-        case ioENF:                                     /* enable flag */
-            mpx.flag = mpx.flagbuf = SET;               /* set flag and flag buffer */
             break;
 
 
-        case ioSFC:                                     /* skip if flag is clear */
-            setstdSKF (mpx);
+        case ioENF:                                     /* Enable Flag */
+            if (mpx.flag_buffer == SET)                 /* if the flag buffer flip-flop is set */
+                mpx.flag = SET;                         /*   then set the flag flip-flop */
             break;
 
 
-        case ioSFS:                                     /* skip if flag is set */
-            setstdSKF (mpx);
+        case ioSFC:                                     /* Skip if Flag is Clear */
+            if (mpx.flag == CLEAR)                      /* if the flag flip-flop is clear */
+                outbound.signals |= ioSKF;              /*   then assert the Skip on Flag signal */
+            break;
+
+
+        case ioSFS:                                     /* Skip if Flag is Set */
+            if (mpx.flag == SET)                        /* if the flag flip-flop is set */
+                outbound.signals |= ioSKF;              /*   then assert the Skip on Flag signal */
             break;
 
 
         case ioIOI:                                     /* I/O data input */
-            stat_data = IORETURN (SCPE_OK, mpx_ibuf);   /* return info */
+            outbound.value = mpx_ibuf;                  /* return info */
 
             tprintf (mpx_dev, DEB_CPU, "[LIx%s] %s = %06o\n",
                      hold_or_clear, input_state [mpx_state], mpx_ibuf);
@@ -1224,7 +1246,7 @@ while (working_set) {
 
 
         case ioIOO:                                     /* I/O data output */
-            mpx_obuf = IODATA (stat_data);              /* save word */
+            mpx_obuf = (uint16) inbound_value;          /* save word */
 
             tprintf (mpx_dev, DEB_CPU, "[OTx%s] %s = %06o\n",
                      hold_or_clear, output_state [mpx_state], mpx_obuf);
@@ -1241,26 +1263,26 @@ while (working_set) {
             break;
 
 
-        case ioCRS:                                     /* control reset */
+        case ioCRS:                                     /* Control Reset */
             controller_reset ();                        /* reset firmware to power-on defaults */
             mpx_obuf = 0;                               /* clear output buffer */
 
-            mpx.control = CLEAR;                        /* clear control */
-            mpx.flagbuf = CLEAR;                        /* clear flag buffer */
-            mpx.flag    = CLEAR;                        /* clear flag */
+            mpx.control     = CLEAR;                    /* clear control */
+            mpx.flag_buffer = CLEAR;                    /* clear flag buffer */
+            mpx.flag        = CLEAR;                    /* clear flag */
 
             tprintf (mpx_dev, DEB_CMDS, "[CRS] Controller reset\n");
             break;
 
 
-        case ioCLC:                                     /* clear control flip-flop */
+        case ioCLC:                                     /* Clear Control flip-flop */
             mpx.control = CLEAR;                        /* clear control */
 
             tprintf (mpx_dev, DEB_CMDS, "[CLC%s] Control cleared\n", hold_or_clear);
             break;
 
 
-        case ioSTC:                                     /* set control flip-flop */
+        case ioSTC:                                     /* Set Control flip-flop */
             mpx.control = SET;                          /* set control */
 
             if (mpx_cmd == CMD_BINARY_READ)             /* executing fast binary read? */
@@ -1291,26 +1313,48 @@ while (working_set) {
             break;
 
 
-        case ioSIR:                                     /* set interrupt request */
-            setstdPRL (mpx);                            /* set standard PRL signal */
-            setstdIRQ (mpx);                            /* set standard IRQ signal */
-            setstdSRQ (mpx);                            /* set standard SRQ signal */
+        case ioSIR:                                     /* Set Interrupt Request */
+            if (mpx.control & mpx.flag)                 /* if the control and flag flip-flops are set */
+                outbound.signals |= cnVALID;            /*   then deny PRL */
+            else                                        /* otherwise */
+                outbound.signals |= cnPRL | cnVALID;    /*   conditionally assert PRL */
+
+            if (mpx.control & mpx.flag & mpx.flag_buffer)   /* if the control, flag, and flag buffer flip-flops are set */
+                outbound.signals |= cnIRQ | cnVALID;        /*   then conditionally assert IRQ */
+
+            if (mpx.flag == SET)                        /* if the flag flip-flop is set */
+                outbound.signals |= ioSRQ;              /*   then assert SRQ */
             break;
 
 
-        case ioIAK:                                     /* interrupt acknowledge */
-            mpx.flagbuf = CLEAR;                        /* clear flag buffer */
+        case ioIAK:                                     /* Interrupt Acknowledge */
+            mpx.flag_buffer = CLEAR;                    /* clear the flag buffer flip-flop */
             break;
 
 
-        default:                                        /* all other signals */
-            break;                                      /*   are ignored */
+        case ioIEN:                                     /* Interrupt Enable */
+            irq_enabled = TRUE;                         /* permit IRQ to be asserted */
+            break;
+
+
+        case ioPRH:                                         /* Priority High */
+            if (irq_enabled && outbound.signals & cnIRQ)    /* if IRQ is enabled and conditionally asserted */
+                outbound.signals |= ioIRQ | ioFLG;          /*   then assert IRQ and FLG */
+
+            if (!irq_enabled || outbound.signals & cnPRL)   /* if IRQ is disabled or PRL is conditionally asserted */
+                outbound.signals |= ioPRL;                  /*   then assert it unconditionally */
+            break;
+
+
+        case ioPON:                                     /* not used by this interface */
+        case ioPOPIO:                                   /* not used by this interface */
+            break;
         }
 
-    working_set = working_set & ~signal;                /* remove current signal from set */
-    }
+    IOCLEARSIG (working_set, signal);                   /* remove the current signal from the set */
+    }                                                   /*   and continue until all signals are processed */
 
-return stat_data;
+return outbound;                                        /* return the outbound signals and value */
 }
 
 
@@ -1396,7 +1440,7 @@ t_bool add_crlf;
 t_bool set_flag = TRUE;
 STATE last_state = mpx_state;
 
-static const char *cmd_state [] = { "complete", "internal error!", "waiting for parameter", "executing" };
+static const char * const cmd_state [] = { "complete", "internal error!", "waiting for parameter", "executing" };
 
 
 switch (mpx_state) {                                                /* dispatch on current state */
@@ -1614,7 +1658,8 @@ if (TRACING (mpx_dev, DEB_CMDS)                             /* debug print? */
                  mpx_cmd, cmd_state [mpx_state]);
 
 if (set_flag) {
-    mpx_io (&mpx_dib, ioENF, 0);                        /* set device flag */
+    mpx.flag_buffer = SET;                              /* set the flag buffer */
+    io_assert (&mpx_dev, ioa_ENF);                      /*   and flag flip-flops */
 
     tprintf (mpx_dev, DEB_CMDS, "Flag set\n");
     }
@@ -1626,21 +1671,20 @@ return SCPE_OK;
 /* Multiplexer line service.
 
    The line service routine is used to transmit and receive characters.  It is
-   started when a buffer is ready for output or when the Telnet poll routine
+   started when a buffer is ready for output or when the poll service routine
    determines that there are characters ready for input, and it is stopped when
    there are no more characters to output or input.  When a line is quiescent,
    this routine does not run.  Service times are selected to approximate the
    baud rate setting of the multiplexer port.
 
    "Fast timing" mode enables three optimizations.  First, buffered characters
-   are transferred via Telnet in blocks, rather than a character at a time; this
-   reduces network traffic and decreases simulator overhead (there is only one
-   service routine entry per block, rather than one per character).  Second,
-   ENQ/ACK handshaking is done locally, without involving the Telnet client.
-   Third, when editing and echo is enabled, entering BS echoes a backspace, a
-   space, and a backspace, and entering DEL echoes a backslash, a carriage
-   return, and a line feed, providing better compatibility with prior RTE
-   terminal drivers.
+   are transferred in blocks, rather than a character at a time; this reduces
+   line traffic and decreases simulator overhead (there is only one service
+   routine entry per block, rather than one per character).  Second, ENQ/ACK
+   handshaking is done locally, without involving the client.  Third, when
+   editing and echo is enabled, entering BS echoes a backspace, a space, and a
+   backspace, and entering DEL echoes a backslash, a carriage return, and a line
+   feed, providing better compatibility with prior RTE terminal drivers.
 
    Each read and write buffer begins with a reserved header byte that stores
    per-buffer information, such as whether handshaking should be suppressed
@@ -1654,7 +1698,7 @@ return SCPE_OK;
    write buffer is freed, and a UI check is made if the controller is idle, in
    case a write buffer request is pending.
 
-   For input, the character is retrieved from the Telnet buffer.  If a BREAK was
+   For input, the character is retrieved from the line buffer.  If a BREAK was
    received, break status is set, and the character is discarded (the current
    multiplexer library implementation always returns a NUL with a BREAK
    indication).  If the character is an XOFF, and XON/XOFF pacing is enabled, a
@@ -1685,6 +1729,59 @@ return SCPE_OK;
        service entry.  This allows the CPU time to unload the first buffer
        before the second fills up.  Once the first buffer is freed, the routine
        shifts back to burst mode to fill the remainder of the second buffer.
+
+    4. The terminal multiplexer library "tmxr_putc_ln" routine returns
+       SCPE_STALL if it is called when the transmit buffer is full.  When the
+       last character is added to the buffer, the routine returns SCPE_OK but
+       also changes the "xmte" field of the terminal multiplexer line (TMLN)
+       structure from 1 to 0 to indicate that further calls will be rejected.
+       The "xmte" value is set back to 1 when the tranmit buffer empties.
+
+       This presents two approaches to handling buffer overflows: either call
+       "tmxr_putc_ln" unconditionally and test for SCPE_STALL on return, or call
+       "tmxr_putc_ln" only if "xmte" is 1.  The former approach adds a new
+       character to the transmit buffer as soon as space is available, while the
+       latter adds a new character only when the buffer has completely emptied.
+       With either approach, transmission must be rescheduled after a delay to
+       allow the buffer to drain.
+
+       It would seem that the former approach is more attractive, as it would
+       allow the simulated I/O operation to complete more quickly.  However,
+       there are two mitigating factors.  First, the library attempts to write
+       the entire transmit buffer in one host system call, so there is usually
+       no time difference between freeing one buffer character and freeing the
+       entire buffer (barring host system buffer congestion).  Second, the
+       routine increments a "character dropped" counter when returning
+       SCPE_STALL status.  However, the characters actually would not be lost,
+       as the SCPE_STALL return would schedule retransmission when buffer space
+       is available, .  This would lead to erroneous reporting in the SHOW
+       <unit> STATISTICS command.
+
+       Therefore, we adopt the latter approach and reschedule transmission if
+       the "xmte" field is 0.  Note that the "tmxr_poll_tx" routine still must
+       be called in this case, as it is responsible for transmitting the buffer
+       contents and therefore freeing space in the buffer.
+
+    5. The "tmxr_putc_ln" library routine returns SCPE_LOST if the line is not
+       connected.  We ignore this error so that an OS may output an
+       initialization "welcome" message even when the terminal is not connected.
+       This permits the simulation to continue while ignoring the output.
+
+    6. The serial transmit buffer provided by the terminal multiplexer library
+       is restricted to one character.  Therefore, attempting to send several
+       characters in response to input, e.g., echoing "<BS> <space> <BS>" in
+       response to receiving a <BS>, will fail with SCPE_STALL.  Calling
+       "tmxr_poll_tx" between characters will not clear the buffer if the line
+       speed has been set explicitly.
+
+       To avoid having to do our own buffering for echoed characters, we call
+       the "tmxr_linemsg" routine which loops internally until the characters
+       have been transmitted.  This is ugly but is a consequence of the buffer
+       restriction imposed by the TMXR library.
+
+    7. Because ENQ/ACK handshaking is handled entirely on the multiplexer card
+       with no OS involvement, FASTTIME "local handling" consists simply of
+       omitting the handshake even if it is configured by the multiplexer.
 */
 
 static t_stat line_service (UNIT *uptr)
@@ -1699,14 +1796,19 @@ uint8 ch;
 int32 chx;
 uint32 buffer_count, write_count;
 t_stat status = SCPE_OK;
-t_bool recv_loop = !fast_binary_read;                           /* bypass if fast binary read */
-t_bool xmit_loop = !(fast_binary_read ||                        /* bypass if fast read or output suspended */
-                     (mpx_flags [port] & (FL_WAITACK | FL_XOFF)));
+t_bool recv_loop = !fast_binary_read;                               /* bypass if fast binary read */
+t_bool xmit_loop = !(fast_binary_read                               /* bypass if fast read */
+                     || mpx_flags [port] & (FL_WAITACK | FL_XOFF)   /*   or output suspended */
+                     || mpx_ldsc [port].xmte == 0);                 /*     or buffer full */
 
 
 tprintf (mpx_dev, DEB_CMDS, "Port %d service entered\n", port);
 
 /* Transmission service */
+
+if (mpx_ldsc [port].xmte == 0)                          /* if the transmit buffer is full */
+    tprintf (mpx_dev, DEB_XFER, "Port %d transmission stalled for full buffer\n",
+             port);
 
 write_count = buf_len (iowrite, port, get);             /* get the output buffer length */
 
@@ -1723,16 +1825,17 @@ while (xmit_loop && write_count > 0) {                  /* character available t
         continue;                                       /* continue with the first output character */
         }
 
-    if (mpx_flags [port] & FL_DO_ENQACK)                /* do handshake for this buffer? */
-        mpx_enq_cntr [port] = mpx_enq_cntr [port] + 1;  /* bump character counter */
-
-    if (mpx_enq_cntr [port] > ENQ_LIMIT) {              /* ready for ENQ? */
-        mpx_enq_cntr [port] = 0;                        /* clear ENQ counter */
-        mpx_ack_wait [port] = 0;                        /* clear ACK wait timer */
-
-        mpx_flags [port] |= FL_WAITACK;                 /* set wait for ACK */
+    if (mpx_enq_cntr [port] >= ENQ_LIMIT) {             /* ready for ENQ? */
         ch = ENQ;
         status = tmxr_putc_ln (&mpx_ldsc [port], ch);   /* transmit ENQ */
+
+        if (status == SCPE_OK || status == SCPE_LOST) { /* if transmission succeeded or is ignored */
+            mpx_enq_cntr [port] = 0;                    /*   then clear the ENQ counter */
+            mpx_ack_wait [port] = 0;                    /*     and the ACK wait timer */
+
+            mpx_flags [port] |= FL_WAITACK;             /* set wait for ACK */
+            }
+
         xmit_loop = FALSE;                              /* stop further transmission */
         }
 
@@ -1740,16 +1843,31 @@ while (xmit_loop && write_count > 0) {                  /* character available t
         ch = buf_get (iowrite, port) & data_mask;       /* get char and mask to bit width */
         status = tmxr_putc_ln (&mpx_ldsc [port], ch);   /* transmit the character */
 
-        write_count = write_count - 1;                  /* count the character */
-        xmit_loop = (status == SCPE_OK) && fast_timing; /*   and continue transmission if enabled */
+        if (status == SCPE_OK || status == SCPE_LOST) { /* if transmission succeeded or is ignored */
+            write_count = write_count - 1;              /*   then count the character */
+
+            xmit_loop = (fast_timing                        /* continue transmission if enabled */
+                          && mpx_ldsc [port].xmte != 0);    /*   and buffer space is available */
+
+            if (mpx_flags [port] & FL_DO_ENQACK)        /* if ENQ/ACK handshaking is enabled */
+                mpx_enq_cntr [port] += 1;               /*   then bump the character counter */
+            }
+
+        else                                            /* otherwise transmission failed */
+            xmit_loop = FALSE;                          /*   so exit the loop */
         }
 
-    if (status != SCPE_OK)                              /* if the transmission failed */
-        xmit_loop = FALSE;                              /*   then exit the loop */
-
-    else
+    if (status == SCPE_OK)
         tprintf (mpx_dev, DEB_XFER, "Port %d character %s transmitted\n",
                  port, fmt_char (ch));
+
+    else {
+        tprintf (mpx_dev, DEB_XFER, "Port %d character %s transmission failed with status %d\n",
+                 port, fmt_char (ch), status);
+
+        if (status == SCPE_LOST)                        /* if the line is not connected */
+            status = SCPE_OK;                           /*   then ignore the output */
+        }
 
     if (write_count == 0) {                             /* buffer complete? */
         buf_free (iowrite, port);                       /* free buffer */
@@ -1831,10 +1949,8 @@ while (recv_loop) {                                     /* OK to process? */
                 if (rt & RT_ENAB_ECHO) {                        /* echo enabled? */
                     tmxr_putc_ln (&mpx_ldsc [port], BS);        /* echo BS */
 
-                    if (fast_timing) {                          /* fast timing mode? */
-                        tmxr_putc_ln (&mpx_ldsc [port], ' ');   /* echo space */
-                        tmxr_putc_ln (&mpx_ldsc [port], BS);    /* echo BS */
-                        }
+                    if (fast_timing)                            /* fast timing mode? */
+                        tmxr_linemsg (&mpx_ldsc [port], " \b"); /* echo space and BS */
                     }
 
                 continue;
@@ -1847,8 +1963,7 @@ while (recv_loop) {                                     /* OK to process? */
                     if (fast_timing)                            /* fast timing mode? */
                         tmxr_putc_ln (&mpx_ldsc [port], '\\');  /* echo backslash */
 
-                    tmxr_putc_ln (&mpx_ldsc [port], CR);        /* echo CR */
-                    tmxr_putc_ln (&mpx_ldsc [port], LF);        /*   and LF */
+                    tmxr_linemsg (&mpx_ldsc [port], "\r\n");    /* echo CR and LF */
                     }
 
                 continue;
@@ -1865,7 +1980,8 @@ while (recv_loop) {                                     /* OK to process? */
 
             if ((ch == CR) && (rt & RT_END_ON_CR)) {
                 if (rt & RT_ENAB_ECHO)                      /* echo enabled? */
-                    tmxr_putc_ln (&mpx_ldsc [port], LF);    /* send LF */
+                    tmxr_linemsg (&mpx_ldsc [port], "\n");  /* send LF */
+
                 mpx_param = RS_ETC_CR;                      /* set termination condition */
                 }
 
@@ -1948,16 +2064,17 @@ if (fast_binary_read) {                                     /* fast binary read 
 
         if (chx && !(mpx_flags [0] & FL_HAVEBUF)) {         /* character ready and buffer empty? */
             if (mpx_flags [0] & FL_WANTBUF) {               /* second character? */
-                mpx_ibuf = mpx_ibuf | (chx & DMASK8);       /* merge it into word */
+                mpx_ibuf = mpx_ibuf | LOWER_BYTE (chx);     /* merge it into word */
                 mpx_flags [0] |= FL_HAVEBUF;                /* mark buffer as ready */
 
-                mpx_io (&mpx_dib, ioENF, 0);                /* set device flag */
+                mpx.flag_buffer = SET;                      /* set the flag buffer */
+                io_assert (&mpx_dev, ioa_ENF);              /*   and flag flip-flops */
 
                 tprintf (mpx_dev, DEB_CMDS, "Flag and SRQ set\n");
                 }
 
             else                                            /* first character */
-                mpx_ibuf = (uint16) ((chx & DMASK8) << 8);  /* put in top half of word */
+                mpx_ibuf = TO_WORD (chx, 0);                /* put in top half of word */
 
             mpx_flags [0] ^= FL_WANTBUF;                    /* toggle byte flag */
             }
@@ -1981,15 +2098,15 @@ else {                                                      /* normal service */
         tprintf (mpx_dev, DEB_CMDS, "Port %d service stopped\n", port);
     }
 
-return SCPE_OK;
+return status;
 }
 
 
-/* Telnet poll service.
+/* Poll service.
 
-   This service routine is used to poll for Telnet connections and incoming
-   characters.  It starts when the socket is attached and stops when the socket
-   is detached.
+   This service routine is used to poll for connections and incoming characters.
+   It is started when the listening socket or a serial line is attached and is
+   stopped when the socket and all lines are detached.
 
    Each line is then checked for a pending ENQ/ACK handshake.  If one is
    pending, the ACK counter is incremented, and if it times out, another ENQ is
@@ -2025,9 +2142,9 @@ for (i = 0; i < MPX_PORTS; i++) {                           /* check lines */
     }
 
 if (uptr->wait == POLL_FIRST)                               /* first poll? */
-    uptr->wait = sync_poll (INITIAL);                       /* initial synchronization */
+    uptr->wait = hp_sync_poll (INITIAL);                    /* initial synchronization */
 else                                                        /* not first */
-    uptr->wait = sync_poll (SERVICE);                       /* continue synchronization */
+    uptr->wait = hp_sync_poll (SERVICE);                    /* continue synchronization */
 
 sim_activate (uptr, uptr->wait);                            /* continue polling */
 
@@ -2054,10 +2171,10 @@ return SCPE_OK;
     1. Under simulation, we also clear the input buffer register, even though
        the hardware doesn't.
 
-    2. We set up the first poll for Telnet connections to occur "immediately"
-       upon execution, so that clients will be connected before execution
-       begins.  Otherwise, a fast program may access the multiplexer before the
-       poll service routine activates.
+    2. We set up the first poll for connections to occur "immediately" upon
+       execution, so that clients will be connected before execution begins.
+       Otherwise, a fast program may access the multiplexer before the poll
+       service routine activates.
 
     3. We must set the "emptying_flags" and "filling_flags" values here, because
        they cannot be initialized statically, even though the values are
@@ -2073,16 +2190,16 @@ if (sim_switches & SWMASK ('P')) {                      /* power-on reset? */
     filling_flags  [iowrite] = FL_WRFILL;
     }
 
-IOPRESET (&mpx_dib);                                    /* PRESET device (does not use PON) */
+io_assert (dptr, ioa_POPIO);                            /* PRESET the device */
 
 mpx_ibuf = 0;                                           /* clear input buffer */
 
 if (mpx_poll.flags & UNIT_ATT) {                        /* network attached? */
     mpx_poll.wait = POLL_FIRST;                         /* set up poll */
-    sim_activate (&mpx_poll, mpx_poll.wait);            /* start Telnet poll immediately */
+    sim_activate (&mpx_poll, mpx_poll.wait);            /* start poll immediately */
     }
 else
-    sim_cancel (&mpx_poll);                             /* else stop Telnet poll */
+    sim_cancel (&mpx_poll);                             /* else stop poll */
 
 return SCPE_OK;
 }
@@ -2093,22 +2210,31 @@ return SCPE_OK;
    We are called by the ATTACH MPX <port> command to attach the multiplexer to
    the listening port indicated by <port>.  Logically, it is the multiplexer
    device that is attached; however, SIMH only allows units to be attached.
-   This makes sense for devices such as tape drives, where the attached media is
-   a property of a specific drive.  In our case, though, the listening port is a
-   property of the multiplexer card, not of any given serial line.  As ATTACH
-   MPX is equivalent to ATTACH MPX0, the port would, by default, be attached to
-   the first serial line and be reported there in a SHOW MPX command.
+   This makes sense for devices such as tape drives, where the attached medium
+   is a property of a specific drive.  In our case, though, the listening port
+   is a property of the multiplexer card, not of any given line.  As ATTACH MPX
+   is equivalent to ATTACH MPX0, the port would, by default, be attached to the
+   first line and be reported there in a SHOW MPX command.
 
-   To preserve the logical picture, we attach the port to the Telnet poll unit,
-   which is normally disabled to inhibit its display.  Attaching to a disabled
-   unit is not allowed, so we first enable the unit, then attach it, then
-   disable it again.  Attachment is reported by the "show_status" routine below.
+   To preserve the logical picture, we attach the listening port to the poll
+   unit (unit 9), which is normally disabled to inhibit its display.  Serial
+   ports are attached to line units 0-7 normally.  Attachment is reported by the
+   "show_status" routine below.
 
-   A direct attach to the poll unit is only allowed when restoring a previously
-   saved session.
+   The connection poll service routine is synchronized with the other input
+   polling devices in the simulator to facilitate idling.
 
-   The Telnet poll service routine is synchronized with the other input polling
-   devices in the simulator to facilitate idling.
+
+   Implementation notes:
+
+    1. If we are being called as part of RESTORE processing, we may see a
+       request to attach the poll unit (unit 9).  This will occur if unit 9 was
+       attached when the SAVE was done.  In this case, the SIM_SW_REST flag will
+       be set in "sim_switches", and we will allow the call to succeed.
+
+    2. If the poll unit is attached, it will be enabled as part of RESTORE
+       processing.  We always unilaterally disable this unit to ensure that it
+       remains hidden.
 */
 
 static t_stat mpx_attach (UNIT *uptr, CONST char *cptr)
@@ -2133,15 +2259,21 @@ return status;
 
 /* Detach the multiplexer.
 
-   Normally, we are called by the DETACH MPX command, which is equivalent to
-   DETACH MPX0.  However, we may be called with other units in two cases.
+   We are called by the DETACH MPX command to detach the listening port and all
+   Telnet sessions.  We will also be called by DETACH ALL, RESTORE, and during
+   simulator shutdown.  For DETACH ALL and RESTORE, we must not fail the call,
+   or processing of other units will cease.
 
-   A DETACH ALL command will call us for unit 9 (the poll unit) if it is
-   attached.  Also, during simulator shutdown, we will be called for units 0-8
-   (detach_all in scp.c calls the detach routines of all units that do NOT have
-   UNIT_ATTABLE), as well as for unit 9 if it is attached.  In both cases, it is
-   imperative that we return SCPE_OK, otherwise any remaining device detaches
-   will not be performed.
+
+   Implementation notes:
+
+    1. During simulator shutdown, we will be called for units 0-8 (detach_all in
+       scp.c calls the detach routines of all units that do NOT have
+       UNIT_ATTABLE), as well as for unit 9 if it is attached.
+
+    2. We cannot fail a direct DETACH MPX9 (poll unit), because we cannot tell
+       that case apart from a DETACH ALL (a RESTORE will have the SIM_SW_REST
+       flag set in "sim_switches").
 */
 
 static t_stat mpx_detach (UNIT *uptr)
@@ -2157,7 +2289,7 @@ if ((uptr == mpx_unit) || (uptr == &mpx_poll)) {        /* base unit or poll uni
         sim_cancel (&mpx_unit [i]);                     /* cancel any scheduled I/O */
         }
 
-    sim_cancel (&mpx_poll);                             /* stop Telnet poll */
+    sim_cancel (&mpx_poll);                             /* stop poll */
     }
 
 return status;
@@ -2413,9 +2545,8 @@ switch (mpx_cmd) {
         mpx_enq_cntr [0] = 0;                           /* clear port 0 ENQ counter */
         mpx_ack_wait [0] = 0;                           /* clear port 0 ACK wait timer */
 
-        tmxr_putc_ln (&mpx_ldsc [0], ESC);              /* send fast binary read */
-        tmxr_putc_ln (&mpx_ldsc [0], 'e');              /*   escape sequence to port 0 */
-        tmxr_poll_tx (&mpx_desc);                       /* flush output */
+        tmxr_linemsg (&mpx_ldsc [0], "\033e");          /* send the fast binary read escape sequence to port 0 */
+        tmxr_poll_tx (&mpx_desc);                       /*   and flush the output */
 
         next_state = exec;                              /* set execution state */
         break;
@@ -2557,7 +2688,7 @@ return set_flag;
 }
 
 
-/* Poll for new Telnet connections */
+/* Poll for new connections */
 
 static void poll_connection (void)
 {

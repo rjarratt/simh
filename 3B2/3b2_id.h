@@ -1,4 +1,4 @@
-/* 3b2_cpu.h: AT&T 3B2 Model 400 Hard Disk (uPD7261) Header
+/* 3b2_id.h: AT&T 3B2 Model 400 Hard Disk (uPD7261) Header
 
    Copyright (c) 2017, Seth J. Morabito
 
@@ -31,16 +31,12 @@
 #ifndef __3B2_ID_H__
 #define __3B2_ID_H__
 
-#include "3b2_defs.h"
-#include "3b2_sysdev.h"
+#include "sim_defs.h"
 #include "sim_disk.h"
 
 #define ID0             0
 #define ID1             1
 #define ID_CTLR         2
-
-#define ID_DATA_REG     0
-#define ID_CMD_STAT_REG 1
 
 /* Command Codes (bits 3-7 of command byte) */
 
@@ -143,8 +139,10 @@
 #define ID_V_DTYPE         (DKUF_V_UF + 0)
 #define ID_M_DTYPE         3
 #define ID_DTYPE           (ID_M_DTYPE << ID_V_DTYPE)
+#define ID_V_AUTOSIZE      (ID_V_DTYPE + 2)
+#define ID_AUTOSIZE        (1 << ID_V_AUTOSIZE)
 #define ID_GET_DTYPE(x)    (((x) >> ID_V_DTYPE) & ID_M_DTYPE)
-#define ID_DRV(d)          { ID_##d##_HEADS, ID_##d##_LBN }
+#define ID_DRV(d)          { ID_##d##_HEADS, ID_##d##_LBN, #d }
 
 #define ID_DSK_SIZE(d)     ID_##d##_LBN
 
@@ -155,15 +153,9 @@
 
 #define ID_NUM_UNITS   2
 
-extern DEVICE id_dev;
-extern DEBTAB sys_deb_tab[];
-extern t_bool id_drq;
-extern t_bool id_int();
+#define DMA_ID_SVC     IDBASE+ID_DATA_REG
 
-#define IDBASE 0x4a000
-#define IDSIZE 0x2
-
-#define CMD_NUM      ((id_cmd >> 4) & 0xf)
+#define CMD_NUM       ((id_cmd >> 4) & 0xf)
 
 /* Function prototypes */
 
@@ -172,6 +164,7 @@ t_stat id_ctlr_svc(UNIT *uptr);
 t_stat id_unit_svc(UNIT *uptr);
 t_stat id_reset(DEVICE *dptr);
 t_stat id_set_type(UNIT *uptr, int32 val, CONST char *cptr, void *desc);
+t_stat id_show_type (FILE *st, UNIT *uptr, int32 val, CONST void *desc);
 t_stat id_attach(UNIT *uptr, CONST char *cptr);
 t_stat id_detach(UNIT *uptr);
 uint32 id_read(uint32 pa, size_t size);
@@ -180,9 +173,6 @@ CONST char *id_description(DEVICE *dptr);
 t_stat id_help(FILE *st, DEVICE *dptr, UNIT *uptr, int32 flag, const char *cptr);
 void id_handle_data(uint8 val);
 void id_handle_command(uint8 val);
-
-static SIM_INLINE t_lba id_lba(uint16 cyl, uint8 head, uint8 sec);
-
-void id_drq_handled();
+void id_after_dma();
 
 #endif

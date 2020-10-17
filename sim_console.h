@@ -60,7 +60,7 @@ extern "C" {
 #define  TT_MODE_8B     (TTUF_MODE_8B << TTUF_V_MODE)
 #define  TT_MODE_UC     (TTUF_MODE_UC << TTUF_V_MODE)
 #define  TT_MODE_7P     (TTUF_MODE_7P << TTUF_V_MODE)
-#define  TT_MODE_KSR    (TT_MODE_UC)
+#define  TT_MODE_KSR    (TT_MODE_UC|TT_PAR_MARK)
 /* 7 bit modes allow for an 8th bit parity mode */
 #define TT_PAR          (TTUF_M_PAR << TTUF_V_PAR)
 #define  TT_PAR_SPACE   (TTUF_PAR_SPACE << TTUF_V_PAR)
@@ -81,6 +81,7 @@ t_stat sim_set_serial (int32 flag, CONST char *cptr);
 t_stat sim_set_noserial (int32 flag, CONST char *cptr);
 t_stat sim_set_logon (int32 flag, CONST char *cptr);
 t_stat sim_set_logoff (int32 flag, CONST char *cptr);
+int32 sim_set_deb_switches (int32 switches);
 t_stat sim_set_debon (int32 flag, CONST char *cptr);
 t_stat sim_set_cons_debug (int32 flg, CONST char *cptr);
 t_stat sim_set_cons_buff (int32 flg, CONST char *cptr);
@@ -90,7 +91,6 @@ t_stat sim_set_cons_nolog (int32 flg, CONST char *cptr);
 t_stat sim_set_deboff (int32 flag, CONST char *cptr);
 t_stat sim_set_cons_expect (int32 flg, CONST char *cptr);
 t_stat sim_set_cons_noexpect (int32 flg, CONST char *cptr);
-t_stat sim_debug_flush (void);
 t_stat sim_set_pchar (int32 flag, CONST char *cptr);
 t_stat sim_set_cons_speed (int32 flag, CONST char *cptr);
 t_stat sim_show_console (FILE *st, DEVICE *dptr, UNIT *uptr, int32 flag, CONST char *cptr);
@@ -124,15 +124,21 @@ t_stat sim_ttclose (void);
 t_bool sim_ttisatty (void);
 int32 sim_tt_inpcvt (int32 c, uint32 mode);
 int32 sim_tt_outcvt (int32 c, uint32 mode);
+t_stat sim_tt_set_mode (UNIT *uptr, int32 val, CONST char *cptr, void *desc);
+t_stat sim_tt_set_parity (UNIT *uptr, int32 val, CONST char *cptr, void *desc);
+t_stat sim_tt_show_modepar (FILE *st, UNIT *uptr, int32 val, CONST void *desc);
 t_stat sim_tt_settabs (UNIT *uptr, int32 val, CONST char *cptr, void *desc);
 t_stat sim_tt_showtabs (FILE *st, UNIT *uptr, int32 val, CONST void *desc);
+t_bool sim_is_remote_console_master_line (void *lp);
 
-extern int32 sim_rem_cmd_active_line;                       /* command in progress on line # */
+extern int32 sim_rem_cmd_active_line;   /* command in progress on line # */
 
-extern int32 sim_int_char;                                  /* interrupt character */
-extern int32 sim_brk_char;                                  /* break character */
-extern int32 sim_tt_pchar;                                  /* printable character mask */
-extern int32 sim_del_char;                                  /* delete character */
+extern int32 sim_int_char;              /* interrupt character */
+extern int32 sim_brk_char;              /* break character */
+extern int32 sim_tt_pchar;              /* printable character mask */
+extern int32 sim_del_char;              /* delete character */
+extern t_bool sim_signaled_int_char;    /* WRU character detected by signal while running  */
+extern uint32 sim_last_poll_kbd_time;   /* time when sim_poll_kbd was called */
 
 #ifdef  __cplusplus
 }

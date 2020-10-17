@@ -257,8 +257,7 @@ t_stat vt_clk (UNIT * this)
         static int divider;
         if (++divider == CLK_TPS/10) {
             divider = 0;
-            if (SCPE_STOP == sim_poll_kbd())
-                stop_cpu = 1;
+            sim_poll_kbd();
         }
     }
 
@@ -492,7 +491,7 @@ DEVICE tty_dev = {
     "TTY", tty_unit, tty_reg, tty_mod,
     27, 2, 1, 1, 2, 1,
     NULL, NULL, &tty_reset, NULL, &tty_attach, &tty_detach,
-    NULL, DEV_NET|DEV_DEBUG
+    NULL, DEV_MUX|DEV_DEBUG
 };
 
 void tty_send (uint32 mask)
@@ -1093,9 +1092,6 @@ int vt_getc (int num)
     } else {
         /* Console (keyboard) input. */
         c = sim_poll_kbd();
-        if (c == SCPE_STOP) {
-            stop_cpu = 1;   /* just in case */ 
-        }
         if (! (c & SCPE_KFLAG))
             return -1;
     }

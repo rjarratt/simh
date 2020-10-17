@@ -41,6 +41,7 @@
 
 #if defined(_WIN32)
 #include <windows.h>
+#include <winerror.h>
 #define usleep(n) Sleep(n/1000)
 #else
 #include <unistd.h>
@@ -68,7 +69,7 @@ while (1) {
     buf_size = len + 1;
     buf[buf_size] = '\0';
     }
-while (c = strstr (buf, "\r\n"))
+while ((c = strstr (buf, "\r\n")))
     memmove (c, c + 1, strlen (c));
 printw ("%s", buf);
 }
@@ -122,7 +123,7 @@ if (1) {
     static HANDLE out = NULL;
     static CONSOLE_SCREEN_BUFFER_INFO info;
     static COORD origin = {0, 0};
-    int written;
+    DWORD written;
 
     if (out == NULL)
         out = GetStdHandle (STD_OUTPUT_HANDLE);
@@ -804,8 +805,14 @@ while (1) {
                 printf("%s\n", history);
             }
         else if (match_command ("DEBUG ", cmd, &arg)) {
-            if (sim_panel_device_debug_mode (panel, arg, 1, NULL))
-                printf("Error setting debug mode: %s\n", sim_panel_get_error ());
+            if (arg[0] == '-') {
+                if (sim_panel_device_debug_mode (panel, NULL, 1, arg))
+                    printf("Error setting debug mode: %s\n", sim_panel_get_error ());
+                }
+            else {
+                if (sim_panel_device_debug_mode (panel, arg, 1, NULL))
+                    printf("Error setting debug mode: %s\n", sim_panel_get_error ());
+                }
             }
         else if ((match_command ("EXIT", cmd, NULL)) || (match_command ("QUIT", cmd, NULL)))
             goto Done;

@@ -44,10 +44,6 @@
 
 #include "altairz80_defs.h"
 
-#if defined (_WIN32)
-#include <windows.h>
-#endif
-
 #ifdef DBG_MSG
 #define DBG_PRINT(args) sim_printf args
 #else
@@ -82,7 +78,7 @@ extern t_stat show_membase(FILE *st, UNIT *uptr, int32 val, CONST void *desc);
 extern t_stat set_iobase(UNIT *uptr, int32 val, CONST char *cptr, void *desc);
 extern t_stat show_iobase(FILE *st, UNIT *uptr, int32 val, CONST void *desc);
 extern uint32 sim_map_resource(uint32 baseaddr, uint32 size, uint32 resource_type,
-        int32 (*routine)(const int32, const int32, const int32), uint8 unmap);
+                               int32 (*routine)(const int32, const int32, const int32), const char* name, uint8 unmap);
 extern uint32 PCX;
 extern int32 find_unit_index (UNIT *uptr);
 
@@ -174,18 +170,18 @@ static t_stat n8vem_reset(DEVICE *dptr)
     sim_debug(VERBOSE_MSG, &n8vem_dev, "N8VEM: Reset.\n");
 
     if(dptr->flags & DEV_DIS) { /* Disconnect I/O Ports */
-        sim_map_resource(pnp->io_base, pnp->io_size, RESOURCE_TYPE_IO, &n8vemdev, TRUE);
-        sim_map_resource(pnp->mem_base, pnp->mem_size, RESOURCE_TYPE_MEMORY, &n8vem_mem, TRUE);
+        sim_map_resource(pnp->io_base, pnp->io_size, RESOURCE_TYPE_IO, &n8vemdev, "n8vemdev", TRUE);
+        sim_map_resource(pnp->mem_base, pnp->mem_size, RESOURCE_TYPE_MEMORY, &n8vem_mem, "n8vem_mem", TRUE);
         free(n8vem_info->ram);
         free(n8vem_info->rom);
     } else {
         /* Connect N8VEM at base address */
-        if(sim_map_resource(pnp->io_base, pnp->io_size, RESOURCE_TYPE_IO, &n8vemdev, FALSE) != 0) {
+        if(sim_map_resource(pnp->io_base, pnp->io_size, RESOURCE_TYPE_IO, &n8vemdev, "n8vemdev", FALSE) != 0) {
             sim_printf("%s: error mapping I/O resource at 0x%04x\n", __FUNCTION__, pnp->io_base);
             return SCPE_ARG;
         }
         /* Connect N8VEM Memory (512K RAM, 1MB FLASH) */
-        if(sim_map_resource(pnp->mem_base, pnp->mem_size, RESOURCE_TYPE_MEMORY, &n8vem_mem, FALSE) != 0) {
+        if(sim_map_resource(pnp->mem_base, pnp->mem_size, RESOURCE_TYPE_MEMORY, &n8vem_mem, "n8vem_mem", FALSE) != 0) {
             sim_printf("%s: error mapping MEM resource at 0x%04x\n", __FUNCTION__, pnp->mem_base);
             return SCPE_ARG;
         }
@@ -279,9 +275,9 @@ static t_stat n8vem_detach(UNIT *uptr)
     sim_debug(VERBOSE_MSG, &n8vem_dev, "N8VEM: Detach %s.\n", i == 0 ? "ROM" : "RAM");
 
     /* rewind to the beginning of the file. */
-    sim_fseek(uptr->fileref, 0, SEEK_SET);
-
-    if(i == 0) { /* ROM */
+    if(sim_fseek(uptr->fileref, 0, SEEK_SET)) {
+        sim_debug(VERBOSE_MSG, &n8vem_dev, "N8VEM: Cannot write into %s image.\n", i == 0 ? "ROM" : "RAM");
+    } else if(i == 0) { /* ROM */
         /* Save the ROM back to disk if SAVEROM is set. */
         if(save_rom == 1) {
             sim_debug(VERBOSE_MSG, &n8vem_dev, "N8VEM: Writing %d bytes into ROM image.\n", N8VEM_ROM_SIZE);
@@ -327,7 +323,7 @@ static t_stat n8vem_detach(UNIT *uptr)
  */
  static int32 n8vem_mem(const int32 Addr, const int32 write, const int32 data)
 {
-/*  DBG_PRINT(("N8VEM: ROM %s, Addr %04x" NLP, write ? "WR" : "RD", Addr)); */
+/*  DBG_PRINT(("N8VEM: ROM %s, Addr %04x\n", write ? "WR" : "RD", Addr)); */
     if(write) {
         if(n8vem_info->mpcl_rom & N8VEM_RAM_SELECT)
         {

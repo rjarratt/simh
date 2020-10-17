@@ -456,6 +456,8 @@ OP CODE 11 (Resened)
 
 #include "pdp11_td.h"
 
+#define MIN(a,b) (((a) < (b)) ? (a) : (b))
+
 /* DL Definitions */
 
 /* registers */
@@ -605,8 +607,6 @@ static int32 td_ctime = 150;                            /* command time */
 static int32 td_xtime = 180;                            /* tr set time */
 static int32 td_itime = 180;                            /* init time */
 
-static int32 td_regval;                                 /* temp location used in reg declarations */
-
 static int32 td_ctrls = 1;                              /* number of enabled controllers */
 
 static uint32 tdi_ireq = 0;
@@ -700,8 +700,8 @@ static REG td_reg[] = {
     { RDATA  (OFFSET, offset, 16, "offset into current transfer") },
     { RDATA  (UNITNO, unitno, 16, "active unit number") },
 
-    { BRDATAD (IBUF,   td_ctlr[0].ibuf,16, 8, 512, "input buffer"), },
-    { BRDATAD (OBUF,   td_ctlr[0].obuf,16, 8, 512, "output buffer"), },
+    { BRDATAD (IBUF,   td_ctlr[0].ibuf,16, 8, TD_NUMBY+1, "input buffer"), },
+    { BRDATAD (OBUF,   td_ctlr[0].obuf,16, 8, TD_NUMBY+1, "output buffer"), },
     { NULL }
     };
 
@@ -994,7 +994,7 @@ switch (opcode) {
         break;
 
     case TD_OPINI:
-        for (unit=0; unit < 2; unit++)
+        for (unit=0; unit < MIN(ctlr->dptr->numunits, 2); unit++)
             sim_cancel (ctlr->uptr+unit);
         ctlr->ibptr = 0;
         ctlr->obptr = 0;
@@ -1588,9 +1588,9 @@ static t_stat td_boot (int32 unitno, DEVICE *dptr)
 size_t i;
 
 for (i = 0; i < BOOT_LEN; i++)
-    M[(BOOT_START >> 1) + i] = boot_rom[i];
-M[BOOT_UNIT >> 1] = unitno & 1;
-M[BOOT_CSR >> 1] = (td_dib.ba & DMASK) + (unitno >> 1) * 010;
+    WrMemW (BOOT_START + (2 * i), boot_rom[i]);
+WrMemW (BOOT_UNIT, unitno & 1);
+WrMemW (BOOT_CSR, (td_dib.ba & DMASK) + (unitno >> 1) * 010);
 cpu_set_boot (BOOT_ENTRY);
 return SCPE_OK;
 }

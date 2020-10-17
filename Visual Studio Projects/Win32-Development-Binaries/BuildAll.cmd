@@ -8,7 +8,7 @@ rem
 rem  We're using a github repository for this purpose since github no longer
 rem  supports a Download files facility since some folks were using it to 
 rem  contain large binary files.  The typical set of simh windows binaries
-rem  is under 10MB in size and the plan is to delete and recreate the whole
+rem  is about 35MB in size and the plan is to delete and recreate the whole
 rem  Win32-Development-Binaries repository at least every few months.
 rem
 rem  If this script is invoked with a single parameter "reset", the local
@@ -97,45 +97,70 @@ rem  This procedure must be located in the "Visual Studio Projects\Win32-Develop
 rem  The git repository directory (.git) is located relative to that directory.
 cd %~p0
 SET GIT_COMMIT_ID=
-if not exist ..\..\.git\hooks\post-commit copy ..\git-hooks\post* ..\..\.git\hooks\ > NUL 2>&1
+SET GIT_COMMIT_TIME=
 pushd ..\..
-git checkout -q master
-git fetch -q origin master
-git log -1 "--pretty=%%H" >.git-commit-id
+git update-index --refresh -- | findstr update > NUL
+if not ERRORLEVEL 1 echo **** ERROR **** the local repo has uncommitted files & popd & goto :EOF
+git remote | findstr origin > NUL
+if ERRORLEVEL 1 echo **** ERROR **** missing 'origin' remote in this repo & popd & goto :EOF
+git checkout --quiet master
+git fetch origin master
+git log -1 --pretty="SIM_GIT_COMMIT_ID %%H%%nSIM_GIT_COMMIT_TIME %%aI" >.git-commit-id
 popd
 pushd ..
-for /F %%i in (..\.git-commit-id) do set GIT_COMMIT_ID=%%i
-for /F "tokens=3 delims=/" %%i in ("%DATE%") do set D_YYYY=%%i
-for /F "tokens=2 delims=/ " %%i in ("%DATE%") do set D_MM=%%i
-for /F "tokens=2 delims=/" %%i in ("%DATE%") do set D_DD=%%i
+for /F "usebackq tokens=2" %%i in (`findstr /C:SIM_GIT_COMMIT_ID ..\.git-commit-id`) do set GIT_COMMIT_ID=%%i
+for /F "usebackq tokens=2" %%i in (`findstr /C:SIM_GIT_COMMIT_TIME ..\.git-commit-id`) do set GIT_COMMIT_TIME=%%i
+for /F "tokens=1 delims=-T" %%i in ("%GIT_COMMIT_TIME%") do set D_YYYY=%%i
+for /F "tokens=2 delims=-T" %%i in ("%GIT_COMMIT_TIME%") do set D_MM=%%i
+for /F "tokens=3 delims=-T" %%i in ("%GIT_COMMIT_TIME%") do set D_DD=%%i
+set _SIM_MAJOR=
+set _SIM_MINOR=
+set _SIM_PATCH=
+set _SIM_VERSION_MODE=
 for /F "usebackq tokens=3" %%i in (`findstr/C:"#define SIM_MAJOR" ..\sim_rev.h`) do set _SIM_MAJOR=%%i
 for /F "usebackq tokens=3" %%i in (`findstr/C:"#define SIM_MINOR" ..\sim_rev.h`) do set _SIM_MINOR=%%i
 for /F "usebackq tokens=3" %%i in (`findstr/C:"#define SIM_PATCH" ..\sim_rev.h`) do set _SIM_PATCH=-%%i
 for /F "usebackq tokens=3" %%i in (`findstr/C:"#define SIM_VERSION_MODE" ..\sim_rev.h`) do set _SIM_VERSION_MODE=-%%~i
 if "%_SIM_PATCH%" equ "-0" set _SIM_PATCH=
+
 set _ZipName=simh-%_SIM_MAJOR%.%_SIM_MINOR%%_SIM_PATCH%%_SIM_VERSION_MODE%--%D_YYYY%-%D_MM%-%D_DD%-%GIT_COMMIT_ID:~0,8%.zip
 set _ZipPath=..\..\%BIN_REPO%
 if not exist "%_ZipPath%" mkdir "%_ZipPath%"
 set _ZipPath=%_ZipPath%\
 
-if not exist "%_ZipPath%%_ZipName%" vcbuild /M%NUMBER_OF_PROCESSORS% /useenv /rebuild Simh.sln "Release|Win32"
-7z a -tzip -x!BuildROMs.exe "%_ZipPath%%_ZipName%" "..\BIN\NT\Win32-Release\*.exe"
 popd
 pushd ..\%_ZipPath%
 if "%1" neq "reset" goto GitAddNew
 :GitSetup
 if exist .git rmdir/q/s .git
-copy /y "%~p0README.md" .\
+if exist *.zip del *.zip
+copy /y "%~p0Win32-Development-Binaries-README.md" .\README.md
 git init
 git add README.md
 git commit -m "Initializing the Windows Binary repository"
 git remote add origin "%REMOTE_REPO%"
 git branch -m master %BIN_REPO%
-git push -u origin %BIN_REPO%
+git push --force -u origin %BIN_REPO%
 
 :GitAddNew
 if not exist .git git clone "%REMOTE_REPO%" ./
-git pull
+git pull 
+set _BINARIES_ALREADY_BUILT=
+for /F "usebackq" %%i in (`git log ^| findstr %GIT_COMMIT_ID%`) do set _BINARIES_ALREADY_BUILT=1
+if "%_BINARIES_ALREADY_BUILT%" == "" goto DoBuild
+:AlreadyBuilt
+popd
+echo Git Commit: %GIT_COMMIT_ID% - %GIT_COMMIT_TIME% has already been published
+goto :EOF
+
+:DoBuild
+pushd %~p0\..
+set _SIM_PARALLEL=8
+if %_SIM_PARALLEL% GTR %NUMBER_OF_PROCESSORS% set _SIM_PARALLEL=%NUMBER_OF_PROCESSORS%
+if not exist "%_ZipPath%%_ZipName%" vcbuild /M%_SIM_PARALLEL% /useenv /rebuild Simh.sln "Release|Win32"
+7z a -tzip -x!BuildROMs.exe "%_ZipPath%%_ZipName%" "..\BIN\NT\Win32-Release\*.exe"
+popd
+
 git add %_ZipName%
 git commit -m "Build results on %D_YYYY%-%D_MM%-%D_DD% for simh Commit: https://github.com/simh/simh/commit/%GIT_COMMIT_ID%"
 git push -u origin %BIN_REPO%

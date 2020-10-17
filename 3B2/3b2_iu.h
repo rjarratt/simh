@@ -31,8 +31,8 @@
 #ifndef __3B2_IU_H__
 #define __3B2_IU_H__
 
-#include "3b2_defs.h"
-#include "3b2_sysdev.h"
+#include "sim_defs.h"
+#include "sim_tmxr.h"
 
 #define CMD_ERX         0x01              /* Enable receiver */
 #define CMD_DRX         0x02              /* Disable receiver */
@@ -44,9 +44,9 @@
 #define IU_SPEED_REGS   2                 /* Two speed select registers, */
 #define IU_SPEEDS       16                /* with 16 speeds each */
 
-#define PARITY_ODD      0
-#define PARITY_EVEN     1
-#define PARITY_NONE     2
+#define IU_PARITY_ODD   0
+#define IU_PARITY_EVEN  1
+#define IU_PARITY_NONE  2
 
 #define STS_RXR         0x01              /* Receiver ready */
 #define STS_FFL         0x02              /* FIFO full */
@@ -135,30 +135,8 @@
 
 #define IU_MODE(x)    ((x & UM_MASK) >> UM_SHIFT)
 
-extern DEVICE tti_dev;
-extern DEVICE tto_dev;
-extern DEVICE contty_dev;
-extern DEVICE iu_timer_dev;
-
 #define IUBASE            0x49000
 #define IUSIZE            0x100
-
-/* The UART is driven by a 3.6864 MHz crystal. This is divided by 16
-   to clock the timer. (One peculiarity: 3.6864 MHz /16 is 230400 Hz,
-   but the SVR3 source code claims the /16 clock is actually 230525
-   Hz. So, we'll go with 230525 Hz until proven otherwise.)
-
-   UART clock period   = 4338ns
-   System clock period =  100ns
-
-   That means the system ticks 43.3792 times for every one tick of the
-   UART clock.
-
-   But this is a simulated system, where each simulator step is
-   CYCLES_PER_INST long. So we take that into account.
-*/
-
-#define IU_TIMER_STP      4.33792
 
 #define IU_BUF_SIZE       3
 
@@ -167,8 +145,15 @@ extern DEVICE iu_timer_dev;
 #define IU_DTRA           0x01
 #define IU_DTRB           0x02
 
+#define DMA_NONE   0
+#define DMA_VERIFY 1
+#define DMA_WRITE  2
+#define DMA_READ   4
+
 /* Default baud rate generator (9600 baud) */
 #define BRG_DEFAULT       11
+
+#define IU_TIMER_RATE     2.114 /* microseconds per step */
 
 
 typedef struct iu_port {
@@ -181,7 +166,8 @@ typedef struct iu_port {
     uint8 rxbuf[IU_BUF_SIZE]; /* Receive Holding Register (3 bytes) */
     uint8 w_p;                /* Buffer Write Pointer */
     uint8 r_p;                /* Buffer Read Pointer */
-    t_bool drq;               /* DRQ enabled */
+    uint8 dma;                /* Currently active DMA mode */
+    t_bool drq;               /* DMA request enabled */
 } IU_PORT;
 
 typedef struct iu_state {
@@ -198,9 +184,6 @@ typedef struct iu_timer_state {
     t_bool c_en;
 } IU_TIMER_STATE;
 
-extern IU_PORT  iu_console;
-extern IU_PORT  iu_contty;
-
 /* Function prototypes */
 t_stat contty_attach(UNIT *uptr, CONST char *cptr);
 t_stat contty_detach(UNIT *uptr);
@@ -212,17 +195,16 @@ t_stat iu_svc_tto(UNIT *uptr);
 t_stat iu_svc_contty_rcv(UNIT *uptr);
 t_stat iu_svc_contty_xmt(UNIT *uptr);
 t_stat iu_svc_timer(UNIT *uptr);
+t_stat iu_tx(uint8 portno, uint8 val);
 uint32 iu_read(uint32 pa, size_t size);
 void iu_write(uint32 pa, uint32 val, size_t size);
 void iua_drq_handled();
 void iub_drq_handled();
 void iu_txrdy_a_irq();
 void iu_txrdy_b_irq();
-
-static SIM_INLINE void iu_tx(uint8 portno, uint8 val);
-static SIM_INLINE void iu_w_buf(uint8 portno, uint8 val);
-static SIM_INLINE void iu_w_cmd(uint8 portno, uint8 val);
-static SIM_INLINE void iu_update_rxi(uint8 c);
-static SIM_INLINE void iu_update_txi();
+void iu_dma_console(uint8 channel, uint32 service_address);
+void iu_dma_contty(uint8 channel, uint32 service_address);
+void increment_modep_a();
+void increment_modep_b();
 
 #endif

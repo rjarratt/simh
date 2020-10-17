@@ -1,4 +1,4 @@
-/* 3b2_cpu.h: AT&T 3B2 Model 400 Floppy (TMS2797NL) Header
+/* 3b2_if.h: AT&T 3B2 Model Floppy Controller (TMS2797NL) Header
 
    Copyright (c) 2017, Seth J. Morabito
 
@@ -31,9 +31,7 @@
 #ifndef __3B2_IF_H__
 #define __3B2_IF_H__
 
-#include "3b2_defs.h"
-#include "3b2_sysdev.h"
-#include "3b2_sys.h"
+#include "sim_defs.h"
 
 typedef struct {
     uint8 data;
@@ -47,21 +45,6 @@ typedef struct {
     int8  step_dir;
     t_bool drq;
 } IF_STATE;
-
-
-extern DEVICE if_dev;
-extern DEBTAB sys_deb_tab[];
-extern IF_STATE if_state;
-extern t_bool if_irq;
-
-#define IFBASE 0x4d000
-#define IFSIZE 0x10
-
-#define IF_STATUS_REG    0
-#define IF_CMD_REG       0
-#define IF_TRACK_REG     1
-#define IF_SECTOR_REG    2
-#define IF_DATA_REG      3
 
 /* Status Bits */
 #define IF_BUSY          0x01
@@ -113,26 +96,27 @@ extern t_bool if_irq;
 /* Constants */
 
 #define IF_SIDES         2
+#define IF_SEC_COUNT     9
+#define IF_SEC_SIZE      512
 #define IF_TRACK_SIZE    4608
-#define IF_SECTOR_SIZE   512
 #define IF_TRACK_COUNT   80
 
 #define IF_STEP_IN_DIR    1
 #define IF_STEP_OUT_DIR  -1
 
-#define IF_DSK_SIZE      (IF_SIDES * IF_TRACK_SIZE * IF_TRACK_COUNT)
+#define IF_DSK_SIZE_SECS  (IF_SIDES * IF_TRACK_COUNT * IF_SEC_COUNT)
 
 /* Function prototypes */
 
-static SIM_INLINE void if_set_irq();
-static SIM_INLINE void if_clear_irq();
-static SIM_INLINE void if_cancel_pending_irq();
-static SIM_INLINE uint32 if_buf_offset();
 t_stat if_svc(UNIT *uptr);
 t_stat if_reset(DEVICE *dptr);
+t_stat if_attach(UNIT *uptr, CONST char *cptr);
+t_stat if_detach(UNIT *uptr);
 uint32 if_read(uint32 pa, size_t size);
 void if_write(uint32 pa, uint32 val, size_t size);
-void if_drq_handled();
 void if_handle_command();
+void if_after_dma();
+CONST char *if_description(DEVICE *dptr);
+t_stat if_help(FILE *st, DEVICE *dptr, UNIT *uptr, int32 flag, const char *cptr);
 
 #endif

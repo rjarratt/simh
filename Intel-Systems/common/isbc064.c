@@ -25,8 +25,8 @@
 
     MODIFICATIONS:
 
-        ?? ??? 11 - Original file.
-        16 Dec 12 - Modified to use isbc_80_10.cfg file to set base and size.
+        ?? ??? 11 -- Original file.
+        16 Dec 12 -- Modified to use isbc_80_10.cfg file to set base and size.
         24 Apr 15 -- Modified to use simh_debug
 
     NOTES:
@@ -37,20 +37,64 @@
 
 #include "system_defs.h"
 
-#define SET_XACK(VAL)       (xack = VAL)
+#if defined (SBC064_NUM) && (SBC064_NUM > 0)    //if board allowed with this system
+
+#define BASE_ADDR       u3    
 
 /* prototypes */
 
-t_stat isbc064_reset (DEVICE *dptr);
+t_stat isbc064_set_size(UNIT *uptr, int32 val, CONST char *cptr, void *desc);
+t_stat isbc064_set_base(UNIT *uptr, int32 val, CONST char *cptr, void *desc);
+t_stat isbc064_show_param (FILE *st, UNIT *uptr, int32 val, CONST void *desc);
+t_stat isbc064_reset(DEVICE *dptr);
 uint8 isbc064_get_mbyte(uint16 addr);
 void isbc064_put_mbyte(uint16 addr, uint8 val);
 
-extern uint8 xack;                         /* XACK signal */
+/* external function prototypes */
 
-/* isbc064 Standard I/O Data Structures */
+/* local globals */
+
+int isbc064_onetime = 1;
+
+/* external globals */
+
+extern uint8 xack;
+
+/* isbc064 Standard SIMH Device Data Structures */
 
 UNIT isbc064_unit = {
-    UDATA (NULL, UNIT_FIX+UNIT_DISABLE+UNIT_BINK, 65536), KBD_POLL_WAIT
+    UDATA (NULL, 0, 0)
+};
+
+MTAB isbc064_mod[] = {
+    { MTAB_XTD | MTAB_VDV,              /* mask */
+    0,                                  /* match */
+    NULL,                               /* print string */
+    "SIZE",                             /* match string */
+    &isbc064_set_size,                  /* validation routine */
+    NULL,                               /* display routine */
+    NULL,                               /* location descriptor */
+    "Sets the RAM size for iSB 064"     /* help string */
+},
+    { MTAB_XTD | MTAB_VDV,              /* mask */ 
+    0                                   /* match */, 
+    NULL,                               /* print string */ 
+    "BASE",                             /* match string */ 
+    &isbc064_set_base,                  /* validation routine */
+    NULL,                               /* display routine */
+    NULL,                               /* location descriptor */
+    "Sets the RAM base for iSBC 064"    /* help string */
+},
+    { MTAB_XTD|MTAB_VDV,                /* mask */ 
+    0,                                  /* match */
+    "PARAM",                            /* print string */ 
+    NULL,                               /* match string */ 
+    NULL,                               /* validation routine */ 
+    &isbc064_show_param,                /* display routine */
+    NULL,                               /* location descriptor */ 
+    "Show current Parameters for iSBC 064" /* help string */
+},
+    { 0 }
 };
 
 DEBTAB isbc064_debug[] = {
@@ -68,7 +112,7 @@ DEVICE isbc064_dev = {
     "SBC064",           //name
     &isbc064_unit,      //units
     NULL,               //registers
-    NULL,               //modifiers
+    isbc064_mod,        //modifiers
     1,                  //numunits
     16,                 //aradix
     16,                 //awidth
@@ -76,43 +120,106 @@ DEVICE isbc064_dev = {
     16,                 //dradix
     8,                  //dwidth
     NULL,               //examine
-    NULL,               //deposite
-//    &isbc064_reset,     //reset
-    NULL,               //reset
+    NULL,               //deposit
+    &isbc064_reset,     //reset
     NULL,               //boot
     NULL,               //attach
     NULL,               //detach
     NULL,               //ctxt
-    DEV_DEBUG+DEV_DISABLE+DEV_DIS, //flags
+    DEV_DISABLE+DEV_DIS, //flags
     0,                  //dctrl
     isbc064_debug,      //debflags
     NULL,               //msize
-    NULL                //lname
+    NULL,               //lname
+    NULL,               //help routine
+    NULL,               //attach help routine
+    NULL,               //help context
+    NULL                //device description
 };
 
-/* iSBC064 globals */
+/* Service routines to handle simulator functions */
+
+
+// set size parameter
+
+t_stat isbc064_set_size(UNIT *uptr, int32 val, CONST char *cptr, void *desc)
+{
+    uint32 size, result, i;
+    
+    if (cptr == NULL)
+        return SCPE_ARG;
+    result = sscanf(cptr, "%i%n", &size, &i);
+    if ((result == 1) && (cptr[i] == 'K') && ((cptr[i + 1] == 0) ||
+        ((cptr[i + 1] == 'B') && (cptr[i + 2] == 0)))) {
+        if (size & 0xff8f) {
+            sim_printf("SBC064: Size error\n");
+            return SCPE_ARG;     
+        } else {
+            isbc064_unit.capac = (size * 1024) - 1;
+            sim_printf("SBC064: Size=%04XH\n", isbc064_unit.capac);
+            return SCPE_OK;
+        }
+    }   
+    return SCPE_ARG;
+}
+
+// set base address parameter
+
+t_stat isbc064_set_base(UNIT *uptr, int32 val, CONST char *cptr, void *desc)
+{
+    uint32 size, result, i;
+    
+    if (cptr == NULL)
+        return SCPE_ARG;
+    result = sscanf(cptr, "%i%n", &size, &i);
+    if ((result == 1) && (cptr[i] == 'K') && ((cptr[i + 1] == 0) ||
+        ((cptr[i + 1] == 'B') && (cptr[i + 2] == 0)))) {
+        if (size & 0xff8f) {
+            sim_printf("SBC064: Base error\n");
+            return SCPE_ARG;     
+        } else {
+            isbc064_unit.BASE_ADDR = size * 1024;
+            sim_printf("SBC064: Base=%04XH\n", isbc064_unit.BASE_ADDR);
+            return SCPE_OK;
+        }
+    }   
+    return SCPE_ARG;
+}
+
+// show configuration parameters
+
+t_stat isbc064_show_param (FILE *st, UNIT *uptr, int32 val, CONST void *desc)
+{
+    fprintf(st, "%s Base=%04XH  Size=%04XH  ", 
+        ((isbc064_dev.flags & DEV_DIS) == 0) ? "Enabled" : "Disabled", 
+        isbc064_unit.BASE_ADDR, isbc064_unit.capac);
+    return SCPE_OK;
+}
 
 /* Reset routine */
 
 t_stat isbc064_reset (DEVICE *dptr)
 {
-    sim_debug (DEBUG_flow, &isbc064_dev, "isbc064_reset: ");
-    if ((isbc064_dev.flags & DEV_DIS) == 0) {
-        isbc064_unit.capac = SBC064_SIZE;
-        isbc064_unit.u3 = SBC064_BASE;
-        sim_printf("Initializing iSBC-064 RAM Board\n");
-        sim_printf("   Available[%04X-%04XH]\n", 
-            isbc064_unit.u3,
-            isbc064_unit.u3 + isbc064_unit.capac - 1);
+    if (dptr == NULL)
+        return SCPE_ARG;
+    if (isbc064_onetime) {
+        isbc064_dev.units->capac = SBC064_SIZE; //set default size
+        isbc064_dev.units->BASE_ADDR = SBC064_BASE; //set default base
+        isbc064_onetime = 0;
     }
-    if (isbc064_unit.filebuf == NULL) {
-        isbc064_unit.filebuf = (uint8 *)malloc(isbc064_unit.capac);
-        if (isbc064_unit.filebuf == NULL) {
-            sim_debug (DEBUG_flow, &isbc064_dev, "isbc064_reset: Malloc error\n");
+    if ((dptr->flags & DEV_DIS) == 0) { //already enabled
+        isbc064_dev.units->filebuf = (uint8 *)calloc(isbc064_unit.capac, sizeof(uint8)); //alloc buffer
+        if (isbc064_dev.units->filebuf == NULL) { //CALLOC error
+            sim_printf ("    sbc064: Calloc error\n");
             return SCPE_MEM;
         }
+        sim_printf("    sbc064: Enabled 0%04XH bytes at base 0%04XH\n",
+            isbc064_dev.units->capac, isbc064_dev.units->BASE_ADDR);
+    } else {
+        if (isbc064_dev.units->filebuf)
+            free(isbc064_dev.units->filebuf);   //return allocated memory
+        sim_printf("    sbc064: Disabled\n");
     }
-    sim_debug (DEBUG_flow, &isbc064_dev, "isbc064_reset: Done\n");
     return SCPE_OK;
 }
 
@@ -120,55 +227,20 @@ t_stat isbc064_reset (DEVICE *dptr)
 
 uint8 isbc064_get_mbyte(uint16 addr)
 {
-    uint32 val, org, len;
+    uint8 val;
 
-    if ((isbc064_dev.flags & DEV_DIS) == 0) {
-        org = isbc064_unit.u3;
-        len = isbc064_unit.capac;
-        sim_debug (DEBUG_read, &isbc064_dev, "isbc064_get_mbyte: addr=%04X", addr);
-        sim_debug (DEBUG_read, &isbc064_dev, "isbc064_get_mbyte: org=%04X, len=%04X\n", org, len);
-        if ((addr >= org) && (addr < (org + len))) {
-            SET_XACK(1);                /* good memory address */
-            sim_debug (DEBUG_xack, &isbc064_dev, "isbc064_get_mbyte: Set XACK for %04X\n", addr); 
-            val = *((uint8 *)isbc064_unit.filebuf + (addr - org));
-            sim_debug (DEBUG_read, &isbc064_dev, " val=%04X\n", val);
-//            sim_printf ("isbc064_get_mbyte: addr=%04X, val=%02X\n", addr, val);
-            return (val & 0xFF);
-        } else {
-            sim_debug (DEBUG_read, &isbc064_dev, "isbc064_get_mbyte: Out of range\n");
-            return 0;                   /* multibus has active high pullups and inversion */
-        }
-    }
-    sim_debug (DEBUG_read, &isbc064_dev, "isbc064_get_mbyte: Disabled\n");
-//    sim_printf ("isbc064_get_mbyte: Disabled\n");
-    return 0;                           /* multibus has active high pullups and inversion */
+    val = *((uint8 *)isbc064_unit.filebuf + (addr - isbc064_unit.BASE_ADDR));
+    return (val & 0xFF);
 }
 
 /*  put a byte into memory */
 
 void isbc064_put_mbyte(uint16 addr, uint8 val)
 {
-    uint32 org, len;
-
-    if ((isbc064_dev.flags & DEV_DIS) == 0) {
-        org = isbc064_unit.u3;
-        len = isbc064_unit.capac;
-//        sim_printf ("isbc064_put_mbyte: addr=%04X, val=%02X\n", addr, val);
-        sim_debug (DEBUG_write, &isbc064_dev, "isbc064_put_mbyte: addr=%04X, val=%02X\n", addr, val);
-        sim_debug (DEBUG_write, &isbc064_dev, "isbc064_put_mbyte: org=%04X, len=%04X\n", org, len);
-        if ((addr >= org) && (addr < (org + len))) {
-            SET_XACK(1);                /* good memory address */
-            sim_debug (DEBUG_write, &isbc064_dev, "isbc064_put_mbyte: Set XACK for %04X\n", addr); 
-            *((uint8 *)isbc064_unit.filebuf + (addr - org)) = val & 0xFF;
-            sim_debug (DEBUG_write, &isbc064_dev, "isbc064_put_mbyte: Return\n"); 
-            return;
-        } else {
-            sim_debug (DEBUG_write, &isbc064_dev, "isbc064_put_mbyte: Out of range\n");
-            return;
-        }
-    }
-    sim_debug (DEBUG_write, &isbc064_dev, "isbc064_put_mbyte: Disabled\n");
-//    sim_printf ("isbc064_put_mbyte: Disabled\n");
+    *((uint8 *)isbc064_unit.filebuf + (addr - isbc064_unit.BASE_ADDR)) = val & 0xFF;
+    return;
 }
+
+#endif /* SBC064_NUM > 0 */
 
 /* end of isbc064.c */

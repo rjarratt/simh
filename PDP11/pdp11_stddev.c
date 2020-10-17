@@ -63,6 +63,9 @@
 
 #include "pdp11_defs.h"
 #include "sim_tmxr.h"
+#if defined(USE_DISPLAY)
+#include "display/display.h"
+#endif
 
 #define TTICSR_IMP      (CSR_DONE + CSR_IE)             /* terminal input */
 #define TTICSR_RW       (CSR_IE)
@@ -92,6 +95,7 @@ t_stat tto_wr (int32 data, int32 PA, int32 access);
 t_stat tto_svc (UNIT *uptr);
 t_stat tto_reset (DEVICE *dptr);
 t_stat tty_set_mode (UNIT *uptr, int32 val, CONST char *cptr, void *desc);
+t_stat tty_set_parity (UNIT *uptr, int32 val, CONST char *cptr, void *desc);
 t_stat clk_rd (int32 *data, int32 PA, int32 access);
 t_stat clk_wr (int32 data, int32 PA, int32 access);
 t_stat clk_svc (UNIT *uptr);
@@ -99,6 +103,8 @@ int32 clk_inta (void);
 t_stat clk_reset (DEVICE *dptr);
 t_stat clk_set_freq (UNIT *uptr, int32 val, CONST char *cptr, void *desc);
 t_stat clk_show_freq (FILE *st, UNIT *uptr, int32 val, CONST void *desc);
+const char *clk_description (DEVICE *dptr);
+
 
 /* TTI data structures
 
@@ -112,7 +118,7 @@ DIB tti_dib = {
     1, IVCL (TTI), VEC_TTI, { NULL }
     };
 
-UNIT tti_unit = { UDATA (&tti_svc, UNIT_IDLE, 0), TMLN_SPD_9600_BPS };
+UNIT tti_unit = { UDATA (&tti_svc, UNIT_IDLE|TT_MODE_7P, 0), TMLN_SPD_9600_BPS };
 
 REG tti_reg[] = {
     { HRDATAD (BUF,       tti_unit.buf,          8, "last data item processed") },
@@ -127,10 +133,16 @@ REG tti_reg[] = {
     };
 
 MTAB tti_mod[] = {
-    { TT_MODE, TT_MODE_UC, "UC", "UC", &tty_set_mode },
-    { TT_MODE, TT_MODE_7B, "7b", "7B", &tty_set_mode },
-    { TT_MODE, TT_MODE_8B, "8b", "8B", &tty_set_mode },
-    { TT_MODE, TT_MODE_7P, "7b", NULL, NULL },
+    { MTAB_XTD|MTAB_VDV, TT_MODE_KSR,   NULL, "KSR",   &tty_set_mode,   NULL, NULL, "KSR teletype mode" },
+    { MTAB_XTD|MTAB_VDV, TT_MODE_UC,    NULL, "UC",    &tty_set_mode,   NULL, NULL, "Upper Case mode" },
+    { MTAB_XTD|MTAB_VDV, TT_MODE_7B,    NULL, "7B",    &tty_set_mode,   NULL, NULL, "7 bit mode" },
+    { MTAB_XTD|MTAB_VDV, TT_MODE_8B,    NULL, "8B",    &tty_set_mode,   NULL, NULL, "8 bit mode" },
+    { MTAB_XTD|MTAB_VDV, TT_MODE_7P,    NULL, "7P",    &tty_set_mode,   NULL, NULL, "7 bit mode - non printing suppressed" },
+    { MTAB_XTD|MTAB_VDV, TT_PAR_SPACE,  NULL, "SPACE", &tty_set_parity, NULL, NULL, "Space Parity" },
+    { MTAB_XTD|MTAB_VDV, TT_PAR_MARK,   NULL, "MARK",  &tty_set_parity, NULL, NULL, "Mark Parity" },
+    { MTAB_XTD|MTAB_VDV, TT_PAR_EVEN,   NULL, "EVEN",  &tty_set_parity, NULL, NULL, "Even Parity" },
+    { MTAB_XTD|MTAB_VDV, TT_PAR_ODD,    NULL, "ODD",   &tty_set_parity, NULL, NULL, "Odd Parity" },
+    { MTAB_XTD|MTAB_VDV, 0, "MODE", NULL, NULL, &sim_tt_show_modepar, NULL, "Mode and Parity" },
     { MTAB_XTD|MTAB_VDV, 0, "ADDRESS", NULL,
       NULL, &show_addr, NULL },
     { MTAB_XTD|MTAB_VDV, 0, "VECTOR", NULL,
@@ -138,12 +150,26 @@ MTAB tti_mod[] = {
     { 0 }
     };
 
+#define DBG_RREG     1   /* register read access */
+#define DBG_WREG     2   /* register write access */
+#define DBG_INT      4   /* interrupt activity */
+#define DBG_INTA     8   /* interrupt activity */
+#define DBG_DATA    16   /* incoming data */
+
+DEBTAB tti_debug[] = {
+  {"RREG",  DBG_RREG,   "register read access"},
+  {"WREG",  DBG_WREG,   "register write access"},
+  {"DAT",   DBG_DATA,   "incoming data"},
+  {0}
+};
+
+
 DEVICE tti_dev = {
     "TTI", &tti_unit, tti_reg, tti_mod,
     1, 10, 31, 1, 8, 8,
     NULL, NULL, &tti_reset,
     NULL, NULL, NULL,
-    &tti_dib, DEV_UBUS | DEV_QBUS
+    &tti_dib, DEV_DEBUG | DEV_UBUS | DEV_QBUS, 0, tti_debug
     };
 
 /* TTO data structures
@@ -173,10 +199,16 @@ REG tto_reg[] = {
     };
 
 MTAB tto_mod[] = {
-    { TT_MODE, TT_MODE_UC, "UC", "UC", &tty_set_mode },
-    { TT_MODE, TT_MODE_7B, "7b", "7B", &tty_set_mode },
-    { TT_MODE, TT_MODE_8B, "8b", "8B", &tty_set_mode },
-    { TT_MODE, TT_MODE_7P, "7p", "7P", &tty_set_mode },
+    { MTAB_XTD|MTAB_VDV, TT_MODE_KSR,   NULL, "KSR",   &tty_set_mode,   NULL, NULL, "KSR teletype mode" },
+    { MTAB_XTD|MTAB_VDV, TT_MODE_UC,    NULL, "UC",    &tty_set_mode,   NULL, NULL, "Upper Case mode" },
+    { MTAB_XTD|MTAB_VDV, TT_MODE_7B,    NULL, "7B",    &tty_set_mode,   NULL, NULL, "7 bit mode" },
+    { MTAB_XTD|MTAB_VDV, TT_MODE_8B,    NULL, "8B",    &tty_set_mode,   NULL, NULL, "8 bit mode" },
+    { MTAB_XTD|MTAB_VDV, TT_MODE_7P,    NULL, "7P",    &tty_set_mode,   NULL, NULL, "7 bit mode - non printing suppressed" },
+    { MTAB_XTD|MTAB_VDV, TT_PAR_SPACE,  NULL, "SPACE", &tty_set_parity, NULL, NULL, "Space Parity" },
+    { MTAB_XTD|MTAB_VDV, TT_PAR_MARK,   NULL, "MARK",  &tty_set_parity, NULL, NULL, "Mark Parity" },
+    { MTAB_XTD|MTAB_VDV, TT_PAR_EVEN,   NULL, "EVEN",  &tty_set_parity, NULL, NULL, "Even Parity" },
+    { MTAB_XTD|MTAB_VDV, TT_PAR_ODD,    NULL, "ODD",   &tty_set_parity, NULL, NULL, "Odd Parity" },
+    { MTAB_XTD|MTAB_VDV, 0, "MODE", NULL, NULL, &sim_tt_show_modepar, NULL, "Mode and Parity" },
     { MTAB_XTD|MTAB_VDV, 0, "ADDRESS", NULL,
       NULL, &show_addr, NULL },
     { MTAB_XTD|MTAB_VDV, 0, "VECTOR", NULL,
@@ -208,11 +240,18 @@ DIB clk_dib = {
 
 UNIT clk_unit = { UDATA (&clk_svc, UNIT_IDLE, 0), CLK_DELAY };
 
+BITFIELD clk_bits[] = {
+    BITNCF(6),                              /* MBZ */
+    BIT(IE),                                /* Interrupt Enable */
+    BIT(DONE),                              /* Done */
+    ENDBITS
+};
+
 REG clk_reg[] = {
-    { ORDATA (CSR, clk_csr, 16) },
-    { FLDATA (INT, IREQ (CLK), INT_V_CLK) },
-    { FLDATA (DONE, clk_csr, CSR_V_DONE) },
-    { FLDATA (IE, clk_csr, CSR_V_IE) },
+    { ORDATADF (CSR, clk_csr, 16, "Control Status Register", clk_bits) },
+    { FLDATAD (INT, IREQ (CLK), INT_V_CLK, "Processor Interrupt Pending") },
+    { FLDATAD (DONE, clk_csr, CSR_V_DONE, "Tick Interval Complete") },
+    { FLDATAD (IE, clk_csr, CSR_V_IE, "Interrupt Enabled") },
     { DRDATA (TIME, clk_unit.wait, 24), REG_NZ + PV_LEFT },
     { DRDATA (TPS, clk_tps, 16), PV_LEFT + REG_HRO },
     { DRDATA (DEFTPS, clk_default, 16), PV_LEFT + REG_HRO },
@@ -235,12 +274,22 @@ MTAB clk_mod[] = {
     { 0 }
     };
 
+DEBTAB clk_debug[] = {
+  {"RREG",  DBG_RREG,   "register read access"},
+  {"WREG",  DBG_WREG,   "register write access"},
+  {"INT",   DBG_INT,    "interrupt activity"},
+  {"INTA",  DBG_INTA,   "interrupt acknowledgement"},
+  {0}
+};
+
 DEVICE clk_dev = {
     "CLK", &clk_unit, clk_reg, clk_mod,
     1, 0, 0, 0, 0, 0,
     NULL, NULL, &clk_reset,
     NULL, NULL, NULL,
-    &clk_dib, DEV_UBUS | DEV_QBUS
+    &clk_dib, DEV_DEBUG | DEV_UBUS | DEV_QBUS, 0,
+    clk_debug, NULL, NULL, NULL, NULL, NULL, &clk_description
+
     };
 
 /* Terminal input address routines */
@@ -251,17 +300,22 @@ switch ((PA >> 1) & 01) {                               /* decode PA<1> */
 
     case 00:                                            /* tti csr */
         *data = tti_csr & TTICSR_IMP;
-        return SCPE_OK;
+        break;
 
     case 01:                                            /* tti buf */
         tti_csr = tti_csr & ~CSR_DONE;
         CLR_INT (TTI);
         *data = tti_unit.buf & 0377;
         sim_activate_after_abs (&tti_unit, tti_unit.wait);  /* check soon for more input */
-        return SCPE_OK;
+        break;
+
+    default:
+        return SCPE_NXM;
         }                                               /* end switch PA */
 
-return SCPE_NXM;
+sim_debug (DBG_RREG, &tti_dev, "tti_rd(%s) - 0x%04X\n", ((PA >> 1) & 01) ? "BUF" : "CSR", *data);
+
+return SCPE_OK;
 }
 
 t_stat tti_wr (int32 data, int32 PA, int32 access)
@@ -276,13 +330,18 @@ switch ((PA >> 1) & 01) {                               /* decode PA<1> */
         else if ((tti_csr & (CSR_DONE + CSR_IE)) == CSR_DONE)
             SET_INT (TTI);
         tti_csr = (tti_csr & ~TTICSR_RW) | (data & TTICSR_RW);
-        return SCPE_OK;
+        break;
 
     case 01:                                            /* tti buf */
-        return SCPE_OK;
+        break;
+
+    default:
+        return SCPE_NXM;
         }                                               /* end switch PA */
 
-return SCPE_NXM;
+sim_debug (DBG_WREG, &tti_dev, "tti_wr(%s) - 0x%04X\n", ((PA >> 1) & 01) ? "BUF" : "CSR", data);
+
+return SCPE_OK;
 }
 
 /* Terminal input service */
@@ -296,11 +355,25 @@ sim_clock_coschedule (uptr, tmxr_poll);                 /* continue poll */
 if ((tti_csr & CSR_DONE) &&                             /* input still pending and < 500ms? */
     ((sim_os_msec () - tti_buftime) < 500))
      return SCPE_OK;
-if ((c = sim_poll_kbd ()) < SCPE_KFLAG)                 /* no char or error? */
+#if defined(USE_DISPLAY)
+if (display_last_char) {
+    c = display_last_char | SCPE_KFLAG;
+    display_last_char = 0;
+    }
+else {
+    c = sim_poll_kbd ();
+    if (c < SCPE_KFLAG)                     /* no char or error? */
+        return c;
+    }
+#else
+if ((c = sim_poll_kbd ()) < SCPE_KFLAG) /* no char or error? */
     return c;
-if (c & SCPE_BREAK)                                     /* break? */
+#endif
+sim_debug (DBG_DATA, &tti_dev, "tti_svc() - Received data: 0x%02X '%c'\n", c & ~SCPE_KFLAG, c & ~SCPE_KFLAG);
+if (c & SCPE_BREAK)                         /* break? */
     uptr->buf = 0;
-else uptr->buf = sim_tt_inpcvt (c, TT_GET_MODE (uptr->flags));
+else
+    uptr->buf = sim_tt_inpcvt (c, TT_GET_MODE (uptr->flags));
 tti_buftime = sim_os_msec ();
 uptr->pos = uptr->pos + 1;
 tti_csr = tti_csr | CSR_DONE;
@@ -399,8 +472,17 @@ return SCPE_OK;
 
 t_stat tty_set_mode (UNIT *uptr, int32 val, CONST char *cptr, void *desc)
 {
-tti_unit.flags = (tti_unit.flags & ~TT_MODE) | val;
-tto_unit.flags = (tto_unit.flags & ~TT_MODE) | val;
+sim_tt_set_mode (&tti_unit, val, cptr, desc);
+sim_tt_set_mode (&tto_unit, val, cptr, desc);
+return SCPE_OK;
+}
+
+t_stat tty_set_parity (UNIT *uptr, int32 val, CONST char *cptr, void *desc)
+{
+sim_tt_set_parity (&tti_unit, val, cptr, desc);
+sim_tt_set_parity (&tto_unit, val, cptr, desc);
+tti_unit.flags = (tti_unit.flags & ~TT_PAR) | val;
+tto_unit.flags = (tto_unit.flags & ~TT_PAR) | val;
 return SCPE_OK;
 }
 
@@ -416,16 +498,21 @@ return SCPE_OK;
 
 t_stat clk_rd (int32 *data, int32 PA, int32 access)
 {
+int32 orig_csr = clk_csr;
+
 if (clk_fnxm)                                           /* not there??? */
     return SCPE_NXM;
 if (CPUT (HAS_LTCM))                                    /* monitor bit? */
     *data = clk_csr & CLKCSR_IMP;
 else *data = clk_csr & (CLKCSR_IMP & ~CSR_DONE);        /* no, just IE */
+sim_debug_bits(DBG_RREG, &clk_dev, clk_bits, orig_csr, *data, 1);
 return SCPE_OK;
 }
 
 t_stat clk_wr (int32 data, int32 PA, int32 access)
 {
+int32 orig_csr = clk_csr;
+
 if (clk_fnxm)                                           /* not there??? */
     return SCPE_NXM;
 if (PA & 1)
@@ -434,8 +521,11 @@ clk_csr = (clk_csr & ~CLKCSR_RW) | (data & CLKCSR_RW);
 if (CPUT (HAS_LTCM) && ((data & CSR_DONE) == 0))        /* monitor bit? */
     clk_csr = clk_csr & ~CSR_DONE;                      /* clr if zero */
 if ((((clk_csr & CSR_IE) == 0) && !clk_fie) ||          /* unless IE+DONE */
-    ((clk_csr & CSR_DONE) == 0))                        /* clr intr */
+    ((clk_csr & CSR_DONE) == 0)) {                      /* clr intr */
     CLR_INT (CLK);
+    sim_debug (DBG_INT, &clk_dev, "CLR_INT(CLK)\n");
+    }
+sim_debug_bits(DBG_WREG, &clk_dev, clk_bits, orig_csr, clk_csr, 1);
 return SCPE_OK;
 }
 
@@ -446,8 +536,10 @@ t_stat clk_svc (UNIT *uptr)
 int32 t;
 
 clk_csr = clk_csr | CSR_DONE;                           /* set done */
-if ((clk_csr & CSR_IE) || clk_fie)
+if ((clk_csr & CSR_IE) || clk_fie) {
     SET_INT (CLK);
+    sim_debug (DBG_INT, &clk_dev, "SET_INT(CLK)\n");
+    }
 t = sim_rtcn_calb (clk_tps, TMR_CLK);                   /* calibrate clock */
 sim_activate_after (uptr, 1000000/clk_tps);             /* reactivate unit */
 tmr_poll = t;                                           /* set timer poll */
@@ -461,6 +553,7 @@ int32 clk_inta (void)
 {
 if (CPUT (CPUT_24))
     clk_csr = clk_csr & ~CSR_DONE;
+sim_debug (DBG_INTA, &clk_dev, "clk_inta() returning vector 0%o\n", clk_dib.vec);
 return clk_dib.vec;
 }
 
@@ -503,3 +596,9 @@ t_stat clk_show_freq (FILE *st, UNIT *uptr, int32 val, CONST void *desc)
 fprintf (st, "%dHz", clk_tps);
 return SCPE_OK;
 }
+
+const char *clk_description (DEVICE *dptr)
+{
+return "KW11-L line frequency clock";
+}
+

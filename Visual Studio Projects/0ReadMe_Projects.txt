@@ -1,13 +1,19 @@
 This dirctory contains a set of Visual Studio 2008 build projects for the 
 current simh code base.  When used (with Visual Studio Express 2008 or 
-Visual Studio Express 2010) it populates a directory tree under the BIN 
-directory of the Simh distribution for temporary build files and produces 
-resulting executables in the BIN/NT/Win32-Debug or BIN/NT/Win32-Release 
-directories (depending on whether you target a Debug or Release build).  
+or a later Visual Studio version) it populates a directory tree under the 
+BIN directory of the Simh distribution for temporary build files and 
+produces resulting executables in the BIN/NT/Win32-Debug or 
+BIN/NT/Win32-Release directories (depending on whether you target a Debug 
+or Release build).
 
-The Visual Studio Projects expect that a winpcap developer pack and the
-Posix threads for windows package are available in a directory parallel 
-to the simh directory.  
+These projects, when used with Visual Studio 2008, will produce Release 
+build binaries that will run on Windows versions from XP onward.  Building
+with later versions of Visual Studio will have different Windows version
+compatibility.
+
+The Visual Studio Projects expect that various dependent packages that
+the simh code depends on are available in a directory parallel to the 
+simh directory.  
 
 For Example, the directory structure should look like:
 
@@ -20,7 +26,10 @@ For Example, the directory structure should look like:
     .../simh/windows-build/winpcap/WpdPack/Include/pcap.h
     .../simh/windows-build/libSDL/SDL2-2.0.3/include/SDL.h
 
-The contents of the windows-build directory can be downloaded from:
+If you have a command line version of git installed in your environment
+then the windows-build repository will be downloaded and updated 
+automatically.  If not, then the contents of the windows-build directory 
+can be downloaded from:
 
     https://github.com/simh/windows-build/archive/windows-build.zip
 
@@ -31,9 +40,10 @@ but have this directory properly located.
 Network devices are capable of using pthreads to enhance their performance.  
 To realize these benefits, you must build the desire simulator with 
 USE_READER_THREAD defined.  The relevant simulators which have network 
-support are all of the VAX simulators and the PDP11 simulator.
+support are all of the VAX simulators, the PDP11 simulator and the various
+PDP10 simulators.
 
-Additionally, simulators which contain devices which use the asynchronous
+Additionally, simulators which contain devices that use the asynchronous
 APIs in sim_disk.c and sim_tape.c can also achieve greater performance by
 leveraging pthreads to perform blocking I/O in separate threads.  Currently
 the simulators which have such devices are all of the VAX simulators and 
@@ -54,3 +64,7 @@ If you are using a version of Visual Studio beyond Visual Studio 2008, then
 your later version of Visual Studio will automatically convert the Visual 
 Studio 2008 project files.  You should ignore any warnings produced by the 
 conversion process.
+
+If you have a version of Visual Studio installed and want to build all the
+simulators from a command prompt, the file build_vstudio.bat in the root
+of the simh source tree will do that without any furthur interaction.

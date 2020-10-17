@@ -1,31 +1,31 @@
 /*  m68kcpmsim.c: CP/M for Motorola 68000 definitions
- 
+
  Copyright (c) 2014, Peter Schorn
- 
+
  Permission is hereby granted, free of charge, to any person obtaining a
  copy of this software and associated documentation files (the "Software"),
  to deal in the Software without restriction, including without limitation
  the rights to use, copy, modify, merge, publish, distribute, sublicense,
  and/or sell copies of the Software, and to permit persons to whom the
  Software is furnished to do so, subject to the following conditions:
- 
+
  The above copyright notice and this permission notice shall be included in
  all copies or substantial portions of the Software.
- 
+
  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
  PETER SCHORN BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
  IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- 
+
  Except as contained in this notice, the name of Peter Schorn shall not
  be used in advertising or otherwise to promote the sale, use or other dealings
  in this Software without prior written authorization from Peter Schorn.
- 
+
  Based on work by David W. Schultz http://home.earthlink.net/~david.schultz (c) 2014
 
- 
+
  MC68000 simulation tailored to support CP/M-68K. It includes:
 
  16MB of memory. (Flat, function codes and address space types ignored.)
@@ -158,10 +158,6 @@ static uint32 m68k_fc;                              /* Current function code fro
 extern uint32 m68k_registers[M68K_REG_CPU_TYPE + 1];
 extern UNIT cpu_unit;
 
-#if !UNIX_PLATFORM
-extern void pollForCPUStop(void);
-#endif
-
 #define M68K_BOOT_LENGTH        (32 * 1024)                 /* size of bootstrap    */
 #define M68K_BOOT_PC            0x000400                    /* initial PC for boot  */
 #define M68K_BOOT_SP            0xfe0000                    /* initial SP for boot  */
@@ -170,21 +166,21 @@ t_stat m68k_hdsk_boot(const int32 unitno, DEVICE *dptr,
                       const uint32 verboseMessage, const int32 hdskNumber) {
     UNIT *uptr;
     size_t i;
-    
+
     if ((unitno < 0) || (unitno >= hdskNumber))
         return SCPE_ARG;
-    
+
     uptr = (dptr -> units) + unitno;
     if (((uptr -> flags) & UNIT_ATT) == 0) {
         sim_debug(verboseMessage, dptr, "HDSK%d: Boot drive is not attached.\n", unitno);
         return SCPE_ARG;
     }
-    
+
     if (sim_fseek(uptr -> fileref, 0, SEEK_SET) != 0) {
         sim_debug(verboseMessage, dptr, "HDSK%d: Boot error seeking start.\n", unitno);
         return SCPE_ARG;
     }
-    
+
     i = sim_fread(&m68k_ram[M68K_BOOT_PC], 1, M68K_BOOT_LENGTH, uptr -> fileref);
     if (i != M68K_BOOT_LENGTH) {
         sim_debug(verboseMessage, dptr,
@@ -192,7 +188,7 @@ t_stat m68k_hdsk_boot(const int32 unitno, DEVICE *dptr,
                   unitno, M68K_BOOT_LENGTH);
         return SCPE_ARG;
     }
-    
+
     // Now put in values for the stack and PC vectors
     WRITE_LONG(m68k_ram, 0, M68K_BOOT_SP);  // SP
     WRITE_LONG(m68k_ram, 4, M68K_BOOT_PC);  // PC
@@ -218,10 +214,6 @@ t_stat sim_instr_m68k(void) {
     m68k_viewToCPU();
     while (TRUE) {
         if (sim_interval <= 0) {                            /* check clock queue    */
-#if !UNIX_PLATFORM
-            /* poll on platforms without reliable signalling but not too often */
-            pollForCPUStop(); /* following sim_process_event will check for stop */
-#endif
             if ((reason = sim_process_event()))
                 break;
             m68k_input_device_update();
@@ -341,7 +333,7 @@ static void MC6850_control_write(uint32 val) {
 unsigned int m68k_cpu_read_byte_raw(unsigned int address) {
     if (address > M68K_MAX_RAM) {
         if (cpu_unit.flags & UNIT_CPU_VERBOSE)
-            sim_printf("M68K: 0x%08x Attempt to read byte from non existing memory 0x%08x." NLP,
+            sim_printf("M68K: 0x%08x Attempt to read byte from non existing memory 0x%08x.\n",
                    PCX, address);
         return 0xff;
     }
@@ -359,7 +351,7 @@ unsigned int m68k_cpu_read_byte(unsigned int address) {
     }
     if (address > M68K_MAX_RAM) {
         if (cpu_unit.flags & UNIT_CPU_VERBOSE)
-            sim_printf("M68K: 0x%08x Attempt to read byte from non existing memory 0x%08x." NLP,
+            sim_printf("M68K: 0x%08x Attempt to read byte from non existing memory 0x%08x.\n",
                    PCX, address);
         return 0xff;
      }
@@ -375,7 +367,7 @@ unsigned int m68k_cpu_read_word(unsigned int address) {
     }
     if (address > M68K_MAX_RAM-1) {
         if (cpu_unit.flags & UNIT_CPU_VERBOSE)
-            sim_printf("M68K: 0x%08x Attempt to read word from non existing memory 0x%08x." NLP,
+            sim_printf("M68K: 0x%08x Attempt to read word from non existing memory 0x%08x.\n",
                    PCX, address);
         return 0xffff;
     }
@@ -393,7 +385,7 @@ unsigned int m68k_cpu_read_long(unsigned int address) {
     }
     if (address > M68K_MAX_RAM-3) {
         if (cpu_unit.flags & UNIT_CPU_VERBOSE)
-            sim_printf("M68K: 0x%08x Attempt to read long from non existing memory 0x%08x." NLP,
+            sim_printf("M68K: 0x%08x Attempt to read long from non existing memory 0x%08x.\n",
                    PCX, address);
         return 0xffffffff;
     }
@@ -405,7 +397,7 @@ unsigned int m68k_cpu_read_long(unsigned int address) {
 void m68k_cpu_write_byte_raw(unsigned int address, unsigned int value) {
     if (address > M68K_MAX_RAM) {
         if (cpu_unit.flags & UNIT_CPU_VERBOSE)
-            sim_printf("M68K: 0x%08x Attempt to write byte 0x%02x to non existing memory 0x%08x." NLP,
+            sim_printf("M68K: 0x%08x Attempt to write byte 0x%02x to non existing memory 0x%08x.\n",
                    PCX, value & 0xff, address);
         return;
     }
@@ -425,7 +417,7 @@ void m68k_cpu_write_byte(unsigned int address, unsigned int value) {
     }
     if (address > M68K_MAX_RAM) {
         if (cpu_unit.flags & UNIT_CPU_VERBOSE)
-            sim_printf("M68K: 0x%08x Attempt to write byte 0x%02x to non existing memory 0x%08x." NLP,
+            sim_printf("M68K: 0x%08x Attempt to write byte 0x%02x to non existing memory 0x%08x.\n",
                    PCX, value & 0xff, address);
         return;
     }
@@ -435,7 +427,7 @@ void m68k_cpu_write_byte(unsigned int address, unsigned int value) {
 void m68k_cpu_write_word(unsigned int address, unsigned int value) {
     if (address > M68K_MAX_RAM-1) {
         if (cpu_unit.flags & UNIT_CPU_VERBOSE)
-            sim_printf("M68K: 0x%08x Attempt to write word 0x%04x to non existing memory 0x%08x." NLP,
+            sim_printf("M68K: 0x%08x Attempt to write word 0x%04x to non existing memory 0x%08x.\n",
                    PCX, value & 0xffff, address);
         return;
     }
@@ -485,7 +477,7 @@ void m68k_cpu_write_long(unsigned int address, unsigned int value) {
     }
     if (address > M68K_MAX_RAM-3) {
         if (cpu_unit.flags & UNIT_CPU_VERBOSE)
-            sim_printf("M68K: 0x%08x Attempt to write long 0x%08x to non existing memory 0x%08x." NLP,
+            sim_printf("M68K: 0x%08x Attempt to write long 0x%08x to non existing memory 0x%08x.\n",
                    PCX, value, address);
         return;
     }

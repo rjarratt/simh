@@ -172,7 +172,7 @@ uint32 slirp_dbit;
 }
 #endif
 
-SLIRP *sim_slirp_open (const char *args, void *opaque, packet_callback callback, DEVICE *dptr, uint32 dbit)
+SLIRP *sim_slirp_open (const char *args, void *opaque, packet_callback callback, DEVICE *dptr, uint32 dbit, char *errbuf, size_t errbuf_size)
 {
 SLIRP *slirp = (SLIRP *)g_malloc0(sizeof(*slirp));
 char *targs = g_strdup (args);
@@ -191,6 +191,7 @@ slirp->maskbits = 24;
 slirp->dhcpmgmt = 1;
 slirp->db_chime = INVALID_SOCKET;
 inet_aton(DEFAULT_IP_ADDR,&slirp->vgateway);
+pthread_mutex_init (&slirp->write_buffer_lock, NULL);
 
 err = 0;
 while (*tptr && !err) {
@@ -209,7 +210,7 @@ while (*tptr && !err) {
         if (cptr && *cptr)
             slirp->tftp_path = g_strdup (cptr);
         else {
-            sim_printf ("Missing TFTP Path\n");
+            strlcpy (errbuf, "Missing TFTP Path", errbuf_size);
             err = 1;
             }
         continue;
@@ -218,7 +219,7 @@ while (*tptr && !err) {
         if (cptr && *cptr)
             slirp->boot_file = g_strdup (cptr);
         else {
-            sim_printf ("Missing DHCP Boot file name\n");
+            strlcpy (errbuf, "Missing DHCP Boot file name", errbuf_size);
             err = 1;
             }
         continue;
@@ -228,7 +229,7 @@ while (*tptr && !err) {
         if (cptr && *cptr)
             inet_aton (cptr, &slirp->vnameserver);
         else {
-            sim_printf ("Missing nameserver\n");
+            strlcpy (errbuf, "Missing nameserver", errbuf_size);
             err = 1;
             }
         continue;
@@ -253,7 +254,7 @@ while (*tptr && !err) {
                 } while (name && *name);
             }
         else {
-            sim_printf ("Missing DNS search list\n");
+            strlcpy (errbuf, "Missing DNS search list", errbuf_size);
             err = 1;
             }
         continue;
@@ -266,7 +267,7 @@ while (*tptr && !err) {
             inet_aton (abuf, &slirp->vgateway);
             }
         else {
-            sim_printf ("Missing host\n");
+            strlcpy (errbuf, "Missing host", errbuf_size);
             err = 1;
             }
         continue;
@@ -279,7 +280,7 @@ while (*tptr && !err) {
             inet_aton (abuf, &slirp->vnetwork);
             }
         else {
-            sim_printf ("Missing network\n");
+            strlcpy (errbuf, "Missing network", errbuf_size);
             err = 1;
             }
         continue;
@@ -292,7 +293,7 @@ while (*tptr && !err) {
         if (cptr && *cptr)
             err = _parse_redirect_port (&slirp->rtcp, cptr, IS_UDP);
         else {
-            sim_printf ("Missing UDP port mapping\n");
+            strlcpy (errbuf, "Missing UDP port mapping", errbuf_size);
             err = 1;
             }
         continue;
@@ -301,12 +302,12 @@ while (*tptr && !err) {
         if (cptr && *cptr)
             err = _parse_redirect_port (&slirp->rtcp, cptr, IS_TCP);
         else {
-            sim_printf ("Missing TCP port mapping\n");
+            strlcpy (errbuf, "Missing TCP port mapping", errbuf_size);
             err = 1;
             }
         continue;
         }
-    sim_printf ("Unexpected NAT argument: %s\n", gbuf);
+    snprintf (errbuf, errbuf_size - 1, "Unexpected NAT argument: %s", gbuf);
     err = 1;
     }
 if (err) {
@@ -337,14 +338,13 @@ else {
     GPollFD pfd;
     int64_t rnd_val = qemu_clock_get_ns ((QEMUClockType)0) / 1000000;
 
-    pthread_mutex_init (&slirp->write_buffer_lock, NULL);
     slirp->gpollfds = g_array_new(FALSE, FALSE, sizeof(GPollFD));
     /* setup transmit packet wakeup doorbell */
     do {
         if ((rnd_val & 0xFFFF) == 0)
             ++rnd_val;
         sprintf (db_host, "localhost:%d", (int)(rnd_val & 0xFFFF));
-        slirp->db_chime  = sim_connect_sock_ex (db_host, db_host, NULL, NULL, SIM_SOCK_OPT_DATAGRAM);
+        slirp->db_chime  = sim_connect_sock_ex (db_host, db_host, NULL, NULL, SIM_SOCK_OPT_DATAGRAM | SIM_SOCK_OPT_BLOCKING);
         } while (slirp->db_chime == INVALID_SOCKET);
     memset (&pfd, 0, sizeof (pfd));
     pfd.fd = slirp->db_chime;
@@ -414,12 +414,16 @@ fprintf (st, "%s",
 "    DNSSEARCH=domain{:domain{:domain}}  specifies DNS Domains search suffixes\n"
 "    GATEWAY=host_ipaddress{/masklen}    specifies LAN gateway IP address\n"
 "    NETWORK=network_ipaddress{/masklen} specifies LAN network address\n"
-"    UDP=port:address:internal-port      maps host UDP port to guest port\n"
-"    TCP=port:address:internal-port      maps host TCP port to guest port\n"
-"    NODHCP                              disables DHCP server\n"
+"    UDP=port:address:address's-port     maps host UDP port to guest port\n"
+"    TCP=port:address:address's-port     maps host TCP port to guest port\n"
+"    NODHCP                              disables DHCP server\n\n"
 "Default NAT Options: GATEWAY=10.0.2.2, masklen=24(netmask is 255.255.255.0)\n"
 "                     DHCP=10.0.2.15, NAMESERVER=10.0.2.3\n"
 "    Nameserver defaults to proxy traffic to host system's active nameserver\n\n"
+"The 'address' field in the UDP and TCP port mappings are the simulated\n"
+"(guest) system's IP address which, if DHCP allocated would default to\n"
+"10.0.2.15 or could be statically configured to any address including\n"
+"10.0.2.4 thru 10.0.2.14.\n\n"
 "NAT limitations\n\n"
 "There are four limitations of NAT mode which users should be aware of:\n\n"
 " 1) ICMP protocol limitations:\n"
@@ -452,6 +456,10 @@ int sim_slirp_send (SLIRP *slirp, const char *msg, size_t len, int flags)
 struct slirp_write_request *request;
 int wake_needed = 0;
 
+if (!slirp) {
+    errno = EBADF;
+    return 0;
+    }
 /* Get a buffer */
 pthread_mutex_lock (&slirp->write_buffer_lock);
 if (NULL != (request = slirp->write_buffers))
@@ -591,6 +599,8 @@ fd_set rfds, wfds, xfds;
 fd_set save_rfds, save_wfds, save_xfds;
 int nfds;
 
+if (!slirp)                         /* Not active? */
+    return -1;                      /* That's an error */
 /* Populate the GPollFDs from slirp */
 g_array_set_size (slirp->gpollfds, 1);  /* Leave the doorbell chime alone */
 slirp_pollfds_fill(slirp->gpollfds, &slirp_timeout);

@@ -98,10 +98,13 @@ REG tty_reg[] = {
     { FLDATAD (UNLOCK, tti_unlock, 0, "keyboard unlocked flag") },
     { FLDATAD (FLAG, tti_flag, 0, "set flag on next input digit"), REG_HRO },
     { DRDATAD (COL, tto_col, 7, "current column") },
-    { DRDATAD (KTIME, tty_unit[UTTI].wait, 24, "keyboard polling interval"), REG_NZ + PV_LEFT },
-    { DRDATAD (TTIME, tty_unit[UTTO].wait, 24, "typewriter character delay"), REG_NZ + PV_LEFT },
+#if (SIM_MAJOR >= 4)
     { DRDATAD (CPS, tty_unit[UTTO].DEFIO_CPS, 24, "Character Output Rate"), PV_LEFT },
     { DRDATAD (ICPS, tty_unit[UTTI].DEFIO_CPS, 24, "Character Input Rate"), PV_LEFT },
+#else
+    { DRDATAD (KTIME, tty_unit[UTTI].wait, 24, "keyboard polling interval"), REG_NZ + PV_LEFT },
+    { DRDATAD (TTIME, tty_unit[UTTO].wait, 24, "typewriter character delay"), REG_NZ + PV_LEFT },
+#endif
     { NULL }
     };
 
@@ -136,7 +139,7 @@ DEVICE tty_dev = {
 /* The following constant is a list of valid 1620 numeric characters 
    that can be entered from the keyboard. They are the digits 0-9, 
    record mark(|), numeric blank(@) and group mark(}). All others
-   are cosidered invalid. When entering data, these characters may
+   are considered invalid. When entering data, these characters may
    all be preceeded by tilde(~) or accent(`) to indicate that the
    following character should be entered into storage with a flag.
 
@@ -285,7 +288,7 @@ switch (op) {                                           /* case on op */
     case OP_WN:
     case OP_DN:
     case OP_WA:
-        cpuio_set_inp (op, &tty_unit[UTTO]);            /* set IO in progress */
+        cpuio_set_inp (op, IO_TTY, &tty_unit[UTTO]);    /* set IO in progress */
         break;
 
     case OP_RN:
@@ -293,7 +296,7 @@ switch (op) {                                           /* case on op */
         tti_unlock = 1;                                 /* unlock keyboard */
         tti_flag = 0;                                   /* init flag */
         tto_write ('>');                                /* prompt user */
-        cpuio_set_inp (op, NULL);                       /* set IO in progress */
+        cpuio_set_inp (op, IO_TTY, NULL);               /* set IO in progress */
         break;
 
     default:                                            /* invalid function */
@@ -316,7 +319,7 @@ if ((temp = sim_poll_kbd ()) < SCPE_KFLAG)              /* no char or error? */
     return temp;
 if (tti_unlock == 0)                                    /* expecting input? */
     return SCPE_OK;                                     /* no, ignore */
-raw = (int8) temp;
+raw = (int8) (temp & 0x7F);
 
 if (raw == '\r') {                                      /* return? */
     tto_write (raw);                                    /* echo */
@@ -502,7 +505,7 @@ return SCPE_OK;
 
 t_stat tty_reset (DEVICE *dptr)
 {
-sim_activate (&tty_unit[UTTI], tty_unit[UTTI].wait);    /* activate poll */
+DEFIO_ACTIVATE(&tty_unit[UTTI]);                        /* activate poll */
 sim_cancel (&tty_unit[UTTO]);                           /* cancel output */
 tti_unlock = tti_flag = 0;                              /* tty locked */
 tto_col = 1;

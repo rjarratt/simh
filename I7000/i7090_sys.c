@@ -110,7 +110,7 @@ DEVICE             *sim_devices[] = {
 
 /* Device addressing words */
 #ifdef NUM_DEVS_DR
-DIB  drm_dib = { CH_TYP_PIO, 1, 0301, 0740, &drm_cmd, &drm_ini };
+DIB  drm_dib = { CH_TYP_PIO, 1, 0301, 0760, &drm_cmd, &drm_ini };
 #endif
 #ifdef NUM_DEVS_CDP
 DIB  cdp_dib = { CH_TYP_PIO|CH_TYP_76XX, 1, 0341, 0777, &cdp_cmd, &cdp_ini };
@@ -143,7 +143,7 @@ DIB  hsdrm_dib = { CH_TYP_SPEC, 1, 0330, 0777, &hsdrm_cmd, &hsdrm_ini };
 
 
 /* Simulator stop codes */
-const char         *sim_stop_messages[] = {
+const char         *sim_stop_messages[SCPE_BASE] = {
     "Unknown error",
     "IO device not ready",
     "HALT instruction",
@@ -1025,7 +1025,7 @@ parse_sym(CONST char *cptr, t_addr addr, UNIT * uptr, t_value * val, int32 sw)
         i = 0;
         while (*cptr != '\0' && i < 6) {
             d <<= 6;
-            if (ascii_to_mem[0177 & *cptr] != -1)
+            if (ascii_to_mem[0177 & *cptr] != (const char)-1)
                 d |= ascii_to_mem[0177 & *cptr];
             cptr++;
             i++;

@@ -1,7 +1,7 @@
 /* hp2100_sys.c: HP 2100 system common interface
 
    Copyright (c) 1993-2016, Robert M. Supnik
-   Copyright (c) 2017,      J. David Bryan
+   Copyright (c) 2017-2018, J. David Bryan
 
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -24,6 +24,12 @@
    used in advertising or otherwise to promote the sale, use or other dealings
    in this Software without prior written authorization from the authors.
 
+   04-Oct-18    JDB     Reordered the device list alphabetically
+   02-Aug-18    JDB     Added MEM device and keyboard poll device
+   19-Jun-18    JDB     Fixed display of $MPV instruction
+   07-Mar-18    JDB     Added the GET_SWITCHES macro from scp.c
+   22-Feb-18    JDB     Added the <dev> option to the LOAD command
+   07-Sep-17    JDB     Replaced "uint16" cast with "MEMORY_WORD" for loader ROM
    07-Aug-17    JDB     Added "hp_attach" to attach a file for appending
    01-Aug-17    JDB     Added "ispunct" test for implied mnemonic parse
    20-Jul-17    JDB     Removed STOP_OFFLINE, STOP_PWROFF messages
@@ -105,37 +111,58 @@
 
 #include "hp2100_defs.h"
 #include "hp2100_cpu.h"
+#include "hp2100_cpu_dmm.h"
 
+
+
+/* Global release string */
+
+const char *hp_vm_release = "29";               /* HP 2100 simulator release number */
+const char *hp_vm_release_message =
+   "This is the last version of this simulator which is API compatible\n"
+   "with the 4.x version of the simh framework.  A supported version of\n"
+   "this simulator can be found at: http://simh.trailing-edge.com/hp\n";
+
+
+/* Command-line switch parsing from scp.c */
+
+#define GET_SWITCHES(cp) \
+    if ((cp = get_sim_sw (cp)) == NULL) return SCPE_INVSW
 
 
 /* External I/O data structures */
 
-extern DEVICE mp_dev;                           /* Memory Protect */
+/*
+extern DEVICE cpu_dev;                          ** CPU device structure (declared in hp2100_cpu.h) */
 extern DEVICE dma1_dev, dma2_dev;               /* Direct Memory Access/Dual-Channel Port Controller */
-extern DEVICE ptr_dev;                          /* Paper Tape Reader */
-extern DEVICE ptp_dev;                          /* Paper Tape Punch */
-extern DEVICE tty_dev;                          /* Teleprinter */
-extern DEVICE clk_dev;                          /* Time Base Generator */
-extern DEVICE lps_dev;                          /* 2767 Line Printer */
-extern DEVICE lpt_dev;                          /* 2607/13/17/18 Line Printer */
+extern DEVICE mp_dev;                           /* Memory Protect */
+extern DEVICE meu_dev;                          /* Memory Expansion Module */
+
 extern DEVICE baci_dev;                         /* Buffered Asynchronous Communication Interface */
-extern DEVICE mpx_dev;                          /* Eight-Channel Asynchronous Multiplexer */
-extern DEVICE mtd_dev, mtc_dev;                 /* 3030 Magnetic Tape Drive */
-extern DEVICE msd_dev, msc_dev;                 /* 7970B/E Magnetic Tape Drive */
+extern DEVICE da_dev;                           /* 7906H/20H/25H ICD Disc Drive */
+extern DEVICE dc_dev;                           /* Dummy HP-IB Interface */
 extern DEVICE dpd_dev, dpc_dev;                 /* 2870/7900 Disc Drive */
 extern DEVICE dqd_dev, dqc_dev;                 /* 2883 Disc Drive */
 extern DEVICE drd_dev, drc_dev;                 /* 277x Disc/Drum Drive */
 extern DEVICE ds_dev;                           /* 7905/06/20/25 Disc Drive */
-extern DEVICE muxl_dev, muxu_dev, muxc_dev;     /* Sixteen-Channel Asynchronous Multiplexer */
 extern DEVICE ipli_dev, iplo_dev;               /* Processor Interconnect */
+extern DEVICE lps_dev;                          /* 2767 Line Printer */
+extern DEVICE lpt_dev;                          /* 2607/13/17/18 Line Printer */
+extern DEVICE mc1_dev, mc2_dev;                 /* Microcircuit Interface */
+extern DEVICE mpx_dev;                          /* Eight-Channel Asynchronous Multiplexer */
+extern DEVICE msd_dev, msc_dev;                 /* 7970B/E Magnetic Tape Drive */
+extern DEVICE mtd_dev, mtc_dev;                 /* 3030 Magnetic Tape Drive */
+extern DEVICE muxl_dev, muxu_dev, muxc_dev;     /* Sixteen-Channel Asynchronous Multiplexer */
 extern DEVICE pif_dev;                          /* Privileged Interrupt Fence */
-extern DEVICE da_dev;                           /* 7906H/20H/25H ICD Disc Drive */
-extern DEVICE dc_dev;                           /* Dummy HP-IB Interface */
+extern DEVICE ptp_dev;                          /* Paper Tape Punch */
+extern DEVICE ptr_dev;                          /* Paper Tape Reader */
+extern DEVICE tbg_dev;                          /* Time Base Generator */
+extern DEVICE tty_dev;                          /* Teleprinter */
 
 
 /* Program constants */
 
-#define VAL_EMPTY           (PA_MAX + 1)        /* flag indicating that the value array must be loaded */
+#define VAL_EMPTY           (1u << PA_WIDTH)    /* flag indicating that the value array must be loaded */
 
 
 /* Symbolic production/consumption values */
@@ -351,12 +378,12 @@ static const OP_PROP op_props [] = {            /* operand properties, indexed b
    entries, the mask field contains the OP_LINEAR value, and the shift field
    contains the OP_SINGLE or OP_MULTIPLE value, depending on whether the opcode
    entries are dependent or independent, respectively.  The register selector
-   field contains either AB_SELECT or AB_UNUSED values, depending on whether or
+   field contains either AB_MASK or AB_UNUSED values, depending on whether or
    not the instruction uses bit 11 to select between the A and B registers.  The
    required feature field contains a mask that is applied to the user flags
    field of the CPU device to select a CPU type and firmware option set.  For
    example, the descriptor for the I/O Processor opcodes for the 2100 CPU
-   contains "UNIT_IOP | CPU_2100" as the required feature field value.
+   contains "CPU_IOP | CPU_2100" as the required feature field value.
 
 
    Implementation notes:
@@ -390,17 +417,13 @@ static const OP_PROP op_props [] = {            /* operand properties, indexed b
 #define OP_SINGLE           0u                  /* (shift) match only a single linear entry */
 #define OP_MULTIPLE         1u                  /* (shift) match multiple linear entries */
 
-#define AB_SELECT           0004000u            /* mask to select the A or B register */
 #define AB_UNUSED           0000000u            /* mask to use when the A/B register bit is not used */
 
-#define OPTION_MASK         (UNIT_OPTS | UNIT_MODEL_MASK)   /* feature flags mask */
-#define BASE_SET            UNIT_MODEL_MASK                 /* base set feature flags */
-
 typedef struct {                                /* opcode descriptor */
-    uint32      mask;                           /*   mask to get opcode selection */
-    uint32      shift;                          /*   shift to get the opcode selection */
-    uint32      ab_selector;                    /*   mask to get the A/B-register selector */
-    uint32      feature;                        /*   feature set to which opcodes apply */
+    uint32          mask;                       /*   mask to get opcode selection */
+    uint32          shift;                      /*   shift to get the opcode selection */
+    uint32          ab_selector;                /*   mask to get the A/B-register selector */
+    CPU_OPTION_SET  feature;                    /*   feature set to which opcodes apply */
     } OP_DESC;
 
 typedef struct {                                /* opcode table entry */
@@ -462,7 +485,7 @@ static const OP_DESC mrg_desc = {               /* Memory Reference Group descri
     0074000u,                                   /*   opcode mask */
     11u,                                        /*   opcode shift */
     AB_UNUSED,                                  /*   A/B-register selector */
-    BASE_SET | CPU_ALL                          /*   applicable feature flags */
+    CPU_BASE | CPU_ALL                          /*   applicable feature flags */
     };
 
 static const OP_TABLE mrg_ops = {               /* MRG opcodes, indexed by IR bits 14-11 */
@@ -540,8 +563,8 @@ static const OP_TABLE mrg_ops = {               /* MRG opcodes, indexed by IR bi
 static const OP_DESC srg1_desc = {              /* Shift-Rotate Group first descriptor */
     0000700u,                                   /*   opcode mask */
     6u,                                         /*   opcode shift */
-    AB_SELECT,                                  /*   A/B-register selector */
-    BASE_SET | CPU_ALL                          /*   applicable feature flags */
+    AB_MASK,                                    /*   A/B-register selector */
+    CPU_BASE | CPU_ALL                          /*   applicable feature flags */
     };
 
 static const OP_TABLE srg1_ops = {              /* SRG opcodes, indexed by IR bits 11 + 8-6 */
@@ -570,7 +593,7 @@ static const OP_DESC srg_udesc = {              /* Shift-Rotate Group micro-ops 
     OP_LINEAR,                                  /*   linear search only */
     OP_MULTIPLE,                                /*   multiple matches allowed */
     AB_UNUSED,                                  /*   A/B-register selector */
-    BASE_SET | CPU_ALL                          /*   applicable feature flags */
+    CPU_BASE | CPU_ALL                          /*   applicable feature flags */
     };
 
 static const OP_TABLE srg_uops = {              /* SRG micro-opcodes, searched linearly */
@@ -585,8 +608,8 @@ static const OP_TABLE srg_uops = {              /* SRG micro-opcodes, searched l
 static const OP_DESC srg2_desc = {              /* Shift-Rotate Group second descriptor */
     0000007u,                                   /*   opcode mask */
     0u,                                         /*   opcode shift */
-    AB_SELECT,                                  /*   A/B-register selector */
-    BASE_SET | CPU_ALL                          /*   applicable feature flags */
+    AB_MASK,                                    /*   A/B-register selector */
+    CPU_BASE | CPU_ALL                          /*   applicable feature flags */
     };
 
 static const OP_TABLE srg2_ops = {              /* SRG opcodes, indexed by IR bits 11 + 2-0 */
@@ -660,7 +683,7 @@ static const OP_DESC asg_udesc = {              /* Alter-Skip Group micro-ops de
     OP_LINEAR,                                  /*   linear search only */
     OP_MULTIPLE,                                /*   multiple matches allowed */
     AB_UNUSED,                                  /*   A/B-register selector */
-    BASE_SET | CPU_ALL                          /*   applicable feature flags */
+    CPU_BASE | CPU_ALL                          /*   applicable feature flags */
     };
 
 static const OP_TABLE asg_uops = {              /* ASG micro-opcodes, searched linearly */
@@ -748,37 +771,37 @@ static const OP_TABLE asg_uops = {              /* ASG micro-opcodes, searched l
 static const OP_DESC iog_desc = {               /* Input/Output Group descriptor */
     0000700u,                                   /*   opcode mask */
     6u,                                         /*   opcode shift */
-    AB_SELECT,                                  /*   A/B-register selector */
-    BASE_SET | CPU_ALL                          /*   applicable feature flags */
+    AB_MASK,                                    /*   A/B-register selector */
+    CPU_BASE | CPU_ALL                          /*   applicable feature flags */
     };
 
 static const OP_TABLE iog_ops = {               /* IOG opcodes, indexed by IR bits 11 + 8-6 */
     { "HLT", 0102000u, opSCOHC },
-    { "",    0102100u, opNone  },                /* STF/CLF and STO/CLO */
-    { "",    0102200u, opNone  },                /* SFC and SOC */
-    { "",    0102300u, opNone  },                /* SFS and SOS */
+    { "",    0102100u, opNone  },               /* STF/CLF and STO/CLO */
+    { "",    0102200u, opNone  },               /* SFC and SOC */
+    { "",    0102300u, opNone  },               /* SFS and SOS */
     { "MIA", 0102400u, opSCHC  },
     { "LIA", 0102500u, opSCHC  },
     { "OTA", 0102600u, opSCHC  },
     { "STC", 0102700u, opSCHC  },
 
     { "HLT", 0106000u, opSCOHC },
-    { "",    0106100u, opNone  },                /* STF/CLF and STO/CLO */
-    { "",    0106200u, opNone  },                /* SFC and SOC */
-    { "",    0106300u, opNone  },                /* SFS and SOS */
+    { "",    0106100u, opNone  },               /* STF/CLF and STO/CLO */
+    { "",    0106200u, opNone  },               /* SFC and SOC */
+    { "",    0106300u, opNone  },               /* SFS and SOS */
     { "MIB", 0106400u, opSCHC  },
     { "LIB", 0106500u, opSCHC  },
     { "OTB", 0106600u, opSCHC  },
     { "CLC", 0106700u, opSCHC  },
 
-    { "STO", 0102101u, opNone, 0173777u },       /* STF 01 */
-    { "STF", 0102100u, opSC,   0173700u },       /* STF nn */
-    { "CLO", 0103101u, opNone, 0173777u },       /* CLF 01 */
-    { "CLF", 0103100u, opSC,   0173700u },       /* CLF nn */
-    { "SOC", 0102201u, opHC,   0172777u },       /* SFC 01 */
-    { "SFC", 0102200u, opSCHC, 0172700u },       /* SFC nn */
-    { "SOS", 0102301u, opHC,   0172777u },       /* SFS 01 */
-    { "SFS", 0102300u, opSCHC, 0172700u },       /* SFS nn */
+    { "STO", 0102101u, opNone, 0173777u },      /* STF 01 */
+    { "STF", 0102100u, opSC,   0173700u },      /* STF nn */
+    { "CLO", 0103101u, opNone, 0173777u },      /* CLF 01 */
+    { "CLF", 0103100u, opSC,   0173700u },      /* CLF nn */
+    { "SOC", 0102201u, opHC,   0172777u },      /* SFC 01 */
+    { "SFC", 0102200u, opSCHC, 0172700u },      /* SFC nn */
+    { "SOS", 0102301u, opHC,   0172777u },      /* SFS 01 */
+    { "SFS", 0102300u, opSCHC, 0172700u },      /* SFS nn */
 
     { NULL }
     };
@@ -833,7 +856,7 @@ static const OP_DESC eag_desc = {               /* Extended Arithmetic Group des
     OP_LINEAR,                                  /*   linear search only */
     OP_SINGLE,                                  /*   single match allowed */
     AB_UNUSED,                                  /*   A/B-register selector */
-    UNIT_EAU | CPU_ALL                          /*   applicable feature flags */
+    CPU_EAU | CPU_ALL                           /*   applicable feature flags */
     };
 
 static const OP_TABLE eag_ops = {               /* EAG opcodes, searched linearly */
@@ -857,7 +880,7 @@ static const OP_DESC eag_ef_desc = {            /* Extended Arithmetic Group 100
     OP_LINEAR,                                  /*   linear search only */
     OP_SINGLE,                                  /*   single match allowed */
     AB_UNUSED,                                  /*   A/B-register selector */
-    UNIT_EAU | CPU_1000_E | CPU_1000_F          /*   applicable feature flags */
+    CPU_EAU | CPU_1000_E | CPU_1000_F           /*   applicable feature flags */
     };
 
 static const OP_TABLE eag_ef_ops = {            /* EAG opcodes, searched linearly */
@@ -913,7 +936,7 @@ static const OP_DESC iop_2100_desc = {          /* 2100 I/O Processor descriptor
     OP_LINEAR,                                  /*   linear search only */
     OP_SINGLE,                                  /*   single match allowed */
     AB_UNUSED,                                  /*   A/B-register selector */
-    UNIT_IOP | CPU_2100                         /*   applicable feature flags */
+    CPU_IOP | CPU_2100                          /*   applicable feature flags */
     };
 
 static const OP_TABLE iop_2100_ops = {          /* 2100 IOP opcodes, searched linearly */
@@ -950,7 +973,7 @@ static const OP_DESC fp_desc = {                    /* Single-Precision Floating
     OP_LINEAR,                                      /*   linear search only */
     OP_SINGLE,                                      /*   single match allowed */
     AB_UNUSED,                                      /*   A/B-register selector */
-    UNIT_FP | CPU_2100 | CPU_1000_M | CPU_1000_E    /*   applicable feature flags */
+    CPU_FP | CPU_2100 | CPU_1000_M | CPU_1000_E     /*   applicable feature flags */
     };
 
 static const OP_TABLE fp_ops = {                    /* FP opcodes, searched linearly */
@@ -971,7 +994,7 @@ static const OP_DESC fpp_desc = {               /* Floating Point Processor desc
     0000137u,                                   /*   opcode mask */
     0u,                                         /*   opcode shift */
     AB_UNUSED,                                  /*   A/B-register selector */
-    UNIT_FP | CPU_1000_F                        /*   applicable feature flags */
+    CPU_FP | CPU_1000_F                         /*   applicable feature flags */
     };
 
 static const OP_TABLE fpp_ops = {               /* FPP opcodes, indexed by IR bits 6-0 */
@@ -1082,7 +1105,7 @@ static const OP_DESC ffp_2100_desc = {          /* 2100 Fast FORTRAN Processor d
     0000037u,                                   /*   opcode mask */
     0u,                                         /*   opcode shift */
     AB_UNUSED,                                  /*   A/B-register selector */
-    UNIT_FFP | CPU_2100                         /*   applicable feature flags */
+    CPU_FFP | CPU_2100                          /*   applicable feature flags */
     };
 
 static const OP_TABLE ffp_2100_ops = {          /* 2100 FFP opcodes, indexed by IR bits 4-0 */
@@ -1129,7 +1152,7 @@ static const OP_DESC ffp_m_desc = {             /* M-Series Fast FORTRAN Process
     0000037u,                                   /*   opcode mask */
     0u,                                         /*   opcode shift */
     AB_UNUSED,                                  /*   A/B-register selector */
-    UNIT_FFP | CPU_1000_M                       /*   applicable feature flags */
+    CPU_FFP | CPU_1000_M                        /*   applicable feature flags */
     };
 
 static const OP_TABLE ffp_m_ops = {             /* M-Series FFP opcodes, indexed by IR bits 4-0 */
@@ -1176,7 +1199,7 @@ static const OP_DESC ffp_e_desc = {             /* E-Series Fast FORTRAN Process
     0000037u,                                   /*   opcode mask */
     0u,                                         /*   opcode shift */
     AB_UNUSED,                                  /*   A/B-register selector */
-    UNIT_FFP | CPU_1000_E                       /*   applicable feature flags */
+    CPU_FFP | CPU_1000_E                        /*   applicable feature flags */
     };
 
 static const OP_TABLE ffp_e_ops = {             /* E-Series FFP opcodes, indexed by IR bits 4-0 */
@@ -1223,7 +1246,7 @@ static const OP_DESC ffp_f_desc = {             /* F-Series Fast FORTRAN Process
     0000037u,                                   /*   opcode mask */
     0u,                                         /*   opcode shift */
     AB_UNUSED,                                  /*   A/B-register selector */
-    UNIT_FFP | CPU_1000_F                       /*   applicable feature flags */
+    CPU_FFP | CPU_1000_F                        /*   applicable feature flags */
     };
 
 static const OP_TABLE ffp_f_ops = {             /* F-Series FFP opcodes, indexed by IR bits 4-0 */
@@ -1273,7 +1296,7 @@ static const OP_DESC ema_desc = {               /* Extended Memory Area descript
     0000017u,                                   /*   opcode mask */
     0u,                                         /*   opcode shift */
     AB_UNUSED,                                  /*   A/B-register selector */
-    UNIT_EMA | CPU_1000_E | CPU_1000_F          /*   applicable feature flags */
+    CPU_EMA | CPU_1000_E | CPU_1000_F           /*   applicable feature flags */
     };
 
 static const OP_TABLE ema_ops = {               /* EMA opcodes, indexed by IR bits 3-0 */
@@ -1305,7 +1328,7 @@ static const OP_DESC vma_desc = {               /* Virtual Memory Area descripto
     0000017u,                                   /*   opcode mask */
     0u,                                         /*   opcode shift */
     AB_UNUSED,                                  /*   A/B-register selector */
-    UNIT_VMAOS | CPU_1000_E | CPU_1000_F        /*   applicable feature flags */
+    CPU_VMAOS | CPU_1000_E | CPU_1000_F         /*   applicable feature flags */
     };
 
 static const OP_TABLE vma_ops = {               /* VMA opcodes, indexed by IR bits 3-0 */
@@ -1337,7 +1360,7 @@ static const OP_DESC dbi_desc = {               /* Double Integer Instructions d
     0000017u,                                   /*   opcode mask */
     0u,                                         /*   opcode shift */
     AB_UNUSED,                                  /*   A/B-register selector */
-    UNIT_DBI | CPU_1000_E                       /*   applicable feature flags */
+    CPU_DBI | CPU_1000_E                        /*   applicable feature flags */
     };
 
 static const OP_TABLE dbi_ops = {               /* DBI opcodes, indexed by IR bits 3-0 */
@@ -1368,7 +1391,7 @@ static const OP_DESC sis_desc = {               /* Scientific Instruction Set de
     0000017u,                                   /*   opcode mask */
     0u,                                         /*   opcode shift */
     AB_UNUSED,                                  /*   A/B-register selector */
-    BASE_SET | CPU_1000_F                       /*   applicable feature flags */
+    CPU_BASE | CPU_1000_F                       /*   applicable feature flags */
     };
 
 static const OP_TABLE sis_ops = {               /* SIS opcodes, indexed by IR bits 3-0 */
@@ -1399,7 +1422,7 @@ static const OP_DESC os_desc = {                /* RTE-6/VM Operating System des
     0000017u,                                   /*   opcode mask */
     0u,                                         /*   opcode shift */
     AB_UNUSED,                                  /*   A/B-register selector */
-    UNIT_VMAOS | CPU_1000_E | CPU_1000_F        /*   applicable feature flags */
+    CPU_VMAOS | CPU_1000_E | CPU_1000_F         /*   applicable feature flags */
     };
 
 static const OP_TABLE os_ops = {                /* RTE-6/VM OS opcodes, indexed by IR bits 3-0 */
@@ -1428,7 +1451,7 @@ static const OP_DESC trap_desc = {              /* RTE-6/VM Operating System tra
     OP_LINEAR,                                  /*   linear search only */
     OP_SINGLE,                                  /*   single match allowed */
     AB_UNUSED,                                  /*   A/B-register selector */
-    UNIT_VMAOS | CPU_1000_E | CPU_1000_F        /*   applicable feature flags */
+    CPU_VMAOS | CPU_1000_E | CPU_1000_F         /*   applicable feature flags */
     };
 
 static const OP_TABLE trap_ops = {              /* RTE-6/VM OS trap opcodes, searched linearly */
@@ -1447,7 +1470,7 @@ static const OP_DESC iop1_1000_desc = {         /* M/E-Series I/O Processor Inst
     OP_LINEAR,                                  /*   linear search only */
     OP_SINGLE,                                  /*   single match allowed */
     AB_UNUSED,                                  /*   A/B-register selector */
-    UNIT_IOP | CPU_1000_M | CPU_1000_E          /*   applicable feature flags */
+    CPU_IOP | CPU_1000_M | CPU_1000_E           /*   applicable feature flags */
     };
 
 static const OP_TABLE iop1_1000_ops = {         /* M/E-Series IOP opcodes, searched linearly */
@@ -1463,7 +1486,7 @@ static const OP_DESC iop2_1000_desc = {         /* M/E-Series I/O Processor Inst
     0000017u,                                   /*   opcode mask */
     0u,                                         /*   opcode shift */
     AB_UNUSED,                                  /*   A/B-register selector */
-    UNIT_IOP | CPU_1000_M | CPU_1000_E          /*   applicable feature flags */
+    CPU_IOP | CPU_1000_M | CPU_1000_E           /*   applicable feature flags */
     };
 
 static const OP_TABLE iop2_1000_ops = {         /* M/E-Series IOP opcodes, indexed by IR bits 3-0 */
@@ -1493,8 +1516,8 @@ static const OP_TABLE iop2_1000_ops = {         /* M/E-Series IOP opcodes, index
 static const OP_DESC vis_desc = {               /* Vector Instruction Set descriptor */
     0000017u,                                   /*   opcode mask */
     0u,                                         /*   opcode shift */
-    AB_SELECT,                                  /*   A/B-register selector */
-    UNIT_VIS | CPU_1000_F                       /*   applicable feature flags */
+    AB_MASK,                                    /*   A/B-register selector */
+    CPU_VIS | CPU_1000_F                        /*   applicable feature flags */
     };
 
 static const OP_TABLE vis_ops = {               /* VIS opcodes, indexed by IR bits 11 + 3-0 */
@@ -1562,7 +1585,7 @@ static const OP_DESC sig_desc = {               /* SIGNAL/1000 Instruction Set d
     0000017u,                                   /*   opcode mask */
     0u,                                         /*   opcode shift */
     AB_UNUSED,                                  /*   A/B-register selector */
-    UNIT_SIGNAL | CPU_1000_F                    /*   applicable feature flags */
+    CPU_SIGNAL | CPU_1000_F                     /*   applicable feature flags */
     };
 
 static const OP_TABLE sig_ops = {               /* SIGNAL opcodes, indexed by IR bits 3-0 */
@@ -1592,8 +1615,8 @@ static const OP_TABLE sig_ops = {               /* SIGNAL opcodes, indexed by IR
 static const OP_DESC dms_desc = {               /* Dynamic Mapping System instructions descriptor */
     0000037u,                                   /*   opcode mask */
     0u,                                         /*   opcode shift */
-    AB_SELECT,                                  /*   A/B-register selector */
-    UNIT_DMS | CPU_1000                         /*   applicable feature flags */
+    AB_MASK,                                    /*   A/B-register selector */
+    CPU_DMS | CPU_1000                          /*   applicable feature flags */
     };
 
 static const OP_TABLE dms_ops = {               /* DMS opcodes, indexed by IR bits 11 + 4-0 */
@@ -1674,8 +1697,8 @@ static const OP_TABLE dms_ops = {               /* DMS opcodes, indexed by IR bi
 static const OP_DESC eig_desc = {               /* Extended Instruction Group descriptor */
     0000037u,                                   /*   opcode mask */
     0u,                                         /*   opcode shift */
-    AB_SELECT,                                  /*   A/B-register selector */
-    BASE_SET | CPU_1000                         /*   applicable feature flags */
+    AB_MASK,                                    /*   A/B-register selector */
+    CPU_BASE | CPU_1000                         /*   applicable feature flags */
     };
 
 static const OP_TABLE eig_ops = {               /* EIG opcodes, indexed by IR bits 11 + 4-0 */
@@ -1797,9 +1820,55 @@ static const PARSER_ENTRY parser_table [] = {   /* parser table array, searched 
     };
 
 
+/* Poll device local SCP support routines */
+
+static t_stat poll_service (UNIT *uptr);
+static t_stat poll_reset   (DEVICE *dptr);
+
+
+/* Poll device SCP data structures */
+
+/* Unit list */
+
+static UNIT poll_unit [] = {
+/*           Event Routine  Unit Flags  Capacity  Delay       */
+/*           -------------  ----------  --------  ----------- */
+    { UDATA (&poll_service, UNIT_IDLE,     0),    POLL_PERIOD }
+    };
+
+
+/* Device descriptor */
+
+static DEVICE poll_dev = {
+    "Keyboard poll",                            /* device name */
+    poll_unit,                                  /* unit array */
+    NULL,                                       /* register array */
+    NULL,                                       /* modifier array */
+    1,                                          /* number of units */
+    8,                                          /* address radix */
+    32,                                         /* address width */
+    1,                                          /* address increment */
+    8,                                          /* data radix */
+    32,                                         /* data width */
+    NULL,                                       /* examine routine */
+    NULL,                                       /* deposit routine */
+    &poll_reset,                                /* reset routine */
+    NULL,                                       /* boot routine */
+    NULL,                                       /* attach routine */
+    NULL,                                       /* detach routine */
+    NULL,                                       /* device information block pointer */
+    0,                                          /* device flags */
+    0,                                          /* debug control flags */
+    NULL,                                       /* debug flag name table */
+    NULL,                                       /* memory size change routine */
+    NULL                                        /* logical device name */
+    };
+
+
+
 /* System interface local SCP support routines */
 
-static void   one_time_init  (void);
+void   hp_one_time_init  (void);
 static t_bool fprint_stopped (FILE *st, t_stat reason);
 static void   fprint_addr    (FILE *st, DEVICE *dptr, t_addr addr);
 static t_addr parse_addr     (DEVICE *dptr, CONST char *cptr, CONST char **tptr);
@@ -1807,6 +1876,7 @@ static t_addr parse_addr     (DEVICE *dptr, CONST char *cptr, CONST char **tptr)
 static t_stat hp_exdep_cmd (int32 arg, CONST char *buf);
 static t_stat hp_run_cmd   (int32 arg, CONST char *buf);
 static t_stat hp_brk_cmd   (int32 arg, CONST char *buf);
+static t_stat hp_load_cmd  (int32 arg, CONST char *buf);
 
 
 /* System interface local utility routines */
@@ -1831,7 +1901,7 @@ static int fputword (int data, FILE *fileref);
 static size_t device_size    = 0;               /* the maximum device name size */
 static size_t flag_size      = 0;               /* the maximum trace flag name size */
 static t_bool parse_physical = TRUE;            /* the address parser configuration */
-
+static UNIT   *cpu_uptr      = NULL;            /* a pointer to the CPU unit */
 
 /* System interface global data structures */
 
@@ -1864,38 +1934,41 @@ char sim_name [] = "HP 2100";                   /* the simulator name */
 
 int32 sim_emax = MAX_INSTR_LENGTH;              /* the maximum number of words in any instruction */
 
-void (*sim_vm_init) (void) = &one_time_init;    /* a pointer to the one-time initializer */
-
 DEVICE *sim_devices [] = {                      /* an array of pointers to the simulated devices */
     &cpu_dev,                                   /*   CPU (must be first) */
+    &dma1_dev, &dma2_dev,                       /*   DMA/DCPC */
     &mp_dev,                                    /*   Memory Protect */
-    &dma1_dev,  &dma2_dev,                      /*   DMA/DCPC */
-    &ptr_dev,                                   /*   2748 Paper Tape Reader */
-    &ptp_dev,                                   /*   2895 Paper Tape Punch */
-    &tty_dev,                                   /*   2752 Teleprinter */
-    &clk_dev,                                   /*   Time-Base Generator */
+    &meu_dev,                                   /*   Memory Expansion Module */
+
+    &baci_dev,                                  /*   12966A Buffered Asynchronous Communications Interface */
+    &da_dev,                                    /*   7906H/20H/25H ICD Disc Drives */
+    &dc_dev,                                    /*   Dummy Disc Drive for diagnostics */
+    &dpc_dev,  &dpd_dev,                        /*   2870/7900 Disc Drives */
+    &dqc_dev,  &dqd_dev,                        /*   2883 Disc Drives */
+    &drc_dev,  &drd_dev,                        /*   277x Disc/Drum */
+    &ds_dev,                                    /*   7905/06/20/25 MAC Disc Drives */
+    &ipli_dev, &iplo_dev,                       /*   Processor Interconnect Kit */
     &lps_dev,                                   /*   2767 Line Printer */
     &lpt_dev,                                   /*   2607 Line Printer */
-    &baci_dev,                                  /*   Buffered Asynchronous Communications Interface */
-    &mpx_dev,                                   /*   Eight-Channel Asynchronous Multiplexer */
-    &dpd_dev,  &dpc_dev,                        /*   2870/7900 Disc Interface */
-    &dqd_dev,  &dqc_dev,                        /*   2883 Disc Interface */
-    &drd_dev,  &drc_dev,                        /*   277x Disc/Drum Interface */
-    &ds_dev,                                    /*   7905/06/20/25 MAC Disc Interface */
-    &mtd_dev,  &mtc_dev,                        /*   3030 Magnetic Tape Interface */
-    &msd_dev,  &msc_dev,                        /*   7970B/E Magnetic Tape Interface */
-    &muxl_dev, &muxu_dev, &muxc_dev,            /*   Sixteen-Channel Asynchronous Multiplexer */
-    &ipli_dev, &iplo_dev,                       /*   Processor Interconnect Kit */
-    &pif_dev,                                   /*   Privileged Interrupt Fence */
-    &da_dev,                                    /*   7906H/20H/25H ICD Disc Interface */
-    &dc_dev,                                    /*   Dummy Disc Interface for diagnostics */
+    &mc1_dev,  &mc2_dev,                        /*   12566B Microcircuit Interface */
+    &mpx_dev,                                   /*   12792C Eight-Channel Asynchronous Multiplexer */
+    &msc_dev,  &msd_dev,                        /*   7970B/E Magnetic Tape Drives */
+    &mtc_dev,  &mtd_dev,                        /*   3030 Magnetic Tape Drive */
+    &muxu_dev, &muxl_dev, &muxc_dev,            /*   12920A Sixteen-Channel Asynchronous Multiplexer */
+    &pif_dev,                                   /*   12620A/12936A Privileged Interrupt Fence */
+    &ptp_dev,                                   /*   2895 Paper Tape Punch */
+    &ptr_dev,                                   /*   2748 Paper Tape Reader */
+    &tbg_dev,                                   /*   Time Base Generator */
+    &tty_dev,                                   /*   2752/2754 Teleprinter */
+
+    &poll_dev,                                  /*   simulation console polling device */
     NULL
     };                                          /* end of the device list */
 
 #define DEVICE_COUNT        (sizeof sim_devices / sizeof sim_devices [0] - 1)   /* the count excludes the NULL pointer */
 
 
-const char *sim_stop_messages [] = {            /* an array of pointers to the stop messages in STOP_nnn order */
+const char *sim_stop_messages [SCPE_BASE] = {   /* an array of pointers to the stop messages in STOP_nnn order */
     "Impossible error",                         /*   0 (never returned) */
     "Unimplemented instruction",                /*   STOP_UNIMPL */
     "Unassigned select code",                   /*   STOP_UNSC */
@@ -1952,6 +2025,8 @@ static CTAB aux_cmds [] = {
 
     { "BREAK",    &hp_brk_cmd,    0,         NULL        },
     { "NOBREAK",  &hp_brk_cmd,    0,         NULL        },
+
+    { "LOAD",     &hp_load_cmd,   0,         NULL        },
 
     { NULL }
     };
@@ -2038,28 +2113,29 @@ static CTAB aux_cmds [] = {
 
 t_stat sim_load (FILE *fptr, CONST char *cptr, CONST char *fnam, int flag)
 {
-const int reclen [2] = { TO_WORD (57, 0),               /* the two DUMP record length words */
-                         TO_WORD (7, 0) };
-const int reccnt [2] = { 57, 7 };                       /* the two DUMP record word counts */
-BOOT_ROM  loader;                                       /* an array of 64 words */
-int       record, count, address, word, checksum;
-t_stat    result;
-int32     trailer = 1;                                  /* > 0 while reading leader, < 0 while reading trailer */
-HP_WORD   select_code = 0;                              /* select code to configure; 0 implies no configuration */
+const int    reclen [2] = { TO_WORD (57, 0),            /* the two DUMP record length words */
+                            TO_WORD (7, 0) };
+const int    reccnt [2] = { 57, 7 };                    /* the two DUMP record word counts */
+int          record, count, address, word, checksum;
+t_stat       result;
+int32        trailer = 1;                               /* > 0 while reading leader, < 0 while reading trailer */
+HP_WORD      select_code = 0;                           /* select code to configure; 0 implies no configuration */
+LOADER_ARRAY boot = {                                   /* an array of two BOOT_LOADER structures */
+    { 000,       IBL_NA,  IBL_NA,  { 0 } },             /*   HP 21xx Loader */
+    { IBL_START, IBL_DMA, IBL_FWA, { 0 } }              /*   HP 1000 Loader */
+    };
 
 if (flag == 0) {                                        /* if this is a LOAD command */
     if (*cptr != '\0') {                                /*   then if a parameter follows */
-        select_code = (HP_WORD) get_uint (cptr, 8,      /*     then parse it as an octal number */
-                                          MAXDEV, &result);
+        select_code =                                   /*     then parse it as an octal number */
+          (HP_WORD) get_uint (cptr, 8, SC_MAX, &result);
 
         if (result != SCPE_OK)                          /* if a parse error occurred */
             return result;                              /*   then report it */
 
-        else if (select_code < VARDEV)                  /* otherwise if the select code is invalid */
+        else if (select_code < SC_VAR)                  /* otherwise if the select code is invalid */
             return SCPE_ARG;                            /*   then report a bad argument */
         }
-
-    memset (loader, 0, sizeof loader);                  /* clear the boot loader ROM */
 
     while (TRUE) {                                      /* read absolute binary records from the file */
         do {                                            /* skip any blank leader or trailer present */
@@ -2102,9 +2178,10 @@ if (flag == 0) {                                        /* if this is a LOAD com
             if (word == EOF)                            /* if the word is not present */
                 return SCPE_FMT;                        /*   then the tape format is bad */
 
-            else {                                      /* otherwise */
-                loader [address++] = (uint16) word;     /*   save the data word in the loader array */
-                checksum = checksum + word;             /*     and include it in the record checksum */
+            else {                                                  /* otherwise */
+                boot [0].loader [address]   = (MEMORY_WORD) word;   /*   save the data word in */
+                boot [1].loader [address++] = (MEMORY_WORD) word;   /*     both loader arrays */
+                checksum = checksum + word;                         /*       and include it in the record checksum */
                 }
             }
 
@@ -2121,13 +2198,13 @@ if (flag == 0) {                                        /* if this is a LOAD com
             trailer = -10;                              /*   so prepare for a potential trailer */
         }                                               /*     and loop until all records are read */
 
-    cpu_ibl (loader, select_code,                       /* install the loader */
-             IBL_S_NOCLR, IBL_S_NOSET);                 /*   and configure the select code if requested */
+    cpu_copy_loader (boot, select_code,                 /* install the loader */
+                     IBL_S_NOCLEAR, IBL_S_NOSET);       /*   and configure the select code if requested */
     }
 
 
 else {                                                  /* otherwise this is a DUMP command */
-    address = MEMSIZE - 1 & ~IBL_MASK & LA_MASK;        /* the loader occupies the last 64 words in memory */
+    address = mem_size - 1 & ~IBL_MASK & LA_MASK;       /* the loader occupies the last 64 words in memory */
 
     for (record = 0; record < 2; record++) {            /* write two absolute records */
         if (fputword (reclen [record], fptr) == EOF)    /*   starting with the record length; if it fails */
@@ -2281,7 +2358,7 @@ return SCPE_OK;
 t_stat fprint_sym (FILE *ofile, t_addr addr, t_value *val, UNIT *uptr, int32 sw)
 {
 int32         formats, modes, i;
-uint32        irq, radix;
+uint32        radix;
 SYMBOL_SOURCE source;
 
 if ((sw & (SIM_SW_REG | ALL_SWITCHES)) == SIM_SW_REG)   /* if we are formatting a register without overrides */
@@ -2326,15 +2403,15 @@ if (modes == M_SWITCH) {                                /* if mnemonic mode is s
     if (sw & SIM_SW_STOP) {                             /*   then if this is a simulator stop */
         source = CPU_Symbol;                            /*     then report as a CPU symbol */
 
-        irq = calc_int ();                              /* check for a pending interrupt */
+        if (cpu_pending_interrupt) {                    /* if a pending interrupt is present and not deferred */
+            addr = cpu_pending_interrupt;               /*   then set the display address to the trap cell */
 
-        if (irq && !ion_defer) {                        /* if a pending interrupt is present and not deferred */
-            addr = irq;                                 /*   then set the display address to the trap cell */
+            for (i = 0; i < sim_emax; i++)              /* load the trap cell instruction */
+                val [i] =                               /*   which might be multi-word (e.g., JLY) */
+                  mem_fast_read ((HP_WORD) (cpu_pending_interrupt + i), System_Map);
 
-            for (i = 0; i < sim_emax; i++)                              /* load the trap cell instruction */
-                val [i] = mem_fast_read ((HP_WORD) (irq + i), SMAP);    /*   which might be multi-word (e.g., JLY) */
-
-            fprintf (ofile, "IAK %2o: ", irq);          /* report that the interrupt will be acknowledged  */
+            fprintf (ofile, "IAK %02o: ",               /* report that the interrupt will be acknowledged  */
+                     cpu_pending_interrupt);
             }
         }
 
@@ -2348,7 +2425,7 @@ if (modes == M_SWITCH) {                                /* if mnemonic mode is s
         val = sim_eval;                                 /*   and point at the sim_eval array */
         }
 
-    else if (uptr == &cpu_unit)                         /* otherwise if access is to CPU memory */
+    else if (uptr == cpu_uptr)                          /* otherwise if access is to CPU memory */
         source = CPU_Symbol;                            /*   then report as a CPU symbol */
 
     else                                                /* otherwise access is to device memory */
@@ -2528,7 +2605,7 @@ else                                                    /* otherwise more than o
     return SCPE_INVSW;                                  /*   so return an error */
 
 if (modes == M_SWITCH) {                                /* if instruction mnemonic mode is specified */
-    if (uptr == NULL || uptr == &cpu_unit)              /*   then if access is to a register or CPU memory */
+    if (uptr == NULL || uptr == cpu_uptr)               /*   then if access is to a register or CPU memory */
         target = CPU_Symbol;                            /*     then report as a CPU symbol */
     else                                                /*   otherwise access is to device memory */
         target = Device_Symbol;                         /*     so report it as a device symbol */
@@ -2651,10 +2728,10 @@ return result;
 
 t_stat hp_set_dib (UNIT *uptr, int32 count, CONST char *cptr, void *desc)
 {
-DIB        *dibptr = (DIB *) desc;                      /* a pointer to the associated DIB array */
-t_stat     status = SCPE_OK;
-uint32     value;
-int32      index;
+DIB    *dibptr = (DIB *) desc;                          /* a pointer to the associated DIB array */
+t_stat status = SCPE_OK;
+uint32 value;
+int32  index;
 
 if (cptr == NULL || *cptr == '\0')                      /* if the expected value is missing */
     status = SCPE_MISVAL;                               /*   then report the error */
@@ -2667,7 +2744,7 @@ else {                                                  /* otherwise a value is 
                                SC_MAX + 1 - count, &status);
 
     if (status == SCPE_OK) {                            /* if it is valid */
-        if (value < VARDEV)                             /*   then if it is an internal select code */
+        if (value < SC_VAR)                             /*   then if it is an internal select code */
             return SCPE_ARG;                            /*     then reject it */
 
         for (index = 0; index < count; index++, dibptr++)   /* loop through the associated interfaces */
@@ -2695,14 +2772,6 @@ return status;                                          /* return the validation
 
 
    Implementation notes:
-
-    1. The legacy modifier "DEVNO" is supported in addition to the preferred
-       "SC" modifier, but the corresponding MTAB entry is tagged with MTAB_NMO
-       to prevent its display.  To differentiate between the two MTAB entries,
-       which is necessary for display, the "DEVNO" entry's "count" parameter is
-       complemented (the corresponding MTAB "match" field that supplies the
-       "count" parameter to this routine is unsigned).
-
 
     1. The legacy modifier "DEVNO" is supported in addition to the preferred
        "SC" modifier, but the corresponding MTAB entry is tagged with MTAB_NMO
@@ -2929,7 +2998,7 @@ else {                                                  /* otherwise this is a M
                     break;
 
 
-                case 014:                                           /* 105300-105317  Distributed System */
+                case 014:                                               /* 105300-105317  Distributed System */
                     break;
 
                 case 015:                                               /* 105320-105337 */
@@ -2944,8 +3013,9 @@ else {                                                  /* otherwise this is a M
 
                 case 016:                                               /* 105340-105357 */
                     if (opcode >= RTE_IRQ_RANGE                         /* if the opcode is in the interrupt use range */
-                      && addr >= OPTDEV && addr <= MAXDEV)              /*   and it's located in a trap cell */
-                        status = fprint_instruction (ofile, addr, val,  /*     then print as an IRQ instruction */
+                      && (addr & LA_MASK) >= SC_OPT                     /*   and it's located */
+                      && (addr & LA_MASK) <= SC_MAX)                    /*     in a trap cell */
+                        status = fprint_instruction (ofile, addr, val,  /*       then print as an IRQ instruction */
                                                      radix, trap_desc, trap_ops);
                     else                                                /* otherwise */
                         status = fprint_instruction (ofile, addr, val,  /*   print as an OS-assist instruction */
@@ -2972,9 +3042,9 @@ else {                                                  /* otherwise this is a M
                 status = fprint_instruction (ofile, addr, val,  /* try to print as an IOP instruction */
                                              radix, iop2_1000_desc, iop2_1000_ops);
 
-                if (status == SCPE_UNK) {                                       /* if it's not an IOP opcode */
-                    if (source == CPU_Trace)                                    /*   then if this is a CPU trace call */
-                        val [1] = mem_fast_read (addr + 1 & LA_MASK, dms_ump);  /*   then load the following word */
+                if (status == SCPE_UNK) {                                           /* if it's not an IOP opcode */
+                    if (source == CPU_Trace)                                        /*   then if this is a CPU trace call */
+                        val [1] = mem_fast_read (addr + 1 & LA_MASK, Current_Map);  /*     then load the following word */
 
                     status = fprint_instruction (ofile, addr, val,  /* print as a VIS instruction */
                                                  radix, vis_desc, vis_ops);
@@ -3058,7 +3128,7 @@ return status;                                          /* return the consumptio
 
 const char *fmt_char (uint32 charval)
 {
-static const char *const control [] = {
+static const char * const control [] = {
     "NUL", "SOH", "STX", "ETX", "EOT", "ENQ", "ACK", "BEL",
     "BS",  "HT",  "LF",  "VT",  "FF",  "CR",  "SO",  "SI",
     "DLE", "DC1", "DC2", "DC3", "DC4", "NAK", "SYN", "ETB",
@@ -3249,7 +3319,7 @@ while ((bitfmt.alternate || bitset)                     /* while more bits */
     bnptr = bitfmt.names [index];                       /*     point at the name for the current bit */
 
     if (bnptr)                                          /* if the name is defined */
-        if (*bnptr == '\1')                             /*   then if this name has an alternate */
+        if (*bnptr == '\1' && bitfmt.alternate)         /*   then if this name has an alternate */
             if (bitset & test_bit)                      /*     then if the bit is asserted */
                 bnptr++;                                /*       then point at the name for the "1" state */
             else                                        /*     otherwise */
@@ -3305,6 +3375,22 @@ else                                                    /* otherwise */
     freeptr = freeptr + 1;                              /*   just account for the trailing NUL */
 
 return fmtptr;                                          /* return a pointer to the formatted string */
+}
+
+
+/* Initialize the trace facility.
+
+   This routine is called to set the sizes of the largest device name and active
+   trace flag name among the devices enabled for tracing.  These are accumulated
+   during the CPU's I/O initialization for use in aligning the trace statements.
+*/
+
+void hp_initialize_trace (uint32 device_max, uint32 flag_max)
+{
+device_size = device_max;                               /* set the device and trace flag name sizes */
+flag_size = flag_max;                                   /*   to the largest of those actively tracing */
+
+return;
 }
 
 
@@ -3390,143 +3476,6 @@ return;
 }
 
 
-/* Check for device conflicts.
-
-   The device information blocks (DIBs) for the set of enabled devices are
-   checked for consistency.  Each select code must be unique among the enabled
-   devices.  This requirement is checked as part of the instruction execution
-   prelude; this allows the user to exchange two select codes simply by setting
-   each device to the other's select code.  If conflicts were enforced instead
-   at the time the codes were entered, the first device would have to be set to
-   an unused select code before the second could be set to the first device's
-   code.
-
-   The routine begins by filling in a DIB value table from all of the device
-   DIBs to allow indexed access to the values to be checked.  Unused DIB values
-   and values corresponding to devices that have no DIBs or are disabled are set
-   to the corresponding UNUSED constants.
-
-   As part of the device scan, the sizes of the largest device name and active
-   trace flag name among the devices enabled for tracing are accumulated for use
-   in aligning the trace statements.
-
-   After the DIB value table is filled in, a conflict check is made by building
-   a conflict table, where each array element is set to the count of devices
-   that contain DIB value equal to the element index.  For example, conflict
-   table element 6 is set to the count of devices that have dibptr->select_code
-   set to 6.  If any conflict table element is set more than once, the
-   "conflict_is" variable is set.
-
-   If any conflicts exist, the conflict table is scanned.  A conflict table
-   element value greater than 1 indicates a conflict.  For each such value, the
-   DIB value table is scanned to find matching values, and the device names
-   associated with the matching values are printed.
-
-   This routine returns TRUE if any conflicts exist and FALSE there are none.
-
-
-   Implementation notes:
-
-    1. When this routine is called, the console and optional log file have
-       already been put into "raw" output mode.  Therefore, newlines are not
-       translated to the correct line ends on systems that require it.  Before
-       reporting a conflict, "sim_ttcmd" is called to restore the console and
-       log file translation.  This is OK because a conflict will abort the run
-       and return to the command line anyway.
-
-    2. sim_dname is called instead of using dptr->name directly to ensure that
-       we pick up an assigned logical device name.
-
-    3. Only the names of active trace (debug) options are accumulated to produce
-       the most compact trace log.  However, if the CPU device's EXEC option is
-       enabled, then all of the CPU option names are accumulated, as EXEC
-       enables all trace options for a given instruction or instruction class.
-
-    4. Even though the routine is called only from the sim_instr routine in the
-       CPU simulator module, it must be located here to use the DEVICE_COUNT
-       constant to allocate the dib_val matrix.  If it were located in the CPU
-       module, the matrix would have to be allocated dynamically after a
-       run-time determination of the count of simulator devices.
-*/
-
-t_bool hp_device_conflict (void)
-{
-const DIB     *dibptr;
-const DEBTAB  *tptr;
-DEVICE        *dptr;
-size_t        name_length, flag_length;
-uint32        dev, val;
-int32         count;
-int32         dib_val   [DEVICE_COUNT];
-int32         conflicts [MAXDEV + 1];
-t_bool        is_conflict = FALSE;
-
-device_size = 0;                                        /* reset the device and flag name sizes */
-flag_size = 0;                                          /*   to those of the devices actively tracing */
-
-memset (conflicts, 0, sizeof conflicts);                /* zero the conflict table */
-
-for (dev = 0; dev < DEVICE_COUNT; dev++) {              /* fill in the DIB value table */
-    dptr = sim_devices [dev];                           /*   from the device table */
-    dibptr = (DIB *) dptr->ctxt;                        /*     and the associated DIBs */
-
-    if (dibptr && !(dptr->flags & DEV_DIS)) {           /* if the DIB is defined and the device is enabled */
-        dib_val [dev] = dibptr->select_code;            /*   then copy the values to the DIB table */
-
-        if (++conflicts [dibptr->select_code] > 1)      /* increment the count of references; if more than one */
-            is_conflict = TRUE;                         /*   then a conflict occurs */
-        }
-
-    if (sim_deb && dptr->dctrl) {                       /* if tracing is active for this device */
-        name_length = strlen (sim_dname (dptr));        /*   then get the length of the device name */
-
-        if (name_length > device_size)                  /* if it's greater than the current maximum */
-            device_size = name_length;                  /*   then reset the size */
-
-        if (dptr->debflags)                                 /* if the device has a trace flags table */
-            for (tptr = dptr->debflags;                     /*   then scan the table */
-                 tptr->name != NULL; tptr++)
-                if (dev == 0 && dptr->dctrl & TRACE_EXEC    /* if the CPU device is tracing executions */
-                  || tptr->mask & dptr->dctrl) {            /*   or this trace option is active */
-                    flag_length = strlen (tptr->name);      /*     then get the flag name length */
-
-                    if (flag_length > flag_size)            /* if it's greater than the current maximum */
-                        flag_size = flag_length;            /*   then reset the size */
-                    }
-        }
-    }
-
-if (is_conflict) {                                      /* if a conflict exists */
-    sim_ttcmd ();                                       /*   then restore the console and log I/O mode */
-
-for (val = 0; val <= MAXDEV; val++)                     /* search the conflict table for the next conflict */
-    if (conflicts [val] > 1) {                          /* if a conflict is present for this value */
-        count = conflicts [val];                        /*   then get the number of conflicting devices */
-
-        cprintf ("Select code %o conflict (", val);     /* report the multiply-assigned select code */
-
-        dev = 0;                                        /* search for the devices that conflict */
-
-        while (count > 0) {                             /* search the DIB value table */
-            if (dib_val [dev] == (int32) val) {         /*   to find the conflicting entries */
-                if (count < conflicts [val])            /*     and report them to the console */
-                    cputs (" and ");
-
-                cputs (sim_dname (sim_devices [dev]));  /* report the conflicting device name */
-                count = count - 1;                      /*   and drop the count of remaining conflicts */
-                }
-
-            dev = dev + 1;                              /* move to the next device */
-            }                                           /*   and loop until all conflicting devices are reported */
-
-        cputs (")\n");                                  /* tie off the line */
-        }                                               /*   and continue to look for other conflicting select codes */
-    }
-
-return (is_conflict);                                   /* return TRUE if any conflicts exist */
-}
-
-
 /* Make a pair of devices consistent */
 
 void hp_enbdis_pair (DEVICE *ccptr, DEVICE *dcptr)
@@ -3552,9 +3501,17 @@ return;
    breakpoint types.
 */
 
-static void one_time_init (void)
+void hp_one_time_init (void)
 {
 CTAB *systab, *auxtab = aux_cmds;
+static int inited = 0;
+
+if (inited == 1)    /* Be sure to only do these things once */
+    return;
+inited = 1;
+
+sim_vm_release = hp_vm_release;
+sim_vm_release_message = hp_vm_release_message;
 
 while (auxtab->name != NULL) {                          /* loop through the auxiliary command table */
     systab = find_cmd (auxtab->name);                   /* find the corresponding system command table entry */
@@ -3584,6 +3541,8 @@ sim_vm_post           = &cpu_post_cmd;                  /* set up the command po
 
 sim_brk_types = BP_SUPPORTED;                           /* register the supported breakpoint types */
 sim_brk_dflt  = BP_ENONE;                               /* the default breakpoint type is "execution" */
+
+cpu_uptr = cpu_dev.units;                               /* set up the pointer to the CPU unit */
 
 return;
 }
@@ -3683,10 +3642,10 @@ static void fprint_addr (FILE *st, DEVICE *dptr, t_addr addr)
 uint32 page, offset;
 
 if (dptr == &cpu_dev && addr > LA_MAX) {                /* if a CPU address is outside of the logical address space */
-    page = PAGE (addr);                                 /*   then separate page and offset */
+    page = P_PAGE (addr);                               /*   then separate the physical page and offset */
     offset = OFFSET (addr);                             /*     from the linear address */
 
-    fprint_val (st, page, dptr->aradix, PG_WIDTH, PV_RZRO);     /* print the page address */
+    fprint_val (st, page, dptr->aradix, PP_WIDTH, PV_RZRO);     /* print the physical page address */
     fputc ('.', st);                                            /*   followed by a period */
     fprint_val (st, offset, dptr->aradix, OF_WIDTH, PV_RZRO);   /*     and concluding with the offset */
     }
@@ -3767,7 +3726,7 @@ address = strtotv (cptr, tptr, dptr->aradix);           /* parse the address */
 
 if (cptr != *tptr)                                      /* if the parse succeeded */
     if (**tptr == '.')                                  /*   then if this a paged address */
-        if (address > PG_MAX)                           /*     then if the page number is out of range */
+        if (address > PP_MAX)                           /*     then if the physical page number is out of range */
             *tptr = cptr;                               /*       then report a parse error */
 
         else {                                              /* otherwise the <bank>.<offset> form is allowed */
@@ -3854,6 +3813,62 @@ return brk_cmd (arg, buf);                              /* return the result of 
 }
 
 
+/* Execute the LOAD command.
+
+   This command is intercepted to permit a device boot routine to be loaded
+   into memory.  The following command forms are valid:
+
+     LOAD <dev>
+     LOAD <filename> [ <select-code> ]
+
+   If the first form is used, and the device name is valid and bootable, the
+   corresponding boot loader is copied into memory in the highest 64 locations
+   of the logical address space.  Upon return, the loader will have been
+   configured for the device's select code or for the device and paper tape
+   reader select codes, in the case of a dual-use 21xx boot loader, and the P
+   register will have been set to point at the start of the loader.  The loader
+   then may be executed by a RUN command.  If the device name is valid, but the
+   device is not bootable, or no boot loader exists for the current CPU
+   configuration, the command is rejected.
+
+   If the second form is used, the file containing a loader in absolute binary
+   form is read into memory and configured as above.  See the "sim_load"
+   comments for details of this operation.
+
+
+   Implementation notes:
+
+    1. The "find_dev" routine requires that the device name be in upper case to
+       match.  The "get_glyph" routine performs case-shifting on the input
+       buffer.
+*/
+
+static t_stat hp_load_cmd (int32 arg, CONST char *buf)
+{
+CONST char *cptr;
+char cbuf [CBUFSIZE];
+DEVICE *dptr = NULL;
+
+GET_SWITCHES (buf);                                     /* parse any switches present */
+
+cptr = get_glyph (buf, cbuf, '\0');                     /* parse a potential device name */
+
+if (cbuf [0] != '\0') {                                 /* if the name is present */
+    dptr = find_dev (cbuf);                             /*   then see if it matches a device */
+
+    if (dptr != NULL)                                   /* if it does */
+        if (dptr->boot == NULL)                         /*   then if the device is not bootable */
+            return SCPE_NOFNC;                          /*     then report "Command not allowed" */
+        else if (*cptr != '\0')                         /*   otherwise if more characters follow */
+            return SCPE_2MARG;                          /*     then report "Too many arguments" */
+        else                                            /*   otherwise the device name stands alone */
+            return dptr->boot (0, dptr);                /*     so load the corresponding boot loader */
+    }
+
+return load_cmd (arg, buf);                             /* if it's not a device name, then try loading a file */
+}
+
+
 
 /* System interface local utility routines */
 
@@ -3907,7 +3922,7 @@ else                                                        /* otherwise format 
    returned, which causes the caller to print the instruction in numeric format
    with the default radix.  Otherwise, SCPE_OK status is returned if a
    single-word instruction was printed, or the negative number of extra words
-   (beyond the first) consumed in printing the instruction is returned. For
+   (beyond the first) consumed in printing the instruction is returned.  For
    example, printing a two-word instruction returns SCPE_OK_2_WORDS (= -1).
 
    The "addr" parameter is used in two cases: to supply the operand address(es)
@@ -4009,9 +4024,9 @@ t_bool     clear     = FALSE;                           /* TRUE if the instructi
 t_bool     separator = FALSE;                           /* TRUE if a separator between multiple ops is needed */
 uint32     op_start  = 1;                               /* the "val" array index of the first operand */
 
-if (!(cpu_configuration & op_desc.feature & OPTION_MASK /* if the required feature set is not enabled */
-  && cpu_configuration & op_desc.feature & CPU_MASK))   /*   for the current CPU configuration */
-    return SCPE_UNK;                                    /*     then we cannot decode the instruction */
+if (!(cpu_configuration & op_desc.feature & CPU_OPTION_MASK /* if the required feature set is not enabled */
+  && cpu_configuration & op_desc.feature & CPU_MODEL_MASK)) /*   for the current CPU configuration */
+    return SCPE_UNK;                                        /*     then we cannot decode the instruction */
 
 instruction = TO_DWORD (val [1], val [0]);              /* merge the two supplied values */
 
@@ -4091,8 +4106,8 @@ if (ops [op_index].op_bits > D16_MASK) {                /* if this is a two-word
 if (op_count > 0 && (addr & VAL_EMPTY)) {               /* if operand words are needed but not loaded */
     addr = addr & LA_MASK;                              /*   then restore the logical address */
 
-    for (op_index = op_start; op_index <= op_count; op_index++)                 /* starting with the first operand */
-        val [op_index] = mem_fast_read ((HP_WORD) (addr + op_index), dms_ump);  /*   load the operands from memory */
+    for (op_index = op_start; op_index <= op_count; op_index++)                     /* starting with the first operand */
+        val [op_index] = mem_fast_read ((HP_WORD) (addr + op_index), Current_Map);  /*   load the operands from memory */
     }
 
 
@@ -4108,7 +4123,7 @@ switch (op_type) {                                      /* dispatch by the opera
 
     case opMPOI:
         if (addr > LA_MAX)                              /* if the instruction location is indeterminate */
-            if (instruction & I_CP)                     /*   then if the current-page bit is set */
+            if (instruction & IR_CP)                    /*   then if the current-page bit is set */
                 prefix = " C ";                         /*     then prefix the offset with "C" */
             else                                        /*   otherwise it's a base-page reference */
                 prefix = " Z ";                         /*     so prefix the offset with "Z" */
@@ -4116,8 +4131,8 @@ switch (op_type) {                                      /* dispatch by the opera
         else {                                          /* otherwise the address is valid */
             prefix = " ";                               /*   so use a blank separator */
 
-            if (instruction & I_CP)                     /* if the current-page bit is set */
-                op_value |= addr & I_PAGENO;            /*   then merge the offset with the current page address */
+            if (instruction & IR_CP)                    /* if the current-page bit is set */
+                op_value |= addr & MR_PAGE;             /*   then merge the offset with the current page address */
             }
 
         val [1] = op_value;                             /* set the operand value */
@@ -4138,9 +4153,9 @@ switch (op_type) {                                      /* dispatch by the opera
 
     case opSCHC:
     case opSCOHC:
-        clear = (instruction & I_HC);                   /* set TRUE if the clear-flag bit is set */
+        clear = (instruction & IR_HCF);                 /* set TRUE if the clear-flag bit is set */
 
-    /* fall into the opSC case */
+    /* fall through into the opSC case */
 
     /* IOG select code range 00-77 octal */
 
@@ -4264,7 +4279,7 @@ if (prefix)                                             /* if an operand is pres
             fprint_val (ofile, val [op_index] & LA_MASK,    /*   then print the logical address */
                         cpu_dev.aradix, LA_WIDTH, PV_LEFT); /*     using the address radix */
 
-            if (val [op_index] & I_IA)                  /* add an indirect indicator */
+            if (val [op_index] & IR_IND)                /* add an indirect indicator */
                 fputs (",I", ofile);                    /*   if specified by the operand */
             }
 
@@ -4323,7 +4338,7 @@ else if (*iptr == '\0') {                               /* otherwise if there is
 
 else if (strcmp (iptr, ",I") == 0) {                    /* otherwise if there is an indirect indicator */
     *status = SCPE_OK;                                  /*   then the parse succeeds */
-    return address | I_IA;                              /*     and return the address with the indirect bit set */
+    return address | IR_IND;                            /*     and return the address with the indirect bit set */
     }
 
 else {                                                  /* otherwise there are extraneous characters following */
@@ -4420,8 +4435,8 @@ if (target == Device_Symbol)                            /* if the target is not 
     addr = PA_MAX + 1;                                  /*   then invalidate the target address */
 
 for (pptr = parser_table; pptr->descriptor != NULL; pptr++)                 /* search the parser table */
-    if (cpu_configuration & pptr->descriptor->feature & OPTION_MASK         /* if the required feature set is enabled */
-      && cpu_configuration & pptr->descriptor->feature & CPU_MASK)          /*   for the current CPU configuration */
+    if (cpu_configuration & pptr->descriptor->feature & CPU_OPTION_MASK     /* if the required feature set is enabled */
+      && cpu_configuration & pptr->descriptor->feature & CPU_MODEL_MASK)    /*   for the current CPU configuration */
         for (eptr = pptr->opcodes; eptr->mnemonic != NULL; eptr++)          /*     then search the opcode table */
             if (strcmp (eptr->mnemonic, gbuf) == 0)                         /* if a matching mnemonic is found */
                 return parse_instruction (gptr, addr, val, radix, eptr);    /*  then parse the operands */
@@ -4659,7 +4674,7 @@ else {                                                  /* otherwise, it's a sin
             cptr = get_glyph (cptr, gbuf, '\0');            /* get the next token */
 
             if (gbuf [0] == 'C' && gbuf [1] == '\0') {      /* if the "C" modifier was specified */
-                val [0] = val [0] | I_CP;                   /*   then add the current-page flag */
+                val [0] = val [0] | IR_CP;                  /*   then add the current-page flag */
                 cptr = get_glyph (cptr, gbuf, '\0');        /* get the address */
                 op_implicit = FALSE;                        /*   and clear the implicit-page flag */
                 }
@@ -4677,12 +4692,12 @@ else {                                                  /* otherwise, it's a sin
             if (status != SCPE_OK)                          /* if a parse error occurred */
                 return status;                              /*   then return an invalid argument error */
 
-            if ((op_value & VAMASK) <= I_DISP)              /* if a base-page address was given */
+            if ((op_value & LA_MASK) <= OF_MAX)             /* if a base-page address was given */
                 val [0] |= op_value;                        /*   then merge the offset into the instruction */
 
-            else if (addr <= LA_MAX && op_implicit              /* otherwise if an implicit-page address is allowed */
-              && ((addr ^ op_value) & I_PAGENO) == 0)           /*   and the target is in the current page */
-                val [0] |= I_CP | op_value & (I_IA | I_DISP);   /*     then merge the offset with the current-page flag */
+            else if (addr <= LA_MAX && op_implicit                  /* otherwise if an implicit-page address is allowed */
+              && ((addr ^ op_value) & MR_PAGE) == 0)                /*   and the target is in the current page */
+                val [0] |= IR_CP | op_value & (IR_IND | IR_OFFSET); /*     then merge the offset with the current-page flag */
 
             else                                            /* otherwise the address cannot be reached */
                 return SCPE_ARG;                            /*   from the current instruction's location */
@@ -4696,13 +4711,13 @@ else {                                                  /* otherwise, it's a sin
         case opSCOHC:
             op_flag = TRUE;                             /* set a flag to enable an optional ",C" */
 
-        /* fall into the opSC case */
+        /* fall through into the opSC case */
 
         /* IOG select code range 00-77 octal */
 
         case opSC:
-            cptr = get_glyph (cptr, gbuf, (op_flag ? ',' : '\0'));      /* get the next glyph */
-            op_value = get_uint (gbuf, op_radix, I_DEVMASK, &status);   /*   and parse the select code */
+            cptr = get_glyph (cptr, gbuf, (op_flag ? ',' : '\0'));  /* get the next glyph */
+            op_value = get_uint (gbuf, op_radix, SC_MASK, &status); /*   and parse the select code */
 
             if (status == SCPE_OK)                      /* if the select code is good */
                 val [0] |= op_value;                    /*   then merge it into the opcode */
@@ -4712,14 +4727,14 @@ else {                                                  /* otherwise, it's a sin
                     break;                              /*     then use the base instruction value */
 
                 else if (gbuf [0] == 'C' && gbuf [1] == '\0') { /*   otherwise if the "C" modifier was specified */
-                    val [0] |= I_HC;                            /*     then merge the H/C bit */
+                    val [0] |= IR_HCF;                          /*     then merge the clear-flag bit */
                     break;                                      /*       into the base instruction value */
                     }
 
             else                                        /* otherwise the select code is bad */
                 return SCPE_ARG;                        /*   so report failure for a bad argument */
 
-        /* fall into opHC case */
+        /* fall through into opHC case */
 
         /* IOG hold/clear bit 9 */
 
@@ -4729,7 +4744,7 @@ else {                                                  /* otherwise, it's a sin
                     cptr = get_glyph (cptr, gbuf, '\0');        /*     then get the glyph */
 
                     if (gbuf [0] == 'C' && gbuf [1] == '\0')    /* if the "C" modifier was specified */
-                        val [0] |= I_HC;                        /*   then merge the H/C bit */
+                        val [0] |= IR_HCF;                      /*   then merge the clear-flag bit */
                     else                                        /* otherwise it's something else */
                         return SCPE_ARG;                        /*   so report failure for a bad argument */
                     }
@@ -4922,22 +4937,22 @@ return SCPE_ARG;                                        /* return an error for e
        given instruction.  That is, all micro-ops that use the A or B registers
        must reference the same accumulator.  The check is performed by logically
        ANDing the accumulated and current significant opcode bits with the
-       AB_SELECT mask (to determine if the A/B-register select is significant
-       and has been set), and then with the exclusive-OR of the accumulated and
-       current micro-ops (to determine if the current A/B-register select is the
-       same as the prior A/B-register selects).  If there is a discrepancy, then
-       the current micro-op does not use the same register as a previously
-       specified micro-op.
+       AB_MASK (to determine if the A/B-register select is significant and has
+       been set), and then with the exclusive-OR of the accumulated and current
+       micro-ops (to determine if the current A/B-register select is the same as
+       the prior A/B-register selects).  If there is a discrepancy, then the
+       current micro-op does not use the same register as a previously specified
+       micro-op.
 */
 
 static t_stat parse_micro_ops (const OP_ENTRY *optr, char *gbuf, t_value *val, CONST char **gptr, uint32 *accumulator)
 {
 while (optr->mnemonic != NULL)                                  /* search the table until the NULL entry at the end */
     if (strcmp (optr->mnemonic, gbuf) == 0) {                   /* if the mnemonic matches this entry */
-        if (*accumulator & optr->op_bits & ~(AB_SELECT | ASG))  /*   then if this opcode has been entered before */
+        if (*accumulator & optr->op_bits & ~(AB_MASK | ASG))    /*   then if this opcode has been entered before */
             return SCPE_ARG;                                    /*     then fail with a repeated instruction error */
 
-        if (*accumulator & optr->op_bits & AB_SELECT    /* if the A/B-register selector is significant */
+        if (*accumulator & optr->op_bits & AB_MASK      /* if the A/B-register selector is significant */
           & (optr->opcode ^ val [0]))                   /*   and the new opcode disagrees with the prior ones */
             return SCPE_ARG;                            /*     then fail with an A/B inconsistent error */
 
@@ -5001,4 +5016,79 @@ if (status != EOF)                                      /* if the write succeede
     status = fputc (LOWER_BYTE (data), fileref);        /*   then write the second byte */
 
 return status;                                          /* return the result of the write */
+}
+
+
+/* Service the keyboard poll.
+
+   The keyboard poll service routine is entered after every ten milliseconds of
+   wall-clock time.  If the TTY (system console) device is disabled, then the
+   routine checks for an SCP stop command (initially, CTRL+E); all other
+   characters are discarded.  If the TTY is enabled, then it performs this
+   function.
+
+
+   Implementation notes:
+
+    1. The current CPU speed, expressed as a multiple of the hardware speed, is
+       calculated for each service entry.  It may be displayed at the SCP prompt
+       with the SHOW CPU SPEED command.  The speed is only representative when
+       the CPU is not idling.
+*/
+
+static t_stat poll_service (UNIT *uptr)
+{
+t_stat status;
+
+uptr->wait = sim_rtcn_calb (POLL_RATE, TMR_POLL);       /* recalibrate */
+sim_activate (uptr, uptr->wait);                        /* reschedule the timer */
+
+cpu_speed = uptr->wait / POLL_PERIOD;                   /* calculate the current CPU speed multiplier */
+
+if (tty_dev.flags & DEV_DIS) {                          /* if the TTY is disabled */
+    status = sim_poll_kbd ();                           /*   then we must poll for a console interrupt */
+
+    if (status < SCPE_KFLAG)                            /* if the result is not a character */
+        return status;                                  /*   then return the resulting status */
+    }
+
+return SCPE_OK;
+}
+
+
+static t_stat poll_reset (DEVICE *dptr)
+{
+if (sim_switches & SWMASK ('P'))                        /* if this is a power-on reset */
+    sim_rtcn_init (poll_unit [0].wait, TMR_POLL);       /*   then initialize the poll timer */
+
+sim_activate_abs (&poll_unit [0], poll_unit [0].wait);  /* schedule the poll timer */
+
+return SCPE_OK;
+}
+
+
+/* Synchronize polling.
+
+   Return an event time corresponding either with the amount of time remaining
+   in the current poll (mode = INITIAL) or the amount of time in a full poll
+   period (mode = SERVICE).  If the former call is made when the device service
+   routine is started, then making the latter call during unit service will
+   ensure that the polls remain synchronized.
+ */
+
+int32 hp_sync_poll (POLLMODE poll_mode)
+{
+int32 poll_time;
+
+if (poll_mode == INITIAL) {                             /* if this is an initial poll request */
+    poll_time = sim_activate_time (&poll_unit [0]);     /*   then get the time remaining */
+
+    if (poll_time == 0)                                 /* if no time remains */
+        return POLL_PERIOD + 1;                         /*   then ensure queuing after the poll device */
+    else                                                /* otherwise */
+        return poll_time;                               /*   return the remaining time */
+    }
+
+else                                                    /* otherwise this is a event service request */
+    return poll_unit [0].wait;                          /*   so return the poll unit time to remain synchronized */
 }

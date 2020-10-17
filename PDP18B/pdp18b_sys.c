@@ -99,11 +99,17 @@ extern DEVICE mt_dev;
 extern DEVICE tti1_dev, tto1_dev;
 extern UNIT tti1_unit, tto1_unit;
 #endif
+#if defined (GRAPHICS2)
+extern DEVICE g2out_dev, g2in_dev;
+#endif
 #if defined (UC15)
 extern DEVICE dr15_dev;
 #endif
 #if defined (GRAPHICS2)
 extern DEVICE g2out_dev, g2in_dev;
+#endif
+#if defined (TYPE340)
+extern DEVICE dpy_dev;
 #endif
 extern UNIT cpu_unit;
 extern REG cpu_reg[];
@@ -182,10 +188,13 @@ DEVICE *sim_devices[] = {
 #if defined (GRAPHICS2)
     &g2out_dev, &g2in_dev,
 #endif
+#if defined (TYPE340)
+    &dpy_dev,
+#endif
     NULL
     };
 
-const char *sim_stop_messages[] = {
+const char *sim_stop_messages[SCPE_BASE] = {
     "Unknown error",
     "Undefined instruction",
     "HALT instruction",
@@ -268,7 +277,7 @@ return SCPE_OK;                                         /* done */
         word to execute (bit 1 of last character set)
 */
 
-t_stat hri_load_7915 (FILE *fileref, const char *cptr)
+t_stat hri_load_7915 (FILE *fileref, CONST char *cptr)
 {
 int32 bits, origin, val;
 char gbuf[CBUFSIZE];
@@ -457,6 +466,10 @@ static const char *opcode[] = {
  "PSF", "PCF", "PSA", "PSB", "PLS",
  "KSF", "KRB", "KCF", "IORS", "IOOS",
  "TSF", "TCF", "TPC", "TLS",
+ "IDVE", "IDRA", "IDRS", "IDRA",
+ "IDSI", "IDCA", "IDRD", "IDLA", "IDRD",
+ "IDSP", "IDRC", "IDCF", "IDRC",
+ "IDHE", "IDSC", "IDRP", "IDSC", "IDRP",
 #if defined (TYPE62)                                    /* Type 62 */
  "LPSF", "LPCF", "LPLD", "LPSE",
  "LSSF", "LSCF", "LSPR",
@@ -696,6 +709,10 @@ static const int32 opc_val[] = {
  0700201+I_NPI, 0700202+I_NPI, 0700204+I_NPI, 0700244+I_NPI, 0700206+I_NPI,
  0700301+I_NPI, 0700312+I_NPN, 0700302+I_NPI, 0700314+I_NPN, 0700304+I_NPI,
  0700401+I_NPI, 0700402+I_NPI, 0700404+I_NPI, 0700406+I_NPI,
+ 0700501+I_NPI, 0700502+I_NPI, 0700504+I_NPI, 0700512+I_NPI,
+ 0700601+I_NPI, 0700602+I_NPI, 0700604+I_NPI, 0700606+I_NPI, 0700614+I_NPI,
+ 0700701+I_NPI, 0700702+I_NPI, 0700704+I_NPI, 0700712+I_NPI,
+ 0701001+I_NPI, 0701002+I_NPI, 0701004+I_NPI, 0701012+I_NPI, 0701014+I_NPI,
 #if defined (TYPE62)
  0706501+I_NPI, 0706502+I_NPI, 0706542+I_NPI, 0706506+I_NPI,
  0706601+I_NPI, 0706602+I_NPI, 0706606+I_NPI,

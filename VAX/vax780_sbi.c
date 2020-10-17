@@ -387,7 +387,7 @@ switch (rg) {
         break;
 
     default:
-        RSVD_OPND_FAULT;
+        RSVD_OPND_FAULT(ReadIPR);
         }
 
 return val;
@@ -466,7 +466,7 @@ switch (rg) {
 
     case MT_SBIQC:                                      /* SBIQC */
         if (val & SBIQC_MBZ) {
-            RSVD_OPND_FAULT;
+            RSVD_OPND_FAULT(WriteIPR);
             }
         WriteLP (val, 0);
         WriteLP (val + 4, 0);
@@ -477,7 +477,7 @@ switch (rg) {
         break;
 
     default:
-        RSVD_OPND_FAULT;
+        RSVD_OPND_FAULT(WriteIPR);
         }
 
 return;
@@ -650,6 +650,8 @@ t_stat r;
 
 if (!ptr || !*ptr)
     return SCPE_2FARG;
+if ((ptr = get_sim_sw (ptr)) == NULL)                   /* get switches */
+    return SCPE_INVSW;
 regptr = get_glyph (ptr, gbuf, 0);                      /* get glyph */
 if ((slptr = strchr (gbuf, '/'))) {                     /* found slash? */
     regptr = strchr (ptr, '/');                         /* locate orig */

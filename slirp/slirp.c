@@ -314,7 +314,7 @@ void slirp_pollfds_fill(GArray *pollfds, uint32_t *timeout)
 
         for (so = slirp->tcb.so_next; so != &slirp->tcb;
                 so = so_next) {
-            int events = 0;
+            gushort events = 0;
 
             so_next = so->so_next;
 
@@ -545,7 +545,7 @@ void slirp_pollfds_poll(GArray *pollfds, int select_error)
                         so->so_state &= ~SS_ISFCONNECTING;
 
                         ret = send(so->s, (const char *) &ret, 0, 0);
-                        if (ret < 0) {
+                        if (ret == SOCKET_ERROR) {
                             /* XXXXX Must fix, zero bytes is a NOP */
                             if (errno == EAGAIN || errno == EWOULDBLOCK ||
                                 errno == EINPROGRESS || errno == ENOTCONN) {

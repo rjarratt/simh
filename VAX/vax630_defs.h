@@ -43,8 +43,16 @@
         3400 0000 - 3FFF FFFF           reserved
 */
 
-#ifdef FULL_VAX                                         /* subset VAX */
+#ifdef FULL_VAX                     /* subset VAX */
 #undef FULL_VAX
+#endif
+
+#ifdef CMPM_VAX
+#undef CMPM_VAX                     /* No Compatibility Mode */
+#endif
+
+#ifndef NOEXS_VAX
+#define NOEXS_VAX       1           /* No Extra String Instructions Implemented */
 #endif
 
 #ifndef VAX_630_DEFS_H_
@@ -91,7 +99,7 @@
 
 /* CPU */
 
-#define CPU_MODEL_MODIFIERS { MTAB_XTD|MTAB_VDV, 0,          "MODEL", "MODEL={MicroVAX|VAXStation}",        \
+#define CPU_MODEL_MODIFIERS { MTAB_XTD|MTAB_VDV, 0,          "MODEL", "MODEL={MicroVAX|VAXstation|VAXstationGPX}", \
                               &cpu_set_model, &cpu_show_model, NULL, "Set/Show the simulator CPU Model" },  \
                             { MTAB_XTD|MTAB_VDV, 0,          "DIAG", "DIAG={FULL|MIN}",                     \
                               &sysd_set_diag, &sysd_show_diag, NULL, "Set/Show boot rom diagnostic mode" }, \
@@ -100,7 +108,7 @@
                             { MTAB_XTD|MTAB_VDV|MTAB_NMO, 1, "NOAUTOBOOT", "NOAUTOBOOT",                    \
                               &sysd_set_halt, &sysd_show_halt, NULL, "Disable autoboot (Enable Halt)" },    \
                             { MTAB_XTD|MTAB_VDV, 0,          "LEDS", NULL,                                  \
-                              NULL,           &sysd_show_leds, NULL, "Display the CPU LED values" }
+                              NULL,           &sysd_show_leds, NULL, "Display the CPU LED values" },
 
 /* Memory */
 
@@ -127,7 +135,7 @@ extern t_stat cpu_show_memory (FILE* st, UNIT* uptr, int32 val, CONST void* desc
 #define IOPAGESIZE      (1u << IOPAGEAWIDTH)            /* IO page length */
 #define IOPAGEMASK      (IOPAGESIZE - 1)                /* IO addr mask */
 #define IOPAGEBASE      0x20000000                      /* IO page base */
-#define ADDR_IS_IO(x)   ((((uint32) (x)) >= IOPAGEBASE) && \
+#define ADDR_IS_IOP(x)  ((((uint32) (x)) >= IOPAGEBASE) && \
                         (((uint32) (x)) < (IOPAGEBASE + IOPAGESIZE)))
 
 /* Read only memory - appears twice */
@@ -136,8 +144,15 @@ extern t_stat cpu_show_memory (FILE* st, UNIT* uptr, int32 val, CONST void* desc
 #define ROMSIZE         (1u << ROMAWIDTH)               /* ROM length */
 #define ROMAMASK        (ROMSIZE - 1)                   /* ROM addr mask */
 #define ROMBASE         0x20040000                      /* ROM base */
+#if !defined(VAX_620)
+#define ADDR_IS_ROM(x)  (((((uint32) (x)) >= ROMBASE) && \
+                          (((uint32) (x)) < (ROMBASE + ROMSIZE + ROMSIZE))) || \
+                         ((((uint32) (x)) >= QDMBASE) && \
+                          (((uint32) (x)) < (QDMBASE + QDMSIZE))))
+#else
 #define ADDR_IS_ROM(x)  ((((uint32) (x)) >= ROMBASE) && \
-                        (((uint32) (x)) < (ROMBASE + ROMSIZE + ROMSIZE)))
+                         (((uint32) (x)) < (ROMBASE + ROMSIZE + ROMSIZE)))
+#endif
 
 /* KA630 board registers */
 
@@ -171,12 +186,32 @@ extern t_stat cpu_show_memory (FILE* st, UNIT* uptr, int32 val, CONST void* desc
 #define ADDR_IS_QBM(x)  ((((uint32) (x)) >= QBMBASE) && \
                         (((uint32) (x)) < (QBMBASE + QBMSIZE)))
 
+/* Reflect to IO on either IO space or Qbus memory */
+
+#define ADDR_IS_IO(x)   (ADDR_IS_IOP(x) || ADDR_IS_QBM(x))
+
 /* QVSS memory space */
 
 #define QVMAWIDTH       18                              /* QVSS mem addr width */
 #define QVMSIZE         (1u << QVMAWIDTH)               /* QVSS mem length */
 #define QVMAMASK        (QVMSIZE - 1)                   /* QVSS mem addr mask */
 #define QVMBASE         0x303C0000                      /* QVSS mem base */
+#define ADDR_IS_QVM(x)  (vc_buf &&                      \
+                         (((uint32) (x)) >= QVMBASE) && \
+                         (((uint32) (x)) < (QVMBASE + QVMSIZE)))
+extern uint32 *vc_buf;
+
+/* QDSS memory space */
+
+#define QDMAWIDTH       16                              /* QDSS mem addr width */
+#define QDMSIZE         (1u << QDMAWIDTH)               /* QDSS mem length */
+#define QDMAMASK        (QDMSIZE - 1)                   /* QDSS mem addr mask */
+#define QDMBASE         ((uint32)(0x30000000 + va_addr))/* QDSS mem base */
+#define ADDR_IS_QDM(x)  (va_buf &&                      \
+                         (((uint32) (x)) >= QDMBASE) && \
+                         (((uint32) (x)) < (QDMBASE + QDMSIZE)))
+extern uint32 *va_buf;
+extern uint32 va_addr;                                  /* QDSS memory offset */
 
 /* Other address spaces */
 
@@ -192,7 +227,7 @@ extern t_stat cpu_show_memory (FILE* st, UNIT* uptr, int32 val, CONST void* desc
 #define LP_MBZ84_TEST(r)
 #define LP_MBZ92_TEST(r)
 
-#define MT_AST_TEST(r)  if ((r) > AST_MAX) RSVD_OPND_FAULT
+#define MT_AST_TEST(r)  if ((r) > AST_MAX) RSVD_OPND_FAULT(MT_AST_TEST)
 
 /* Qbus I/O modes */
 
@@ -219,8 +254,7 @@ extern t_stat cpu_show_memory (FILE* st, UNIT* uptr, int32 val, CONST void* desc
 
 /* I/O system definitions */
 
-#define DZ_MUXES        4                               /* max # of DZV muxes */
-#define DZ_LINES        4                               /* lines per DZV mux */
+#define DZ_MUXES        4                               /* default # of DZV muxes */
 #define VH_MUXES        4                               /* max # of DHQ muxes */
 #define MT_MAXFR        (1 << 16)                       /* magtape max rec */
 
@@ -256,6 +290,8 @@ typedef struct {
                                                         /* where multiple instances are */
                                                         /* simulated through a single */
                                                         /* DEVICE structure (e.g., DZ, VH, DL, DC). */
+                                                        /* Populated by auto-configure */
+    DEVICE              *dptr;                          /* back pointer to related device */
                                                         /* Populated by auto-configure */
     } DIB;
 
@@ -383,12 +419,6 @@ typedef struct {
 #define SET_INT(dv)     int_req[IPL_##dv] = int_req[IPL_##dv] | (INT_##dv)
 #define CLR_INT(dv)     int_req[IPL_##dv] = int_req[IPL_##dv] & ~(INT_##dv)
 #define IORETURN(f,v)   ((f)? (v): SCPE_OK)             /* cond error return */
-
-/* Logging */
-
-#define LOG_CPU_I       0x1                             /* intexc */
-#define LOG_CPU_R       0x2                             /* REI */
-#define LOG_CPU_P       0x4                             /* context */
 
 /* Function prototypes for I/O */
 

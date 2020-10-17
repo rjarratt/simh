@@ -127,23 +127,25 @@ t_stat rf_reset (DEVICE *dptr);
 t_stat rf_boot (int32 unitno, DEVICE *dptr);
 t_stat rf_attach (UNIT *uptr, CONST char *cptr);
 t_stat rf_set_size (UNIT *uptr, int32 val, CONST char *cptr, void *desc);
+const char *rf_description (DEVICE *dptr);
 
 /* RF08 data structures
 
    rf_dev       RF device descriptor
    rf_unit      RF unit descriptor
-   pcell_unit   photocell timing unit (orphan)
+   pcell_unit   photocell timing unit
    rf_reg       RF register list
 */
 
 DIB rf_dib = { DEV_RF, 5, { &rf60, &rf61, &rf62, NULL, &rf64 } };
 
-UNIT rf_unit = {
-    UDATA (&rf_svc, UNIT_FIX+UNIT_ATTABLE+
-           UNIT_BUFABLE+UNIT_MUSTBUF, RF_DKSIZE)
+UNIT rf_units[] = {
+    { UDATA (&rf_svc, UNIT_FIX+UNIT_ATTABLE+
+             UNIT_BUFABLE+UNIT_MUSTBUF, RF_DKSIZE) },
+    { UDATA (&pcell_svc, UNIT_DIS, 0) }
     };
-
-UNIT pcell_unit = { UDATA (&pcell_svc, 0, 0) };
+#define rf_unit    rf_units[0]
+#define pcell_unit rf_units[1]
 
 REG rf_reg[] = {
     { ORDATAD (STA, rf_sta, 12, "status") },
@@ -173,11 +175,13 @@ MTAB rf_mod[] = {
     };
 
 DEVICE rf_dev = {
-    "RF", &rf_unit, rf_reg, rf_mod,
-    1, 8, 20, 1, 8, 12,
+    "RF", rf_units, rf_reg, rf_mod,
+    2, 8, 20, 1, 8, 12,
     NULL, NULL, &rf_reset,
     &rf_boot, &rf_attach, NULL,
-    &rf_dib, DEV_DISABLE | DEV_DIS
+    &rf_dib, DEV_DISABLE | DEV_DIS, 0,
+    NULL, NULL, NULL, NULL, NULL, NULL,
+    &rf_description
     };
 
 /* IOT routines */
@@ -445,4 +449,9 @@ if (uptr->flags & UNIT_ATT)
 uptr->capac = UNIT_GETP (val) * RF_DKSIZE;
 uptr->flags = uptr->flags & ~UNIT_AUTO;
 return SCPE_OK;
+}
+
+const char *rf_description (DEVICE *dptr)
+{
+return "RF08 fixed head disk";
 }

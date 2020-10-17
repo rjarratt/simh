@@ -116,6 +116,8 @@ REG rtc_reg[] = {
   { FLDATA (IRQ, dev_ext_int, INT_V_RTC-INT_V_EXTD) },
   { DRDATA (TPS, rtc_tps, 32), PV_LEFT },
   { DRDATA (WAIT, rtc_unit.wait, 24), REG_NZ + PV_LEFT },
+  { DRDATA (INTERVAL, rtc_interval, 32), PV_LEFT | REG_RO },
+  { DRDATA (QUANTUM, rtc_quantum, 32), PV_LEFT | REG_RO },
   { NULL }
 };
 
@@ -363,10 +365,8 @@ t_stat wdt_set_delay (UNIT *uptr, int32 val, CONST char *cptr, void *desc)
   if (cptr == NULL) return SCPE_ARG;
   newint = get_uint (cptr, 10, 65535, &ret);
   if (ret != SCPE_OK) return ret;
-  if (newint != 0) {
-    fprintf(stderr,"WDT - timeout not yet implemented\n");
-    return SCPE_IERR;
-  }
+  if (newint != 0)
+    return sim_messagef(SCPE_IERR, "WDT - timeout not yet implemented\n");
   wdt_delay = newint;
 // TBA add calculations here???
   return SCPE_OK;

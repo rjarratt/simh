@@ -159,7 +159,7 @@ MTAB xu_mod[] = {
     &set_addr, &show_addr, NULL },
   { MTAB_XTD|MTAB_VDV, 0, NULL, "AUTOCONFIGURE",
     &set_addr_flt, NULL, NULL },
-  { MTAB_XTD|MTAB_VDV|MTAB_VALR, 0, "VECTOR", NULL,
+  { MTAB_XTD|MTAB_VDV|MTAB_VALR, 0, "VECTOR", "VECTOR",
     &set_vec, &show_vec, NULL },
 #else
   { MTAB_XTD|MTAB_VDV, 0, "ADDRESS", NULL,
@@ -192,8 +192,8 @@ REG xua_reg[] = {
   { GRDATA ( TYPE,    xua.type,     XU_RDX, 32, 0), REG_FIT },
   { FLDATA ( INT,     xua.irq, 0) },
   { GRDATA ( IDTMR,   xua.idtmr,    XU_RDX, 32, 0), REG_HRO},
-  { BRDATA ( SETUP,   &xua.setup,   XU_RDX, 8, sizeof(xua.setup)), REG_HRO},
-  { BRDATA ( STATS,   &xua.stats,   XU_RDX, 8, sizeof(xua.stats)), REG_HRO},
+  { SAVEDATA ( SETUP,   xua.setup) },
+  { SAVEDATA ( STATS,   xua.stats) },
   { GRDATA ( CSR0,    xua.pcsr0,    XU_RDX, 16, 0), REG_FIT },
   { GRDATA ( CSR1,    xua.pcsr1,    XU_RDX, 16, 0), REG_FIT },
   { GRDATA ( CSR2,    xua.pcsr2,    XU_RDX, 16, 0), REG_FIT },
@@ -269,8 +269,8 @@ REG xub_reg[] = {
   { GRDATA ( TYPE,    xub.type,     XU_RDX, 32, 0), REG_FIT },
   { FLDATA ( INT,     xub.irq, 0) },
   { GRDATA ( IDTMR,   xub.idtmr,    XU_RDX, 32, 0), REG_HRO},
-  { BRDATA ( SETUP,   &xub.setup,   XU_RDX, 8, sizeof(xua.setup)), REG_HRO},
-  { BRDATA ( STATS,   &xub.stats,   XU_RDX, 8, sizeof(xua.stats)), REG_HRO},
+  { SAVEDATA ( SETUP, xub.setup) },
+  { SAVEDATA ( STATS, xub.stats) },
   { GRDATA ( CSR0,    xub.pcsr0,    XU_RDX, 16, 0), REG_FIT },
   { GRDATA ( CSR1,    xub.pcsr1,    XU_RDX, 16, 0), REG_FIT },
   { GRDATA ( CSR2,    xub.pcsr2,    XU_RDX, 16, 0), REG_FIT },
@@ -855,7 +855,13 @@ t_stat xu_reset(DEVICE* dptr)
   sim_debug(DBG_TRC, xu->dev, "xu_reset()\n");
   /* One time only initializations */
   if (!xu->var->initialized) {
+    char uname[16];
+
     xu->var->initialized = TRUE;
+    sprintf (uname, "%s-SVC", dptr->name);
+    sim_set_uname (&dptr->units[0], uname);
+    sprintf (uname, "%s-TMRSVC", dptr->name);
+    sim_set_uname (&dptr->units[1], uname);
     /* Set an initial MAC address in the DEC range */
     xu_setmac (dptr->units, 0, "08:00:2B:00:00:00/24", NULL);
     }
@@ -1016,8 +1022,8 @@ int32 xu_command(CTLR* xu)
       xu->var->rrlen = xu->var->udb[5];
       xu->var->rxnext = 0;
       xu->var->txnext = 0;
-// xu_dump_rxring(xu);
-// xu_dump_txring(xu);
+//    xu_dump_rxring(xu);
+//    xu_dump_txring(xu);
 
       break;
 
@@ -1200,7 +1206,7 @@ void xu_process_receive(CTLR* xu)
 
   sim_debug(DBG_TRC, xu->dev, "xu_process_receive(), buffers: %d\n", xu->var->rrlen);
 
-/* xu_dump_rxring(xu); *//* debug receive ring */
+// xu_dump_rxring(xu);  /* debug receive ring */
 
   /* process only when in the running state, and host buffers are available */
   if ((state != STATE_RUNNING) || no_buffers)
@@ -1375,7 +1381,7 @@ void xu_process_receive(CTLR* xu)
 
   /* set or clear interrupt, depending on what happened */
   xu_setclrint(xu, 0);
-// xu_dump_rxring(xu); /* debug receive ring */
+// xu_dump_rxring(xu);  /* debug receive ring */
 
 }
 
@@ -1770,10 +1776,6 @@ t_stat xu_attach(UNIT* uptr, CONST char* cptr)
   }
   eth_set_throttle (xu->var->etherface, xu->var->throttle_time, xu->var->throttle_burst, xu->var->throttle_delay);
   if (SCPE_OK != eth_check_address_conflict (xu->var->etherface, &xu->var->mac)) {
-    char buf[32];
-
-    eth_mac_fmt(&xu->var->mac, buf);     /* format ethernet mac address */
-    sim_printf("%s: MAC Address Conflict on LAN for address %s\n", xu->dev->name, buf);
     eth_close(xu->var->etherface);
     free(tptr);
     free(xu->var->etherface);

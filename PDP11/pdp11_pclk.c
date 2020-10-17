@@ -223,7 +223,7 @@ MTAB pclk_mod[] = {
     { MTAB_XTD|MTAB_VDV,         0, "FREQUENCY",            NULL,   NULL, &pclk_show_freq, NULL },
     { MTAB_XTD|MTAB_VDV, 0, "ADDRESS", NULL,
       NULL, &show_addr, NULL },
-    { MTAB_XTD|MTAB_VDV, 0, "VECTOR", "VECTOR",
+    { MTAB_XTD|MTAB_VDV|MTAB_VALR, 0, "VECTOR", "VECTOR",
       &set_vec, &show_vec, NULL },
     { 0 }
     };
@@ -371,10 +371,7 @@ return val;
 
 t_stat pclk_svc (UNIT *uptr)
 {
-int32 rv;
-
 sim_debug (DBG_TICK, &pclk_dev, "pclk_svc()\n");
-rv = CSR_GETRATE (pclk_csr);                            /* get rate */
 if (pclk_csr & CSR_DONE)                                /* done already set? */
     pclk_csr = pclk_csr | CSR_ERR;                      /* set error */
 else

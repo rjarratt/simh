@@ -47,7 +47,7 @@ static const char* fif_description(DEVICE *dptr);
 extern t_stat set_iobase(UNIT *uptr, int32 val, CONST char *cptr, void *desc);
 extern t_stat show_iobase(FILE *st, UNIT *uptr, int32 val, CONST void *desc);
 extern uint32 sim_map_resource(uint32 baseaddr, uint32 size, uint32 resource_type,
-        int32 (*routine)(const int32, const int32, const int32), uint8 unmap);
+                               int32 (*routine)(const int32, const int32, const int32), const char* name, uint8 unmap);
 extern uint8 GetBYTEWrapper(const uint32 Addr);
 extern void  PutBYTEWrapper(const uint32 Addr, const uint32 Value);
 
@@ -93,7 +93,7 @@ static REG fif_reg[] = {
                "Current selected disk")                                                     },
     { DRDATAD (DSKWL,        warnLevelDSK, 32,
                "Warn level register")                                                       },
-    { BRDATAD (WARNATTACHED, warnAttached,   10, 32, NUM_OF_DSK,
+    { BRDATAD (WARNATTACHED, warnAttached,  10, 32, NUM_OF_DSK,
                "Count for selection of unattached disk register array"), REG_CIRC + REG_RO  },
     { DRDATAD (WARNDSK11,    warnDSK11, 4,
                "Count of IN/OUT(9) on unattached disk register"), REG_RO                    },
@@ -155,10 +155,10 @@ static t_stat fif_reset(DEVICE *dptr)
     current_disk = NUM_OF_DSK;
 
     if(dptr->flags & DEV_DIS) {
-        sim_map_resource(pnp->io_base, pnp->io_size, RESOURCE_TYPE_IO, &fif_io, TRUE);
+        sim_map_resource(pnp->io_base, pnp->io_size, RESOURCE_TYPE_IO, &fif_io, "fif_io", TRUE);
     } else {
         /* Connect HDSK at base address */
-        if(sim_map_resource(pnp->io_base, pnp->io_size, RESOURCE_TYPE_IO, &fif_io, FALSE) != 0) {
+        if(sim_map_resource(pnp->io_base, pnp->io_size, RESOURCE_TYPE_IO, &fif_io, "fif_io", FALSE) != 0) {
             sim_printf("%s: error mapping I/O resource at 0x%04x\n", __FUNCTION__, pnp->mem_base);
             dptr->flags |= DEV_DIS;
             return SCPE_ARG;
@@ -221,7 +221,7 @@ static int DoDiskOperation(desc_t *dsc, uint8 val)
     if (current_disk >= NUM_OF_DSK) {
         if (hasVerbose() && (warnDSK11 < warnLevelDSK)) {
             warnDSK11++;
-/*03*/      sim_printf("FIF%i: " ADDRESS_FORMAT " Attempt disk io on illegal disk %d - ignored." NLP, current_disk, PCX, current_disk);
+/*03*/      sim_printf("FIF%i: " ADDRESS_FORMAT " Attempt disk io on illegal disk %d - ignored.\n", current_disk, PCX, current_disk);
         }
         return 0;               /* no drive selected - can do nothing */
     }
@@ -229,7 +229,7 @@ static int DoDiskOperation(desc_t *dsc, uint8 val)
     if ((current_disk_flags & UNIT_ATT) == 0) { /* nothing attached? */
         if ((current_disk_flags & UNIT_DSK_VERBOSE) && (warnAttached[current_disk] < warnLevelDSK)) {
             warnAttached[current_disk]++;
-/*02*/sim_printf("FIF%i: " ADDRESS_FORMAT " Attempt to select unattached FIF%d - ignored." NLP, current_disk, PCX, current_disk);
+/*02*/sim_printf("FIF%i: " ADDRESS_FORMAT " Attempt to select unattached FIF%d - ignored.\n", current_disk, PCX, current_disk);
         }
         current_disk = NUM_OF_DSK;
         return 2;
@@ -254,7 +254,7 @@ static int DoDiskOperation(desc_t *dsc, uint8 val)
                 if ((current_disk_flags & UNIT_DSK_VERBOSE) &&
                     (warnAttached[current_disk] < warnLevelDSK)) {
                     warnAttached[current_disk]++;
-                    sim_printf("FIF%i: " ADDRESS_FORMAT " sim_fseek error." NLP, current_disk, PCX);
+                    sim_printf("FIF%i: " ADDRESS_FORMAT " sim_fseek error.\n", current_disk, PCX);
                 }
             }
             break;
@@ -262,11 +262,11 @@ static int DoDiskOperation(desc_t *dsc, uint8 val)
         case READ_SEC:
             addr = (dsc->track * SPT) + dsc->sector - 1;
             if (sim_fseek(cpx, addr * SEC_SZ, SEEK_SET) == 0) {
-            rtn = sim_fread(blanksec, 1, SEC_SZ, cpx);
+                rtn = sim_fread(blanksec, 1, SEC_SZ, cpx);
                 if ((rtn != SEC_SZ) && (current_disk_flags & UNIT_DSK_VERBOSE) &&
                     (warnAttached[current_disk] < warnLevelDSK)) {
                 warnAttached[current_disk]++;
-                sim_printf("FIF%i: " ADDRESS_FORMAT " sim_fread error." NLP, current_disk, PCX);
+                sim_printf("FIF%i: " ADDRESS_FORMAT " sim_fread error.\n", current_disk, PCX);
             }
             addr = dsc->addr_l + (dsc->addr_h << 8); /* no assumption on endianness */
             for (kt = 0; kt < SEC_SZ; kt++) {
@@ -276,7 +276,7 @@ static int DoDiskOperation(desc_t *dsc, uint8 val)
                 if ((current_disk_flags & UNIT_DSK_VERBOSE) &&
                     (warnAttached[current_disk] < warnLevelDSK)) {
                     warnAttached[current_disk]++;
-                    sim_printf("FIF%i: " ADDRESS_FORMAT " sim_fseek error." NLP, current_disk, PCX);
+                    sim_printf("FIF%i: " ADDRESS_FORMAT " sim_fseek error.\n", current_disk, PCX);
                 }
             }
             break;
@@ -284,16 +284,16 @@ static int DoDiskOperation(desc_t *dsc, uint8 val)
         case WRITE_SEC:
             addr = (dsc->track * SPT) + dsc->sector - 1;
             if (sim_fseek(cpx, addr * SEC_SZ, SEEK_SET) == 0) {
-            addr = dsc->addr_l + (dsc->addr_h << 8); /* no assumption on endianness */
-            for (kt = 0; kt < SEC_SZ; kt++) {
-                blanksec[kt] = GetBYTEWrapper(addr++);
-            }
-            sim_fwrite(blanksec, 1, SEC_SZ, cpx);
+                addr = dsc->addr_l + (dsc->addr_h << 8); /* no assumption on endianness */
+                for (kt = 0; kt < SEC_SZ; kt++) {
+                    blanksec[kt] = GetBYTEWrapper(addr++);
+                }
+                sim_fwrite(blanksec, 1, SEC_SZ, cpx);
             } else {
                 if ((current_disk_flags & UNIT_DSK_VERBOSE) &&
                     (warnAttached[current_disk] < warnLevelDSK)) {
                     warnAttached[current_disk]++;
-                    sim_printf("FIF%i: " ADDRESS_FORMAT " sim_fseek error." NLP, current_disk, PCX);
+                    sim_printf("FIF%i: " ADDRESS_FORMAT " sim_fseek error.\n", current_disk, PCX);
                 }
             }
             break;
@@ -365,134 +365,3 @@ static int32 fif_io(const int32 port, const int32 io, const int32 data) {
     }
     return 0;
 }
-
-#define ERNIES_FTP 0
-#if ERNIES_FTP
-
-#define WRK_BUF_SZ  150
-#define FCB_SIZE    32
-#define NAME_LTH    8
-#define EXT_LTH     3
-
-
-/**************************************************
-*/
-static void xfero(int32 addr, char *src, int32 lth)
-{
-    while (lth--) {
-        PutBYTEWrapper(addr++, *src++);
-    }
-}
-
-/**************************************************
-*/
-static void xferi(int32 addr, char *dst, int32 lth)
-{
-    while (lth--) {
-        *dst++ = GetBYTEWrapper(addr++);
-    }
-}
-
-#if !defined (_WIN32)
-static void strupr(char *fn) {
-    while (*fn) {
-        if (('a' <= *fn) && (*fn <= 'z'))
-            *fn -= 'a' - 'A';
-        fn++;
-    }
-}
-#endif
-
-/**************************************************
-*/
-static void initfcb(char *fcb, char *fn, int32 flg)
-{
-    char *p1 = fcb;
-
-    if (flg)
-    {
-        strupr(fn);
-    }
-    memset (fcb, 0 , FCB_SIZE);
-    memset (fcb + 1, ' ', NAME_LTH + EXT_LTH);
-    p1++;
-    while (*fn && (*fn != '.'))
-    {
-        *p1++ = *fn++;
-    }
-    if (*fn == '.')
-    {
-        fn++;
-    }
-    p1 = fcb + NAME_LTH + 1;
-    while (*fn && (*fn != '.'))
-    {
-        *p1++ = *fn++;
-    }
-}
-
-/**************************************************
-
-    FTP interface - most of the work is done here
-    The IMDOS/CPM application only does minimal work
-
-*/
-
-char message[WRK_BUF_SZ];
-char temp   [WRK_BUF_SZ];
-FILE * myfile;
-
-uint8 FTP(int32 BC, int32 DE)
-{
-    char   *p1, *p2;
-    int32   retval;
-
-    xferi(DE, temp, SEC_SZ);
-    p1 = temp;
-    switch (BC & 0x7f)
-    {
-        case 0:
-            memcpy(message, p1 + 2, *(p1 + 1));
-            *(message + *(p1 + 1)) = 0;
-            p2 = strtok(message, " \t");
-            if (!strcmp(p2, "get"))
-            {
-                p2 = strtok(NULL, " \t");
-                if (myfile = fopen(p2, "rb"))
-                {
-                    initfcb(temp, p2, 1);
-                    xfero(DE + 2, temp, 32);
-                    retval = 0;
-                    break;
-                }
-            }
-            if (!strcmp(p2, "era"))
-            {
-                p2 = strtok(NULL, " \t");
-                initfcb(temp, p2, 0);
-                xfero(DE + 2, temp, 32);
-                retval = 1;
-                break;
-            }
-            retval = 0xff;
-            break;
-
-        case 20:
-            memset(temp, 0x1a, SEC_SZ);
-            retval = sim_fread(temp, 1, SEC_SZ, myfile) ? 0 : 1;
-            xfero( DE, temp, SEC_SZ);
-            if (retval)
-            {
-                fclose(myfile);
-            }
-            break;
-    }
-    return retval;
-}
-
-#endif /* ERNIES_FTP */
-
-/* end of the source */
-
-
-

@@ -1,7 +1,7 @@
 /* hp2100_dq.c: HP 2100 12565A Disc Interface and 2883 disc drive simulator
 
    Copyright (c) 1993-2006, Bill McDermith
-   Copyright (c) 2004-2017, J. David Bryan
+   Copyright (c) 2004-2018, J. David Bryan
 
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,10 @@
 
    DQ           12565A Disc Interface and 2883 disc drive
 
+   27-Dec-18    JDB     Added missing fall through comments in dqc_interface and dqc_svc
+   11-Jul-18    JDB     Revised I/O model
+   27-Feb-18    JDB     Added the BMDL
+   15-Feb-18    JDB     ATTACH -N now creates a full-size disc image
    03-Aug-17    JDB     Changed perror call for I/O errors to cprintf
    11-Jul-17    JDB     Renamed "ibl_copy" to "cpu_ibl"
    09-Mar-17    JDB     Deprecated LOCKED/WRITEENABLED for PROTECT/UNPROTECT
@@ -90,7 +94,7 @@
 
 
 #include "hp2100_defs.h"
-#include "hp2100_cpu.h"
+#include "hp2100_io.h"
 
 
 
@@ -162,73 +166,90 @@
 #define STA_ERR         0000001                         /* any error */
 #define STA_ANYERR      (STA_NRDY | STA_EOC | STA_AER | STA_FLG | STA_DTE)
 
-struct {
-    FLIP_FLOP command;                                  /* cch command flip-flop */
-    FLIP_FLOP control;                                  /* cch control flip-flop */
-    FLIP_FLOP flag;                                     /* cch flag flip-flop */
-    FLIP_FLOP flagbuf;                                  /* cch flag buffer flip-flop */
-    } dqc = { CLEAR, CLEAR, CLEAR, CLEAR };
+typedef struct {
+    HP_WORD      output_data;                   /* output data register */
+    HP_WORD      input_data;                    /* input data register */
+    FLIP_FLOP    command;                       /* command flip-flop */
+    FLIP_FLOP    control;                       /* control flip-flop */
+    FLIP_FLOP    flag;                          /* flag flip-flop */
+    FLIP_FLOP    flag_buffer;                   /* flag buffer flip-flop */
+    } CARD_STATE;
 
-int32 dqc_busy = 0;                                     /* cch xfer */
-int32 dqc_cnt = 0;                                      /* check count */
-int32 dqc_stime = 100;                                  /* seek time */
-int32 dqc_ctime = 100;                                  /* command time */
-int32 dqc_xtime = 3;                                    /* xfer time */
-int32 dqc_dtime = 2;                                    /* dch time */
+static CARD_STATE dqd;                          /* data per-card state */
+static CARD_STATE dqc;                          /* command per-card state */
 
-struct {
-    FLIP_FLOP command;                                  /* dch command flip-flop */
-    FLIP_FLOP control;                                  /* dch control flip-flop */
-    FLIP_FLOP flag;                                     /* dch flag flip-flop */
-    FLIP_FLOP flagbuf;                                  /* dch flag buffer flip-flop */
-    } dqd = { CLEAR, CLEAR, CLEAR, CLEAR };
 
-int32 dqd_obuf = 0, dqd_ibuf = 0;                       /* dch buffers */
-int32 dqc_obuf = 0;                                     /* cch buffers */
-int32 dqd_xfer = 0;                                     /* xfer in prog */
-int32 dqd_wval = 0;                                     /* write data valid */
-int32 dq_ptr = 0;                                       /* buffer ptr */
-uint8 dqc_rarc = 0;                                     /* RAR cylinder */
-uint8 dqc_rarh = 0;                                     /* RAR head */
-uint8 dqc_rars = 0;                                     /* RAR sector */
-uint8 dqc_ucyl[DQ_NUMDRV] = { 0 };                      /* unit cylinder */
-uint8 dqc_uhed[DQ_NUMDRV] = { 0 };                      /* unit head */
-uint16 dqc_sta[DQ_NUMDRV] = { 0 };                      /* unit status */
-uint16 dqxb[DQ_NUMWD];                                  /* sector buffer */
+static int32 dqc_busy = 0;                      /* cch xfer */
+static int32 dqc_cnt = 0;                       /* check count */
+static int32 dqc_stime = 100;                   /* seek time */
+static int32 dqc_ctime = 100;                   /* command time */
+static int32 dqc_xtime = 3;                     /* xfer time */
+static int32 dqc_dtime = 2;                     /* dch time */
 
-DEVICE dqd_dev, dqc_dev;
+static int32 dqd_obuf = 0, dqd_ibuf = 0;        /* dch buffers */
+static int32 dqc_obuf = 0;                      /* cch buffers */
+static int32 dqd_xfer = 0;                      /* xfer in prog */
+static int32 dqd_wval = 0;                      /* write data valid */
+static int32 dq_ptr = 0;                        /* buffer ptr */
+static uint8 dqc_rarc = 0;                      /* RAR cylinder */
+static uint8 dqc_rarh = 0;                      /* RAR head */
+static uint8 dqc_rars = 0;                      /* RAR sector */
+static uint8 dqc_ucyl[DQ_NUMDRV] = { 0 };       /* unit cylinder */
+static uint8 dqc_uhed[DQ_NUMDRV] = { 0 };       /* unit head */
+static uint16 dqc_sta[DQ_NUMDRV] = { 0 };       /* unit status */
+static uint16 dqxb[DQ_NUMWD];                   /* sector buffer */
 
-IOHANDLER dqdio;
-IOHANDLER dqcio;
+/* Interface local SCP support routines */
 
-t_stat dqc_svc (UNIT *uptr);
-t_stat dqd_svc (UNIT *uptr);
-t_stat dqc_reset (DEVICE *dptr);
-t_stat dqc_attach (UNIT *uptr, CONST char *cptr);
-t_stat dqc_detach (UNIT* uptr);
-t_stat dqc_load_unload (UNIT *uptr, int32 value, CONST char *cptr, void *desc);
-t_stat dqc_boot (int32 unitno, DEVICE *dptr);
-void dq_god (int32 fnc, int32 drv, int32 time);
-void dq_goc (int32 fnc, int32 drv, int32 time);
+static INTERFACE dqd_interface;
+static INTERFACE dqc_interface;
 
-/* DQD data structures
+static t_stat dqc_svc (UNIT *uptr);
+static t_stat dqd_svc (UNIT *uptr);
+static t_stat dqc_reset (DEVICE *dptr);
+static t_stat dqc_attach (UNIT *uptr, CONST char *cptr);
+static t_stat dqc_detach (UNIT* uptr);
+static t_stat dqc_load_unload (UNIT *uptr, int32 value, CONST char *cptr, void *desc);
+static t_stat dqc_boot (int32 unitno, DEVICE *dptr);
+static void dq_god (int32 fnc, int32 drv, int32 time);
+static void dq_goc (int32 fnc, int32 drv, int32 time);
 
-   dqd_dev      DQD device descriptor
-   dqd_unit     DQD unit list
-   dqd_reg      DQD register list
-*/
 
-DIB dq_dib[] = {
-    { &dqdio, DQD },
-    { &dqcio, DQC }
+/* Device information blocks */
+
+static DIB dq_dib [] = {
+    { &dqd_interface,                           /* the device's I/O interface function pointer */
+      DQD,                                      /* the device's select code (02-77) */
+      0,                                        /* the card index */
+      "12565A Disc Interface Data Channel",     /* the card description */
+      NULL },                                   /* the ROM description */
+
+    { &dqc_interface,                           /* the device's I/O interface function pointer */
+      DQC,                                      /* the device's select code (02-77) */
+      0,                                        /* the card index */
+      "12565A Disc Interface Command Channel",  /* the card description */
+      "12992A 7900/7901/2883 Disc Loader" }     /* the ROM description */
     };
 
-#define dqd_dib dq_dib[0]
-#define dqc_dib dq_dib[1]
+#define dqd_dib             dq_dib [0]
+#define dqc_dib             dq_dib [1]
 
-UNIT dqd_unit = { UDATA (&dqd_svc, 0, 0) };
 
-REG dqd_reg[] = {
+/* Data card SCP data structures */
+
+
+/* Unit list */
+
+static UNIT dqd_unit [] = {
+/*           Event Routine  Unit Flags  Capacity  Delay */
+/*           -------------  ----------  --------  ----- */
+    { UDATA (&dqd_svc,          0,         0)           }
+    };
+
+
+/* Register list */
+
+static REG dqd_reg [] = {
     { ORDATA (IBUF, dqd_ibuf, 16) },
     { ORDATA (OBUF, dqd_obuf, 16) },
     { BRDATA (DBUF, dqxb, 8, 16, DQ_NUMWD) },
@@ -236,15 +257,19 @@ REG dqd_reg[] = {
     { FLDATA (CMD, dqd.command, 0) },
     { FLDATA (CTL, dqd.control, 0) },
     { FLDATA (FLG, dqd.flag,    0) },
-    { FLDATA (FBF, dqd.flagbuf, 0) },
+    { FLDATA (FBF, dqd.flag_buffer, 0) },
     { FLDATA (XFER, dqd_xfer, 0) },
     { FLDATA (WVAL, dqd_wval, 0) },
-    { ORDATA (SC, dqd_dib.select_code, 6), REG_HRO },
-    { ORDATA (DEVNO, dqd_dib.select_code, 6), REG_HRO },
+
+      DIB_REGS (dqd_dib),
+
     { NULL }
     };
 
-MTAB dqd_mod [] = {
+
+/* Modifier list */
+
+static MTAB dqd_mod [] = {
 /*    Entry Flags          Value  Print String  Match String  Validation    Display        Descriptor       */
 /*    -------------------  -----  ------------  ------------  ------------  -------------  ---------------- */
     { MTAB_XDV,              2u,  "SC",         "SC",         &hp_set_dib,  &hp_show_dib,  (void *) &dq_dib },
@@ -252,37 +277,68 @@ MTAB dqd_mod [] = {
     { 0 }
     };
 
+
+/* Debugging trace list */
+
+static DEBTAB dqd_deb [] = {
+    { "IOBUS", TRACE_IOBUS },                   /* trace I/O bus signals and data words received and returned */
+    { NULL,    0           }
+    };
+
+
+/* Device descriptor */
+
 DEVICE dqd_dev = {
-    "DQD", &dqd_unit, dqd_reg, dqd_mod,
-    1, 10, DQ_N_NUMWD, 1, 8, 16,
-    NULL, NULL, &dqc_reset,
-    NULL, NULL, NULL,
-    &dqd_dib, DEV_DISABLE
+    "DQD",                                      /* device name */
+    dqd_unit,                                   /* unit array */
+    dqd_reg,                                    /* register array */
+    dqd_mod,                                    /* modifier array */
+    1,                                          /* number of units */
+    10,                                         /* address radix */
+    DQ_N_NUMWD,                                 /* address width */
+    1,                                          /* address increment */
+    8,                                          /* data radix */
+    16,                                         /* data width */
+    NULL,                                       /* examine routine */
+    NULL,                                       /* deposit routine */
+    &dqc_reset,                                 /* reset routine */
+    NULL,                                       /* boot routine */
+    NULL,                                       /* attach routine */
+    NULL,                                       /* detach routine */
+    &dqd_dib,                                   /* device information block pointer */
+    DEV_DISABLE | DEV_DEBUG,                    /* device flags */
+    0,                                          /* debug control flags */
+    dqd_deb,                                    /* debug flag name array */
+    NULL,                                       /* memory size change routine */
+    NULL                                        /* logical device name */
     };
 
-/* DQC data structures
 
-   dqc_dev      DQC device descriptor
-   dqc_unit     DQC unit list
-   dqc_reg      DQC register list
-   dqc_mod      DQC modifier list
-*/
+/* Command card SCP data structures */
 
-UNIT dqc_unit[] = {
-    { UDATA (&dqc_svc, UNIT_FIX | UNIT_ATTABLE | UNIT_ROABLE |
-             UNIT_DISABLE | UNIT_UNLOAD, DQ_SIZE) },
-    { UDATA (&dqc_svc, UNIT_FIX | UNIT_ATTABLE | UNIT_ROABLE |
-             UNIT_DISABLE | UNIT_UNLOAD, DQ_SIZE) }
+
+/* Unit list */
+
+#define UNIT_FLAGS          (UNIT_FIX | UNIT_ATTABLE | UNIT_ROABLE | UNIT_DISABLE | UNIT_UNLOAD)
+
+static UNIT dqc_unit [] = {
+/*           Event Routine  Unit Flags  Capacity  Delay */
+/*           -------------  ----------  --------  ----- */
+    { UDATA (&dqc_svc,      UNIT_FLAGS, DQ_SIZE)        },
+    { UDATA (&dqc_svc,      UNIT_FLAGS, DQ_SIZE)        },
     };
 
-REG dqc_reg[] = {
+
+/* Register list */
+
+static REG dqc_reg[] = {
     { ORDATA (OBUF, dqc_obuf, 16) },
     { ORDATA (BUSY, dqc_busy, 2), REG_RO },
     { ORDATA (CNT, dqc_cnt, 9) },
     { FLDATA (CMD, dqc.command, 0) },
     { FLDATA (CTL, dqc.control, 0) },
     { FLDATA (FLG, dqc.flag,    0) },
-    { FLDATA (FBF, dqc.flagbuf, 0) },
+    { FLDATA (FBF, dqc.flag_buffer, 0) },
     { DRDATA (RARC, dqc_rarc, 8), PV_RZRO | REG_FIT },
     { DRDATA (RARH, dqc_rarh, 5), PV_RZRO | REG_FIT },
     { DRDATA (RARS, dqc_rars, 5), PV_RZRO | REG_FIT },
@@ -293,14 +349,17 @@ REG dqc_reg[] = {
     { DRDATA (DTIME, dqc_dtime, 24), PV_LEFT },
     { DRDATA (STIME, dqc_stime, 24), PV_LEFT },
     { DRDATA (XTIME, dqc_xtime, 24), REG_NZ + PV_LEFT },
-    { URDATA (UFNC, dqc_unit[0].FNC, 8, 8, 0,
-              DQ_NUMDRV, REG_HRO) },
-    { ORDATA (SC, dqc_dib.select_code, 6), REG_HRO },
-    { ORDATA (DEVNO, dqc_dib.select_code, 6), REG_HRO },
+    { URDATA (UFNC, dqc_unit[0].FNC, 8, 8, 0, DQ_NUMDRV, REG_HRO) },
+
+      DIB_REGS (dqc_dib),
+
     { NULL }
     };
 
-MTAB dqc_mod [] = {
+
+/* Modifier list */
+
+static MTAB dqc_mod [] = {
 /*    Mask Value    Match Value   Print String       Match String     Validation         Display  Descriptor */
 /*    ------------  ------------  -----------------  ---------------  -----------------  -------  ---------- */
     { UNIT_UNLOAD,  UNIT_UNLOAD,  "heads unloaded",  "UNLOADED",      &dqc_load_unload,  NULL,    NULL       },
@@ -314,113 +373,180 @@ MTAB dqc_mod [] = {
 /*    -------------------  -----  ------------  ------------  ------------  -------------  ---------------- */
     { MTAB_XDV,              2u,  "SC",         "SC",         &hp_set_dib,  &hp_show_dib,  (void *) &dq_dib },
     { MTAB_XDV | MTAB_NMO,  ~2u,  "DEVNO",      "DEVNO",      &hp_set_dib,  &hp_show_dib,  (void *) &dq_dib },
+
     { 0 }
     };
 
-DEVICE dqc_dev = {
-    "DQC", dqc_unit, dqc_reg, dqc_mod,
-    DQ_NUMDRV, 8, 24, 1, 8, 16,
-    NULL, NULL, &dqc_reset,
-    &dqc_boot, &dqc_attach, &dqc_detach,
-    &dqc_dib, DEV_DISABLE
+
+/* Debugging trace list */
+
+static DEBTAB dqc_deb [] = {
+    { "IOBUS", TRACE_IOBUS },                   /* trace I/O bus signals and data words received and returned */
+    { NULL,    0           }
     };
 
 
-/* Data channel I/O signal handler */
+/* Device descriptor */
 
-uint32 dqdio (DIB *dibptr, IOCYCLE signal_set, uint32 stat_data)
+DEVICE dqc_dev = {
+    "DQC",                                      /* device name */
+    dqc_unit,                                   /* unit array */
+    dqc_reg,                                    /* register array */
+    dqc_mod,                                    /* modifier array */
+    DQ_NUMDRV,                                  /* number of units */
+    8,                                          /* address radix */
+    24,                                         /* address width */
+    1,                                          /* address increment */
+    8,                                          /* data radix */
+    16,                                         /* data width */
+    NULL,                                       /* examine routine */
+    NULL,                                       /* deposit routine */
+    &dqc_reset,                                 /* reset routine */
+    &dqc_boot,                                  /* boot routine */
+    &dqc_attach,                                /* attach routine */
+    &dqc_detach,                                /* detach routine */
+    &dqc_dib,                                   /* device information block pointer */
+    DEV_DISABLE | DEV_DEBUG,                    /* device flags */
+    0,                                          /* debug control flags */
+    dqc_deb,                                    /* debug flag name array */
+    NULL,                                       /* memory size change routine */
+    NULL                                        /* logical device name */
+    };
+
+
+
+/* Data channel interface */
+
+static SIGNALS_VALUE dqd_interface (const DIB *dibptr, INBOUND_SET inbound_signals, HP_WORD inbound_value)
 {
-IOSIGNAL signal;
-IOCYCLE  working_set = IOADDSIR (signal_set);           /* add ioSIR if needed */
+INBOUND_SIGNAL signal;
+INBOUND_SET    working_set = inbound_signals;
+SIGNALS_VALUE  outbound    = { ioNONE, 0 };
+t_bool         irq_enabled = FALSE;
 
-while (working_set) {
-    signal = IONEXT (working_set);                      /* isolate next signal */
+while (working_set) {                                   /* while signals remain */
+    signal = IONEXTSIG (working_set);                   /*   isolate the next signal */
 
-    switch (signal) {                                   /* dispatch I/O signal */
+    switch (signal) {                                   /* dispatch the I/O signal */
 
-        case ioCLF:                                     /* clear flag flip-flop */
-            dqd.flag = dqd.flagbuf = CLEAR;
+        case ioCLF:                                     /* Clear Flag flip-flop */
+            dqd.flag_buffer = CLEAR;                    /* reset the flag buffer */
+            dqd.flag        = CLEAR;                    /*   and flag flip-flops */
             break;
 
 
-        case ioSTF:                                     /* set flag flip-flop */
-        case ioENF:                                     /* enable flag */
-            dqd.flag = dqd.flagbuf = SET;
+        case ioSTF:                                     /* Set Flag flip-flop */
+            dqd.flag_buffer = SET;                      /* set the flag buffer flip-flop */
             break;
 
 
-        case ioSFC:                                     /* skip if flag is clear */
-            setstdSKF (dqd);
+        case ioENF:                                     /* Enable Flag */
+            if (dqd.flag_buffer == SET)                 /* if the flag buffer flip-flop is set */
+                dqd.flag = SET;                         /*   then set the flag flip-flop */
             break;
 
 
-        case ioSFS:                                     /* skip if flag is set */
-            setstdSKF (dqd);
+        case ioSFC:                                     /* Skip if Flag is Clear */
+            if (dqd.flag == CLEAR)                      /* if the flag flip-flop is clear */
+                outbound.signals |= ioSKF;              /*   then assert the Skip on Flag signal */
+            break;
+
+
+        case ioSFS:                                     /* Skip if Flag is Set */
+            if (dqd.flag == SET)                        /* if the flag flip-flop is set */
+                outbound.signals |= ioSKF;              /*   then assert the Skip on Flag signal */
             break;
 
 
         case ioIOI:                                     /* I/O data input */
-            stat_data = IORETURN (SCPE_OK, dqd_ibuf);   /* merge in return status */
+            outbound.value = dqd_ibuf;                  /* merge in return status */
             break;
 
 
         case ioIOO:                                     /* I/O data output */
-            dqd_obuf = IODATA (stat_data);              /* clear supplied status */
+            dqd_obuf = inbound_value;                   /* clear supplied status */
 
             if (!dqc_busy || dqd_xfer)
                 dqd_wval = 1;                           /* if !overrun, valid */
             break;
 
 
-        case ioPOPIO:                                   /* power-on preset to I/O */
-            dqd.flag = dqd.flagbuf = SET;               /* set flag and flag buffer */
-            dqd_obuf = 0;                               /* clear output buffer */
+        case ioPOPIO:                                   /* Power-On Preset to I/O */
+            dqd.flag_buffer = SET;                      /* set the flag buffer flip-flop */
+            dqd_obuf = 0;                               /*   and clear the output register */
             break;
 
 
-        case ioCRS:                                     /* control reset */
-            dqd.command = CLEAR;                        /* clear command */
-                                                        /* fall into CLC handler */
+        case ioCRS:                                     /* Control Reset */
+            dqd.control = CLEAR;                        /* clear the control flip-flop */
+            dqd.command = CLEAR;                        /*   and the command flip-flop */
 
-        case ioCLC:                                     /* clear control flip-flop */
-            dqd.control = CLEAR;                        /* clear control */
             dqd_xfer = 0;                               /* clr xfer */
             break;
 
 
-        case ioSTC:                                     /* set control flip-flop */
-            dqd.command = SET;                          /* set ctl, cmd */
-            dqd.control = SET;
+        case ioCLC:                                     /* Clear Control flip-flop */
+            dqd.control = CLEAR;                        /* clear the control flip-flop */
+
+            dqd_xfer = 0;                               /* clr xfer */
+            break;
+
+
+        case ioSTC:                                     /* Set Control flip-flop */
+            dqd.control = SET;                          /* set the control flip-flop */
+            dqd.command = SET;                          /*   and the command flip-flop */
 
             if (dqc_busy && !dqd_xfer)                  /* overrun? */
                 dqc_sta[dqc_busy - 1] |= STA_DTE;
             break;
 
 
-        case ioSIR:                                     /* set interrupt request */
-            setstdPRL (dqd);                            /* set standard PRL signal */
-            setstdIRQ (dqd);                            /* set standard IRQ signal */
-            setstdSRQ (dqd);                            /* set standard SRQ signal */
+        case ioSIR:                                     /* Set Interrupt Request */
+            if (dqd.control & dqd.flag)                 /* if the control and flag flip-flops are set */
+                outbound.signals |= cnVALID;            /*   then deny PRL */
+            else                                        /* otherwise */
+                outbound.signals |= cnPRL | cnVALID;    /*   conditionally assert PRL */
+
+            if (dqd.control & dqd.flag & dqd.flag_buffer)   /* if the control, flag, and flag buffer flip-flops are set */
+                outbound.signals |= cnIRQ | cnVALID;        /*   then conditionally assert IRQ */
+
+            if (dqd.flag == SET)                        /* if the flag flip-flop is set */
+                outbound.signals |= ioSRQ;              /*   then assert SRQ */
             break;
 
 
-        case ioIAK:                                     /* interrupt acknowledge */
-            dqd.flagbuf = CLEAR;
+        case ioIAK:                                     /* Interrupt Acknowledge */
+            dqd.flag_buffer = CLEAR;                    /* clear the flag buffer flip-flop */
             break;
 
 
-        default:                                        /* all other signals */
-            break;                                      /*   are ignored */
+        case ioIEN:                                     /* Interrupt Enable */
+            irq_enabled = TRUE;                         /* permit IRQ to be asserted */
+            break;
+
+
+        case ioPRH:                                         /* Priority High */
+            if (irq_enabled && outbound.signals & cnIRQ)    /* if IRQ is enabled and conditionally asserted */
+                outbound.signals |= ioIRQ | ioFLG;          /*   then assert IRQ and FLG */
+
+            if (!irq_enabled || outbound.signals & cnPRL)   /* if IRQ is disabled or PRL is conditionally asserted */
+                outbound.signals |= ioPRL;                  /*   then assert it unconditionally */
+            break;
+
+
+        case ioEDT:                                     /* not used by this interface */
+        case ioPON:                                     /* not used by this interface */
+            break;
         }
 
-    working_set = working_set & ~signal;                /* remove current signal from set */
-    }
+    IOCLEARSIG (working_set, signal);                   /* remove the current signal from the set */
+    }                                                   /*   and continue until all signals are processed */
 
-return stat_data;
+return outbound;                                        /* return the outbound signals and value */
 }
 
 
-/* Command channel I/O signal handler.
+/* Command channel interface.
 
    Implementation notes:
 
@@ -429,70 +555,75 @@ return stat_data;
        signalled.
 */
 
-uint32 dqcio (DIB *dibptr, IOCYCLE signal_set, uint32 stat_data)
+static SIGNALS_VALUE dqc_interface (const DIB *dibptr, INBOUND_SET inbound_signals, HP_WORD inbound_value)
 {
-int32 fnc, drv;
-IOSIGNAL signal;
-IOCYCLE  working_set = IOADDSIR (signal_set);           /* add ioSIR if needed */
+int32          fnc, drv;
+INBOUND_SIGNAL signal;
+INBOUND_SET    working_set = inbound_signals;
+SIGNALS_VALUE  outbound    = { ioNONE, 0 };
+t_bool         irq_enabled = FALSE;
 
-while (working_set) {
-    signal = IONEXT (working_set);                      /* isolate next signal */
+while (working_set) {                                   /* while signals remain */
+    signal = IONEXTSIG (working_set);                   /*   isolate the next signal */
 
-    switch (signal) {                                   /* dispatch I/O signal */
+    switch (signal) {                                   /* dispatch the I/O signal */
 
-        case ioCLF:                                     /* clear flag flip-flop */
-            dqc.flag = dqc.flagbuf = CLEAR;
+        case ioCLF:                                     /* Clear Flag flip-flop */
+            dqc.flag_buffer = CLEAR;                    /* reset the flag buffer */
+            dqc.flag        = CLEAR;                    /*   and flag flip-flops */
             break;
 
 
-        case ioSTF:                                     /* set flag flip-flop */
-        case ioENF:                                     /* enable flag */
-            dqc.flag = dqc.flagbuf = SET;
+        case ioSTF:                                     /* Set Flag flip-flop */
+            dqc.flag_buffer = SET;                      /* set the flag buffer flip-flop */
             break;
 
 
-        case ioSFC:                                     /* skip if flag is clear */
-            setstdSKF (dqc);
+        case ioENF:                                     /* Enable Flag */
+            if (dqc.flag_buffer == SET)                 /* if the flag buffer flip-flop is set */
+                dqc.flag = SET;                         /*   then set the flag flip-flop */
             break;
 
 
-        case ioSFS:                                     /* skip if flag is set */
-            setstdSKF (dqc);
+        case ioSFC:                                     /* Skip if Flag is Clear */
+            if (dqc.flag == CLEAR)                      /* if the flag flip-flop is clear */
+                outbound.signals |= ioSKF;              /*   then assert the Skip on Flag signal */
             break;
 
 
-        case ioIOI:                                     /* I/O data input */
-            stat_data = IORETURN (SCPE_OK, 0);          /* no data */
+        case ioSFS:                                     /* Skip if Flag is Set */
+            if (dqc.flag == SET)                        /* if the flag flip-flop is set */
+                outbound.signals |= ioSKF;              /*   then assert the Skip on Flag signal */
             break;
 
 
         case ioIOO:                                     /* I/O data output */
-            dqc_obuf = IODATA (stat_data);              /* clear supplied status */
+            dqc_obuf = inbound_value;                   /* clear supplied status */
             break;
 
 
-        case ioPOPIO:                                   /* power-on preset to I/O */
-            dqc.flag = dqc.flagbuf = SET;               /* set flag and flag buffer */
-            dqc_obuf = 0;                               /* clear output buffer */
+        case ioPOPIO:                                   /* Power-On Preset to I/O */
+            dqc.flag_buffer = SET;                      /* set the flag buffer flip-flop */
+            dqc_obuf = 0;                               /*   and clear the output register */
             break;
 
 
-        case ioCRS:                                     /* control reset */
-        case ioCLC:                                     /* clear control flip-flop */
-            dqc.command = CLEAR;                        /* clear command */
-            dqc.control = CLEAR;                        /* clear control */
+        case ioCRS:                                     /* Control Reset */
+        case ioCLC:                                     /* Clear Control flip-flop */
+            dqc.control = CLEAR;                        /* clear the control flip-flop */
+            dqc.command = CLEAR;                        /*   and the command flip-flop */
 
             if (dqc_busy)
                 sim_cancel (&dqc_unit[dqc_busy - 1]);
 
-            sim_cancel (&dqd_unit);                     /* cancel dch */
+            sim_cancel (dqd_unit);                      /* cancel dch */
             dqd_xfer = 0;                               /* clr dch xfer */
             dqc_busy = 0;                               /* clr busy */
             break;
 
 
-        case ioSTC:                                     /* set control flip-flop */
-            dqc.control = SET;                          /* set ctl */
+        case ioSTC:                                     /* Set Control flip-flop */
+            dqc.control = SET;                          /* set the control flip-flop */
 
             if (!dqc.command) {                         /* cmd clr? */
                 dqc.command = SET;                      /* set cmd */
@@ -503,6 +634,9 @@ while (working_set) {
                     case FNC_SEEK: case FNC_RCL:        /* seek, recal */
                     case FNC_CHK:                       /* check */
                         dqc_sta[drv] = 0;               /* clear status */
+
+                    /* fall through to schedule the transfer */
+
                     case FNC_STA: case FNC_LA:          /* rd sta, load addr */
                         dq_god (fnc, drv, dqc_dtime);   /* sched dch xfer */
                         break;
@@ -516,25 +650,49 @@ while (working_set) {
             break;
 
 
-        case ioSIR:                                     /* set interrupt request */
-            setstdPRL (dqc);                            /* set standard PRL signal */
-            setstdIRQ (dqc);                            /* set standard IRQ signal */
-            setstdSRQ (dqc);                            /* set standard SRQ signal */
+        case ioSIR:                                     /* Set Interrupt Request */
+            if (dqc.control & dqc.flag)                 /* if the control and flag flip-flops are set */
+                outbound.signals |= cnVALID;            /*   then deny PRL */
+            else                                        /* otherwise */
+                outbound.signals |= cnPRL | cnVALID;    /*   conditionally assert PRL */
+
+            if (dqc.control & dqc.flag & dqc.flag_buffer)   /* if the control, flag, and flag buffer flip-flops are set */
+                outbound.signals |= cnIRQ | cnVALID;        /*   then conditionally assert IRQ */
+
+            if (dqc.flag == SET)                        /* if the flag flip-flop is set */
+                outbound.signals |= ioSRQ;              /*   then assert SRQ */
             break;
 
 
-        case ioIAK:                                     /* interrupt acknowledge */
-            dqc.flagbuf = CLEAR;
+        case ioIAK:                                     /* Interrupt Acknowledge */
+            dqc.flag_buffer = CLEAR;                    /* clear the flag buffer flip-flop */
             break;
 
 
-        default:                                        /* all other signals */
-            break;                                      /*   are ignored */
+        case ioIEN:                                     /* Interrupt Enable */
+            irq_enabled = TRUE;                         /* permit IRQ to be asserted */
+            break;
+
+
+        case ioPRH:                                         /* Priority High */
+            if (irq_enabled && outbound.signals & cnIRQ)    /* if IRQ is enabled and conditionally asserted */
+                outbound.signals |= ioIRQ | ioFLG;          /*   then assert IRQ and FLG */
+
+            if (!irq_enabled || outbound.signals & cnPRL)   /* if IRQ is disabled or PRL is conditionally asserted */
+                outbound.signals |= ioPRL;                  /*   then assert it unconditionally */
+            break;
+
+
+        case ioIOI:                                     /* not used by this interface */
+        case ioEDT:                                     /* not used by this interface */
+        case ioPON:                                     /* not used by this interface */
+            break;
         }
 
-    working_set = working_set & ~signal;                /* remove current signal from set */
-    }
-return stat_data;
+    IOCLEARSIG (working_set, signal);                   /* remove the current signal from the set */
+    }                                                   /*   and continue until all signals are processed */
+
+return outbound;                                        /* return the outbound signals and value */
 }
 
 
@@ -542,9 +700,9 @@ return stat_data;
 
 void dq_god (int32 fnc, int32 drv, int32 time)
 {
-dqd_unit.DRV = drv;                                     /* save unit */
-dqd_unit.FNC = fnc;                                     /* save function */
-sim_activate (&dqd_unit, time);
+dqd_unit [0].DRV = drv;                                 /* save unit */
+dqd_unit [0].FNC = fnc;                                 /* save function */
+sim_activate (dqd_unit, time);
 return;
 }
 
@@ -604,7 +762,10 @@ switch (uptr->FNC) {                                    /* case function */
             dqc_rarc = DA_GETCYL (dqd_obuf);            /* set RAR from cyl word */
             dqd_wval = 0;                               /* clr data valid */
             dqd.command = CLEAR;                        /* clr dch cmd */
-            dqdio (&dqd_dib, ioENF, 0);                 /* set dch flg */
+
+            dqd.flag_buffer = SET;                      /* set the flag buffer */
+            io_assert (&dqd_dev, ioa_ENF);              /*   and flag flip-flops */
+
             if (uptr->FNC == FNC_LA) uptr->FNC = FNC_LA1;
             else uptr->FNC = FNC_SEEK1;                 /* advance state */
             }
@@ -618,10 +779,16 @@ switch (uptr->FNC) {                                    /* case function */
             dqc_rars = DA_GETSC (dqd_obuf);             /* set RAR from sector */
             dqd_wval = 0;                               /* clr data valid */
             dqd.command = CLEAR;                        /* clr dch cmd */
-            dqdio (&dqd_dib, ioENF, 0);                 /* set dch flg */
+
+            dqd.flag_buffer = SET;                      /* set the flag buffer */
+            io_assert (&dqd_dev, ioa_ENF);              /*   and flag flip-flops */
+
             if (uptr->FNC == FNC_LA1) {
                 dqc.command = CLEAR;                    /* clr cch cmd */
-                dqcio (&dqc_dib, ioENF, 0);             /* set cch flg */
+
+                dqc.flag_buffer = SET;                  /* set the flag buffer */
+                io_assert (&dqc_dev, ioa_ENF);          /*   and flag flip-flops */
+
                 break;                                  /* done if Load Address */
                 }
             if (sim_is_active (&dqc_unit[drv])) break;  /* if busy, seek check */
@@ -657,7 +824,10 @@ switch (uptr->FNC) {                                    /* case function */
             if (drv) dqd_ibuf = dqd_ibuf | STA_DID;
             dqc.command = CLEAR;                        /* clr cch cmd */
             dqd.command = CLEAR;                        /* clr dch cmd */
-            dqdio (&dqd_dib, ioENF, 0);                 /* set dch flg */
+
+            dqd.flag_buffer = SET;                      /* set the flag buffer */
+            io_assert (&dqd_dev, ioa_ENF);              /*   and flag flip-flops */
+
             dqc_sta[drv] = dqc_sta[drv] & ~STA_ANYERR;  /* clr sta flags */
             }
         else sim_activate (uptr, dqc_xtime);            /* wait more */
@@ -707,12 +877,16 @@ err = 0;                                                /* assume no err */
 drv = uptr - dqc_unit;                                  /* get drive no */
 if (uptr->flags & UNIT_UNLOAD) {                        /* drive down? */
     dqc.command = CLEAR;                                /* clr cch cmd */
-    dqcio (&dqc_dib, ioENF, 0);                         /* set cch flg */
+
+    dqc.flag_buffer = SET;                              /* set the flag buffer */
+    io_assert (&dqc_dev, ioa_ENF);                      /*   and flag flip-flops */
+
     dqc_sta[drv] = 0;                                   /* clr status */
     dqc_busy = 0;                                       /* ctlr is free */
     dqd_xfer = dqd_wval = 0;
     return SCPE_OK;
     }
+
 switch (uptr->FNC) {                                    /* case function */
 
     case FNC_SEEK2:                                     /* seek done */
@@ -721,6 +895,9 @@ switch (uptr->FNC) {                                    /* case function */
             dqc_ucyl[drv] = 0;                          /* seek to cyl 0 */
             }
         else dqc_sta[drv] = dqc_sta[drv] & ~STA_BSY;    /* drive not busy */
+
+    /* fall through into the next state */
+
     case FNC_SEEK3:
         if (dqc_busy || dqc.flag) {                     /* ctrl busy? */
             uptr->FNC = FNC_SEEK3;                      /* next state */
@@ -728,7 +905,9 @@ switch (uptr->FNC) {                                    /* case function */
             }
         else {
             dqc.command = CLEAR;                        /* clr cch cmd */
-            dqcio (&dqc_dib, ioENF, 0);                 /* set cch flg */
+
+            dqc.flag_buffer = SET;                      /* set the flag buffer */
+            io_assert (&dqc_dev, ioa_ENF);              /*   and flag flip-flops */
             }
         return SCPE_OK;
 
@@ -743,7 +922,10 @@ switch (uptr->FNC) {                                    /* case function */
         else break;
         dq_ptr = dq_ptr + 1;
         dqd.command = CLEAR;                            /* clr dch cmd */
-        dqdio (&dqd_dib, ioENF, 0);                     /* set dch flg */
+
+        dqd.flag_buffer = SET;                          /* set the flag buffer */
+        io_assert (&dqd_dev, ioa_ENF);                  /*   and flag flip-flops */
+
         sim_activate (uptr, dqc_xtime);                 /* sched next word */
         return SCPE_OK;
 
@@ -783,7 +965,8 @@ switch (uptr->FNC) {                                    /* case function */
             dq_ptr = 0;                                 /* wrap buf ptr */
             }
         if (dqd.command && dqd_xfer) {                  /* dch on, xfer? */
-            dqdio (&dqd_dib, ioENF, 0);                 /* set flag */
+            dqd.flag_buffer = SET;                      /* set the flag buffer */
+            io_assert (&dqd_dev, ioa_ENF);              /*   and flag flip-flops */
             }
         dqd.command = CLEAR;                            /* clr dch cmd */
         sim_activate (uptr, dqc_xtime);                 /* sched next word */
@@ -825,7 +1008,8 @@ switch (uptr->FNC) {                                    /* case function */
             dq_ptr = 0;
             }
         if (dqd.command && dqd_xfer) {                  /* dch on, xfer? */
-            dqdio (&dqd_dib, ioENF, 0);                 /* set flag */
+            dqd.flag_buffer = SET;                      /* set the flag buffer */
+            io_assert (&dqd_dev, ioa_ENF);              /*   and flag flip-flops */
             }
         dqd.command = CLEAR;                            /* clr dch cmd */
         sim_activate (uptr, dqc_xtime);                 /* sched next word */
@@ -836,7 +1020,10 @@ switch (uptr->FNC) {                                    /* case function */
         }                                               /* end case fnc */
 
 dqc.command = CLEAR;                                    /* clr cch cmd */
-dqcio (&dqc_dib, ioENF, 0);                             /* set cch flg */
+
+dqc.flag_buffer = SET;                                  /* set the flag buffer */
+io_assert (&dqc_dev, ioa_ENF);                          /*   and flag flip-flops */
+
 dqc_busy = 0;                                           /* ctlr is free */
 dqd_xfer = dqd_wval = 0;
 if (err != 0) {                                         /* error? */
@@ -854,7 +1041,6 @@ return SCPE_OK;
 t_stat dqc_reset (DEVICE *dptr)
 {
 int32 drv;
-DIB *dibptr = (DIB *) dptr->ctxt;                       /* DIB pointer */
 
 hp_enbdis_pair (dptr,                                   /* make pair cons */
     (dptr == &dqd_dev)? &dqc_dev: &dqd_dev);
@@ -866,14 +1052,14 @@ if (sim_switches & SWMASK ('P')) {                      /* initialization reset?
     dqc_rarc = dqc_rarh = dqc_rars = 0;                 /* clear RAR */
     }
 
-IOPRESET (dibptr);                                      /* PRESET device (does not use PON) */
+io_assert (dptr, ioa_POPIO);                            /* PRESET the device */
 
 dqc_busy = 0;                                           /* reset controller state */
 dqd_xfer = 0;
 dqd_wval = 0;
 dq_ptr = 0;
 
-sim_cancel (&dqd_unit);                                 /* cancel dch */
+sim_cancel (dqd_unit);                                  /* cancel dch */
 
 for (drv = 0; drv < DQ_NUMDRV; drv++) {                 /* loop thru drives */
     sim_cancel (&dqc_unit[drv]);                        /* cancel activity */
@@ -885,15 +1071,43 @@ for (drv = 0; drv < DQ_NUMDRV; drv++) {                 /* loop thru drives */
 return SCPE_OK;
 }
 
-/* Attach routine */
+/* Attach a drive unit.
+
+   The specified file is attached to the indicated drive unit, and the heads are
+   loaded.  If a new file is specified, the file is initialized to its capacity
+   by writing a zero to the last byte in the file.
+
+
+   Implementation notes:
+
+    1. The C standard says, "A binary stream need not meaningfully support fseek
+       calls with a whence value of SEEK_END," so instead we determine the
+       offset from the start of the file to the last byte and seek there.
+*/
 
 t_stat dqc_attach (UNIT *uptr, CONST char *cptr)
 {
-t_stat r;
+t_stat      result;
+t_addr      offset;
+const uint8 zero = 0;
 
-r = attach_unit (uptr, cptr);                           /* attach unit */
-if (r == SCPE_OK) dqc_load_unload (uptr, 0, NULL, NULL);/* if OK, load heads */
-return r;
+result = attach_unit (uptr, cptr);                      /* attach the drive */
+
+if (result == SCPE_OK) {                                /* if the attach was successful */
+    dqc_load_unload (uptr, 0, NULL, NULL);              /*   then load the heads */
+
+    if (sim_switches & SWMASK ('N')) {                  /* if this is a new disc image */
+        offset = (t_addr)                               /*   then determine the offset of */
+          (uptr->capac * sizeof (int16) - sizeof zero); /*     the last byte in a full-sized file */
+
+        if (sim_fseek (uptr->fileref, offset, SEEK_SET) != 0    /* seek to the last byte */
+          || fwrite (&zero, sizeof zero, 1, uptr->fileref) == 0 /*   and write a zero to fill */
+          || fflush (uptr->fileref) != 0)                       /*     the file to its capacity */
+            clearerr (uptr->fileref);                           /* clear and ignore any errors */
+        }
+    }
+
+return result;                                          /* return the result of the attach */
 }
 
 /* Detach routine */
@@ -915,84 +1129,233 @@ else uptr->flags = uptr->flags & ~UNIT_UNLOAD;          /* indicate load */
 return SCPE_OK;
 }
 
-/* 7900/7901/2883/2884 bootstrap routine (HP 12992A ROM) */
 
-const BOOT_ROM dq_rom = {
-    0102501,                    /*ST LIA 1              ; get switches */
-    0106501,                    /*   LIB 1 */
-    0013765,                    /*   AND D7             ; isolate hd */
-    0005750,                    /*   BLF,CLE,SLB */
-    0027741,                    /*   JMP RD */
-    0005335,                    /*   RBR,SLB,ERB        ; <13>->E, set = 2883 */
-    0027717,                    /*   JMP IS */
-    0102611,                    /*LP OTA CC             ; do 7900 status to */
-    0103711,                    /*   STC CC,C           ; clear first seek */
-    0102310,                    /*   SFS DC */
-    0027711,                    /*   JMP *-1 */
-    0002004,                    /*   INA                ; get next drive */
-    0053765,                    /*   CPA D7             ; all cleared? */
-    0002001,                    /*   RSS */
-    0027707,                    /*   JMP LP */
-    0067761,                    /*IS LDB SEEKC          ; get seek comnd */
-    0106610,                    /*   OTB DC             ; issue cyl addr (0) */
-    0103710,                    /*   STC DC,C           ; to dch */
-    0106611,                    /*   OTB CC             ; seek cmd */
-    0103711,                    /*   STC CC,C           ; to cch */
-    0102310,                    /*   SFS DC             ; addr wd ok? */
-    0027724,                    /*   JMP *-1            ; no, wait */
-    0006400,                    /*   CLB */
-    0102501,                    /*   LIA 1              ; get switches */
-    0002051,                    /*   SEZ,SLA,RSS        ; subchan = 1 or ISS */
-    0047770,                    /*   ADB BIT9           ; head 2 */
-    0106610,                    /*   OTB DC             ; head/sector */
-    0103710,                    /*   STC DC,C           ; to dch */
-    0102311,                    /*   SFS CC             ; seek done? */
-    0027734,                    /*   JMP *-1            ; no, wait */
-    0063731,                    /*   LDA ISSRD          ; get read read */
-    0002341,                    /*   SEZ,CCE,RSS        ; iss disc? */
-    0001100,                    /*   ARS                ; no, make 7900 read */
-    0067776,                    /*RD LDB DMACW          ; DMA control */
-    0106606,                    /*   OTB 6 */
-    0067762,                    /*   LDB ADDR1          ; memory addr */
-    0077741,                    /*   STB RD             ; make non re-executable */
-    0106602,                    /*   OTB 2 */
-    0102702,                    /*   STC 2              ; flip DMA ctrl */
-    0067764,                    /*   LDB COUNT          ; word count */
-    0106602,                    /*   OTB 2 */
-    0002041,                    /*   SEZ,RSS */
-    0027766,                    /*   JMP NW */
-    0102611,                    /*   OTA CC             ; to cch */
-    0103710,                    /*   STC DC,C           ; start dch */
-    0103706,                    /*   STC 6,C            ; start DMA */
-    0103711,                    /*   STC CC,C           ; start cch */
-    0037773,                    /*   ISZ SK */
-    0027773,                    /*   JMP SK */
-    0030000,                    /*SEEKC 030000 */
-    0102011,                    /*ADDR1 102011 */
-    0102055,                    /*ADDR2 102055 */
-    0164000,                    /*COUNT -6144. */
-    0000007,                    /*D7    7 */
-    0106710,                    /*NW CLC DC             ; set 'next wd is cmd' flag */
-    0001720,                    /*   ALF,ALF            ; move to head number loc */
-    0001000,                    /*BIT9 ALS */
-    0103610,                    /*   OTA DC,C           ; output cold load cmd */
-    0103706,                    /*   STC 6,C            ; start DMA */
-    0102310,                    /*   SFS DC             ; done? */
-    0027773,                    /*   JMP *-1            ; no, wait */
-    0117763,                    /*XT JSB ADDR2,I        ; start program */
-    0120010,                    /*DMACW 120000+DC */
-    0000000                     /*   -ST */
+/* 2883 disc bootstrap loaders (BMDL and 12992A).
+
+   The Basic Moving-Head Disc Loader (BMDL) consists of two programs.  The
+   program starting at address x7700 loads absolute paper tapes into memory.
+   The program starting at address x7750 loads a disc-resident bootstrap from
+   the 2883 disc drive into memory.  The S register setting does not affect
+   loader operation.
+
+   For a 2100/14/15/16 CPU, entering a LOAD DQC or BOOT DQC command loads the
+   BMDL into memory and executes the disc portion starting at x7750.  For a 1000
+   CPU, the 12992A boot loader ROM is used.  In either case, the bootstrap reads
+   128 words from cylinder 0, head 0, sector 0 into memory starting at location
+   2011 octal.  Loader execution ends with the following instruction:
+
+     * JMP 2055,I - the disc read completed.
+
+   Note that the BMDL does a JMP 2055,I and the 12992A does a JSB 2055,I.
+*/
+
+static const LOADER_ARRAY dq_loaders = {
+    {                               /* HP 21xx Basic Moving-Head Disc Loader (BMDL-2883) */
+      050,                          /*   loader starting index */
+      076,                          /*   DMA index */
+      077,                          /*   FWA index */
+      { 0002701,                    /*   77700:  PTAPE CLA,CCE,RSS         Paper Tape start */
+        0063722,                    /*   77701:        LDA 77722           */
+        0002307,                    /*   77702:        CCE,INA,SZA,RSS     */
+        0102077,                    /*   77703:        HLT 77              */
+        0017735,                    /*   77704:        JSB 77735           */
+        0007307,                    /*   77705:        CMB,CCE,INB,SZB,RSS */
+        0027702,                    /*   77706:        JMP 77702           */
+        0077733,                    /*   77707:        STB 77733           */
+        0017735,                    /*   77710:        JSB 77735           */
+        0017735,                    /*   77711:        JSB 77735           */
+        0074000,                    /*   77712:        STB 0               */
+        0077734,                    /*   77713:        STB 77734           */
+        0067734,                    /*   77714:        LDB 77734           */
+        0047777,                    /*   77715:        ADB 77777           */
+        0002040,                    /*   77716:        SEZ                 */
+        0102055,                    /*   77717:        HLT 55              */
+        0017735,                    /*   77720:        JSB 77735           */
+        0040001,                    /*   77721:        ADA 1               */
+        0177734,                    /*   77722:        STB 77734,I         */
+        0037734,                    /*   77723:        ISZ 77734           */
+        0000040,                    /*   77724:        CLE                 */
+        0037733,                    /*   77725:        ISZ 77733           */
+        0027714,                    /*   77726:        JMP 77714           */
+        0017735,                    /*   77727:        JSB 77735           */
+        0054000,                    /*   77730:        CPB 0               */
+        0027701,                    /*   77731:        JMP 77701           */
+        0102011,                    /*   77732:        HLT 11              */
+        0000000,                    /*   77733:        NOP                 */
+        0000000,                    /*   77734:        NOP                 */
+        0000000,                    /*   77735:        NOP                 */
+        0006600,                    /*   77736:        CLB,CME             */
+        0103710,                    /*   77737:        STC 10,C            */
+        0102310,                    /*   77740:        SFS 10              */
+        0027740,                    /*   77741:        JMP 77740           */
+        0106410,                    /*   77742:        MIB 10              */
+        0002041,                    /*   77743:        SEZ,RSS             */
+        0127735,                    /*   77744:        JMP 77735,I         */
+        0005767,                    /*   77745:        BLF,CLE,BLF         */
+        0027737,                    /*   77746:        JMP 77737           */
+        0177600,                    /*   77747:        OCT 177600          */
+        0063775,                    /*   77750:  DISC  LDA 77775           Disc start */
+        0102611,                    /*   77751:        OTA 11              */
+        0103711,                    /*   77752:        STC 11,C            */
+        0102311,                    /*   77753:        SFS 11              */
+        0027753,                    /*   77754:        JMP 77753           */
+        0067776,                    /*   77755:        LDB 77776           */
+        0106606,                    /*   77756:        OTB 6               */
+        0067732,                    /*   77757:        LDB 77732           */
+        0106602,                    /*   77760:        OTB 2               */
+        0102702,                    /*   77761:        STC 2               */
+        0067747,                    /*   77762:        LDB 77747           */
+        0106602,                    /*   77763:        OTB 2               */
+        0001000,                    /*   77764:        ALS                 */
+        0106711,                    /*   77765:        CLC 11              */
+        0102611,                    /*   77766:        OTA 11              */
+        0103710,                    /*   77767:        STC 10,C            */
+        0103706,                    /*   77770:        STC 6,C             */
+        0103711,                    /*   77771:        STC 11,C            */
+        0102311,                    /*   77772:        SFS 11              */
+        0027772,                    /*   77773:        JMP 77772           */
+        0127717,                    /*   77774:        JMP 77717,I         */
+        0020000,                    /*   77775:        OCT 020000          */
+        0120010,                    /*   77776:        ABS 120000+DC       */
+        0100100 } },                /*   77777:        ABS -PTAPE          */
+
+    {                               /* HP 1000 Loader ROM (12992A) */
+      IBL_START,                    /*   loader starting index */
+      IBL_DMA,                      /*   DMA index */
+      IBL_FWA,                      /*   FWA index */
+      { 0102501,                    /*   77700:  ST    LIA 1              ; get switches */
+        0106501,                    /*   77701:        LIB 1              */
+        0013765,                    /*   77702:        AND D7             ; isolate hd */
+        0005750,                    /*   77703:        BLF,CLE,SLB        */
+        0027741,                    /*   77704:        JMP RD             */
+        0005335,                    /*   77705:        RBR,SLB,ERB        ; <13>->E, set = 2883 */
+        0027717,                    /*   77706:        JMP IS             */
+        0102611,                    /*   77707:  LP    OTA CC             ; do 7900 status to */
+        0103711,                    /*   77710:        STC CC,C           ; clear first seek */
+        0102310,                    /*   77711:        SFS DC             */
+        0027711,                    /*   77712:        JMP *-1            */
+        0002004,                    /*   77713:        INA                ; get next drive */
+        0053765,                    /*   77714:        CPA D7             ; all cleared? */
+        0002001,                    /*   77715:        RSS                */
+        0027707,                    /*   77716:        JMP LP             */
+        0067761,                    /*   77717:  IS    LDB SEEKC          ; get seek comnd */
+        0106610,                    /*   77720:        OTB DC             ; issue cyl addr (0) */
+        0103710,                    /*   77721:        STC DC,C           ; to dch */
+        0106611,                    /*   77722:        OTB CC             ; seek cmd */
+        0103711,                    /*   77723:        STC CC,C           ; to cch */
+        0102310,                    /*   77724:        SFS DC             ; addr wd ok? */
+        0027724,                    /*   77725:        JMP *-1            ; no, wait */
+        0006400,                    /*   77726:        CLB                */
+        0102501,                    /*   77727:        LIA 1              ; get switches */
+        0002051,                    /*   77730:        SEZ,SLA,RSS        ; subchan = 1 or ISS */
+        0047770,                    /*   77731:        ADB BIT9           ; head 2 */
+        0106610,                    /*   77732:        OTB DC             ; head/sector */
+        0103710,                    /*   77733:        STC DC,C           ; to dch */
+        0102311,                    /*   77734:        SFS CC             ; seek done? */
+        0027734,                    /*   77735:        JMP *-1            ; no, wait */
+        0063731,                    /*   77736:        LDA ISSRD          ; get read read */
+        0002341,                    /*   77737:        SEZ,CCE,RSS        ; iss disc? */
+        0001100,                    /*   77740:        ARS                ; no, make 7900 read */
+        0067776,                    /*   77741:  RD    LDB DMACW          ; DMA control */
+        0106606,                    /*   77742:        OTB 6              */
+        0067762,                    /*   77743:        LDB ADDR1          ; memory addr */
+        0077741,                    /*   77744:        STB RD             ; make non re-executable */
+        0106602,                    /*   77745:        OTB 2              */
+        0102702,                    /*   77746:        STC 2              ; flip DMA ctrl */
+        0067764,                    /*   77747:        LDB COUNT          ; word count */
+        0106602,                    /*   77750:        OTB 2              */
+        0002041,                    /*   77751:        SEZ,RSS            */
+        0027766,                    /*   77752:        JMP NW             */
+        0102611,                    /*   77753:        OTA CC             ; to cch */
+        0103710,                    /*   77754:        STC DC,C           ; start dch */
+        0103706,                    /*   77755:        STC 6,C            ; start DMA */
+        0103711,                    /*   77756:        STC CC,C           ; start cch */
+        0037773,                    /*   77757:        ISZ SK             */
+        0027773,                    /*   77760:        JMP SK             */
+        0030000,                    /*   77761:  SEEKC OCT 030000         */
+        0102011,                    /*   77762:  ADDR1 OCT 102011         */
+        0102055,                    /*   77763:  ADDR2 OCT 102055         */
+        0164000,                    /*   77764:  COUNT DEC -6144.         */
+        0000007,                    /*   77765:  D7    DEC 7              */
+        0106710,                    /*   77766:  NW    CLC DC             ; set 'next wd is cmd' flag */
+        0001720,                    /*   77767:        ALF,ALF            ; move to head number loc */
+        0001000,                    /*   77770:  BIT9  ALS                */
+        0103610,                    /*   77771:        OTA DC,C           ; output cold load cmd */
+        0103706,                    /*   77772:        STC 6,C            ; start DMA */
+        0102310,                    /*   77773:        SFS DC             ; done? */
+        0027773,                    /*   77774:        JMP *-1            ; no, wait */
+        0117763,                    /*   77775:  XT    JSB ADDR2,I        ; start program */
+        0120010,                    /*   77776:  DMACW ABS 120000+DC      */
+        0170100 } }                 /*   77777:  MAXAD ABS -ST            ; max addr */
     };
+
+
+/* Device boot routine.
+
+   This routine is called directly by the BOOT DQC and LOAD DQC commands to copy
+   the device bootstrap into the upper 64 words of the logical address space.
+   It is also called indirectly by a BOOT CPU or LOAD CPU command when the
+   specified HP 1000 loader ROM socket contains a 12992A ROM.
+
+   When called in response to a BOOT DQC or LOAD DQC command, the "unitno"
+   parameter indicates the unit number specified in the BOOT command or is zero
+   for the LOAD command, and "dptr" points at the DQC device structure.  The
+   bootstrap supports loading only from unit 0, and the command will be rejected
+   if another unit is specified (e.g., BOOT DQC1).  Otherwise, depending on the
+   current CPU model, the BMDL or 12992A loader ROM will be copied into memory
+   and configured for the DQD/DQC select code pair.  If the CPU is a 1000, the S
+   register will be set as it would be by the front-panel microcode.
+
+   When called for a BOOT/LOAD CPU command, the "unitno" parameter indicates the
+   select code to be used for configuration, and "dptr" will be NULL.  As above,
+   the BMDL or 12992A loader ROM will be copied into memory and configured for
+   the specified select code.  The S register is assumed to be set correctly on
+   entry and is not modified.
+
+   In either case, if the CPU is a 21xx model, the paper tape portion of the
+   BMDL will be automatically configured for the select code of the paper tape
+   reader.
+
+   For the 12992A boot loader ROM for the HP 1000, the S register is set as
+   follows:
+
+      15  14  13  12  11  10   9   8   7   6   5   4   3   2   1   0
+     +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+     | ROM # | 1   0 |      select code      | reserved  | 0   0   0 |
+     +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+
+   Bits 5-3 are nominally zero but are reserved for the target operating system.
+   For example, RTE uses bit 5 to indicate whether a standard (0) or
+   reconfiguration (1) boot is desired.
+
+
+   Implementation notes:
+
+    1. In hardware, the BMDL was hand-configured for the disc and paper tape
+       reader select codes when it was installed on a given system.  Under
+       simulation, the LOAD and BOOT commands automatically configure the BMDL
+       to the current select codes of the PTR and DQ devices.
+*/
 
 t_stat dqc_boot (int32 unitno, DEVICE *dptr)
 {
-const int32 dev = dqd_dib.select_code;                  /* data chan select code */
+static const HP_WORD dq_preserved = 0000070u;               /* S-register bits 5-3 are preserved */
+static const HP_WORD dq_standard  = 0020000u;               /* S-register bit 13 set for a standard boot */
+uint32 start;
 
-if (unitno != 0)                                        /* boot supported on drive unit 0 only */
-    return SCPE_NOFNC;                                  /* report "Command not allowed" if attempted */
+if (dptr == NULL)                                           /* if we are being called for a BOOT/LOAD CPU */
+    start = cpu_copy_loader (dq_loaders, unitno,            /*   then copy the boot loader to memory */
+                             IBL_S_NOCLEAR, IBL_S_NOSET);   /*     but do not alter the S register */
 
-cpu_ibl (dq_rom, dev, IBL_OPT,                          /* copy the boot ROM to memory and configure */
-         IBL_DQ | IBL_SET_SC (dev));                    /*   the S register accordingly */
+else if (unitno != 0)                                       /* otherwise a BOOT DQC for a non-zero unit */
+    return SCPE_NOFNC;                                      /*   is rejected as unsupported */
 
-return SCPE_OK;
+else                                                            /* otherwise this is a BOOT/LOAD DQC */
+    start = cpu_copy_loader (dq_loaders, dqd_dib.select_code,   /*   so copy the boot loader to memory */
+                             dq_preserved, dq_standard);        /*     and configure the S register if 1000 CPU */
+
+if (start == 0)                                         /* if the copy failed */
+    return SCPE_NOFNC;                                  /*   then reject the command */
+else                                                    /* otherwise */
+    return SCPE_OK;                                     /*   the boot loader was successfully copied */
 }

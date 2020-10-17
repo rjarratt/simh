@@ -349,7 +349,7 @@ switch (rg) {
         break;
 
     default:
-        RSVD_OPND_FAULT;
+        RSVD_OPND_FAULT(ReadIPR);
         }
 
 return val;
@@ -418,7 +418,7 @@ switch (rg) {
         break;
 
     default:
-        RSVD_OPND_FAULT;
+        RSVD_OPND_FAULT(WriteIPR);
         }
 
 return;
@@ -609,6 +609,8 @@ t_stat vax750_boot (int32 flag, CONST char *ptr)
 {
 t_stat r;
 
+if ((ptr = get_sim_sw (ptr)) == NULL)                   /* get switches */
+    return SCPE_INVSW;
 r = vax750_boot_parse (flag, ptr);                      /* parse the boot cmd */
 if (r != SCPE_OK) {                                     /* error? */
     if (r >= SCPE_BASE) {                               /* message available? */

@@ -356,7 +356,7 @@ if (skp && CHP (CH_TOF, lp_cct[lp_cctp]))               /* skip, TOF? */
         }
 uptr->pos = ftell (uptr->fileref);                      /* update position */
 if (ferror (uptr->fileref)) {                           /* error? */
-    sim_perror ("Line printer I/O error");
+    perror ("Line printer I/O error");
     clearerr (uptr->fileref);
     chan_set_chf (lp_dib.dva, CHF_XMDE);
     return SCPE_IOERR;
@@ -391,7 +391,7 @@ if ((lp_model == LP_7440) || lp_pass) {                 /* ready to print? */
     fputc (lp_inh? '\r': '\n', uptr->fileref);          /* cr or nl */
     uptr->pos = ftell (uptr->fileref);                  /* update position */
     if (ferror (uptr->fileref)) {                       /* error? */
-        sim_perror ("Line printer I/O error");
+        perror ("Line printer I/O error");
         clearerr (uptr->fileref);
         chan_set_chf (lp_dib.dva, CHF_XMDE);
         return SCPE_IOERR;
@@ -491,7 +491,7 @@ t_stat lp_read_cct (FILE *cfile)
 {
 uint32 col, rpt, ptr, mask;
 uint8 cctbuf[CCT_LNT];
-const char *cptr;
+CONST char *cptr;
 t_stat r;
 char cbuf[CBUFSIZE], gbuf[CBUFSIZE];
 

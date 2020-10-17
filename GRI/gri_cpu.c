@@ -509,6 +509,10 @@ while (reason == 0) {                                   /* loop until halted */
             case 07:                                    /* src > 0 */
                 jmp = (t != 0) && !(t & SIGN);
                 break;
+
+            default:                                    /* Impossible Case - Silence Coverity */
+                jmp = 0;
+                break;
             }
 
         if (jmp) {                                      /* jump taken? */
@@ -518,7 +522,8 @@ while (reason == 0) {                                   /* loop until halted */
             MA = IDX_ADD (MA);                          /* index? */
             if (op & TRP_DEF) {                         /* defer? */
                 t = (M[MA] + 1) & DMASK;                /* autoinc */
-                if (MEM_ADDR_OK (MA)) M[MA] = t;
+                if (MEM_ADDR_OK (MA))
+                    M[MA] = t;
                 MA = IDX_ADD (t);                       /* index? */
                 }
             TRP = SC;                                   /* save SC */
