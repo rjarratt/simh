@@ -41,6 +41,7 @@ ipch/
 # We only care about specific files in the Visual Studio Projects 
 # folder.  Things which are there on the fly to support debugging 
 # or other things we don't want git to manage.
+.vs/
 Visual Studio Projects/*
 !Visual Studio Projects/*.vcxproj
 !Visual Studio Projects/*.sln
